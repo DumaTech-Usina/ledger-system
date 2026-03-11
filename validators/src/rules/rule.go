@@ -1,5 +1,14 @@
 package rules
 
+import (
+	"context"
+	"validators/src/domain"
+)
+
 type Rule interface {
-	// TODO - Criar uma interface que abstrai diversos tipos de RULEs de diferentes Entidades
+	RuleID() string
+	RuleVersion() string
+	BatchSize() int
+	Description() string
+	Execute(ctx context.Context, input []domain.Proposal) error
 }

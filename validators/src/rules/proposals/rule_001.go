@@ -7,20 +7,24 @@ import (
 	"sync"
 	"time"
 
+	"validators/src/domain"
+
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 const (
-	RuleID      = "RULE-002"
+	RuleID      = "RULE-001"
 	RuleVersion = "1.0"
 	batchSize   = 1000
 )
 
-type Proposal struct {
+/* type Proposal struct {
 	ID     string
 	Number string
-}
+} */
+
+//Registro de execução da regra
 
 type RuleRun struct {
 	RunID          string    `bson:"run_id"`
@@ -33,6 +37,7 @@ type RuleRun struct {
 	ClustersFound  int       `bson:"clusters_found"`
 }
 
+// Marca uma proposta como suspeita
 type Decision struct {
 	RunID       string    `bson:"run_id"`
 	ProposalID  string    `bson:"proposal_id"`
@@ -43,6 +48,7 @@ type Decision struct {
 	CreatedAt   time.Time `bson:"created_at"`
 }
 
+// Guarda por que o sistema achou que A é igual a B
 type MatchEvidence struct {
 	RunID       string    `bson:"run_id"`
 	ProposalA   string    `bson:"proposal_a"`
@@ -55,6 +61,7 @@ type MatchEvidence struct {
 	CreatedAt   time.Time `bson:"created_at"`
 }
 
+// Agrupa os IDs que pertencem ao mesmo grupo de duplicados.
 type Cluster struct {
 	RunID       string    `bson:"run_id"`
 	ClusterID   string    `bson:"cluster_id"`
@@ -63,12 +70,14 @@ type Cluster struct {
 	CreatedAt   time.Time `bson:"created_at"`
 }
 
+// Remove espaços e zeros à esquerda (ex: "00123" vira "123").
 func normalize(number string) string {
 	n := strings.TrimSpace(number)
 	n = strings.TrimLeft(n, "0")
 	return n
 }
 
+// Ela cria uma "chave de bloqueio" pegando os 2 primeiros e os 2 últimos dígitos (ex: "123456" vira "12|56").
 func blockingKey(number string) string {
 
 	if len(number) <= 4 {
@@ -78,6 +87,7 @@ func blockingKey(number string) string {
 	return number[:2] + "|" + number[len(number)-2:]
 }
 
+// como ela funciona?
 func levenshtein(a, b string) int {
 
 	if a == b {
@@ -148,6 +158,7 @@ func abs(x int) int {
 	return x
 }
 
+// A regra de negócio. Ela decide se dois números são "iguais o suficiente"
 func similar(a, b string) (bool, int, bool, int) {
 
 	lengthDelta := abs(len(a) - len(b))
@@ -171,9 +182,10 @@ func similar(a, b string) (bool, int, bool, int) {
 	return true, distance, false, lengthDelta
 }
 
+// Esta função processa cada "balde" (grupo) de propostas que possuem a mesma blockingKey.
 func processGroup(
 	ctx context.Context,
-	group []Proposal,
+	group []domain.Proposal,
 	key string,
 	runID string,
 	now time.Time,
@@ -298,13 +310,13 @@ func RunRule001Stream(
 	start := time.Now()
 	now := time.Now()
 
-	buckets := make(map[string][]Proposal, 10000)
+	buckets := make(map[string][]domain.Proposal, 10000)
 
 	var scanned int
 
 	for rows.Next() {
 
-		var p Proposal
+		var p domain.Proposal
 
 		err := rows.Scan(&p.ID, &p.Number)
 		if err != nil {
@@ -316,7 +328,7 @@ func RunRule001Stream(
 		norm := normalize(p.Number)
 		key := blockingKey(norm)
 
-		buckets[key] = append(buckets[key], Proposal{
+		buckets[key] = append(buckets[key], domain.Proposal{
 			ID:     p.ID,
 			Number: norm,
 		})
@@ -330,7 +342,7 @@ func RunRule001Stream(
 
 	ch := make(chan struct {
 		key   string
-		group []Proposal
+		group []domain.Proposal
 	})
 
 	var wg sync.WaitGroup
@@ -367,7 +379,7 @@ func RunRule001Stream(
 	for key, group := range buckets {
 		ch <- struct {
 			key   string
-			group []Proposal
+			group []domain.Proposal
 		}{key, group}
 	}
 
