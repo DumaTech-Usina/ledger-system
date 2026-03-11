@@ -5,4 +5,6 @@ export interface LedgerEventRepository {
   save(event: LedgerEvent): Promise<void>;
 
   getLastEventHash(): Promise<EventHash | null>;
+
+  existsBySourceReference(sourceReference: string): Promise<boolean>;
 }
