@@ -18,4 +18,8 @@ export class InMemoryStagingRepository implements StagingRepository {
       record.status = "processed";
     }
   }
+
+  async findAll(): Promise<StagingRecord[]> {
+    return [...this.store];
+  }
 }

@@ -18,7 +18,7 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     return this.store.some((e) => e.source.reference === sourceReference);
   }
 
-  getAll(): readonly LedgerEvent[] {
+  async findAll(): Promise<LedgerEvent[]> {
     return [...this.store];
   }
 }

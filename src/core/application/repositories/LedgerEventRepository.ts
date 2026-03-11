@@ -7,4 +7,6 @@ export interface LedgerEventRepository {
   getLastEventHash(): Promise<EventHash | null>;
 
   existsBySourceReference(sourceReference: string): Promise<boolean>;
+
+  findAll(): Promise<LedgerEvent[]>;
 }

@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Ledger · Dashboard Financeiro</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--surface:#111111;--surface2:#181818;--border:#1f1f1f;--border2:#2a2a2a;
+  --text:#f0f0f0;--muted:#888;--faint:#444;
+  --in:#22c55e;--in-bg:rgba(34,197,94,.1);
+  --out:#ef4444;--out-bg:rgba(239,68,68,.1);
+  --open:#f59e0b;--open-bg:rgba(245,158,11,.1);
+  --settled:#6366f1;--settled-bg:rgba(99,102,241,.1);
+  --reversed:#8b5cf6;--reversed-bg:rgba(139,92,246,.1);
+  --blue:#3b82f6;--blue-bg:rgba(59,130,246,.1);
+  --r:6px;--r-sm:4px;--mono:'SF Mono','Fira Code',monospace;--tr:.15s ease;
+}
+[data-theme=light]{
+  --bg:#f4f4f5;--surface:#fff;--surface2:#f0f0f1;--border:#e4e4e7;--border2:#d4d4d8;
+  --text:#09090b;--muted:#52525b;--faint:#a1a1aa;
+  --in-bg:rgba(34,197,94,.08);--out-bg:rgba(239,68,68,.08);
+  --open-bg:rgba(245,158,11,.08);--settled-bg:rgba(99,102,241,.08);
+  --reversed-bg:rgba(139,92,246,.08);--blue-bg:rgba(59,130,246,.08);
+}
+html,body{height:100%;-webkit-font-smoothing:antialiased}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;font-size:13px;background:var(--bg);color:var(--text);transition:background var(--tr),color var(--tr)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{from{opacity:1}to{opacity:0;transform:translateY(-8px)}}
+.fade{animation:fadeUp .18s ease both}
+/* Layout */
+.wrap{max-width:1320px;margin:0 auto;padding:0 20px}
+/* Header */
+.hdr{position:sticky;top:0;z-index:50;border-bottom:1px solid var(--border);background:var(--bg);backdrop-filter:blur(12px)}
+.hdr-inner{height:52px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px;letter-spacing:-.02em}
+.brand-dot{width:7px;height:7px;border-radius:50%;background:var(--blue);box-shadow:0 0 6px var(--blue)}
+.hdr-right{display:flex;align-items:center;gap:8px}
+.tick{font-size:11px;color:var(--faint)}
+.btn-icon{width:32px;height:32px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all var(--tr)}
+.btn-icon:hover{background:var(--surface2);color:var(--text)}
+/* Metrics */
+.metrics{padding:16px 0 0;border-bottom:1px solid var(--border)}
+.m-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+@media(max-width:900px){.m-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:540px){.m-grid{grid-template-columns:repeat(2,1fr)}}
+.m-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px}
+.m-icon{font-size:16px;margin-bottom:6px}
+.m-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:4px}
+.m-val{font-size:20px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.m-val.c-in{color:var(--in)}.m-val.c-out{color:var(--out)}.m-val.c-open{color:var(--open)}
+.m-val.c-settled{color:var(--settled)}.m-val.c-rev{color:var(--reversed)}.m-val.c-blue{color:var(--blue)}
+.m-val.c-ok{color:var(--muted)}
+.m-delta{font-size:10px;color:var(--faint);margin-top:3px}
+/* Period selector */
+.period-bar{display:flex;align-items:center;gap:4px;padding:12px 0}
+.period-btn{padding:4px 12px;border-radius:20px;border:1px solid transparent;background:none;font-size:12px;color:var(--muted);cursor:pointer;transition:all var(--tr)}
+.period-btn:hover{color:var(--text)}
+.period-btn.active{background:var(--surface);border-color:var(--border2);color:var(--text);font-weight:500}
+/* Tabs */
+.tabs{border-bottom:1px solid var(--border);display:flex;gap:0;margin-top:2px}
+.tab{padding:10px 16px;font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap;transition:color var(--tr),border-color var(--tr)}
+.tab:hover{color:var(--text)}
+.tab.on{color:var(--text);border-bottom-color:var(--blue)}
+.tab-n{margin-left:5px;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;background:var(--surface2);color:var(--faint)}
+.tab.on .tab-n{background:var(--blue-bg);color:var(--blue)}
+/* Content */
+.content{padding:20px 0 48px}
+/* Badges */
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:8px;font-size:10px;font-weight:700;white-space:nowrap}
+.b-in{background:var(--in-bg);color:var(--in)}
+.b-out{background:var(--out-bg);color:var(--out)}
+.b-open{background:var(--open-bg);color:var(--open)}
+.b-settled{background:var(--settled-bg);color:var(--settled)}
+.b-rev{background:var(--reversed-bg);color:var(--reversed)}
+.b-blue{background:var(--blue-bg);color:var(--blue)}
+.b-neutral{background:var(--surface2);color:var(--muted)}
+.b-red{background:var(--out-bg);color:var(--out)}
+/* Position cards */
+.pos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(500px,1fr));gap:12px}
+@media(max-width:560px){.pos-grid{grid-template-columns:1fr}}
+.pos-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;border-left-width:3px}
+.pos-card.s-aberta{border-left-color:var(--open)}
+.pos-card.s-aberta.old{border-left-color:var(--out)}
+.pos-card.s-liquidada{border-left-color:var(--in)}
+.pos-card.s-estornada{border-left-color:var(--reversed)}
+.pos-hdr{padding:13px 14px 11px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.pos-hdr-l{display:flex;flex-direction:column;gap:3px}
+.pos-ref{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.pos-date{font-size:10px;color:var(--faint)}
+.pos-hdr-r{display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.pos-net{font-size:18px;font-weight:800;letter-spacing:-.03em}
+.pos-net.pos{color:var(--in)}.pos-net.neg{color:var(--out)}.pos-net.rev{color:var(--reversed);text-decoration:line-through;opacity:.7}
+.pos-warn{font-size:10px;color:var(--open);display:flex;align-items:center;gap:3px;margin-top:2px;font-weight:600}
+.pos-warn.urgent{color:var(--out)}
+/* Timeline */
+.timeline{padding:10px 14px;display:flex;flex-direction:column;gap:0}
+.tl-row{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);align-items:flex-start;transition:background var(--tr)}
+.tl-row:last-child{border-bottom:none}
+.tl-row.settle-row{background:var(--settled-bg);margin:0 -14px;padding:9px 14px;border-bottom:1px solid var(--border)}
+.tl-row.rev-row{background:var(--reversed-bg);margin:0 -14px;padding:9px 14px;border-bottom:1px solid var(--border)}
+.tl-dot{width:8px;height:8px;border-radius:50%;margin-top:3px;flex-shrink:0}
+.tl-dot.in{background:var(--in)}.tl-dot.out{background:var(--out)}.tl-dot.neutral{background:var(--muted)}.tl-dot.rev{background:var(--reversed)}.tl-dot.settle{background:var(--settled)}
+.tl-body{flex:1;min-width:0}
+.tl-top{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.tl-label{font-size:12px;font-weight:600}
+.tl-date{font-size:10px;color:var(--faint)}
+.tl-amt{font-size:13px;font-weight:700;font-family:var(--mono)}
+.tl-amt.in{color:var(--in)}.tl-amt.out{color:var(--out)}.tl-amt.neutral{color:var(--muted)}
+.tl-note{font-size:10px;color:var(--muted);margin-top:3px;font-style:italic}
+.tl-parties{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+/* Position footer */
+.pos-foot{padding:9px 14px;background:var(--surface2);border-top:1px solid var(--border);display:flex;gap:14px;flex-wrap:wrap;font-size:10px;color:var(--faint)}
+.pos-foot span{display:flex;align-items:center;gap:3px}
+/* Cashflow table */
+.cf-table{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:20px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);padding:9px 14px;background:var(--surface2);border-bottom:1px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px}
+tr:last-child td{border-bottom:none}
+tr.cf-row{cursor:pointer}
+tr.cf-row:hover td{background:var(--surface2)}
+.cf-resultado.pos{color:var(--in);font-weight:700}
+.cf-resultado.neg{color:var(--out);font-weight:700}
+.cf-expand{background:var(--surface2)}
+.cf-expand td{padding:8px 14px 8px 32px}
+/* Bar chart */
+.chart-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px}
+.chart-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:14px}
+.chart-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.chart-label{font-size:10px;color:var(--muted);width:80px;flex-shrink:0;text-align:right;font-family:var(--mono)}
+.chart-bars{flex:1;display:flex;flex-direction:column;gap:3px}
+.chart-bar-row{display:flex;align-items:center;gap:4px}
+.bar{height:10px;border-radius:2px;transition:width .3s ease;min-width:2px}
+.bar-in{background:var(--in)}.bar-out{background:var(--out)}
+.chart-val{font-size:9px;color:var(--faint);font-family:var(--mono);white-space:nowrap}
+/* Staging table */
+.stg-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:24px}
+/* Rejected cards */
+.rej-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:10px}
+@media(max-width:460px){.rej-grid{grid-template-columns:1fr}}
+.rej-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--out);border-radius:var(--r);overflow:hidden}
+.rej-hdr{padding:11px 13px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start}
+.rej-body{padding:11px 13px;display:flex;flex-direction:column;gap:8px}
+.reason-row{display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--border)}
+.reason-row:last-child{border-bottom:none}
+.reason-desc{font-size:11px;color:var(--muted);line-height:1.4;flex:1}
+.expand-btn{background:none;border:none;cursor:pointer;font-size:10px;color:var(--faint);display:flex;align-items:center;gap:3px;transition:color var(--tr)}
+.expand-btn:hover{color:var(--muted)}
+.raw{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px;font-family:var(--mono);font-size:10px;color:var(--muted);overflow-x:auto;white-space:pre;max-height:160px;overflow-y:auto;margin-top:4px}
+/* Section heading */
+.sec-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
+.sec-line{height:1px;background:var(--border);flex:1}
+.sec-count{font-size:10px;color:var(--faint)}
+/* Rejection rate */
+.rej-rate{padding:10px 14px;background:var(--out-bg);border:1px solid var(--out);border-radius:var(--r);font-size:12px;color:var(--out);margin-bottom:12px}
+/* Empty state */
+.empty{text-align:center;padding:40px 20px;color:var(--faint);display:flex;flex-direction:column;align-items:center;gap:6px}
+.empty-ico{font-size:24px;opacity:.5;margin-bottom:2px}
+.empty-title{font-size:13px;font-weight:500;color:var(--muted)}
+.empty-sub{font-size:11px;max-width:260px;line-height:1.5}
+/* Error */
+.err{background:var(--out-bg);border:1px solid var(--out);color:var(--out);border-radius:var(--r);padding:10px 14px;font-size:12px;margin-bottom:12px}
+/* Mono text */
+.mono{font-family:var(--mono)}
+/* ── Feed de Eventos ────────────────────────────────────────────────────────── */
+.feed-new{animation:slideIn .25s ease both}
+.filter-bar{position:sticky;top:52px;z-index:40;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 0;display:flex;align-items:center;gap:4px;overflow-x:auto}
+.filter-btn{flex-shrink:0;padding:4px 12px;border-radius:16px;border:1px solid transparent;background:none;font-size:12px;color:var(--muted);cursor:pointer;transition:all var(--tr);white-space:nowrap}
+.filter-btn:hover{color:var(--text)}
+.filter-btn.active{background:var(--surface);border-color:var(--border2);color:var(--text);font-weight:500}
+.feed-list{display:flex;flex-direction:column;gap:8px}
+.feed-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;border-left-width:3px}
+.feed-card.ef-in{border-left-color:var(--in)}
+.feed-card.ef-out{border-left-color:var(--out)}
+.feed-card.ef-settle{border-left-color:var(--settled)}
+.feed-card.ef-rev{border-left-color:var(--reversed)}
+.feed-card.ef-neutral{border-left-color:var(--faint)}
+.fc-z1{padding:10px 14px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.fc-z1-l{display:flex;align-items:center;gap:7px;flex-wrap:wrap;min-width:0}
+.fc-type{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.fc-ref{font-family:var(--mono);font-size:10px;color:var(--faint)}
+.fc-z1-r{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.fc-date{font-size:10px;color:var(--faint)}
+.fc-z2{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.fc-headline{font-size:12px;color:var(--muted);line-height:1.4;flex:1;min-width:0}
+.fc-amount{font-size:22px;font-weight:800;letter-spacing:-.04em;flex-shrink:0}
+.fc-amount.ef-in{color:var(--in)}.fc-amount.ef-out{color:var(--out)}
+.fc-amount.ef-settle{color:var(--settled)}.fc-amount.ef-rev{color:var(--reversed)}
+.fc-amount.ef-neutral{color:var(--muted)}
+.fc-z3{padding:9px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:38px}
+.party-pill{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:12px;font-size:10px;font-weight:600;white-space:nowrap}
+.party-pill.in{background:var(--in-bg);color:var(--in)}.party-pill.out{background:var(--out-bg);color:var(--out)}.party-pill.neutral{background:var(--surface2);color:var(--muted)}
+.flow-arrow{font-size:13px;color:var(--faint)}
+.fc-z4{padding:8px 14px;background:var(--surface2);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.fc-z4-l{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.fc-obj{font-family:var(--mono);font-size:10px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px}
+.fc-pos-link{font-size:10px;color:var(--blue);background:none;border:none;cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px;flex-shrink:0}
+.dot-chain{display:flex;align-items:center;gap:2px}
+.dc-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;cursor:default}
+.dc-dot.in{background:var(--in)}.dc-dot.out{background:var(--out)}.dc-dot.neutral{background:var(--muted)}.dc-dot.settle{background:var(--settled)}.dc-dot.rev{background:var(--reversed)}
+.dc-dot.current{outline:2px solid var(--blue);outline-offset:1px}
+.dc-line{width:10px;height:1px;background:var(--border2);flex-shrink:0}
+/* Toast */
+.toast{position:fixed;top:64px;right:20px;z-index:200;background:var(--blue);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:12px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,.4);animation:toastIn .2s ease both;pointer-events:none}
+/* Load more */
+.load-more{width:100%;padding:10px;border:1px dashed var(--border2);border-radius:var(--r);background:none;color:var(--faint);cursor:pointer;font-size:12px;transition:all var(--tr);margin-top:4px}
+.load-more:hover{background:var(--surface);color:var(--muted);border-color:var(--border)}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ─── Formatters ──────────────────────────────────────────────────────────────
+
+const fmtBRL = n =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
+
+const fmtDate = (raw, withTime = true) => {
+  if (!raw) return '—';
+  try {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      ...(withTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+    }).format(new Date(raw));
+  } catch { return String(raw); }
+};
+
+const trunc = (s, n = 20) => s && s.length > n ? s.slice(0, n) + '…' : (s || '—');
+
+// ─── Domain helpers ───────────────────────────────────────────────────────────
+
+const PERIOD_LABELS = { today: 'Hoje', week: 'Esta Semana', month: 'Este Mês', all: 'Tudo' };
+
+function filterByPeriod(items, period, key = 'occurredAt') {
+  if (period === 'all') return items;
+  const now = new Date();
+  const starts = {
+    today: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+    week: (() => { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d; })(),
+    month: new Date(now.getFullYear(), now.getMonth(), 1),
+  };
+  return items.filter(it => new Date(it[key]) >= starts[period]);
+}
+
+function getEventLabel(ev) {
+  const rel = ev.objects?.[0]?.relation;
+  if (rel === 'reverses') return 'Estorno';
+  if (rel === 'settles') return 'Liquidação';
+  if (rel === 'originates') return ev.economicEffect === 'cash_in' ? 'Recebível' : 'Pagável';
+  if (rel === 'adjusts') return 'Ajuste';
+  const map = {
+    commission_received: 'Comissão Recebida', commission_split: 'Divisão de Comissão',
+    commission_waiver: 'Isenção de Comissão', advance_payment: 'Adiantamento',
+    payroll_payment: 'Folha de Pagamento', penalty_payment: 'Multa',
+    infrastructure_expense: 'Despesa de Infraestrutura',
+  };
+  return map[ev.eventType] || ev.eventType;
+}
+
+function getRejectionLabel(type) {
+  const map = {
+    INVALID_AMOUNT: 'Valor inválido', MISSING_PARTY: 'Parte ausente',
+    DUPLICATE_EVENT: 'Duplicata', INVALID_SCHEMA: 'Campo inválido / obrigatório ausente',
+    POLICY_VIOLATION: 'Violação de política',
+  };
+  return map[type] || type;
+}
+
+function dotClass(ev) {
+  const rel = ev.objects?.[0]?.relation;
+  if (rel === 'reverses') return 'rev';
+  if (rel === 'settles') return 'settle';
+  return ev.economicEffect === 'cash_in' ? 'in' : ev.economicEffect === 'cash_out' ? 'out' : 'neutral';
+}
+
+function amtClass(ev) {
+  const rel = ev.objects?.[0]?.relation;
+  if (rel === 'reverses' || rel === 'settles') return 'neutral';
+  return ev.economicEffect === 'cash_in' ? 'in' : ev.economicEffect === 'cash_out' ? 'out' : 'neutral';
+}
+
+function amtPrefix(ev) {
+  const rel = ev.objects?.[0]?.relation;
+  if (rel === 'reverses') return '↩ ';
+  if (rel === 'settles') return '✓ ';
+  return ev.economicEffect === 'cash_in' ? '↑ ' : ev.economicEffect === 'cash_out' ? '↓ ' : '~ ';
+}
+
+function computePositions(events) {
+  const map = new Map();
+  for (const ev of events) {
+    if (!ev.objects?.length) continue;
+    const key = ev.objects[0].objectId;
+    if (!map.has(key)) map.set(key, { objectId: key, objectType: ev.objects[0].objectType, events: [] });
+    map.get(key).events.push(ev);
+  }
+  const now = Date.now();
+  return Array.from(map.values()).map(pos => {
+    const rels = pos.events.flatMap(e => e.objects.map(o => o.relation));
+    const hasRev = rels.includes('reverses');
+    const hasSettle = rels.includes('settles');
+    const status = hasRev ? 'estornada' : hasSettle ? 'liquidada' : 'aberta';
+
+    const totalIn = pos.events.reduce((s, e) => {
+      if (e.economicEffect !== 'cash_in') return s;
+      return s + parseFloat(e.amount || '0');
+    }, 0);
+    const totalOut = pos.events.reduce((s, e) => {
+      if (e.economicEffect !== 'cash_out') return s;
+      return s + parseFloat(e.amount || '0');
+    }, 0);
+    const netAmount = totalIn - totalOut;
+
+    const dates = pos.events.map(e => new Date(e.occurredAt).getTime()).filter(Boolean);
+    const earliestTs = Math.min(...dates);
+    const daysOpen = status === 'aberta' && dates.length
+      ? Math.floor((now - earliestTs) / 86400000) : 0;
+
+    const srcRef = pos.events[0]?.source?.reference || pos.objectId;
+    const srcSystem = pos.events[0]?.source?.system || '—';
+    const reporter = pos.events[0]?.reporter || null;
+    const normVersion = pos.events[0]?.normalization?.version || '—';
+    const sortedEvents = [...pos.events].sort((a, b) =>
+      new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime()
+    );
+
+    return { ...pos, status, netAmount, totalIn, totalOut, daysOpen, srcRef, srcSystem, reporter, normVersion, events: sortedEvents };
+  });
+}
+
+function computeMetrics(events, positions, rejected) {
+  const totalIn = events.filter(e => e.economicEffect === 'cash_in').reduce((s, e) => s + parseFloat(e.amount), 0);
+  const totalOut = events.filter(e => e.economicEffect === 'cash_out').reduce((s, e) => s + parseFloat(e.amount), 0);
+  const net = totalIn - totalOut;
+  const openPos = positions.filter(p => p.status === 'aberta');
+  const dinheiro = openPos.reduce((s, p) => {
+    const outOrig = p.events.filter(e => e.economicEffect === 'cash_out' && e.objects.some(o => o.relation === 'originates'));
+    return s + outOrig.reduce((ss, e) => ss + parseFloat(e.amount), 0);
+  }, 0);
+  return { totalIn, totalOut, net, openCount: openPos.length, dinheiro, rejectedCount: rejected.length };
+}
+
+function groupCashflow(events, period) {
+  const fmt = (d) => {
+    const dt = new Date(d);
+    if (period === 'all' || period === 'month') {
+      return dt.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+    }
+    return dt.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+  const map = new Map();
+  for (const ev of events) {
+    const k = fmt(ev.occurredAt);
+    if (!map.has(k)) map.set(k, { period: k, events: [], totalIn: 0, totalOut: 0 });
+    const g = map.get(k);
+    g.events.push(ev);
+    if (ev.economicEffect === 'cash_in') g.totalIn += parseFloat(ev.amount);
+    if (ev.economicEffect === 'cash_out') g.totalOut += parseFloat(ev.amount);
+  }
+  return Array.from(map.values());
+}
+
+// ─── Feed helpers ──────────────────────────────────────────────────────────
+
+function effectClass(ev) {
+  const rel = ev.objects?.[0]?.relation;
+  if (rel === 'reverses') return 'ef-rev';
+  if (rel === 'settles') return 'ef-settle';
+  if (ev.economicEffect === 'cash_in') return 'ef-in';
+  if (ev.economicEffect === 'cash_out') return 'ef-out';
+  return 'ef-neutral';
+}
+
+function feedAmtPrefix(ev) {
+  const rel = ev.objects?.[0]?.relation;
+  if (rel === 'reverses') return '↩ ';
+  if (rel === 'settles') return '✓ ';
+  if (ev.economicEffect === 'cash_in') return '↑ ';
+  if (ev.economicEffect === 'cash_out') return '↓ ';
+  return '~ ';
+}
+
+function dcDotClass(chainItem) {
+  const rel = chainItem.relation;
+  if (rel === 'reverses') return 'rev';
+  if (rel === 'settles') return 'settle';
+  if (chainItem.economicEffect === 'cash_in') return 'in';
+  if (chainItem.economicEffect === 'cash_out') return 'out';
+  return 'neutral';
+}
+
+const FEED_FILTERS = [
+  { key: 'all',      label: 'Todos' },
+  { key: 'cash_in',  label: 'Recebíveis' },
+  { key: 'cash_out', label: 'Pagáveis' },
+  { key: 'non_cash', label: 'Transferências' },
+  { key: 'settles',  label: 'Liquidações' },
+  { key: 'reverses', label: 'Estornos' },
+];
+
+function applyFeedFilter(events, filter) {
+  if (filter === 'all') return events;
+  if (filter === 'settles')  return events.filter(e => e.objects?.[0]?.relation === 'settles');
+  if (filter === 'reverses') return events.filter(e => e.objects?.[0]?.relation === 'reverses');
+  return events.filter(e => e.economicEffect === filter);
+}
+
+// ─── Components ───────────────────────────────────────────────────────────────
+
+function MetricCard({ icon, label, value, cls, delta }) {
+  return (
+    <div className="m-card">
+      <div className="m-icon">{icon}</div>
+      <div className="m-label">{label}</div>
+      <div className={`m-val ${cls}`}>{value}</div>
+      {delta && <div className="m-delta">{delta}</div>}
+    </div>
+  );
+}
+
+function SummaryBar({ events, positions, rejected, period, onPeriod }) {
+  const m = computeMetrics(events, positions, rejected);
+  return (
+    <div className="metrics">
+      <div className="wrap">
+        <div className="m-grid">
+          <MetricCard icon="↑" label="Total Entradas" value={fmtBRL(m.totalIn)} cls="c-in" delta={`${events.filter(e=>e.economicEffect==='cash_in').length} eventos`} />
+          <MetricCard icon="↓" label="Total Saídas" value={fmtBRL(m.totalOut)} cls="c-out" delta={`${events.filter(e=>e.economicEffect==='cash_out').length} eventos`} />
+          <MetricCard icon="=" label="Resultado Líquido" value={fmtBRL(m.net)} cls={m.net >= 0 ? 'c-in' : 'c-out'} delta={m.net >= 0 ? 'Positivo' : 'Negativo'} />
+          <MetricCard icon="⚠" label="Posições Abertas" value={m.openCount} cls={m.openCount > 0 ? 'c-open' : 'c-ok'} delta={m.openCount > 0 ? 'Sem liquidação' : 'Tudo liquidado'} />
+          <MetricCard icon="$" label="Dinheiro na Mesa" value={fmtBRL(m.dinheiro)} cls={m.dinheiro > 0 ? 'c-open' : 'c-ok'} delta="Saídas não liquidadas" />
+          <MetricCard icon="✕" label="Rejeitados" value={m.rejectedCount} cls={m.rejectedCount > 0 ? 'c-out' : 'c-ok'} delta="Eventos inválidos" />
+        </div>
+        <div className="period-bar">
+          {Object.entries(PERIOD_LABELS).map(([k, v]) => (
+            <button key={k} className={`period-btn ${period === k ? 'active' : ''}`} onClick={() => onPeriod(k)}>{v}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Position card ────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }) {
+  if (status === 'liquidada') return <span className="badge b-settled">✓ Liquidada</span>;
+  if (status === 'estornada') return <span className="badge b-rev">↩ Estornada</span>;
+  return <span className="badge b-open">⚠ Aberta</span>;
+}
+
+function PositionCard({ pos }) {
+  const isUrgent = pos.status === 'aberta' && pos.daysOpen > 30;
+  const cardClass = `pos-card s-${pos.status}${isUrgent ? ' old' : ''}`;
+  const netClass = pos.status === 'estornada' ? 'rev' : pos.netAmount >= 0 ? 'pos' : 'neg';
+
+  return (
+    <div className={`${cardClass} fade`}>
+      <div className="pos-hdr">
+        <div className="pos-hdr-l">
+          <span className="pos-ref mono">{trunc(pos.srcRef, 22)}</span>
+          <span className="pos-date">{pos.objectType?.replace(/_/g,' ').toUpperCase()}</span>
+          {pos.status === 'aberta' && pos.daysOpen > 0 && (
+            <span className={`pos-warn${isUrgent ? ' urgent' : ''}`}>
+              {isUrgent ? '⚠ Posição em aberto há ' : '○ Aberta há '}{pos.daysOpen} dia{pos.daysOpen !== 1 ? 's' : ''}
+              {isUrgent ? ' — possível perda não realizada' : ''}
+            </span>
+          )}
+        </div>
+        <div className="pos-hdr-r">
+          <span className={`pos-net ${netClass}`}>{fmtBRL(Math.abs(pos.netAmount))}</span>
+          <StatusBadge status={pos.status} />
+        </div>
+      </div>
+
+      <div className="timeline">
+        {pos.events.map((ev) => {
+          const rel = ev.objects?.[0]?.relation;
+          const isSettle = rel === 'settles';
+          const isRev = rel === 'reverses';
+          return (
+            <div key={ev.id} className={`tl-row${isSettle ? ' settle-row' : ''}${isRev ? ' rev-row' : ''}`}>
+              <div className={`tl-dot ${dotClass(ev)}`} />
+              <div className="tl-body">
+                <div className="tl-top">
+                  <div style={{display:'flex',alignItems:'center',gap:6}}>
+                    <span className="tl-label">{getEventLabel(ev)}</span>
+                    {isSettle && <span className="badge b-settled" style={{fontSize:9}}>✓ Liquidação</span>}
+                    {isRev && <span className="badge b-rev" style={{fontSize:9}}>↩ Estorno</span>}
+                  </div>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    {ev.economicEffect !== 'non_cash' && (
+                      <span className={`tl-amt ${amtClass(ev)}`}>{amtPrefix(ev)}{fmtBRL(parseFloat(ev.amount))}</span>
+                    )}
+                    <span className="tl-date">{fmtDate(ev.occurredAt)}</span>
+                  </div>
+                </div>
+                {isSettle && <div className="tl-note">Posição liquidada em {fmtDate(ev.occurredAt)}</div>}
+                {isRev && <div className="tl-note">Estorno registrado em {fmtDate(ev.occurredAt)}</div>}
+                {ev.parties?.length > 0 && (
+                  <div className="tl-parties">
+                    {ev.parties.filter(p => p.amount).map((p, j) => (
+                      <span key={j} className={`badge ${p.direction === 'in' ? 'b-in' : p.direction === 'out' ? 'b-out' : 'b-neutral'}`}>
+                        {p.role?.toUpperCase()} {p.direction?.toUpperCase()} {fmtBRL(parseFloat(p.amount))}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="pos-foot">
+        <span><b style={{color:'var(--faint)'}}>Sistema:</b>&nbsp;{pos.srcSystem}</span>
+        <span><b style={{color:'var(--faint)'}}>Ref:</b>&nbsp;<span className="mono">{pos.srcRef}</span></span>
+        <span><b style={{color:'var(--faint)'}}>Norm:</b>&nbsp;{pos.normVersion}</span>
+        {pos.reporter && <span><b style={{color:'var(--faint)'}}>Reporter:</b>&nbsp;{pos.reporter.reporterId}</span>}
+      </div>
+    </div>
+  );
+}
+
+// ─── Feed components ──────────────────────────────────────────────────────────
+
+function DotChain({ chain, currentId }) {
+  return (
+    <div className="dot-chain">
+      {chain.map((c, i) => (
+        <React.Fragment key={c.id}>
+          {i > 0 && <div className="dc-line" />}
+          <div
+            className={`dc-dot ${dcDotClass(c)}${c.id === currentId ? ' current' : ''}`}
+            title={`${c.relation} · ${fmtDate(c.occurredAt, false)} · ${fmtBRL(parseFloat(c.amount))}`}
+          />
+        </React.Fragment>
+      ))}
+    </div>
+  );
+}
+
+function EventCard({ ev, isNew, onSwitchPositions }) {
+  const cls = effectClass(ev);
+  const prefix = feedAmtPrefix(ev);
+
+  return (
+    <div className={`feed-card ${cls}${isNew ? ' feed-new' : ''}`}>
+      {/* Zone 1 — Header strip */}
+      <div className="fc-z1">
+        <div className="fc-z1-l">
+          <span className="fc-type">{getEventLabel(ev)}</span>
+          <span className="fc-ref">{ev.source?.reference}</span>
+          <span className="badge b-neutral" style={{fontSize:9}}>{ev.source?.system}</span>
+          {ev.reporter?.channel === 'manual-override' && (
+            <span className="badge b-open" style={{fontSize:9}}>Manual</span>
+          )}
+        </div>
+        <div className="fc-z1-r">
+          {isNew && <span className="badge b-blue" style={{fontSize:9}}>Novo</span>}
+          <span className="fc-date">{fmtDate(ev.occurredAt)}</span>
+        </div>
+      </div>
+
+      {/* Zone 2 — Headline + large amount */}
+      <div className="fc-z2">
+        <div className="fc-headline">
+          {ev.reason?.description || ev.eventType?.replace(/_/g,' ')}
+          {ev.reason?.confidence === 'medium' && (
+            <span className="badge b-open" style={{fontSize:9,marginLeft:6,verticalAlign:'middle'}}>Confiança média</span>
+          )}
+        </div>
+        <span className={`fc-amount ${cls}`} style={ev.economicEffect === 'non_cash' ? {fontSize:15} : {}}>
+          {prefix}{fmtBRL(parseFloat(ev.amount))}
+        </span>
+      </div>
+
+      {/* Zone 3 — Parties / money flow */}
+      <div className="fc-z3">
+        {ev.parties?.length > 0
+          ? ev.parties.map((p, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && p.direction !== 'neutral' && <span className="flow-arrow">→</span>}
+                <span className={`party-pill ${p.direction === 'in' ? 'in' : p.direction === 'out' ? 'out' : 'neutral'}`}>
+                  {p.direction === 'in' ? '↑' : p.direction === 'out' ? '↓' : '~'}&nbsp;
+                  {p.partyId?.replace(/^party-/, '')}
+                  {p.amount ? ` · ${fmtBRL(parseFloat(p.amount))}` : ''}
+                </span>
+              </React.Fragment>
+            ))
+          : <span style={{fontSize:10,color:'var(--faint)'}}>Sem partes registradas</span>
+        }
+      </div>
+
+      {/* Zone 4 — Position context footer */}
+      <div className="fc-z4">
+        <div className="fc-z4-l">
+          <span className="fc-obj">{ev.objects?.[0]?.objectId}</span>
+          {ev.positionStatus === 'liquidada' && (
+            <span className="badge b-settled" style={{fontSize:9}}>✓ Liquidada</span>
+          )}
+          {ev.positionStatus === 'aberta' && (
+            ev.positionDaysOpen > 30
+              ? <span className="badge b-red" style={{fontSize:9}}>⚠ Aberta há {ev.positionDaysOpen}d</span>
+              : ev.positionDaysOpen > 0
+                ? <span className="badge b-open" style={{fontSize:9}}>Aberta há {ev.positionDaysOpen}d</span>
+                : <span className="badge b-open" style={{fontSize:9}}>Aberta</span>
+          )}
+          {ev.positionStatus === 'estornada' && (
+            <span className="badge b-rev" style={{fontSize:9}}>↩ Estornada</span>
+          )}
+          {ev.positionChain?.length > 1 && (
+            <DotChain chain={ev.positionChain} currentId={ev.id} />
+          )}
+        </div>
+        <button className="fc-pos-link" onClick={onSwitchPositions}>Ver posição completa →</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab 0: Feed de Eventos ───────────────────────────────────────────────────
+
+function FeedTab({ feed, newIds, onSwitchPositions, feedLimit, onLoadMore }) {
+  const [filter, setFilter] = useState('all');
+  const filtered = applyFeedFilter(feed, filter);
+  const visible = filtered.slice(0, feedLimit);
+  const hasMore = filtered.length > visible.length;
+
+  if (feed.length === 0) {
+    return (
+      <div className="empty" style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)'}}>
+        <div className="empty-ico">◎</div>
+        <div className="empty-title">Nenhum evento no feed</div>
+        <div className="empty-sub">Aguardando eventos do ledger…</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="filter-bar">
+        {FEED_FILTERS.map(f => (
+          <button
+            key={f.key}
+            className={`filter-btn${filter === f.key ? ' active' : ''}`}
+            onClick={() => setFilter(f.key)}
+          >
+            {f.label}
+          </button>
+        ))}
+        <span style={{marginLeft:'auto',fontSize:10,color:'var(--faint)',flexShrink:0,paddingRight:4}}>
+          {filtered.length} evento{filtered.length !== 1 ? 's' : ''}
+        </span>
+      </div>
+      <div style={{height:8}} />
+      <div className="feed-list">
+        {visible.map(ev => (
+          <EventCard
+            key={ev.id}
+            ev={ev}
+            isNew={newIds.has(ev.id)}
+            onSwitchPositions={onSwitchPositions}
+          />
+        ))}
+      </div>
+      {hasMore && (
+        <button className="load-more" onClick={onLoadMore}>
+          Carregar mais ({filtered.length - visible.length} restante{filtered.length - visible.length !== 1 ? 's' : ''})
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── Tab 1: Positions ─────────────────────────────────────────────────────────
+
+function PositionsTab({ positions }) {
+  if (!positions.length) {
+    return (
+      <div className="empty" style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)'}}>
+        <div className="empty-ico">✓</div>
+        <div className="empty-title">Todas as posições estão liquidadas</div>
+        <div className="empty-sub">Nenhuma posição econômica registrada no período selecionado.</div>
+      </div>
+    );
+  }
+
+  const open = positions.filter(p => p.status === 'aberta');
+  const settled = positions.filter(p => p.status === 'liquidada');
+  const reversed = positions.filter(p => p.status === 'estornada');
+
+  return (
+    <div>
+      {open.length > 0 && (
+        <div style={{marginBottom:24}}>
+          <div className="sec-hdr">
+            <span className="sec-title" style={{color:'var(--open)'}}>Posições Abertas</span>
+            <div className="sec-line" />
+            <span className="sec-count">{open.length}</span>
+          </div>
+          <div className="pos-grid">{open.map(p => <PositionCard key={p.objectId} pos={p} />)}</div>
+        </div>
+      )}
+      {settled.length > 0 && (
+        <div style={{marginBottom:24}}>
+          <div className="sec-hdr">
+            <span className="sec-title" style={{color:'var(--in)'}}>Posições Liquidadas</span>
+            <div className="sec-line" />
+            <span className="sec-count">{settled.length}</span>
+          </div>
+          <div className="pos-grid">{settled.map(p => <PositionCard key={p.objectId} pos={p} />)}</div>
+        </div>
+      )}
+      {reversed.length > 0 && (
+        <div>
+          <div className="sec-hdr">
+            <span className="sec-title" style={{color:'var(--reversed)'}}>Posições Estornadas</span>
+            <div className="sec-line" />
+            <span className="sec-count">{reversed.length}</span>
+          </div>
+          <div className="pos-grid">{reversed.map(p => <PositionCard key={p.objectId} pos={p} />)}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tab 2: Cashflow ──────────────────────────────────────────────────────────
+
+function CashflowRow({ row, expanded, onToggle }) {
+  const net = row.totalIn - row.totalOut;
+  return (
+    <>
+      <tr className="cf-row" onClick={onToggle}>
+        <td><span className="mono" style={{fontSize:11}}>{row.period}</span></td>
+        <td><span style={{color:'var(--in)',fontWeight:700}}>{fmtBRL(row.totalIn)}</span></td>
+        <td><span style={{color:'var(--out)',fontWeight:700}}>{fmtBRL(row.totalOut)}</span></td>
+        <td><span className={`cf-resultado ${net >= 0 ? 'pos' : 'neg'}`}>{net >= 0 ? '▲' : '▼'} {fmtBRL(Math.abs(net))}</span></td>
+        <td><span className="badge b-neutral" style={{fontSize:9}}>{row.events.length} evento{row.events.length !== 1 ? 's' : ''}</span></td>
+        <td style={{fontSize:11,color:'var(--faint)'}}>{expanded ? '▲' : '▼'}</td>
+      </tr>
+      {expanded && row.events.map(ev => (
+        <tr key={ev.id} className="cf-expand">
+          <td colSpan={6}>
+            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+              <span className={`badge ${ev.economicEffect==='cash_in'?'b-in':ev.economicEffect==='cash_out'?'b-out':'b-neutral'}`}>{getEventLabel(ev)}</span>
+              <span className="mono" style={{fontSize:10,color:'var(--muted)'}}>{trunc(ev.source?.reference,18)}</span>
+              <span style={{fontSize:11,color:'var(--muted)'}}>{fmtDate(ev.occurredAt)}</span>
+              <span style={{marginLeft:'auto',fontWeight:700,fontFamily:'var(--mono)',fontSize:11,color:ev.economicEffect==='cash_in'?'var(--in)':ev.economicEffect==='cash_out'?'var(--out)':'var(--muted)'}}>
+                {ev.economicEffect==='cash_in'?'↑':ev.economicEffect==='cash_out'?'↓':'~'} {fmtBRL(parseFloat(ev.amount))}
+              </span>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+function CashflowChart({ rows }) {
+  const maxVal = Math.max(...rows.map(r => Math.max(r.totalIn, r.totalOut)), 1);
+  const maxW = 260;
+  return (
+    <div className="chart-wrap">
+      <div className="chart-title">Fluxo de Caixa por Período</div>
+      {rows.map((r, i) => (
+        <div key={i} className="chart-row">
+          <div className="chart-label">{r.period}</div>
+          <div className="chart-bars">
+            <div className="chart-bar-row">
+              <div className="bar bar-in" style={{width: `${(r.totalIn / maxVal) * maxW}px`}} />
+              <span className="chart-val">{fmtBRL(r.totalIn)}</span>
+            </div>
+            <div className="chart-bar-row">
+              <div className="bar bar-out" style={{width: `${(r.totalOut / maxVal) * maxW}px`}} />
+              <span className="chart-val">{fmtBRL(r.totalOut)}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+      <div style={{display:'flex',gap:16,marginTop:12}}>
+        <span style={{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'var(--muted)'}}>
+          <span style={{width:10,height:10,borderRadius:2,background:'var(--in)',display:'inline-block'}} /> Entradas
+        </span>
+        <span style={{display:'flex',alignItems:'center',gap:4,fontSize:10,color:'var(--muted)'}}>
+          <span style={{width:10,height:10,borderRadius:2,background:'var(--out)',display:'inline-block'}} /> Saídas
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function CashflowTab({ events, period }) {
+  const [expanded, setExpanded] = useState(null);
+  const rows = groupCashflow(events, period);
+
+  if (!rows.length) {
+    return (
+      <div className="empty" style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)'}}>
+        <div className="empty-ico">○</div>
+        <div className="empty-title">Nenhum evento registrado no período selecionado</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="cf-table" style={{marginBottom:20}}>
+        <table>
+          <thead>
+            <tr>
+              <th>Período</th><th>Entradas</th><th>Saídas</th>
+              <th>Resultado</th><th>Eventos</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <CashflowRow
+                key={i} row={r}
+                expanded={expanded === i}
+                onToggle={() => setExpanded(expanded === i ? null : i)}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <CashflowChart rows={rows} />
+    </div>
+  );
+}
+
+// ─── Tab 3: Staging & Rejections ─────────────────────────────────────────────
+
+function StagingTable({ records }) {
+  if (!records.length) {
+    return (
+      <div className="stg-wrap">
+        <div className="empty">
+          <div className="empty-ico">◎</div>
+          <div className="empty-title">Nenhum candidato encontrado</div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="stg-wrap">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Sistema</th><th>Referência</th><th>Valor</th><th>Moeda</th><th>Data</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {records.map(r => (
+            <tr key={r.id}>
+              <td><span className="mono" style={{fontSize:10,color:'var(--muted)'}}>{trunc(r.id,12)}</span></td>
+              <td><span className="badge b-neutral">{r.sourceSystem||'—'}</span></td>
+              <td><span className="mono" style={{fontSize:11}}>{r.sourceReference||'—'}</span></td>
+              <td><span className="mono" style={{fontWeight:600}}>{r.amount ? fmtBRL(parseFloat(r.amount)) : '—'}</span></td>
+              <td>{r.currency||'—'}</td>
+              <td style={{fontSize:11,color:'var(--muted)'}}>{fmtDate(r.occurredAt)}</td>
+              <td>
+                {r.status === 'pending'
+                  ? <span className="badge b-open">Pendente</span>
+                  : <span className="badge b-settled">Processado</span>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function RejectedCard({ ev }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rej-card fade">
+      <div className="rej-hdr">
+        <div>
+          <div style={{fontSize:10,color:'var(--faint)',fontWeight:600,textTransform:'uppercase',letterSpacing:'.06em',marginBottom:3}}>Staging ID</div>
+          <div className="mono" style={{fontSize:12,color:'var(--muted)'}}>{ev.stagingId}</div>
+          <div style={{fontSize:10,color:'var(--faint)',marginTop:3}}>{fmtDate(ev.rejectedAt)}</div>
+        </div>
+        <span className="badge b-red">{ev.reasons.length} motivo{ev.reasons.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div className="rej-body">
+        <div>
+          {ev.reasons.map((r, i) => (
+            <div key={i} className="reason-row">
+              <span className="badge b-red" style={{flexShrink:0}}>{getRejectionLabel(r.type)}</span>
+              <span className="reason-desc">{r.description}</span>
+            </div>
+          ))}
+        </div>
+        {ev.rawPayload != null && (
+          <div>
+            <button className="expand-btn" onClick={() => setOpen(v => !v)}>
+              {open ? '▲' : '▶'}&nbsp;Payload original {open ? '(ocultar)' : '(expandir)'}
+            </button>
+            {open && <pre className="raw">{JSON.stringify(ev.rawPayload, null, 2)}</pre>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StagingTab({ staging, rejected, period }) {
+  const filteredStaging = filterByPeriod(staging, period, 'occurredAt');
+  const filteredRejected = filterByPeriod(rejected, period, 'rejectedAt');
+  const rate = staging.length > 0 ? Math.round((rejected.length / staging.length) * 100) : 0;
+
+  return (
+    <div>
+      <div className="sec-hdr"><span className="sec-title">Candidatos a Eventos</span><div className="sec-line" /><span className="sec-count">{filteredStaging.length}</span></div>
+      <StagingTable records={filteredStaging} />
+
+      <div className="sec-hdr" style={{marginTop:28}}><span className="sec-title" style={{color:'var(--out)'}}>Rejeitados</span><div className="sec-line" /><span className="sec-count">{filteredRejected.length}</span></div>
+      {filteredRejected.length > 0 && (
+        <div className="rej-rate">
+          {rate}% dos candidatos foram rejeitados neste período — {filteredRejected.length} evento{filteredRejected.length !== 1 ? 's' : ''} com problema
+        </div>
+      )}
+      {filteredRejected.length === 0
+        ? <div className="empty" style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)'}}><div className="empty-ico">✓</div><div className="empty-title">Nenhum evento rejeitado no período</div></div>
+        : <div className="rej-grid">{filteredRejected.map(e => <RejectedCard key={e.id} ev={e} />)}</div>
+      }
+    </div>
+  );
+}
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+
+function App() {
+  const [theme, setTheme] = useState(() => window.matchMedia('(prefers-color-scheme:light)').matches ? 'light' : 'dark');
+  const [tab, setTab] = useState('feed');
+  const [period, setPeriod] = useState('all');
+  const [raw, setRaw] = useState({ staging: [], events: [], rejected: [] });
+  const [feed, setFeed] = useState([]);
+  const [newIds, setNewIds] = useState(new Set());
+  const [toast, setToast] = useState(null);
+  const [feedLimit, setFeedLimit] = useState(50);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [lastTick, setLastTick] = useState(null);
+  const prevFeedIds = useRef(new Set());
+  const firstLoad = useRef(true);
+  const toastTimer = useRef(null);
+  const timer = useRef(null);
+
+  useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
+
+  const fetchAll = useCallback(async () => {
+    try {
+      const [staging, events, rejected, feedData] = await Promise.all([
+        fetch('/api/staging').then(r => { if (!r.ok) throw new Error('Falha /api/staging'); return r.json(); }),
+        fetch('/api/events').then(r => { if (!r.ok) throw new Error('Falha /api/events'); return r.json(); }),
+        fetch('/api/events/rejected').then(r => { if (!r.ok) throw new Error('Falha /api/events/rejected'); return r.json(); }),
+        fetch('/api/events/feed?limit=200').then(r => { if (!r.ok) throw new Error('Falha /api/events/feed'); return r.json(); }),
+      ]);
+
+      // Detect new feed events
+      const incomingIds = new Set(feedData.map(e => e.id));
+      const added = [...incomingIds].filter(id => !prevFeedIds.current.has(id));
+      if (added.length > 0 && !firstLoad.current) {
+        setNewIds(new Set(added));
+        const msg = `${added.length} novo${added.length > 1 ? 's' : ''} evento${added.length > 1 ? 's' : ''}`;
+        setToast(msg);
+        if (toastTimer.current) clearTimeout(toastTimer.current);
+        toastTimer.current = setTimeout(() => setToast(null), 4000);
+        // Clear new highlights after animation
+        setTimeout(() => setNewIds(new Set()), 5000);
+      }
+      prevFeedIds.current = incomingIds;
+      firstLoad.current = false;
+
+      setRaw({ staging, events, rejected });
+      setFeed(feedData);
+      setError(null);
+      setLastTick(new Date());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAll();
+    timer.current = setInterval(fetchAll, 10000);
+    return () => {
+      clearInterval(timer.current);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, [fetchAll]);
+
+  const { staging, events, rejected } = raw;
+  const filteredEvents = filterByPeriod(events, period);
+  const positions = computePositions(filteredEvents);
+  const filteredRejected = filterByPeriod(rejected, period, 'rejectedAt');
+
+  const openCount = positions.filter(p => p.status === 'aberta').length;
+  const ledgerCount = positions.length;
+
+  return (
+    <div>
+      {toast && <div className="toast">● {toast}</div>}
+
+      <header className="hdr">
+        <div className="wrap">
+          <div className="hdr-inner">
+            <div className="brand"><div className="brand-dot" />Ledger · Dashboard Financeiro</div>
+            <div className="hdr-right">
+              {loading
+                ? <span className="tick">Carregando…</span>
+                : lastTick && <span className="tick">Atualizado {lastTick.toLocaleTimeString('pt-BR')}</span>
+              }
+              <button className="btn-icon" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Alternar tema">
+                {theme === 'dark' ? '☀' : '◑'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <SummaryBar events={filteredEvents} positions={positions} rejected={filteredRejected} period={period} onPeriod={setPeriod} />
+
+      <div className="wrap">
+        <div className="tabs">
+          <button className={`tab ${tab==='feed'?'on':''}`} onClick={() => setTab('feed')}>
+            Feed de Eventos<span className="tab-n">{feed.length}</span>
+          </button>
+          <button className={`tab ${tab==='positions'?'on':''}`} onClick={() => setTab('positions')}>
+            Posições Econômicas<span className="tab-n">{ledgerCount}</span>
+          </button>
+          <button className={`tab ${tab==='cashflow'?'on':''}`} onClick={() => setTab('cashflow')}>
+            Fluxo por Período<span className="tab-n">{filteredEvents.length}</span>
+          </button>
+          <button className={`tab ${tab==='staging'?'on':''}`} onClick={() => setTab('staging')}>
+            Candidatos &amp; Rejeições<span className="tab-n">{staging.length + rejected.length}</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="wrap">
+        <div className="content">
+          {error && <div className="err">Erro ao buscar dados: {error}</div>}
+          {!loading && tab === 'feed' && (
+            <FeedTab
+              feed={feed}
+              newIds={newIds}
+              onSwitchPositions={() => setTab('positions')}
+              feedLimit={feedLimit}
+              onLoadMore={() => setFeedLimit(l => l + 20)}
+            />
+          )}
+          {!loading && tab === 'positions' && <PositionsTab positions={positions} />}
+          {!loading && tab === 'cashflow' && <CashflowTab events={filteredEvents} period={period} />}
+          {!loading && tab === 'staging' && <StagingTab staging={staging} rejected={rejected} period={period} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

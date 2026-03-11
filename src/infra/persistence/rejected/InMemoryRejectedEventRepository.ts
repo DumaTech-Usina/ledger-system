@@ -8,7 +8,7 @@ export class InMemoryRejectedEventRepository implements RejectedEventRepository 
     this.store.push(event);
   }
 
-  getAll(): readonly RejectedEvent[] {
+  async findAll(): Promise<RejectedEvent[]> {
     return [...this.store];
   }
 }
