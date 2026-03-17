@@ -19,7 +19,7 @@ type Connection struct {
 
 func NewConnection() *Connection {
 
-	pgConn := "postgres://developer:postgres@localhost:5432/usina?sslmode=disable"
+	pgConn := "postgres://developer:postgres@localhost:5454/usina?sslmode=disable"
 
 	pg, err := sql.Open("postgres", pgConn)
 	if err != nil {

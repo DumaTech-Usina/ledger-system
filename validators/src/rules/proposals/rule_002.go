@@ -3,9 +3,9 @@ package rules
 import (
 	"context"
 	"database/sql"
-	"log"
 	"time"
-	"validators/src/domain"
+
+	"fmt"
 
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
@@ -18,20 +18,32 @@ type Rule002 struct {
 }
 
 func (r Rule002) RuleID() string      { return "RULE-002" }
-func (r Rule002) RuleVersion() string { return "1.0" }
+func (r Rule002) RuleVersion() string { return "2.0" }
 func (r Rule002) BatchSize() int      { return 1000 }
 func (r Rule002) Description() string {
-	return "Identifica parcelas pagas em propostas duplicadas (Double Payment) e aplica Fix Strategy"
+	return "Modo Auditoria Silenciosa: Retorna apenas contagens analíticas"
 }
 
-func (r Rule002) Execute(ctx context.Context, input []domain.Proposal) error {
+type ReceiptInfo struct {
+	ReceiptID         string
+	ProposalID        string
+	ProposalNumber    string
+	InstallmentNumber int
+	ProposalCreatedAt time.Time
+}
 
+// Agora a função retorna a quantidade de propostas lidas e os erros encontrados
+func (r Rule002) Execute(ctx context.Context) (int, int, []string, error) {
+	start := time.Now()
 	clusterCol := r.MongoDB.Collection("rule001_clusters")
 	cursor, err := clusterCol.Find(ctx, bson.M{})
 	if err != nil {
-		return err
+		return 0, 0, nil, err
 	}
 	defer cursor.Close(ctx)
+
+	proposalToCluster := make(map[string]string)
+	var allProposalIDs []string
 
 	for cursor.Next(ctx) {
 		var cluster struct {
@@ -46,78 +58,73 @@ func (r Rule002) Execute(ctx context.Context, input []domain.Proposal) error {
 			continue
 		}
 
-		err = r.processDuplicatedReceipts(ctx, cluster.ClusterID, cluster.Proposals)
-		if err != nil {
-			log.Printf("Erro ao processar recibos do cluster %s: %v", cluster.ClusterID, err)
+		for _, propID := range cluster.Proposals {
+			proposalToCluster[propID] = cluster.ClusterID
+			allProposalIDs = append(allProposalIDs, propID)
 		}
 	}
 
-	return nil
-}
+	if len(allProposalIDs) == 0 {
+		return 0, 0, nil, nil
+	}
 
-type ReceiptInfo struct {
-	ReceiptID         string
-	ProposalID        string
-	InstallmentNumber int
-	ProposalCreatedAt time.Time
-}
-
-func (r Rule002) processDuplicatedReceipts(ctx context.Context, clusterID string, proposalIDs []string) error {
 	query := `
-		SELECT r.id, r.proposal_id, r.installment_number, p.created_at
+		SELECT r.id::text, r.proposal_id::text, p.proposal_number, r.installment_number, p.created_at
 		FROM receipts r
 		JOIN proposals p ON p.id = r.proposal_id
-		WHERE r.payment_status = 'paid' 
-		  AND r.proposal_id = ANY($1)
+		WHERE r.payment_status = 'PAGO' 
+		  AND r.proposal_id::text = ANY($1)
 	`
-	rows, err := r.Postgres.QueryContext(ctx, query, pq.Array(proposalIDs))
+
+	rows, err := r.Postgres.QueryContext(ctx, query, pq.Array(allProposalIDs))
 	if err != nil {
-		return err
+		return 0, 0, nil, err
 	}
 	defer rows.Close()
 
-	installmentBuckets := make(map[int][]ReceiptInfo)
+	clusterBuckets := make(map[string]map[int][]ReceiptInfo)
 
 	for rows.Next() {
 		var info ReceiptInfo
-		if err := rows.Scan(&info.ReceiptID, &info.ProposalID, &info.InstallmentNumber, &info.ProposalCreatedAt); err != nil {
+		if err := rows.Scan(&info.ReceiptID, &info.ProposalID, &info.ProposalNumber, &info.InstallmentNumber, &info.ProposalCreatedAt); err != nil {
 			continue
 		}
-		installmentBuckets[info.InstallmentNumber] = append(installmentBuckets[info.InstallmentNumber], info)
+
+		cID := proposalToCluster[info.ProposalID]
+		if clusterBuckets[cID] == nil {
+			clusterBuckets[cID] = make(map[int][]ReceiptInfo)
+		}
+		clusterBuckets[cID][info.InstallmentNumber] = append(clusterBuckets[cID][info.InstallmentNumber], info)
 	}
 
-	for installmentNumber, paidReceipts := range installmentBuckets {
-		if len(paidReceipts) > 1 {
-			log.Printf("🚨 RULE-002: Duplo pagamento detectado! Parcela %d paga %d vezes (Cluster: %s)",
-				installmentNumber, len(paidReceipts), clusterID)
+	var totalEncontrados int
+	var alertas []string
 
-			canon := paidReceipts[0]
-			for _, receitp := range paidReceipts {
-				if receitp.ProposalCreatedAt.Before(canon.ProposalCreatedAt) {
-					canon = receitp
+	for _, installments := range clusterBuckets {
+		for instNum, receipts := range installments {
+			if len(receipts) > 1 {
+				totalEncontrados++
+
+				var numerosPropostas []string
+				for _, rec := range receipts {
+					numerosPropostas = append(numerosPropostas, rec.ProposalNumber)
 				}
-			}
 
-			var receiptsToCancel []string
-			for _, receipt := range paidReceipts {
-				if receipt.ReceiptID != canon.ReceiptID {
-					receiptsToCancel = append(receiptsToCancel, receipt.ReceiptID)
-				}
-			}
-
-			if len(receiptsToCancel) > 0 {
-				updateQuery := `UPDATE receipts SET payment_status = 'canceled_duplicate' WHERE id = ANY($1)`
-
-				_, err := r.Postgres.ExecContext(ctx, updateQuery, pq.Array(receiptsToCancel))
-				if err != nil {
-					log.Printf("Erro ao aplicar Fix Strategy nos recibos: %v", err)
-				} else {
-					log.Printf("✅ FIX_STRATEGY Aplicada: Recibos %v marcados como 'canceled_duplicate'. Canônica mantida: %s",
-						receiptsToCancel, canon.ReceiptID)
-				}
+				mensagem := fmt.Sprintf("Parcela %d paga %d vezes. Propostas agrupadas: %v",
+					instNum, len(receipts), numerosPropostas)
+				alertas = append(alertas, mensagem)
 			}
 		}
 	}
 
-	return nil
+	runData := bson.M{
+		"rule_id":         r.RuleID(),
+		"started_at":      start,
+		"finished_at":     time.Now(),
+		"records_scanned": len(allProposalIDs),
+		"issues_found":    totalEncontrados,
+	}
+	_, _ = r.MongoDB.Collection("rule_runs").InsertOne(ctx, runData)
+
+	return len(allProposalIDs), totalEncontrados, alertas, nil
 }
