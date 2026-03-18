@@ -68,3 +68,34 @@ func (r *ReceiptRepository) CountFalseDelinquents(ctx context.Context) (int, err
 	`).Scan(&count)
 	return count, err
 }
+
+// Help the Rule-003
+func (r *ReceiptRepository) FetchFalseDelinquentProposalIDs(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		WITH PaidMax AS (
+			SELECT proposal_id, MAX(installment_number) AS max_paid
+			FROM receipts
+			WHERE payment_status = 'PAGO'
+			GROUP BY proposal_id
+		)
+		SELECT DISTINCT r.proposal_id::text
+		FROM receipts r
+		JOIN PaidMax pm ON r.proposal_id = pm.proposal_id
+		WHERE r.payment_status NOT IN ('PAGO', 'canceled_duplicate')
+		  AND r.installment_number < pm.max_paid
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}

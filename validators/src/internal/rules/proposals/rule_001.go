@@ -19,17 +19,22 @@ func (r *Rule001) Description() string { return "Detects duplicate proposals via
 
 func (r *Rule001) Execute(ctx *rules.ValidationContext) rules.RuleResult {
 	result := rules.RuleResult{
-		RuleName:       rule001Name,
-		RecordsScanned: len(ctx.Proposals),
+		RuleName:         rule001Name,
+		RecordsScanned:   len(ctx.Proposals),
+		FlaggedProposals: make(map[string]string),
 	}
 
 	for _, cluster := range ctx.Clusters {
 		if len(cluster.Proposals) >= 2 {
 			result.IssuesFound++
-			result.Details = append(result.Details,
-				fmt.Sprintf("cluster %s: proposals %v | reasons: %v",
-					cluster.ID, cluster.Numbers, cluster.Reasons),
-			)
+			detail := fmt.Sprintf("cluster %s: proposals %v | reasons: %v",
+				cluster.ID, cluster.Numbers, cluster.Reasons)
+			result.Details = append(result.Details, detail)
+
+			reason := fmt.Sprintf("duplicate cluster %s (reasons: %v)", cluster.ID, cluster.Reasons)
+			for _, pid := range cluster.Proposals {
+				result.FlaggedProposals[pid] = reason
+			}
 		}
 	}
 

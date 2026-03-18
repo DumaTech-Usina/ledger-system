@@ -19,9 +19,9 @@ func main() {
 	ctx := context.Background()
 
 	conns, err := infraConfig.Connect(
-		"postgres://developer:postgres@localhost:5454/usina?sslmode=disable",
+		"postgres://developer:postgres@localhost:5432/usina?sslmode=disable",
 		"mongodb://root:rootpassword@localhost:27017",
-		"rules_engine",
+		"rules_engine_v2",
 	)
 	if err != nil {
 		log.Fatal("failed to connect:", err)

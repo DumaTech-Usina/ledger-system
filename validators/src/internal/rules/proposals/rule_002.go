@@ -24,22 +24,35 @@ func (r *Rule002) Execute(ctx *rules.ValidationContext) rules.RuleResult {
 	}
 
 	result := rules.RuleResult{
-		RuleName:       rule002Name,
-		RecordsScanned: scanned,
+		RuleName:         rule002Name,
+		RecordsScanned:   scanned,
+		FlaggedProposals: make(map[string]string),
 	}
 
 	for clusterID, receipts := range ctx.Receipts {
-		byInstallment := make(map[int][]string) // installment number → proposal numbers
+		type receiptRef struct{ id, number string }
+		byInstallment := make(map[int][]receiptRef)
 		for _, rec := range receipts {
-			byInstallment[rec.InstallmentNumber] = append(byInstallment[rec.InstallmentNumber], rec.ProposalNumber)
+			byInstallment[rec.InstallmentNumber] = append(
+				byInstallment[rec.InstallmentNumber],
+				receiptRef{id: rec.ProposalID, number: rec.ProposalNumber},
+			)
 		}
-		for instNum, proposalNumbers := range byInstallment {
-			if len(proposalNumbers) > 1 {
+		for instNum, refs := range byInstallment {
+			if len(refs) > 1 {
 				result.IssuesFound++
-				result.Details = append(result.Details,
-					fmt.Sprintf("cluster %s: installment %d paid %d times (proposals: %v)",
-						clusterID, instNum, len(proposalNumbers), proposalNumbers),
-				)
+				numbers := make([]string, len(refs))
+				for i, ref := range refs {
+					numbers[i] = ref.number
+				}
+				detail := fmt.Sprintf("cluster %s: installment %d paid %d times (proposals: %v)",
+					clusterID, instNum, len(refs), numbers)
+				result.Details = append(result.Details, detail)
+
+				reason := fmt.Sprintf("installment %d paid %d times in cluster %s", instNum, len(refs), clusterID)
+				for _, ref := range refs {
+					result.FlaggedProposals[ref.id] = reason
+				}
 			}
 		}
 	}

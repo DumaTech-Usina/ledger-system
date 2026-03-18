@@ -70,7 +70,11 @@ func (s *EnrichmentStage) fetchAggregateStats(ctx context.Context, vctx *rules.V
 	if err != nil {
 		return err
 	}
-	invalid, err := s.proposalRepo.CountInvalidNumbers(ctx)
+	invalidCount, err := s.proposalRepo.CountInvalidNumbers(ctx)
+	if err != nil {
+		return err
+	}
+	invalidIDs, err := s.proposalRepo.FetchInvalidNumberProposalIDs(ctx)
 	if err != nil {
 		return err
 	}
@@ -78,16 +82,22 @@ func (s *EnrichmentStage) fetchAggregateStats(ctx context.Context, vctx *rules.V
 	if err != nil {
 		return err
 	}
-	falseDelinquents, err := s.receiptRepo.CountFalseDelinquents(ctx)
+	falseDelinquentCount, err := s.receiptRepo.CountFalseDelinquents(ctx)
+	if err != nil {
+		return err
+	}
+	falseDelinquentIDs, err := s.receiptRepo.FetchFalseDelinquentProposalIDs(ctx)
 	if err != nil {
 		return err
 	}
 
 	vctx.ProposalStats = rules.ProposalStats{
 		TotalProposals:       total,
-		InvalidNumberCount:   invalid,
 		TotalPaidProposals:   paid,
-		FalseDelinquentCount: falseDelinquents,
+		InvalidNumberCount:   invalidCount,
+		InvalidNumberIDs:     invalidIDs,
+		FalseDelinquentCount: falseDelinquentCount,
+		FalseDelinquentIDs:   falseDelinquentIDs,
 	}
 	return nil
 }

@@ -22,13 +22,21 @@ type ValidationContext struct {
 	Metadata map[string]any
 }
 
-// ProposalStats holds pre-computed aggregate statistics used by rules
-// that only need counts rather than per-row data.
+// ProposalStats holds pre-computed data fetched during enrichment.
+// Aggregate counts are used for reporting; ID slices let rules flag
+// individual proposals so every proposal is assessed by every rule.
 type ProposalStats struct {
 	TotalProposals       int
-	InvalidNumberCount   int
 	TotalPaidProposals   int
+
+	// Per-proposal IDs for Rule004: proposals with null, empty, or zero-filled numbers.
+	InvalidNumberCount   int
+	InvalidNumberIDs     []string
+
+	// Per-proposal IDs for Rule003: proposals with open installments whose
+	// later installments are already paid (false delinquents).
 	FalseDelinquentCount int
+	FalseDelinquentIDs   []string
 }
 
 // NewValidationContext returns an initialised ValidationContext.

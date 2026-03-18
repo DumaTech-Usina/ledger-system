@@ -62,3 +62,27 @@ func (r *ProposalRepository) CountInvalidNumbers(ctx context.Context) (int, erro
 	`).Scan(&count)
 	return count, err
 }
+
+func (r *ProposalRepository) FetchInvalidNumberProposalIDs(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id::text
+		FROM proposals
+		WHERE proposal_number IS NULL
+		   OR TRIM(proposal_number) = ''
+		   OR proposal_number ~ '^0+$'
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}

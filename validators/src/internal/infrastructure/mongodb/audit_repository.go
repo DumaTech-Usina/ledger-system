@@ -6,6 +6,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 
 	"validators/src/internal/domain"
 )
@@ -45,4 +46,38 @@ func (r *AuditRepository) SaveRuleRun(ctx context.Context, result domain.RuleRun
 		"finished_at":     result.FinishedAt,
 	})
 	return err
+}
+
+// SaveCanonicalProposals upserts every proposal verdict into the
+// `canonical_proposals` collection, keyed by proposal_id.
+// Downstream systems (e.g. the Ledger) query this collection to decide
+// whether a proposal is safe to process.
+func (r *AuditRepository) SaveCanonicalProposals(ctx context.Context, proposals []domain.CanonicalProposal) error {
+	col := r.db.Collection("canonical_proposals")
+	opts := options.Update().SetUpsert(true)
+
+	for _, p := range proposals {
+		violations := make([]bson.M, len(p.Violations))
+		for i, v := range p.Violations {
+			violations[i] = bson.M{"rule": v.Rule, "reason": v.Reason}
+		}
+
+		filter := bson.M{"proposal_id": p.ProposalID}
+		update := bson.M{"$set": bson.M{
+			"run_id":         p.RunID,
+			"proposal_id":    p.ProposalID,
+			"number":         p.Number,
+			"value":          p.Value,
+			"client_id":      p.ClientID,
+			"plan_id":        p.PlanID,
+			"effective_date": p.EffectiveDate,
+			"status":         string(p.Status),
+			"violations":     violations,
+			"updated_at":     p.CreatedAt,
+		}}
+		if _, err := col.UpdateOne(ctx, filter, update, opts); err != nil {
+			return err
+		}
+	}
+	return nil
 }
