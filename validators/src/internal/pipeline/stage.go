@@ -2,10 +2,10 @@ package pipeline
 
 import "context"
 
-// Stage is a single step in the validation pipeline.
-// Stages are composed sequentially; each receives the shared PipelineContext
-// and either enriches it or produces output.
-type Stage interface {
+// Stage is a single processing step in a pipeline.
+// Each stage receives the shared Context, may mutate Data, and either
+// succeeds or returns an error that halts execution.
+type Stage[T any] interface {
 	Name() string
-	Process(ctx context.Context, pctx *PipelineContext) error
+	Execute(ctx context.Context, pctx *Context[T]) error
 }

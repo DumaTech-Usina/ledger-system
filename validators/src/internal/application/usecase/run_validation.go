@@ -4,23 +4,19 @@ import (
 	"context"
 
 	"validators/src/internal/pipeline"
-	"validators/src/internal/rules"
 )
 
 // RunValidation is the single application use-case: execute the full
-// validation pipeline and return per-rule results.
+// validation pipeline. Callers that need typed results (e.g. rule summaries)
+// should hold a reference to the concrete Runner implementation.
 type RunValidation struct {
-	pipeline *pipeline.Pipeline
+	runner pipeline.Runner
 }
 
-func NewRunValidation(p *pipeline.Pipeline) *RunValidation {
-	return &RunValidation{pipeline: p}
+func NewRunValidation(runner pipeline.Runner) *RunValidation {
+	return &RunValidation{runner: runner}
 }
 
-func (uc *RunValidation) Execute(ctx context.Context) ([]rules.RuleResult, error) {
-	pipelineContext := pipeline.NewPipelineContext()
-	if err := uc.pipeline.Run(ctx, pipelineContext); err != nil {
-		return nil, err
-	}
-	return pipelineContext.Results, nil
+func (uc *RunValidation) Execute(ctx context.Context) error {
+	return uc.runner.Run(ctx)
 }

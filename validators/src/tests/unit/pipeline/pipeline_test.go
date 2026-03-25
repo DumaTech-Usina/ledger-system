@@ -8,29 +8,34 @@ import (
 	"validators/src/internal/pipeline"
 )
 
-type mockStage struct {
+// stubStage is a minimal Stage[string] for testing pipeline mechanics.
+type stubStage struct {
 	name   string
 	called bool
 	err    error
 }
 
-func (m *mockStage) Name() string { return m.name }
-func (m *mockStage) Process(_ context.Context, _ *pipeline.PipelineContext) error {
-	m.called = true
-	return m.err
+func (s *stubStage) Name() string { return s.name }
+func (s *stubStage) Execute(_ context.Context, _ *pipeline.Context[string]) error {
+	s.called = true
+	return s.err
+}
+
+func newCtx() *pipeline.Context[string] {
+	return pipeline.NewContext("initial")
 }
 
 func TestPipeline_RunsAllStages(t *testing.T) {
-	s1 := &mockStage{name: "s1"}
-	s2 := &mockStage{name: "s2"}
-	s3 := &mockStage{name: "s3"}
+	s1 := &stubStage{name: "s1"}
+	s2 := &stubStage{name: "s2"}
+	s3 := &stubStage{name: "s3"}
 
-	p := pipeline.New(s1, s2, s3)
-	if err := p.Run(context.Background(), pipeline.NewPipelineContext()); err != nil {
+	p := pipeline.New[string](s1, s2, s3)
+	if err := p.Run(context.Background(), newCtx()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	for _, s := range []*mockStage{s1, s2, s3} {
+	for _, s := range []*stubStage{s1, s2, s3} {
 		if !s.called {
 			t.Errorf("stage %q was not called", s.name)
 		}
@@ -38,12 +43,12 @@ func TestPipeline_RunsAllStages(t *testing.T) {
 }
 
 func TestPipeline_StopsOnFirstError(t *testing.T) {
-	s1 := &mockStage{name: "s1"}
-	s2 := &mockStage{name: "s2", err: errors.New("boom")}
-	s3 := &mockStage{name: "s3"}
+	s1 := &stubStage{name: "s1"}
+	s2 := &stubStage{name: "s2", err: errors.New("boom")}
+	s3 := &stubStage{name: "s3"}
 
-	p := pipeline.New(s1, s2, s3)
-	err := p.Run(context.Background(), pipeline.NewPipelineContext())
+	p := pipeline.New[string](s1, s2, s3)
+	err := p.Run(context.Background(), newCtx())
 
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -61,10 +66,10 @@ func TestPipeline_StopsOnFirstError(t *testing.T) {
 
 func TestPipeline_ErrorWrapsStage(t *testing.T) {
 	boom := errors.New("original error")
-	s := &mockStage{name: "failing-stage", err: boom}
-	p := pipeline.New(s)
+	s := &stubStage{name: "failing-stage", err: boom}
+	p := pipeline.New[string](s)
 
-	err := p.Run(context.Background(), pipeline.NewPipelineContext())
+	err := p.Run(context.Background(), newCtx())
 
 	if !errors.Is(err, boom) {
 		t.Errorf("expected wrapped original error, got: %v", err)
@@ -72,8 +77,29 @@ func TestPipeline_ErrorWrapsStage(t *testing.T) {
 }
 
 func TestPipeline_EmptyPipeline(t *testing.T) {
-	p := pipeline.New()
-	if err := p.Run(context.Background(), pipeline.NewPipelineContext()); err != nil {
+	p := pipeline.New[string]()
+	if err := p.Run(context.Background(), newCtx()); err != nil {
 		t.Fatalf("empty pipeline should not error, got: %v", err)
 	}
+}
+
+func TestPipeline_StageCanMutateData(t *testing.T) {
+	mutator := &mutatingStage{appendVal: " world"}
+	p := pipeline.New[string](mutator)
+	pctx := pipeline.NewContext("hello")
+
+	if err := p.Run(context.Background(), pctx); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pctx.Data != "hello world" {
+		t.Errorf("expected %q, got %q", "hello world", pctx.Data)
+	}
+}
+
+type mutatingStage struct{ appendVal string }
+
+func (m *mutatingStage) Name() string { return "mutator" }
+func (m *mutatingStage) Execute(_ context.Context, pctx *pipeline.Context[string]) error {
+	pctx.Data += m.appendVal
+	return nil
 }

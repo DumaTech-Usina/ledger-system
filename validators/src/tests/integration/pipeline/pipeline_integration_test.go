@@ -5,12 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	"validators/src/internal/application/usecase"
 	"validators/src/internal/domain"
 	"validators/src/internal/engine"
 	"validators/src/internal/pipeline"
-	"validators/src/internal/pipeline/stages"
-	"validators/src/internal/rules/proposals"
+	"validators/src/internal/pipelines/proposals"
+	proposalRules "validators/src/internal/rules/proposals"
 	"validators/src/tests/fixtures"
 )
 
@@ -33,25 +32,25 @@ func TestFullPipeline_WithMocks(t *testing.T) {
 	aRepo := &fixtures.MockAuditRepository{}
 
 	reg := engine.NewRegistry()
-	reg.MustRegister(proposals.NewRule001())
-	reg.MustRegister(proposals.NewRule002())
-	reg.MustRegister(proposals.NewRule003())
-	reg.MustRegister(proposals.NewRule004())
+	reg.MustRegister(proposalRules.NewRule001())
+	reg.MustRegister(proposalRules.NewRule002())
+	reg.MustRegister(proposalRules.NewRule003())
+	reg.MustRegister(proposalRules.NewRule004())
 
 	eng := engine.NewValidationEngine(reg, engine.Sequential)
 
-	p := pipeline.New(
-		stages.NewIngestionStage(pRepo),
-		stages.NewEnrichmentStage(pRepo, rRepo),
-		stages.NewValidationStage(eng),
-		stages.NewAggregationStage(aRepo),
-	)
+	runner := proposals.Build(proposals.Deps{
+		ProposalRepo: pRepo,
+		ReceiptRepo:  rRepo,
+		AuditRepo:    aRepo,
+		Engine:       eng,
+	})
 
-	results, err := usecase.NewRunValidation(p).Execute(context.Background())
-	if err != nil {
+	if err := runner.Run(context.Background()); err != nil {
 		t.Fatalf("pipeline failed: %v", err)
 	}
 
+	results := runner.Results()
 	if len(results) != 4 {
 		t.Fatalf("expected 4 rule results, got %d", len(results))
 	}
@@ -91,22 +90,59 @@ func TestFullPipeline_PropagatesIngestionError(t *testing.T) {
 	aRepo := &fixtures.MockAuditRepository{}
 
 	reg := engine.NewRegistry()
-	reg.MustRegister(proposals.NewRule001())
+	reg.MustRegister(proposalRules.NewRule001())
 
 	eng := engine.NewValidationEngine(reg, engine.Sequential)
 
-	p := pipeline.New(
-		stages.NewIngestionStage(pRepo),
-		stages.NewEnrichmentStage(pRepo, rRepo),
-		stages.NewValidationStage(eng),
-		stages.NewAggregationStage(aRepo),
-	)
+	runner := proposals.Build(proposals.Deps{
+		ProposalRepo: pRepo,
+		ReceiptRepo:  rRepo,
+		AuditRepo:    aRepo,
+		Engine:       eng,
+	})
 
-	_, err := usecase.NewRunValidation(p).Execute(context.Background())
+	err := runner.Run(context.Background())
 	if err == nil {
 		t.Fatal("expected error from failed ingestion, got nil")
 	}
 	if !errors.Is(err, boom) {
 		t.Errorf("expected wrapped boom error, got: %v", err)
+	}
+}
+
+// TestPipelineRegistry_RunsProposalByName verifies the registry dispatches
+// correctly to the registered runner.
+func TestPipelineRegistry_RunsProposalByName(t *testing.T) {
+	pRepo := &fixtures.MockProposalRepository{
+		Proposals:  fixtures.ProposalList(1),
+		TotalCount: 1,
+	}
+	rRepo := &fixtures.MockReceiptRepository{}
+	aRepo := &fixtures.MockAuditRepository{}
+
+	reg := engine.NewRegistry()
+	reg.MustRegister(proposalRules.NewRule001())
+	reg.MustRegister(proposalRules.NewRule002())
+	reg.MustRegister(proposalRules.NewRule003())
+	reg.MustRegister(proposalRules.NewRule004())
+
+	eng := engine.NewValidationEngine(reg, engine.Sequential)
+
+	runner := proposals.Build(proposals.Deps{
+		ProposalRepo: pRepo,
+		ReceiptRepo:  rRepo,
+		AuditRepo:    aRepo,
+		Engine:       eng,
+	})
+
+	pipelineRegistry := pipeline.NewRegistry()
+	pipelineRegistry.MustRegister("proposals", runner)
+
+	if err := pipelineRegistry.Run(context.Background(), "proposals"); err != nil {
+		t.Fatalf("registry.Run failed: %v", err)
+	}
+
+	if runner.Results() == nil {
+		t.Error("expected results after registry run, got nil")
 	}
 }
