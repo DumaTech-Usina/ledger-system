@@ -7,15 +7,15 @@ import (
 	"validators/src/internal/domain"
 )
 
-type ProposalRepository struct {
+type PostgresProposalRepository struct {
 	db *sql.DB
 }
 
-func NewProposalRepository(db *sql.DB) *ProposalRepository {
-	return &ProposalRepository{db: db}
+func NewProposalRepository(db *sql.DB) *PostgresProposalRepository {
+	return &PostgresProposalRepository{db: db}
 }
 
-func (r *ProposalRepository) FetchAll(ctx context.Context) ([]domain.Proposal, error) {
+func (r *PostgresProposalRepository) FetchAll(ctx context.Context) ([]domain.Proposal, error) {
 	query := `
 		SELECT
 			id::text,
@@ -45,13 +45,13 @@ func (r *ProposalRepository) FetchAll(ctx context.Context) ([]domain.Proposal, e
 	return proposals, rows.Err()
 }
 
-func (r *ProposalRepository) CountTotal(ctx context.Context) (int, error) {
+func (r *PostgresProposalRepository) CountTotal(ctx context.Context) (int, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM proposals`).Scan(&count)
 	return count, err
 }
 
-func (r *ProposalRepository) CountInvalidNumbers(ctx context.Context) (int, error) {
+func (r *PostgresProposalRepository) CountInvalidNumbers(ctx context.Context) (int, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx, `
 		SELECT COUNT(*)
@@ -63,7 +63,7 @@ func (r *ProposalRepository) CountInvalidNumbers(ctx context.Context) (int, erro
 	return count, err
 }
 
-func (r *ProposalRepository) FetchInvalidNumberProposalIDs(ctx context.Context) ([]string, error) {
+func (r *PostgresProposalRepository) FetchInvalidNumberProposalIDs(ctx context.Context) ([]string, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id::text
 		FROM proposals

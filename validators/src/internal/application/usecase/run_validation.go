@@ -18,9 +18,9 @@ func NewRunValidation(p *pipeline.Pipeline) *RunValidation {
 }
 
 func (uc *RunValidation) Execute(ctx context.Context) ([]rules.RuleResult, error) {
-	pctx := pipeline.NewPipelineContext()
-	if err := uc.pipeline.Run(ctx, pctx); err != nil {
+	pipelineContext := pipeline.NewPipelineContext()
+	if err := uc.pipeline.Run(ctx, pipelineContext); err != nil {
 		return nil, err
 	}
-	return pctx.Results, nil
+	return pipelineContext.Results, nil
 }
