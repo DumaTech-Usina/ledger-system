@@ -57,77 +57,32 @@ describe("CreateLedgerEventUseCase", () => {
   });
 
   // ============================
-  // previousHash chaining
+  // previousHash auto-chaining
   // ============================
-  describe("previousHash chaining", () => {
-    it("fetches last hash from repo when no previousHash is given", async () => {
-      await useCase.execute(makeValidCommand({ previousHash: null }));
+  describe("previousHash auto-chaining", () => {
+    it("always fetches the last event hash from the repository", async () => {
+      await useCase.execute(makeValidCommand());
       expect(repo.getLastEventHash).toHaveBeenCalledOnce();
     });
 
-    it("does not fetch last hash from repo when previousHash is provided", async () => {
-      const existingEvent = LedgerEvent.create(makeValidProps());
-      repo.getByHash.mockResolvedValue(existingEvent);
-
-      await useCase.execute(
-        makeValidCommand({ previousHash: existingEvent.hash.value }),
-      );
-      expect(repo.getLastEventHash).not.toHaveBeenCalled();
-    });
-
-    it("sets previousHash to null when repo has no previous event", async () => {
+    it("sets previousHash to null when the ledger is empty (big bang)", async () => {
       repo.getLastEventHash.mockResolvedValue(null);
-      const event = await useCase.execute(
-        makeValidCommand({ previousHash: null }),
-      );
+      const event = await useCase.execute(makeValidCommand());
       expect(event.previousHash).toBeNull();
     });
 
-    it("links previousHash to the referenced event's hash value", async () => {
-      const existingEvent = LedgerEvent.create(makeValidProps());
-      repo.getByHash.mockResolvedValue(existingEvent);
+    it("chains to the last registered event's hash", async () => {
+      const { EventHash } = await import("../../../core/domain/value-objects/EventHash");
+      const lastHash = EventHash.fromValue("a".repeat(64));
+      repo.getLastEventHash.mockResolvedValue(lastHash);
 
-      const event = await useCase.execute(
-        makeValidCommand({ previousHash: existingEvent.hash.value }),
-      );
-      expect(event.previousHash?.value).toBe(existingEvent.hash.value);
-    });
-  });
-
-  // ============================
-  // previousHash existence validation
-  // ============================
-  describe("previousHash existence validation", () => {
-    it("throws when previousHash is provided but no event with that hash exists", async () => {
-      repo.getByHash.mockResolvedValue(null);
-
-      await expect(
-        useCase.execute(makeValidCommand({ previousHash: "ghost-hash" })),
-      ).rejects.toThrow("not found");
+      const event = await useCase.execute(makeValidCommand());
+      expect(event.previousHash?.value).toBe("a".repeat(64));
     });
 
-    it("calls getByHash with the exact hash string from the command", async () => {
-      const existingEvent = LedgerEvent.create(makeValidProps());
-      repo.getByHash.mockResolvedValue(existingEvent);
-
-      await useCase.execute(
-        makeValidCommand({ previousHash: existingEvent.hash.value }),
-      );
-      expect(repo.getByHash).toHaveBeenCalledWith(existingEvent.hash.value);
-    });
-
-    it("does not call getByHash when previousHash is null", async () => {
-      await useCase.execute(makeValidCommand({ previousHash: null }));
+    it("never calls getByHash for chain resolution", async () => {
+      await useCase.execute(makeValidCommand());
       expect(repo.getByHash).not.toHaveBeenCalled();
-    });
-
-    it("does not save when the referenced event does not exist", async () => {
-      repo.getByHash.mockResolvedValue(null);
-
-      await expect(
-        useCase.execute(makeValidCommand({ previousHash: "ghost-hash" })),
-      ).rejects.toThrow();
-      expect(repo.save).not.toHaveBeenCalled();
     });
   });
 

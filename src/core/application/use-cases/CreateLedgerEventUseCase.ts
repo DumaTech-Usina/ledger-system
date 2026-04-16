@@ -40,21 +40,9 @@ export class CreateLedgerEventUseCase {
       command.sourceReference,
     );
 
-    let previousHash: EventHash | null;
-
-    if (command.previousHash) {
-      const referenced = await this.repository.getByHash(command.previousHash);
-
-      if (!referenced) {
-        throw new Error(
-          `Referenced event not found: no ledger entry with hash "${command.previousHash}"`,
-        );
-      }
-
-      previousHash = EventHash.fromValue(command.previousHash);
-    } else {
-      previousHash = await this.repository.getLastEventHash();
-    }
+    // Always chain to the last registered event. Returns null only for the first
+    // event ever (big bang), which is the only legitimate case for a null previousHash.
+    const previousHash: EventHash | null = await this.repository.getLastEventHash();
 
     const parties = command.parties.map(
       (p) =>

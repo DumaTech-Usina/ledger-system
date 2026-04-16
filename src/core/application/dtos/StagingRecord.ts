@@ -1,6 +1,6 @@
 export interface StagingRecord {
   id: string;
-  status: "pending" | "accepted" | "rejected";
+  status: "pending" | "processing" | "accepted" | "rejected";
 
   eventType?: string;
   economicEffect?: string;
@@ -18,8 +18,6 @@ export interface StagingRecord {
 
   normalizationVersion?: string;
   normalizationWorkerId?: string;
-
-  previousHash?: string | null;
 
   parties?: Array<{
     partyId?: string;

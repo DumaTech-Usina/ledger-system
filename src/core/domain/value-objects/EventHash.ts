@@ -16,6 +16,15 @@ export class EventHash {
   }
 
   private static canonicalize(obj: any): string {
-    return JSON.stringify(obj, Object.keys(obj).sort());
+    if (Array.isArray(obj)) {
+      return "[" + obj.map(EventHash.canonicalize).join(",") + "]";
+    }
+    if (obj !== null && typeof obj === "object") {
+      const pairs = Object.keys(obj)
+        .sort()
+        .map((k) => JSON.stringify(k) + ":" + EventHash.canonicalize(obj[k]));
+      return "{" + pairs.join(",") + "}";
+    }
+    return JSON.stringify(obj);
   }
 }

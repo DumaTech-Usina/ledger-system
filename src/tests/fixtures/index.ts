@@ -92,7 +92,6 @@ export function makeValidCommand(
     sourceReference: "ref-001",
     normalizationVersion: "1.0",
     normalizationWorkerId: "worker-1",
-    previousHash: null,
     parties: [
       {
         partyId: "party-1",
@@ -145,7 +144,6 @@ export function makeValidStagingRecord(
     sourceReference: "ref-001",
     normalizationVersion: "1.0",
     normalizationWorkerId: "worker-1",
-    previousHash: null,
     parties: [
       { partyId: "party-1", role: "payee", direction: "in", amount: "1000.00" },
     ],

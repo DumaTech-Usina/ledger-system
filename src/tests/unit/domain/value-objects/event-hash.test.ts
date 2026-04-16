@@ -17,10 +17,60 @@ describe("EventHash", () => {
     });
 
     it("is key-order independent at top level", () => {
-      // canonicalize sorts top-level keys, so insertion order should not matter
       const hash1 = EventHash.generateCanonical({ a: 1, b: 2 });
       const hash2 = EventHash.generateCanonical({ b: 2, a: 1 });
       expect(hash1.value).toBe(hash2.value);
+    });
+
+    it("is key-order independent for nested objects", () => {
+      const hash1 = EventHash.generateCanonical({ source: { system: "normalizer", reference: "ref-001" } });
+      const hash2 = EventHash.generateCanonical({ source: { reference: "ref-001", system: "normalizer" } });
+      expect(hash1.value).toBe(hash2.value);
+    });
+
+    it("is key-order independent for objects inside arrays", () => {
+      const hash1 = EventHash.generateCanonical({
+        parties: [{ direction: "in", partyId: "p-1", role: "payee" }],
+      });
+      const hash2 = EventHash.generateCanonical({
+        parties: [{ partyId: "p-1", role: "payee", direction: "in" }],
+      });
+      expect(hash1.value).toBe(hash2.value);
+    });
+
+    it("produces a stable hash for a realistic full event payload regardless of key insertion order", () => {
+      const base = {
+        id: "evt-001",
+        eventType: "commission_received",
+        economicEffect: "cash_in",
+        occurredAt: "2024-02-15T00:00:00.000Z",
+        amount: "1000.00",
+        source: { system: "normalizer", reference: "ref-001" },
+        normalization: { version: "1.0", workerId: "worker-1" },
+        previousHash: null,
+        parties: [{ partyId: "p-1", role: "payee", direction: "in", amount: "1000.00" }],
+        objects: [{ objectId: "obj-1", objectType: "commission_receivable", relation: "settles" }],
+        reason: { type: "commission_payment", description: "monthly", confidence: "high", requiresFollowup: false },
+        reporter: { type: "system", id: "worker-1", channel: "job" },
+      };
+
+      // Same data, nested keys in different insertion order
+      const shuffled = {
+        reporter: { channel: "job", id: "worker-1", type: "system" },
+        objects: [{ relation: "settles", objectType: "commission_receivable", objectId: "obj-1" }],
+        parties: [{ amount: "1000.00", direction: "in", role: "payee", partyId: "p-1" }],
+        previousHash: null,
+        normalization: { workerId: "worker-1", version: "1.0" },
+        source: { reference: "ref-001", system: "normalizer" },
+        amount: "1000.00",
+        occurredAt: "2024-02-15T00:00:00.000Z",
+        economicEffect: "cash_in",
+        eventType: "commission_received",
+        id: "evt-001",
+        reason: { requiresFollowup: false, confidence: "high", description: "monthly", type: "commission_payment" },
+      };
+
+      expect(EventHash.generateCanonical(base).value).toBe(EventHash.generateCanonical(shuffled).value);
     });
 
     it("produces different hashes for different data", () => {

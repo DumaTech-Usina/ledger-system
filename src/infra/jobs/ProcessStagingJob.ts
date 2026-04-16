@@ -4,6 +4,7 @@ import { StagingRecordValidator } from "../../core/application/services/StagingR
 import { StagingRepository } from "../../core/application/repositories/StagingRepository";
 import { StagingRecord } from "../../core/application/dtos/StagingRecord";
 import { CreateLedgerEventCommand } from "../../core/application/dtos/CreateLedgerEventInput";
+import { RejectionType } from "../../core/domain/value-objects/RejectionType";
 import { ConfidenceLevel } from "../../core/domain/enums/ConfidenceLevel";
 import { Direction } from "../../core/domain/enums/Direction";
 import { EconomicEffect } from "../../core/domain/enums/EconomicEffect";
@@ -23,23 +24,38 @@ export class ProcessStagingJob {
   ) {}
 
   async run(): Promise<void> {
-    const records = await this.stagingRepo.fetchPendingRecords();
+    const records = await this.stagingRepo.claimPendingRecords();
 
     for (const record of records) {
-      const failures = await this.validator.validate(record);
+      try {
+        const failures = await this.validator.validate(record);
 
-      if (failures.length > 0) {
+        if (failures.length > 0) {
+          await this.rejectUseCase.execute({
+            stagingId: record.id,
+            reasons: failures,
+            rawPayload: record,
+            sourceSystem: record.sourceSystem,
+          });
+          await this.stagingRepo.markAsRejected(record.id);
+        } else {
+          const command = ProcessStagingJob.toCreateCommand(record);
+          await this.createUseCase.execute(command);
+          await this.stagingRepo.markAsAccepted(record.id);
+        }
+      } catch (err) {
         await this.rejectUseCase.execute({
           stagingId: record.id,
-          reasons: failures,
+          reasons: [
+            {
+              type: RejectionType.POLICY_VIOLATION,
+              description: err instanceof Error ? err.message : String(err),
+            },
+          ],
           rawPayload: record,
           sourceSystem: record.sourceSystem,
         });
         await this.stagingRepo.markAsRejected(record.id);
-      } else {
-        const command = ProcessStagingJob.toCreateCommand(record);
-        await this.createUseCase.execute(command);
-        await this.stagingRepo.markAsAccepted(record.id);
       }
     }
   }
@@ -57,7 +73,6 @@ export class ProcessStagingJob {
       sourceReference: record.sourceReference!,
       normalizationVersion: record.normalizationVersion!,
       normalizationWorkerId: record.normalizationWorkerId!,
-      previousHash: record.previousHash ?? null,
       parties: (record.parties ?? []).map((p) => ({
         partyId: p.partyId!,
         role: p.role as PartyRole,
