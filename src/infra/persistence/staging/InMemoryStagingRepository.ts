@@ -1,5 +1,6 @@
 import { StagingRepository } from "../../../core/application/repositories/StagingRepository";
 import { StagingRecord } from "../../../core/application/dtos/StagingRecord";
+import { Page, PageOptions, paginate } from "../../../core/application/dtos/Pagination";
 
 export class InMemoryStagingRepository implements StagingRepository {
   private readonly store: StagingRecord[];
@@ -24,5 +25,9 @@ export class InMemoryStagingRepository implements StagingRepository {
 
   async findAll(): Promise<StagingRecord[]> {
     return [...this.store];
+  }
+
+  async findPaginated(options: PageOptions): Promise<Page<StagingRecord>> {
+    return paginate([...this.store], options);
   }
 }

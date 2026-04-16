@@ -24,6 +24,7 @@ export interface CreateLedgerEventProps {
   source: EventSource;
   normalization: NormalizationMetadata;
   previousHash?: EventHash | null;
+  commandId?: string | null;
 
   parties: LedgerEventParty[];
   objects: LedgerEventObject[];
@@ -45,6 +46,7 @@ export class LedgerEvent {
     public readonly normalization: NormalizationMetadata,
     public readonly hash: EventHash,
     public readonly previousHash: EventHash | null,
+    public readonly commandId: string | null,
 
     private readonly parties: LedgerEventParty[],
     private readonly objects: LedgerEventObject[],
@@ -70,6 +72,7 @@ export class LedgerEvent {
     normalization: NormalizationMetadata;
     hash: EventHash;
     previousHash: EventHash | null;
+    commandId: string | null;
     parties: LedgerEventParty[];
     objects: LedgerEventObject[];
     reason: EventReason | null;
@@ -88,6 +91,7 @@ export class LedgerEvent {
       props.normalization,
       props.hash,
       props.previousHash,
+      props.commandId,
       props.parties,
       props.objects,
       props.reason,
@@ -157,6 +161,7 @@ export class LedgerEvent {
       props.normalization,
       hash,
       props.previousHash ?? null,
+      props.commandId ?? null,
       [...props.parties],
       [...props.objects],
       props.reason ?? null,

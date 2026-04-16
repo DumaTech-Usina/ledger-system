@@ -5,6 +5,7 @@ import { RejectedEventRepository } from "../../../core/application/repositories/
 import { StagingRepository } from "../../../core/application/repositories/StagingRepository";
 import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";
 import { Relation } from "../../../core/domain/enums/Relation";
+import { normalizePageOptions } from "../../../core/application/dtos/Pagination";
 
 interface ServerDeps {
   ledgerRepo: LedgerEventRepository;
@@ -46,21 +47,31 @@ export function createServer(deps: ServerDeps) {
   app.use(express.static(clientDir));
 
   // ── GET /api/staging ──────────────────────────────────────────────────────
-  app.get("/api/staging", async (_req: Request, res: Response, next: NextFunction) => {
+  app.get("/api/staging", async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const records = await deps.stagingRepo.findAll();
-      res.json(records);
+      const options = normalizePageOptions({
+        page: parseInt(req.query.page as string, 10) || undefined,
+        limit: parseInt(req.query.limit as string, 10) || undefined,
+      });
+      const page = await deps.stagingRepo.findPaginated(options);
+      res.json(page);
     } catch (err) {
       next(err);
     }
   });
 
   // ── GET /api/events ───────────────────────────────────────────────────────
-  app.get("/api/events", async (_req: Request, res: Response, next: NextFunction) => {
+  app.get("/api/events", async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const events = await deps.ledgerRepo.findAll();
+      const options = normalizePageOptions({
+        page: parseInt(req.query.page as string, 10) || undefined,
+        limit: parseInt(req.query.limit as string, 10) || undefined,
+      });
+      const allEvents = await deps.ledgerRepo.findAll();
+      const { data: events, total, page, limit, totalPages } =
+        await deps.ledgerRepo.findPaginated(options);
 
-      const payload = events.map((event) => {
+      const data = events.map((event) => {
         const reason = event.getReason();
         const reporter = event.getReporter();
 
@@ -109,11 +120,11 @@ export function createServer(deps: ServerDeps) {
           },
           hash: event.hash.value,
           previousHash: event.previousHash?.value ?? null,
-          hasOpenPosition: hasOpenPosition(event, events),
+          hasOpenPosition: hasOpenPosition(event, allEvents),
         };
       });
 
-      res.json(payload);
+      res.json({ data, total, page, limit, totalPages });
     } catch (err) {
       next(err);
     }
@@ -122,14 +133,19 @@ export function createServer(deps: ServerDeps) {
   // ── GET /api/events/feed ─────────────────────────────────────────────────
   app.get("/api/events/feed", async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const limitParam = parseInt((req.query.limit as string) || "50", 10);
-      const limit = isNaN(limitParam) ? 50 : Math.min(Math.max(1, limitParam), 200);
+      const options = normalizePageOptions({
+        page: parseInt(req.query.page as string, 10) || undefined,
+        limit: parseInt(req.query.limit as string, 10) || undefined,
+      });
 
       const all = await deps.ledgerRepo.findAll();
       const sorted = [...all].sort(
         (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
       );
-      const page = sorted.slice(0, limit);
+      const total = sorted.length;
+      const totalPages = Math.ceil(total / options.limit) || 1;
+      const offset = (options.page - 1) * options.limit;
+      const page = sorted.slice(offset, offset + options.limit);
 
       const payload = page.map((event) => {
         const primaryObjectId = event.getObjects()[0]?.objectId.value;
@@ -211,18 +227,23 @@ export function createServer(deps: ServerDeps) {
         };
       });
 
-      res.json(payload);
+      res.json({ data: payload, total, page: options.page, limit: options.limit, totalPages });
     } catch (err) {
       next(err);
     }
   });
 
   // ── GET /api/events/rejected ──────────────────────────────────────────────
-  app.get("/api/events/rejected", async (_req: Request, res: Response, next: NextFunction) => {
+  app.get("/api/events/rejected", async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const events = await deps.rejectedRepo.findAll();
+      const options = normalizePageOptions({
+        page: parseInt(req.query.page as string, 10) || undefined,
+        limit: parseInt(req.query.limit as string, 10) || undefined,
+      });
+      const { data: events, total, page, limit, totalPages } =
+        await deps.rejectedRepo.findPaginated(options);
 
-      const payload = events.map((event) => ({
+      const data = events.map((event) => ({
         id: event.id.value,
         stagingId: event.stagingId.value,
         rejectedAt: event.rejectedAt,
@@ -233,7 +254,7 @@ export function createServer(deps: ServerDeps) {
         rawPayload: event.rawPayload ?? null,
       }));
 
-      res.json(payload);
+      res.json({ data, total, page, limit, totalPages });
     } catch (err) {
       next(err);
     }

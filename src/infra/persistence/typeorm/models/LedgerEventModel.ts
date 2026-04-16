@@ -68,6 +68,10 @@ export class LedgerEventModel {
   @Column({ name: 'previous_hash', type: 'varchar', nullable: true })
   previousHash!: string | null;
 
+  /** Caller-supplied idempotency key. Nullable — omitted on most events. */
+  @Column({ name: 'command_id', type: 'varchar', nullable: true, unique: true })
+  commandId!: string | null;
+
   // ── Reporter (embedded columns) ────────────────────────────────────────────
 
   @Column({ name: 'reporter_type', type: 'varchar' })

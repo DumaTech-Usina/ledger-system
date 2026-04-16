@@ -24,6 +24,7 @@ import { PartyId } from '../../../core/domain/value-objects/PartyId';
 import { LedgerEventModel } from './models/LedgerEventModel';
 import { LedgerEventPartyModel } from './models/LedgerEventPartyModel';
 import { LedgerEventObjectModel } from './models/LedgerEventObjectModel';
+import { Page, PageOptions } from '../../../core/application/dtos/Pagination';
 
 export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
   private readonly repo: Repository<LedgerEventModel>;
@@ -47,6 +48,11 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     return row ? this.toEntity(row) : null;
   }
 
+  async getByCommandId(commandId: string): Promise<LedgerEvent | null> {
+    const row = await this.repo.findOneBy({ commandId });
+    return row ? this.toEntity(row) : null;
+  }
+
   async getLastEventHash(): Promise<EventHash | null> {
     const row = await this.repo.findOne({
       where: {},
@@ -64,6 +70,23 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
   async findAll(): Promise<LedgerEvent[]> {
     const rows = await this.repo.find();
     return rows.map((row) => this.toEntity(row));
+  }
+
+  async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {
+    const offset = (options.page - 1) * options.limit;
+    const [rows, total] = await this.repo.findAndCount({
+      skip: offset,
+      take: options.limit,
+      order: { recordedAt: 'ASC' },
+    });
+    const totalPages = Math.ceil(total / options.limit) || 1;
+    return {
+      data: rows.map((row) => this.toEntity(row)),
+      total,
+      page: options.page,
+      limit: options.limit,
+      totalPages,
+    };
   }
 
   // ── Mapping ──────────────────────────────────────────────────────────────
@@ -88,6 +111,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     model.normalizationWorkerId = event.normalization.workerId;
     model.hash = event.hash.value;
     model.previousHash = event.previousHash?.value ?? null;
+    model.commandId = event.commandId;
 
     model.reporterType = reporter.reporterType;
     model.reporterId = reporter.reporterId;
@@ -176,6 +200,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       normalization: new NormalizationMetadata(row.normalizationVersion, row.normalizationWorkerId),
       hash: EventHash.fromValue(row.hash),
       previousHash: row.previousHash ? EventHash.fromValue(row.previousHash) : null,
+      commandId: row.commandId,
       parties,
       objects,
       reason,

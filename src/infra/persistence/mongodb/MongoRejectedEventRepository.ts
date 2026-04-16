@@ -6,6 +6,7 @@ import { StagingId } from '../../../core/domain/value-objects/StagingId';
 import { RejectionReason } from '../../../core/domain/value-objects/RejectionReason';
 import { RejectionType } from '../../../core/domain/value-objects/RejectionType';
 import { RejectedEventDocument } from './RejectedEventDocument';
+import { Page, PageOptions } from '../../../core/application/dtos/Pagination';
 
 const COLLECTION = 'rejected_events';
 
@@ -34,6 +35,22 @@ export class MongoRejectedEventRepository implements RejectedEventRepository {
   async findAll(): Promise<RejectedEvent[]> {
     const docs = await this.collection.find().toArray();
     return docs.map((doc) => this.toEntity(doc));
+  }
+
+  async findPaginated(options: PageOptions): Promise<Page<RejectedEvent>> {
+    const offset = (options.page - 1) * options.limit;
+    const [docs, total] = await Promise.all([
+      this.collection.find().skip(offset).limit(options.limit).toArray(),
+      this.collection.countDocuments(),
+    ]);
+    const totalPages = Math.ceil(total / options.limit) || 1;
+    return {
+      data: docs.map((doc) => this.toEntity(doc)),
+      total,
+      page: options.page,
+      limit: options.limit,
+      totalPages,
+    };
   }
 
   private toEntity(doc: RejectedEventDocument): RejectedEvent {

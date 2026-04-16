@@ -25,8 +25,8 @@ export class Money {
 
   /**
    * Cria a partir de string decimal segura.
-   * Aceita até 4 casas decimais.
-   * Ex: "10", "10.5", "10.50", "10.1234"
+   * Aceita até 2 casas decimais.
+   * Ex: "10", "10.5", "10.50"
    */
   static fromDecimal(amount: string, currency: string): Money {
     if (!/^\d+(\.\d{1,2})?$/.test(amount)) {
@@ -92,7 +92,6 @@ export class Money {
   toUnits(): bigint {
     return this.units;
   }
-
 
   toString(): string {
     const integer = this.units / Money.SCALE_FACTOR;

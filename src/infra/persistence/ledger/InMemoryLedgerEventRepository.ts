@@ -1,6 +1,7 @@
 import { LedgerEventRepository } from "../../../core/application/repositories/LedgerEventRepository";
 import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";
 import { EventHash } from "../../../core/domain/value-objects/EventHash";
+import { Page, PageOptions, paginate } from "../../../core/application/dtos/Pagination";
 
 export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   private readonly store: LedgerEvent[] = [];
@@ -17,6 +18,10 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     return this.store.find((e) => e.hash.value === hash) ?? null;
   }
 
+  async getByCommandId(commandId: string): Promise<LedgerEvent | null> {
+    return this.store.find((e) => e.commandId === commandId) ?? null;
+  }
+
   async getLastEventHash(): Promise<EventHash | null> {
     if (this.store.length === 0) return null;
     return this.store[this.store.length - 1].hash;
@@ -28,5 +33,9 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
 
   async findAll(): Promise<LedgerEvent[]> {
     return [...this.store];
+  }
+
+  async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {
+    return paginate([...this.store], options);
   }
 }

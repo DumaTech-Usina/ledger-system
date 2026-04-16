@@ -2,6 +2,7 @@ import { Collection, Db } from 'mongodb';
 import { StagingRepository } from '../../../core/application/repositories/StagingRepository';
 import { StagingRecord } from '../../../core/application/dtos/StagingRecord';
 import { StagingRecordDocument } from './StagingRecordDocument';
+import { Page, PageOptions } from '../../../core/application/dtos/Pagination';
 
 const COLLECTION = 'staging_records';
 
@@ -28,6 +29,22 @@ export class MongoStagingRepository implements StagingRepository {
   async findAll(): Promise<StagingRecord[]> {
     const docs = await this.collection.find().toArray();
     return docs.map((doc) => this.toDto(doc));
+  }
+
+  async findPaginated(options: PageOptions): Promise<Page<StagingRecord>> {
+    const offset = (options.page - 1) * options.limit;
+    const [docs, total] = await Promise.all([
+      this.collection.find().skip(offset).limit(options.limit).toArray(),
+      this.collection.countDocuments(),
+    ]);
+    const totalPages = Math.ceil(total / options.limit) || 1;
+    return {
+      data: docs.map((doc) => this.toDto(doc)),
+      total,
+      page: options.page,
+      limit: options.limit,
+      totalPages,
+    };
   }
 
   private toDto(doc: StagingRecordDocument): StagingRecord {

@@ -28,6 +28,10 @@ export interface CreateLedgerEventCommand {
 
   previousHash?: string | null;
 
+  /** Caller-supplied idempotency key. If provided and an event with this commandId already
+   *  exists in the ledger, the existing event is returned without creating a duplicate. */
+  commandId?: string | null;
+
   parties: {
     partyId: string;
     role: PartyRole;

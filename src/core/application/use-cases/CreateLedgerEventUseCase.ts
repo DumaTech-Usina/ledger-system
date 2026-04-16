@@ -17,6 +17,11 @@ export class CreateLedgerEventUseCase {
   constructor(private readonly repository: LedgerEventRepository) {}
 
   async execute(command: CreateLedgerEventCommand): Promise<LedgerEvent> {
+    if (command.commandId) {
+      const existing = await this.repository.getByCommandId(command.commandId);
+      if (existing) return existing;
+    }
+
     const id = new EventId(crypto.randomUUID());
 
     const money = Money.fromDecimal(command.amount, command.currency);
@@ -94,6 +99,7 @@ export class CreateLedgerEventUseCase {
       source,
       normalization,
       previousHash,
+      commandId: command.commandId ?? null,
 
       parties,
       objects,

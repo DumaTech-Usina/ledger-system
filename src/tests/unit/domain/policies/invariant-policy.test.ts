@@ -2,14 +2,19 @@ import { describe, expect, it } from "vitest";
 import { InvariantPolicy } from "../../../../core/domain/policies/InvariantPolicy";
 import { EventReason } from "../../../../core/domain/entities/EventReason";
 import { LedgerEventObject } from "../../../../core/domain/entities/LedgerEconomicObject";
+import { LedgerEventParty } from "../../../../core/domain/entities/LedgerEventParty";
 import { ConfidenceLevel } from "../../../../core/domain/enums/ConfidenceLevel";
+import { Direction } from "../../../../core/domain/enums/Direction";
 import { EconomicEffect } from "../../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../../core/domain/enums/EventType";
 import { ObjectType } from "../../../../core/domain/enums/ObjectType";
+import { PartyRole } from "../../../../core/domain/enums/PartyRole";
 import { ReasonType } from "../../../../core/domain/enums/ReasonType";
 import { Relation } from "../../../../core/domain/enums/Relation";
 import { EventHash } from "../../../../core/domain/value-objects/EventHash";
+import { Money } from "../../../../core/domain/value-objects/Money";
 import { ObjectId } from "../../../../core/domain/value-objects/ObjectId";
+import { PartyId } from "../../../../core/domain/value-objects/PartyId";
 import { makeValidProps } from "../../../fixtures";
 
 const obj = (type: ObjectType, relation: Relation) =>
@@ -65,8 +70,21 @@ describe("InvariantPolicy.validateSemantic", () => {
   });
 
   it("passes when relation is allowed for the economic effect", () => {
+    // ADVANCE_PAYMENT + CASH_OUT + ADVANCE + ORIGINATES is a valid semantic path:
+    // CASH_OUT allows ORIGINATES (step 2) and ADVANCE_PAYMENT reason allows ORIGINATES (step 6).
     const props = makeValidProps({
-      objects: [obj(ObjectType.COMMISSION_RECEIVABLE, Relation.ORIGINATES)],
+      eventType: EventType.ADVANCE_PAYMENT,
+      economicEffect: EconomicEffect.CASH_OUT,
+      objects: [obj(ObjectType.ADVANCE, Relation.ORIGINATES)],
+      reason: reason(ReasonType.ADVANCE_PAYMENT, ConfidenceLevel.HIGH),
+      parties: [
+        new LedgerEventParty(
+          new PartyId("party-1"),
+          PartyRole.PAYER,
+          Direction.OUT,
+          Money.fromDecimal("1000.00", "BRL"),
+        ),
+      ],
     });
     expect(() => InvariantPolicy.validateSemantic(props)).not.toThrow();
   });

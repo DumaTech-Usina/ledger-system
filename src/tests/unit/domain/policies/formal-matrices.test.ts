@@ -134,9 +134,71 @@ describe("REASON_EFFECT_MATRIX", () => {
       EconomicEffect.NON_CASH,
     ]);
   });
+
+  it("LOAN_ORIGINATION is restricted to CASH_OUT", () => {
+    expect(REASON_EFFECT_MATRIX[ReasonType.LOAN_ORIGINATION]).toEqual([
+      EconomicEffect.CASH_OUT,
+    ]);
+  });
+
+  it("LOAN_REPAYMENT is restricted to CASH_IN", () => {
+    expect(REASON_EFFECT_MATRIX[ReasonType.LOAN_REPAYMENT]).toEqual([
+      EconomicEffect.CASH_IN,
+    ]);
+  });
+
+  it("PENALTY_PAYMENT is restricted to CASH_OUT", () => {
+    expect(REASON_EFFECT_MATRIX[ReasonType.PENALTY_PAYMENT]).toEqual([
+      EconomicEffect.CASH_OUT,
+    ]);
+  });
+
+  it("DISPUTE_OPENED is restricted to CONTINGENT", () => {
+    expect(REASON_EFFECT_MATRIX[ReasonType.DISPUTE_OPENED]).toEqual([
+      EconomicEffect.CONTINGENT,
+    ]);
+  });
+
+  it("PAYROLL_PAYMENT is restricted to CASH_OUT", () => {
+    expect(REASON_EFFECT_MATRIX[ReasonType.PAYROLL_PAYMENT]).toEqual([
+      EconomicEffect.CASH_OUT,
+    ]);
+  });
+
+  it("MANUAL_CORRECTION is restricted to NON_CASH", () => {
+    expect(REASON_EFFECT_MATRIX[ReasonType.MANUAL_CORRECTION]).toEqual([
+      EconomicEffect.NON_CASH,
+    ]);
+  });
+
+  it("LATE_AWARENESS has no effect constraint (polymorphic)", () => {
+    expect(REASON_EFFECT_MATRIX[ReasonType.LATE_AWARENESS]).toBeUndefined();
+  });
+
+  it("UNKNOWN_ORIGIN has no effect constraint (polymorphic)", () => {
+    expect(REASON_EFFECT_MATRIX[ReasonType.UNKNOWN_ORIGIN]).toBeUndefined();
+  });
 });
 
 describe("REASON_RELATION_MATRIX", () => {
+  it("COMMISSION_PAYMENT is restricted to SETTLES", () => {
+    expect(REASON_RELATION_MATRIX[ReasonType.COMMISSION_PAYMENT]).toEqual([
+      Relation.SETTLES,
+    ]);
+  });
+
+  it("COMMISSION_SPLIT is restricted to ADJUSTS", () => {
+    expect(REASON_RELATION_MATRIX[ReasonType.COMMISSION_SPLIT]).toEqual([
+      Relation.ADJUSTS,
+    ]);
+  });
+
+  it("COMMISSION_WAIVER allows SETTLES and REVERSES", () => {
+    const allowed = REASON_RELATION_MATRIX[ReasonType.COMMISSION_WAIVER]!;
+    expect(allowed).toContain(Relation.SETTLES);
+    expect(allowed).toContain(Relation.REVERSES);
+  });
+
   it("LOAN_ORIGINATION is restricted to ORIGINATES", () => {
     expect(REASON_RELATION_MATRIX[ReasonType.LOAN_ORIGINATION]).toEqual([
       Relation.ORIGINATES,
@@ -160,5 +222,31 @@ describe("REASON_RELATION_MATRIX", () => {
     expect(allowed).toContain(Relation.ORIGINATES);
     expect(allowed).toContain(Relation.ADJUSTS);
     expect(allowed).toContain(Relation.SETTLES);
+  });
+
+  it("PENALTY_PAYMENT is restricted to SETTLES", () => {
+    expect(REASON_RELATION_MATRIX[ReasonType.PENALTY_PAYMENT]).toEqual([
+      Relation.SETTLES,
+    ]);
+  });
+
+  it("PENALTY_RECOGNITION is restricted to ORIGINATES", () => {
+    expect(REASON_RELATION_MATRIX[ReasonType.PENALTY_RECOGNITION]).toEqual([
+      Relation.ORIGINATES,
+    ]);
+  });
+
+  it("MANUAL_CORRECTION allows REVERSES and ADJUSTS", () => {
+    const allowed = REASON_RELATION_MATRIX[ReasonType.MANUAL_CORRECTION]!;
+    expect(allowed).toContain(Relation.REVERSES);
+    expect(allowed).toContain(Relation.ADJUSTS);
+  });
+
+  it("LATE_AWARENESS has no relation constraint (polymorphic)", () => {
+    expect(REASON_RELATION_MATRIX[ReasonType.LATE_AWARENESS]).toBeUndefined();
+  });
+
+  it("UNKNOWN_ORIGIN has no relation constraint (polymorphic)", () => {
+    expect(REASON_RELATION_MATRIX[ReasonType.UNKNOWN_ORIGIN]).toBeUndefined();
   });
 });
