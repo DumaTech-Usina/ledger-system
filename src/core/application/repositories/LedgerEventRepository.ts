@@ -4,6 +4,10 @@ import { EventHash } from "../../domain/value-objects/EventHash";
 export interface LedgerEventRepository {
   save(event: LedgerEvent): Promise<void>;
 
+  getById(id: string): Promise<LedgerEvent | null>;
+
+  getByHash(hash: string): Promise<LedgerEvent | null>;
+
   getLastEventHash(): Promise<EventHash | null>;
 
   existsBySourceReference(sourceReference: string): Promise<boolean>;

@@ -37,6 +37,16 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     await this.repo.save(model);
   }
 
+  async getById(id: string): Promise<LedgerEvent | null> {
+    const row = await this.repo.findOneBy({ id });
+    return row ? this.toEntity(row) : null;
+  }
+
+  async getByHash(hash: string): Promise<LedgerEvent | null> {
+    const row = await this.repo.findOneBy({ hash });
+    return row ? this.toEntity(row) : null;
+  }
+
   async getLastEventHash(): Promise<EventHash | null> {
     const row = await this.repo.findOne({
       where: {},

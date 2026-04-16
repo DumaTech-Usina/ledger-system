@@ -31,9 +31,21 @@ export class CreateLedgerEventUseCase {
       command.sourceReference,
     );
 
-    const previousHash = command.previousHash
-      ? EventHash.generateCanonical(command.previousHash)
-      : await this.repository.getLastEventHash();
+    let previousHash: EventHash | null;
+
+    if (command.previousHash) {
+      const referenced = await this.repository.getByHash(command.previousHash);
+
+      if (!referenced) {
+        throw new Error(
+          `Referenced event not found: no ledger entry with hash "${command.previousHash}"`,
+        );
+      }
+
+      previousHash = EventHash.fromValue(command.previousHash);
+    } else {
+      previousHash = await this.repository.getLastEventHash();
+    }
 
     const parties = command.parties.map(
       (p) =>

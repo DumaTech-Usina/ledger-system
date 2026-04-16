@@ -9,6 +9,14 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     this.store.push(event);
   }
 
+  async getById(id: string): Promise<LedgerEvent | null> {
+    return this.store.find((e) => e.id.value === id) ?? null;
+  }
+
+  async getByHash(hash: string): Promise<LedgerEvent | null> {
+    return this.store.find((e) => e.hash.value === hash) ?? null;
+  }
+
   async getLastEventHash(): Promise<EventHash | null> {
     if (this.store.length === 0) return null;
     return this.store[this.store.length - 1].hash;
