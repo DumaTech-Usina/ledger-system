@@ -1,0 +1,51 @@
+import { Collection, Db } from 'mongodb';
+import { StagingRepository } from '../../../core/application/repositories/StagingRepository';
+import { StagingRecord } from '../../../core/application/dtos/StagingRecord';
+import { StagingRecordDocument } from './StagingRecordDocument';
+
+const COLLECTION = 'staging_records';
+
+export class MongoStagingRepository implements StagingRepository {
+  private readonly collection: Collection<StagingRecordDocument>;
+
+  constructor(db: Db) {
+    this.collection = db.collection<StagingRecordDocument>(COLLECTION);
+  }
+
+  async fetchPendingRecords(): Promise<StagingRecord[]> {
+    const docs = await this.collection.find({ status: 'pending' }).toArray();
+    return docs.map((doc) => this.toDto(doc));
+  }
+
+  async markAsProcessed(id: string): Promise<void> {
+    await this.collection.updateOne({ _id: id }, { $set: { status: 'processed' } });
+  }
+
+  async findAll(): Promise<StagingRecord[]> {
+    const docs = await this.collection.find().toArray();
+    return docs.map((doc) => this.toDto(doc));
+  }
+
+  private toDto(doc: StagingRecordDocument): StagingRecord {
+    return {
+      id: doc._id,
+      status: doc.status,
+      eventType: doc.eventType,
+      economicEffect: doc.economicEffect,
+      occurredAt: doc.occurredAt,
+      sourceAt: doc.sourceAt,
+      amount: doc.amount,
+      currency: doc.currency,
+      description: doc.description,
+      sourceSystem: doc.sourceSystem,
+      sourceReference: doc.sourceReference,
+      normalizationVersion: doc.normalizationVersion,
+      normalizationWorkerId: doc.normalizationWorkerId,
+      previousHash: doc.previousHash,
+      parties: doc.parties ?? undefined,
+      objects: doc.objects ?? undefined,
+      reason: doc.reason,
+      reporter: doc.reporter,
+    };
+  }
+}

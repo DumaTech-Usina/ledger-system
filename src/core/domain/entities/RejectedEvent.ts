@@ -11,6 +11,23 @@ export class RejectedEvent {
     readonly rawPayload?: unknown, // snapshot do dado original para auditoria
   ) {}
 
+  /** Rebuilds a RejectedEvent from a persisted document without generating new id/date. */
+  static reconstitute(props: {
+    id: EventId;
+    stagingId: StagingId;
+    reasons: RejectionReason[];
+    rejectedAt: Date;
+    rawPayload?: unknown;
+  }): RejectedEvent {
+    return new RejectedEvent(
+      props.id,
+      props.stagingId,
+      props.reasons,
+      props.rejectedAt,
+      props.rawPayload,
+    );
+  }
+
   static create(props: {
     stagingId: StagingId;
     reasons: RejectionReason[];

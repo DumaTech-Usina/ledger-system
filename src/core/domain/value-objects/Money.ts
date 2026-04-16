@@ -88,6 +88,12 @@ export class Money {
   // SERIALIZAÇÃO CANÔNICA
   // ===============================
 
+  /** Returns the raw scaled integer used for persistence (e.g. bigint column). */
+  toUnits(): bigint {
+    return this.units;
+  }
+
+
   toString(): string {
     const integer = this.units / Money.SCALE_FACTOR;
     const decimal = this.units % Money.SCALE_FACTOR;

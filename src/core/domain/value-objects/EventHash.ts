@@ -3,6 +3,10 @@ import crypto from "crypto";
 export class EventHash {
   private constructor(public readonly value: string) {}
 
+  static fromValue(value: string): EventHash {
+    return new EventHash(value);
+  }
+
   static generateCanonical(data: any): EventHash {
     const canonical = EventHash.canonicalize(data);
 

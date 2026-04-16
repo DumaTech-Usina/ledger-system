@@ -55,6 +55,46 @@ export class LedgerEvent {
   // ===============================
   // FACTORY
   // ===============================
+
+  /** Rebuilds a LedgerEvent from a persisted record without re-running validation or re-hashing. */
+  static reconstitute(props: {
+    id: EventId;
+    eventType: EventType;
+    economicEffect: EconomicEffect;
+    occurredAt: Date;
+    recordedAt: Date;
+    sourceAt: Date | null;
+    amount: Money;
+    description: string | null;
+    source: EventSource;
+    normalization: NormalizationMetadata;
+    hash: EventHash;
+    previousHash: EventHash | null;
+    parties: LedgerEventParty[];
+    objects: LedgerEventObject[];
+    reason: EventReason | null;
+    reporter: EventReporter;
+  }): LedgerEvent {
+    return new LedgerEvent(
+      props.id,
+      props.eventType,
+      props.economicEffect,
+      props.occurredAt,
+      props.recordedAt,
+      props.sourceAt,
+      props.amount,
+      props.description,
+      props.source,
+      props.normalization,
+      props.hash,
+      props.previousHash,
+      props.parties,
+      props.objects,
+      props.reason,
+      props.reporter,
+    );
+  }
+
   static create(props: CreateLedgerEventProps): LedgerEvent {
     LedgerEvent.validate(props);
 
