@@ -1,6 +1,6 @@
 export interface StagingRecord {
   id: string;
-  status: "pending" | "processed";
+  status: "pending" | "accepted" | "rejected";
 
   eventType?: string;
   economicEffect?: string;

@@ -17,8 +17,12 @@ export class MongoStagingRepository implements StagingRepository {
     return docs.map((doc) => this.toDto(doc));
   }
 
-  async markAsProcessed(id: string): Promise<void> {
-    await this.collection.updateOne({ _id: id }, { $set: { status: 'processed' } });
+  async markAsAccepted(id: string): Promise<void> {
+    await this.collection.updateOne({ _id: id }, { $set: { status: 'accepted' } });
+  }
+
+  async markAsRejected(id: string): Promise<void> {
+    await this.collection.updateOne({ _id: id }, { $set: { status: 'rejected' } });
   }
 
   async findAll(): Promise<StagingRecord[]> {

@@ -12,11 +12,14 @@ export class InMemoryStagingRepository implements StagingRepository {
     return this.store.filter((r) => r.status === "pending");
   }
 
-  async markAsProcessed(id: string): Promise<void> {
+  async markAsAccepted(id: string): Promise<void> {
     const record = this.store.find((r) => r.id === id);
-    if (record) {
-      record.status = "processed";
-    }
+    if (record) record.status = "accepted";
+  }
+
+  async markAsRejected(id: string): Promise<void> {
+    const record = this.store.find((r) => r.id === id);
+    if (record) record.status = "rejected";
   }
 
   async findAll(): Promise<StagingRecord[]> {

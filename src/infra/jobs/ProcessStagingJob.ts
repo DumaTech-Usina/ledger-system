@@ -34,12 +34,12 @@ export class ProcessStagingJob {
           reasons: failures,
           rawPayload: record,
         });
+        await this.stagingRepo.markAsRejected(record.id);
       } else {
         const command = ProcessStagingJob.toCreateCommand(record);
         await this.createUseCase.execute(command);
+        await this.stagingRepo.markAsAccepted(record.id);
       }
-
-      await this.stagingRepo.markAsProcessed(record.id);
     }
   }
 

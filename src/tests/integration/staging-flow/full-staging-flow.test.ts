@@ -126,9 +126,9 @@ describe("Full Staging Flow — Integration", () => {
   });
 
   // ============================
-  // All records are marked as processed
+  // Status transitions
   // ============================
-  describe("all records are marked as processed after the job run", () => {
+  describe("status transitions after job run", () => {
     it("no pending records remain after job.run()", async () => {
       const records = [
         makeValidStagingRecord({ id: "stg-1", sourceReference: "ref-1" }),
@@ -142,7 +142,25 @@ describe("Full Staging Flow — Integration", () => {
       expect(pending).toHaveLength(0);
     });
 
-    it("all records have status=processed regardless of outcome", async () => {
+    it("valid record → status=accepted", async () => {
+      const { job, stagingRepo } = buildPipeline([
+        makeValidStagingRecord({ id: "stg-ok", sourceReference: "ref-ok" }),
+      ]);
+      await job.run();
+      const record = (await stagingRepo.findAll()).find((r) => r.id === "stg-ok");
+      expect(record?.status).toBe("accepted");
+    });
+
+    it("invalid record → status=rejected", async () => {
+      const { job, stagingRepo } = buildPipeline([
+        makeValidStagingRecord({ id: "stg-bad", parties: [] }),
+      ]);
+      await job.run();
+      const record = (await stagingRepo.findAll()).find((r) => r.id === "stg-bad");
+      expect(record?.status).toBe("rejected");
+    });
+
+    it("mixed batch → each record gets the correct terminal status", async () => {
       const records = [
         makeValidStagingRecord({ id: "stg-ok", sourceReference: "ref-ok" }),
         makeValidStagingRecord({ id: "stg-bad", parties: [] }),
@@ -150,7 +168,9 @@ describe("Full Staging Flow — Integration", () => {
       const { job, stagingRepo } = buildPipeline(records);
       await job.run();
       const all = await stagingRepo.findAll();
-      expect(all.every((r) => r.status === "processed")).toBe(true);
+      const byId = Object.fromEntries(all.map((r) => [r.id, r.status]));
+      expect(byId["stg-ok"]).toBe("accepted");
+      expect(byId["stg-bad"]).toBe("rejected");
     });
   });
 

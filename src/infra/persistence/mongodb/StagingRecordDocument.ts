@@ -6,7 +6,7 @@
  */
 export interface StagingRecordDocument {
   _id: string;
-  status: 'pending' | 'processed';
+  status: 'pending' | 'accepted' | 'rejected';
 
   eventType?: string;
   economicEffect?: string;
