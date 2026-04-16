@@ -5,6 +5,7 @@ import { InMemoryRejectedEventRepository } from "../../../infra/persistence/reje
 import { InMemoryStagingRepository } from "../../../infra/persistence/staging/InMemoryStagingRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { RejectLedgerEventUseCase } from "../../../core/application/use-cases/RejectLedgerEventUseCase";
+import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
 import { StagingRecordValidator } from "../../../core/application/services/StagingRecordValidator";
 import { StagingRecord } from "../../../core/application/dtos/StagingRecord";
 import { makeValidStagingRecord } from "../../fixtures";
@@ -18,8 +19,9 @@ function buildPipeline(records: StagingRecord[]) {
   const ledgerRepo = new InMemoryLedgerEventRepository();
   const rejectedRepo = new InMemoryRejectedEventRepository();
   const validator = new StagingRecordValidator(ledgerRepo);
-  const createUseCase = new CreateLedgerEventUseCase(ledgerRepo);
-  const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo);
+  const audit = new NoOpAuditLogger();
+  const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit);
+  const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit);
   const job = new ProcessStagingJob(
     stagingRepo,
     validator,

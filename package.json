@@ -9,6 +9,7 @@
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",
+    "audit": "npx tsx src/infra/tools/read-audit.ts",
     "test:coverage": "vitest run --coverage",
     "typeorm": "node --require tsx/cjs ./node_modules/typeorm/cli.js",
     "db:migration:generate": "npm run typeorm -- migration:generate src/infra/database/migrations/Migration -d src/infra/database/data-source.ts",

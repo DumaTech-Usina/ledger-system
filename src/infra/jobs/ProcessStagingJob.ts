@@ -33,6 +33,7 @@ export class ProcessStagingJob {
           stagingId: record.id,
           reasons: failures,
           rawPayload: record,
+          sourceSystem: record.sourceSystem,
         });
         await this.stagingRepo.markAsRejected(record.id);
       } else {

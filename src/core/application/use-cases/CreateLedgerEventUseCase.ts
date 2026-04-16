@@ -12,9 +12,13 @@ import { PartyId } from "../../domain/value-objects/PartyId";
 import { CreateLedgerEventCommand } from "../dtos/CreateLedgerEventInput";
 import { LedgerEventRepository } from "../repositories/LedgerEventRepository";
 import { EventSource } from "../../domain/value-objects/EventSource";
+import { IAuditLogger } from "../services/IAuditLogger";
 
 export class CreateLedgerEventUseCase {
-  constructor(private readonly repository: LedgerEventRepository) {}
+  constructor(
+    private readonly repository: LedgerEventRepository,
+    private readonly audit: IAuditLogger,
+  ) {}
 
   async execute(command: CreateLedgerEventCommand): Promise<LedgerEvent> {
     if (command.commandId) {
@@ -108,6 +112,17 @@ export class CreateLedgerEventUseCase {
     });
 
     await this.repository.save(event);
+
+    await this.audit.log({
+      action: "LEDGER_EVENT_CREATED",
+      timestamp: event.recordedAt.toISOString(),
+      sourceSystem: command.sourceSystem,
+      sourceReference: command.sourceReference,
+      eventId: event.id.value,
+      eventType: event.eventType,
+      economicEffect: event.economicEffect,
+      commandId: event.commandId,
+    });
 
     return event;
   }

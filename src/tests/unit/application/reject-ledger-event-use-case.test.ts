@@ -3,11 +3,13 @@ import { RejectLedgerEventUseCase } from "../../../core/application/use-cases/Re
 import { RejectedEventRepository } from "../../../core/application/repositories/RejectedEventRepository";
 import { RejectedEvent } from "../../../core/domain/entities/RejectedEvent";
 import { RejectionType } from "../../../core/domain/value-objects/RejectionType";
+import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
 
 function makeMockRepo(): Mocked<RejectedEventRepository> {
   return {
     save: vi.fn().mockResolvedValue(undefined),
     findAll: vi.fn().mockResolvedValue([]),
+    findPaginated: vi.fn().mockResolvedValue({ data: [], total: 0, page: 1, limit: 50, totalPages: 1 }),
   } as unknown as Mocked<RejectedEventRepository>;
 }
 
@@ -17,7 +19,7 @@ describe("RejectLedgerEventUseCase", () => {
 
   beforeEach(() => {
     repo = makeMockRepo();
-    useCase = new RejectLedgerEventUseCase(repo);
+    useCase = new RejectLedgerEventUseCase(repo, new NoOpAuditLogger());
   });
 
   // ============================

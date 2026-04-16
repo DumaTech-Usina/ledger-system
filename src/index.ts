@@ -9,6 +9,7 @@ import { CreateLedgerEventUseCase } from './core/application/use-cases/CreateLed
 import { RejectLedgerEventUseCase } from './core/application/use-cases/RejectLedgerEventUseCase';
 import { ProcessStagingJob } from './infra/jobs/ProcessStagingJob';
 import { createServer } from './presentation/web/api/server';
+import { FileAuditLogger } from './infra/audit/FileAuditLogger';
 import { env } from './config/env';
 
 async function bootstrap(): Promise<void> {
@@ -22,9 +23,10 @@ async function bootstrap(): Promise<void> {
   const stagingRepo = new MongoStagingRepository(mongoDb);
 
   // ── Application ────────────────────────────────────────────────────────────
+  const audit = new FileAuditLogger(env.AUDIT_LOG_DIR);
   const validator = new StagingRecordValidator(ledgerRepo);
-  const createUseCase = new CreateLedgerEventUseCase(ledgerRepo);
-  const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo);
+  const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit);
+  const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit);
   const job = new ProcessStagingJob(stagingRepo, validator, createUseCase, rejectUseCase);
 
   // ── Staging job (runs once on boot, extend to interval/cron as needed) ─────

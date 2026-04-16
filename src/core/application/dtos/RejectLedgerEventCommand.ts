@@ -7,4 +7,5 @@ export interface RejectLedgerEventCommand {
     description: string;
   }>;
   rawPayload?: unknown;
+  sourceSystem?: string;
 }

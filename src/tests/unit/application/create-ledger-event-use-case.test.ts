@@ -5,6 +5,7 @@ import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
 import { makeValidCommand, makeValidProps } from "../../fixtures";
+import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
 
 function makeMockRepo(): Mocked<LedgerEventRepository> {
   return {
@@ -25,7 +26,7 @@ describe("CreateLedgerEventUseCase", () => {
 
   beforeEach(() => {
     repo = makeMockRepo();
-    useCase = new CreateLedgerEventUseCase(repo);
+    useCase = new CreateLedgerEventUseCase(repo, new NoOpAuditLogger());
   });
 
   // ============================

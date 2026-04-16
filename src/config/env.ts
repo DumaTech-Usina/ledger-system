@@ -24,6 +24,8 @@ const envSchema = z.object({
   DB_MIGRATIONS_RUN: boolFromString,
 
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
+
+  AUDIT_LOG_DIR: z.string().default("./logs/audit"),
 });
 
 const result = envSchema.safeParse(process.env);
