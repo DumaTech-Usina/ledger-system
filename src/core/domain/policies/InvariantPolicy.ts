@@ -129,7 +129,7 @@ export class InvariantPolicy {
     }
 
     // ===============================
-    // 8️⃣ Enforce previousHash for reversals
+    // 8️⃣ Enforce previousHash for reversals and contract-mandated links
     // ===============================
 
     const hasReverse = props.objects.some(
@@ -138,6 +138,12 @@ export class InvariantPolicy {
 
     if (hasReverse && !props.previousHash) {
       throw new Error("Reversal events require previousHash");
+    }
+
+    if (contract.requiresPreviousHash && !props.previousHash) {
+      throw new Error(
+        `Event type ${props.eventType} requires previousHash`,
+      );
     }
 
     // ===============================

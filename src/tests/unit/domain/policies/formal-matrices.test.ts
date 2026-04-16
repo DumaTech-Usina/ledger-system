@@ -90,9 +90,10 @@ describe("OBJECT_NATURE_MATRIX", () => {
 });
 
 describe("OBJECT_RELATION_MATRIX", () => {
-  it("COMMISSION_POOL is restricted to ADJUSTS only", () => {
+  it("COMMISSION_POOL allows ADJUSTS and REVERSES (corrections can reverse pool entries)", () => {
     expect(OBJECT_RELATION_MATRIX[ObjectType.COMMISSION_POOL]).toEqual([
       Relation.ADJUSTS,
+      Relation.REVERSES,
     ]);
   });
 

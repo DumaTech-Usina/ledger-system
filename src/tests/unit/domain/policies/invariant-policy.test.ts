@@ -191,4 +191,86 @@ describe("InvariantPolicy.validateSemantic", () => {
       "must use relation REFERENCES",
     );
   });
+
+  // ============================
+  // LEDGER_CORRECTION contract
+  // ============================
+  describe("LEDGER_CORRECTION", () => {
+    const prevHash = EventHash.generateCanonical({ id: "prev-evt" });
+
+    const validCorrectionProps = () =>
+      makeValidProps({
+        eventType: EventType.LEDGER_CORRECTION,
+        economicEffect: EconomicEffect.NON_CASH,
+        objects: [obj(ObjectType.COMMISSION_RECEIVABLE, Relation.REVERSES)],
+        reason: reason(ReasonType.MANUAL_CORRECTION, ConfidenceLevel.HIGH),
+        previousHash: prevHash,
+        // parties: NON_CASH — no cash flow, party direction must be NEUTRAL
+        // (reuse default party from makeValidProps — flow validation in LedgerEvent handles this)
+      });
+
+    it("passes with a valid full reversal", () => {
+      expect(() =>
+        InvariantPolicy.validateSemantic(validCorrectionProps()),
+      ).not.toThrow();
+    });
+
+    it("passes with ADJUSTS relation (partial correction)", () => {
+      const props = validCorrectionProps();
+      props.objects = [obj(ObjectType.COMMISSION_RECEIVABLE, Relation.ADJUSTS)];
+      expect(() => InvariantPolicy.validateSemantic(props)).not.toThrow();
+    });
+
+    it("passes with DATA_RECONCILIATION reason", () => {
+      const props = validCorrectionProps();
+      props.reason = reason(ReasonType.DATA_RECONCILIATION, ConfidenceLevel.HIGH);
+      expect(() => InvariantPolicy.validateSemantic(props)).not.toThrow();
+    });
+
+    it("passes with LATE_AWARENESS reason", () => {
+      const props = validCorrectionProps();
+      props.reason = reason(ReasonType.LATE_AWARENESS, ConfidenceLevel.HIGH);
+      expect(() => InvariantPolicy.validateSemantic(props)).not.toThrow();
+    });
+
+    it("throws when previousHash is absent — contract mandates it", () => {
+      const props = validCorrectionProps();
+      props.previousHash = null;
+      expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
+        "previousHash",
+      );
+    });
+
+    it("throws when economicEffect is not NON_CASH", () => {
+      const props = validCorrectionProps();
+      props.economicEffect = EconomicEffect.CASH_OUT;
+      expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
+        "Invalid economic effect",
+      );
+    });
+
+    it("throws when confidence is below HIGH", () => {
+      const props = validCorrectionProps();
+      props.reason = reason(ReasonType.MANUAL_CORRECTION, ConfidenceLevel.MEDIUM);
+      expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
+        "Insufficient confidence",
+      );
+    });
+
+    it("throws when reason is not a governance correction reason", () => {
+      const props = validCorrectionProps();
+      props.reason = reason(ReasonType.COMMISSION_PAYMENT, ConfidenceLevel.HIGH);
+      expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
+        "not allowed for",
+      );
+    });
+
+    it("throws when reason is MANUAL_CORRECTION but relation is ORIGINATES", () => {
+      const props = validCorrectionProps();
+      props.objects = [obj(ObjectType.COMMISSION_RECEIVABLE, Relation.ORIGINATES)];
+      expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
+        "incompatible with relation",
+      );
+    });
+  });
 });

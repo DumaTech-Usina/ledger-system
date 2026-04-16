@@ -102,4 +102,49 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
 
     reasons: [ReasonType.INFRASTRUCTURE_EXPENSE],
   },
+
+  /**
+   * Corrects any previously registered event.
+   *
+   * Rules:
+   * - NON_CASH only: the correction is a bookkeeping entry; cash adjustments
+   *   caused by the error are separate domain events.
+   * - previousHash mandatory: must link to the event being corrected.
+   * - HIGH confidence mandatory: corrections must be certain.
+   * - REVERSES cancels the original entirely; ADJUSTS records a partial fix.
+   *
+   * Note: `objects` here is informational — enforcement of object-type matching
+   * against the original event is a future step.
+   */
+  [EventType.LEDGER_CORRECTION]: {
+    economicEffects: [EconomicEffect.NON_CASH],
+
+    objects: [
+      { objectType: ObjectType.COMMISSION_RECEIVABLE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.COMMISSION_PAYABLE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.COMMISSION_ENTITLEMENT, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.COMMISSION_POOL, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.LOAN, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.ADVANCE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.RECEIVABLE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.PAYABLE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.PENALTY, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.CHARGEBACK, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.INCENTIVE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.BONUS, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.PAYROLL, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.SERVICE_FEE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.INFRASTRUCTURE_COST, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      { objectType: ObjectType.TAX, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+    ],
+
+    reasons: [
+      ReasonType.MANUAL_CORRECTION,
+      ReasonType.DATA_RECONCILIATION,
+      ReasonType.LATE_AWARENESS,
+    ],
+
+    minConfidence: ConfidenceLevel.HIGH,
+    requiresPreviousHash: true,
+  },
 };

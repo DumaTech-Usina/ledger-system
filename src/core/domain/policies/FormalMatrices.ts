@@ -77,29 +77,32 @@ export const OBJECT_RELATION_MATRIX: Partial<
     Relation.REVERSES,
   ],
 
-  [ObjectType.COMMISSION_POOL]: [Relation.ADJUSTS],
-
-  [ObjectType.LOAN]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES],
+  [ObjectType.LOAN]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
 
   [ObjectType.ADVANCE]: [
     Relation.ORIGINATES,
     Relation.ADJUSTS,
     Relation.SETTLES,
+    Relation.REVERSES,
   ],
 
   [ObjectType.PENALTY]: [
     Relation.ORIGINATES,
     Relation.ADJUSTS,
     Relation.SETTLES,
+    Relation.REVERSES,
   ],
 
-  [ObjectType.CONTINGENT_CLAIM]: [Relation.ORIGINATES, Relation.ADJUSTS],
+  [ObjectType.CONTINGENT_CLAIM]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.REVERSES],
 
   [ObjectType.INCENTIVE]: [
     Relation.ORIGINATES,
     Relation.ADJUSTS,
     Relation.SETTLES,
+    Relation.REVERSES,
   ],
+
+  [ObjectType.COMMISSION_POOL]: [Relation.ADJUSTS, Relation.REVERSES],
 
   [ObjectType.CONTRACT]: [],
 };
@@ -116,6 +119,10 @@ export const REASON_EFFECT_MATRIX: Partial<
   [ReasonType.COMMISSION_SPLIT]: [EconomicEffect.CASH_INTERNAL],
   [ReasonType.LATE_IDENTIFIED_COMMISSION]: [EconomicEffect.NON_CASH],
   [ReasonType.COMMISSION_WAIVER]: [EconomicEffect.NON_CASH],
+
+  // Governance — corrections are always bookkeeping entries (no cash movement)
+  [ReasonType.MANUAL_CORRECTION]: [EconomicEffect.NON_CASH],
+  [ReasonType.DATA_RECONCILIATION]: [EconomicEffect.NON_CASH],
 };
 
 // ===============================
@@ -134,4 +141,8 @@ export const REASON_RELATION_MATRIX: Partial<
     Relation.SETTLES,
   ],
   [ReasonType.DEBT_RESTRUCTURING]: [Relation.ADJUSTS],
+
+  // Governance — corrections fully reverse or partially adjust a prior entry
+  [ReasonType.MANUAL_CORRECTION]: [Relation.REVERSES, Relation.ADJUSTS],
+  [ReasonType.DATA_RECONCILIATION]: [Relation.REVERSES, Relation.ADJUSTS],
 };
