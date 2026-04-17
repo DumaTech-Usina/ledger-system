@@ -19,6 +19,8 @@ export interface StagingRecord {
   normalizationVersion?: string;
   normalizationWorkerId?: string;
 
+  relatedEventId?: string | null;
+
   parties?: Array<{
     partyId?: string;
     role?: string;

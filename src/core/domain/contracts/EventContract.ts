@@ -8,13 +8,12 @@ import { EventSemanticContract } from "./EventSemanticContract";
 
 export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
   [EventType.COMMISSION_SPLIT]: {
-    economicEffects: [EconomicEffect.CASH_INTERNAL],
+    // CASH_OUT when distributing to brokers/partners; CASH_INTERNAL for intra-Usina reallocation
+    economicEffects: [EconomicEffect.CASH_OUT, EconomicEffect.CASH_INTERNAL],
 
     objects: [
-      {
-        objectType: ObjectType.COMMISSION_POOL,
-        relations: [Relation.ADJUSTS],
-      },
+      { objectType: ObjectType.COMMISSION_POOL,    relations: [Relation.ADJUSTS, Relation.SETTLES] },
+      { objectType: ObjectType.COMMISSION_PAYABLE, relations: [Relation.ORIGINATES, Relation.SETTLES] },
     ],
 
     reasons: [ReasonType.COMMISSION_SPLIT],
@@ -57,7 +56,8 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     objects: [
       {
         objectType: ObjectType.COMMISSION_ENTITLEMENT,
-        relations: [Relation.SETTLES],
+        // SETTLES for a standard waiver; REVERSES for reversing an incorrectly granted entitlement
+        relations: [Relation.SETTLES, Relation.REVERSES],
       },
     ],
 
@@ -101,6 +101,88 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     ],
 
     reasons: [ReasonType.INFRASTRUCTURE_EXPENSE],
+  },
+
+  /**
+   * Settles, partially recovers, recognizes loss on, or renegotiates an advance.
+   * relatedEventId must point to the originating ADVANCE_PAYMENT event.
+   */
+  [EventType.ADVANCE_SETTLEMENT]: {
+    economicEffects: [EconomicEffect.CASH_IN, EconomicEffect.NON_CASH],
+
+    objects: [
+      { objectType: ObjectType.ADVANCE, relations: [Relation.SETTLES, Relation.ADJUSTS] },
+    ],
+
+    reasons: [
+      ReasonType.ADVANCE_PAYMENT,      // full or partial recovery
+      ReasonType.LOSS_RECOGNITION,     // realized loss on unrecovered advance
+      ReasonType.DEBT_RESTRUCTURING,   // renegotiation / deferral
+    ],
+
+    requiresRelatedEventId: true,
+  },
+
+  /** Usina disburses a loan to a broker. Creates a LOAN receivable in the ledger. */
+  [EventType.LOAN_ORIGINATION]: {
+    economicEffects: [EconomicEffect.CASH_OUT],
+
+    objects: [
+      { objectType: ObjectType.LOAN, relations: [Relation.ORIGINATES] },
+    ],
+
+    reasons: [ReasonType.LOAN_ORIGINATION],
+  },
+
+  /**
+   * Broker repays a loan (via cash or commission deduction).
+   * relatedEventId must point to the originating LOAN_ORIGINATION event.
+   */
+  [EventType.LOAN_REPAYMENT]: {
+    economicEffects: [EconomicEffect.CASH_IN, EconomicEffect.NON_CASH],
+
+    objects: [
+      { objectType: ObjectType.LOAN, relations: [Relation.SETTLES, Relation.ADJUSTS] },
+    ],
+
+    reasons: [
+      ReasonType.LOAN_REPAYMENT,
+      ReasonType.LOAN_REPAYMENT_VIA_COMMISSION,
+      ReasonType.DEBT_RESTRUCTURING,
+    ],
+
+    requiresRelatedEventId: true,
+  },
+
+  /**
+   * Operator paid a broker directly, bypassing Usina.
+   * Usina records the settlement of its commission receivable even though no cash arrived.
+   * This is always NON_CASH from Usina's perspective.
+   */
+  [EventType.DIRECT_PAYMENT_ACKNOWLEDGED]: {
+    economicEffects: [EconomicEffect.NON_CASH],
+
+    objects: [
+      { objectType: ObjectType.COMMISSION_RECEIVABLE,  relations: [Relation.SETTLES] },
+      { objectType: ObjectType.COMMISSION_ENTITLEMENT, relations: [Relation.SETTLES] },
+    ],
+
+    reasons: [
+      ReasonType.LATE_AWARENESS,
+      ReasonType.DIRECT_COMMISSION_PAYMENT_AUTHORIZED,
+    ],
+  },
+
+  /** Usina pays an incentive, bonus, or campaign reward to a broker or partner. */
+  [EventType.INCENTIVE_PAYMENT]: {
+    economicEffects: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH],
+
+    objects: [
+      { objectType: ObjectType.INCENTIVE, relations: [Relation.ORIGINATES, Relation.SETTLES] },
+      { objectType: ObjectType.BONUS,     relations: [Relation.ORIGINATES, Relation.SETTLES] },
+    ],
+
+    reasons: [ReasonType.INCENTIVE_PAYMENT],
   },
 
   /**

@@ -17,4 +17,8 @@ export type EventSemanticContract = {
   minConfidence?: ConfidenceLevel;
 
   requiresPreviousHash?: boolean;
+
+  /** When true, the event must carry a relatedEventId pointing to its originating event
+   *  (e.g. an ADVANCE_SETTLEMENT must reference its ADVANCE_PAYMENT). */
+  requiresRelatedEventId?: boolean;
 };

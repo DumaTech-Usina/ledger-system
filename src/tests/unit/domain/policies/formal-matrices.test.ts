@@ -109,10 +109,13 @@ describe("OBJECT_RELATION_MATRIX", () => {
     ).not.toContain(Relation.SETTLES);
   });
 
-  it("COMMISSION_RECEIVABLE has no restriction (undefined entry)", () => {
-    expect(
-      OBJECT_RELATION_MATRIX[ObjectType.COMMISSION_RECEIVABLE],
-    ).toBeUndefined();
+  it("COMMISSION_RECEIVABLE is restricted to financial lifecycle relations", () => {
+    expect(OBJECT_RELATION_MATRIX[ObjectType.COMMISSION_RECEIVABLE]).toEqual([
+      Relation.ORIGINATES,
+      Relation.ADJUSTS,
+      Relation.SETTLES,
+      Relation.REVERSES,
+    ]);
   });
 });
 

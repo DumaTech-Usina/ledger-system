@@ -67,6 +67,32 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     return this.repo.existsBy({ sourceReference });
   }
 
+  async findByObjectId(objectId: string): Promise<LedgerEvent[]> {
+    const rows = await this.repo
+      .createQueryBuilder('e')
+      .innerJoin('e.objects', 'o', 'o.objectId = :objectId', { objectId })
+      .orderBy('e.recordedAt', 'ASC')
+      .getMany();
+    return rows.map((row) => this.toEntity(row));
+  }
+
+  async findByRelatedEventId(relatedEventId: string): Promise<LedgerEvent[]> {
+    const rows = await this.repo.find({
+      where: { relatedEventId },
+      order: { recordedAt: 'ASC' },
+    });
+    return rows.map((row) => this.toEntity(row));
+  }
+
+  async findByPartyId(partyId: string): Promise<LedgerEvent[]> {
+    const rows = await this.repo
+      .createQueryBuilder('e')
+      .innerJoin('e.parties', 'p', 'p.partyId = :partyId', { partyId })
+      .orderBy('e.recordedAt', 'ASC')
+      .getMany();
+    return rows.map((row) => this.toEntity(row));
+  }
+
   async findAll(): Promise<LedgerEvent[]> {
     const rows = await this.repo.find();
     return rows.map((row) => this.toEntity(row));
@@ -112,6 +138,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     model.hash = event.hash.value;
     model.previousHash = event.previousHash?.value ?? null;
     model.commandId = event.commandId;
+    model.relatedEventId = event.relatedEventId;
 
     model.reporterType = reporter.reporterType;
     model.reporterId = reporter.reporterId;
@@ -201,6 +228,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       hash: EventHash.fromValue(row.hash),
       previousHash: row.previousHash ? EventHash.fromValue(row.previousHash) : null,
       commandId: row.commandId,
+      relatedEventId: row.relatedEventId,
       parties,
       objects,
       reason,

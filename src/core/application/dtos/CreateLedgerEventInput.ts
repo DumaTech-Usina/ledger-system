@@ -30,6 +30,10 @@ export interface CreateLedgerEventCommand {
    *  exists in the ledger, the existing event is returned without creating a duplicate. */
   commandId?: string | null;
 
+  /** ID of the originating event this one relates to (required for ADVANCE_SETTLEMENT,
+   *  LOAN_REPAYMENT, and any contract where requiresRelatedEventId = true). */
+  relatedEventId?: string | null;
+
   parties: {
     partyId: string;
     role: PartyRole;

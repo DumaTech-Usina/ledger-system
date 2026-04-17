@@ -72,6 +72,10 @@ export class LedgerEventModel {
   @Column({ name: 'command_id', type: 'varchar', nullable: true, unique: true })
   commandId!: string | null;
 
+  /** ID of the originating event this one relates to (e.g. ADVANCE_SETTLEMENT → ADVANCE_PAYMENT). */
+  @Column({ name: 'related_event_id', type: 'varchar', nullable: true })
+  relatedEventId!: string | null;
+
   // ── Reporter (embedded columns) ────────────────────────────────────────────
 
   @Column({ name: 'reporter_type', type: 'varchar' })

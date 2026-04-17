@@ -70,41 +70,40 @@ export const OBJECT_NATURE_MATRIX: Record<ObjectType, ObjectNature> = {
 export const OBJECT_RELATION_MATRIX: Partial<
   Record<ObjectType, readonly Relation[]>
 > = {
-  [ObjectType.COMMISSION_ENTITLEMENT]: [
-    Relation.ORIGINATES,
-    Relation.ADJUSTS,
-    Relation.SETTLES,
-    Relation.REVERSES,
-  ],
+  // Commission
+  [ObjectType.COMMISSION_ENTITLEMENT]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.COMMISSION_POOL]:        [Relation.ADJUSTS, Relation.REVERSES],
+  [ObjectType.COMMISSION_RECEIVABLE]:  [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.COMMISSION_PAYABLE]:     [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
 
-  [ObjectType.LOAN]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  // Credit
+  [ObjectType.LOAN]:       [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.ADVANCE]:    [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.RECEIVABLE]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.PAYABLE]:    [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
 
-  [ObjectType.ADVANCE]: [
-    Relation.ORIGINATES,
-    Relation.ADJUSTS,
-    Relation.SETTLES,
-    Relation.REVERSES,
-  ],
-
-  [ObjectType.PENALTY]: [
-    Relation.ORIGINATES,
-    Relation.ADJUSTS,
-    Relation.SETTLES,
-    Relation.REVERSES,
-  ],
-
+  // Penalty / risk
+  [ObjectType.PENALTY]:          [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.CHARGEBACK]:       [Relation.ORIGINATES, Relation.SETTLES, Relation.REVERSES],
   [ObjectType.CONTINGENT_CLAIM]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.REVERSES],
+  [ObjectType.DISPUTE]:          [Relation.ORIGINATES, Relation.SETTLES, Relation.REVERSES],
 
-  [ObjectType.INCENTIVE]: [
-    Relation.ORIGINATES,
-    Relation.ADJUSTS,
-    Relation.SETTLES,
-    Relation.REVERSES,
-  ],
+  // Incentive
+  [ObjectType.INCENTIVE]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.BONUS]:     [Relation.ORIGINATES, Relation.SETTLES],
 
-  [ObjectType.COMMISSION_POOL]: [Relation.ADJUSTS, Relation.REVERSES],
+  // Operational costs
+  [ObjectType.PAYROLL]:             [Relation.SETTLES],
+  [ObjectType.SERVICE_FEE]:         [Relation.SETTLES],
+  [ObjectType.INFRASTRUCTURE_COST]: [Relation.SETTLES],
+  [ObjectType.TAX]:                 [Relation.SETTLES],
 
-  [ObjectType.CONTRACT]: [],
+  // Contextual objects — only REFERENCES is valid; enforced by step 9 in InvariantPolicy
+  [ObjectType.CONTRACT]:         [Relation.REFERENCES],
+  [ObjectType.PROPOSAL]:         [Relation.REFERENCES],
+  [ObjectType.INSTALLMENT]:      [Relation.REFERENCES],
+  [ObjectType.SETTLEMENT_BATCH]: [Relation.REFERENCES],
+  [ObjectType.CAMPAIGN]:         [Relation.REFERENCES],
 };
 
 // ===============================
@@ -140,6 +139,7 @@ export const REASON_EFFECT_MATRIX: Partial<
   [ReasonType.INFRASTRUCTURE_EXPENSE]: [EconomicEffect.CASH_OUT],
   [ReasonType.THIRD_PARTY_PAYMENT]: [EconomicEffect.CASH_OUT],
   [ReasonType.TAX_PAYMENT]: [EconomicEffect.CASH_OUT],
+  [ReasonType.INCENTIVE_PAYMENT]: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH],
 
   // Governança — corrections are always bookkeeping entries (no cash movement)
   [ReasonType.MANUAL_CORRECTION]: [EconomicEffect.NON_CASH],
@@ -182,6 +182,7 @@ export const REASON_RELATION_MATRIX: Partial<
   [ReasonType.INFRASTRUCTURE_EXPENSE]: [Relation.SETTLES],
   [ReasonType.THIRD_PARTY_PAYMENT]: [Relation.ORIGINATES, Relation.SETTLES],
   [ReasonType.TAX_PAYMENT]: [Relation.SETTLES],
+  [ReasonType.INCENTIVE_PAYMENT]: [Relation.ORIGINATES, Relation.SETTLES],
 
   // Governança — corrections fully reverse or partially adjust a prior entry
   [ReasonType.MANUAL_CORRECTION]: [Relation.REVERSES, Relation.ADJUSTS],

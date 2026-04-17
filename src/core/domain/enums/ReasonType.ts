@@ -31,4 +31,5 @@ export enum ReasonType {
   INFRASTRUCTURE_EXPENSE = "infrastructure_expense",
   THIRD_PARTY_PAYMENT = "third_party_payment",
   TAX_PAYMENT = "tax_payment",
+  INCENTIVE_PAYMENT = "incentive_payment",
 }

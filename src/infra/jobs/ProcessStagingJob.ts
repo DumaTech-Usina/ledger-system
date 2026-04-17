@@ -73,6 +73,7 @@ export class ProcessStagingJob {
       sourceReference: record.sourceReference!,
       normalizationVersion: record.normalizationVersion!,
       normalizationWorkerId: record.normalizationWorkerId!,
+      relatedEventId: record.relatedEventId ?? null,
       parties: (record.parties ?? []).map((p) => ({
         partyId: p.partyId!,
         role: p.role as PartyRole,

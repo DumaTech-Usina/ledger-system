@@ -15,6 +15,15 @@ export interface LedgerEventRepository {
 
   existsBySourceReference(sourceReference: string): Promise<boolean>;
 
+  /** All events that reference a given economic object — reconstructs the object's full lifecycle. */
+  findByObjectId(objectId: string): Promise<LedgerEvent[]>;
+
+  /** All events that were directly caused by a given event (via relatedEventId). */
+  findByRelatedEventId(relatedEventId: string): Promise<LedgerEvent[]>;
+
+  /** All events where a given party participated. */
+  findByPartyId(partyId: string): Promise<LedgerEvent[]>;
+
   findAll(): Promise<LedgerEvent[]>;
 
   findPaginated(options: PageOptions): Promise<Page<LedgerEvent>>;

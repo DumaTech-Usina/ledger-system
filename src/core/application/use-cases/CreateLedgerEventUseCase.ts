@@ -40,8 +40,6 @@ export class CreateLedgerEventUseCase {
       command.sourceReference,
     );
 
-    // Always chain to the last registered event. Returns null only for the first
-    // event ever (big bang), which is the only legitimate case for a null previousHash.
     const previousHash: EventHash | null = await this.repository.getLastEventHash();
 
     const parties = command.parties.map(
@@ -92,6 +90,7 @@ export class CreateLedgerEventUseCase {
       normalization,
       previousHash,
       commandId: command.commandId ?? null,
+      relatedEventId: command.relatedEventId ?? null,
 
       parties,
       objects,

@@ -31,6 +31,22 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     return this.store.some((e) => e.source.reference === sourceReference);
   }
 
+  async findByObjectId(objectId: string): Promise<LedgerEvent[]> {
+    return this.store.filter((e) =>
+      e.getObjects().some((o) => o.objectId.value === objectId),
+    );
+  }
+
+  async findByRelatedEventId(relatedEventId: string): Promise<LedgerEvent[]> {
+    return this.store.filter((e) => e.relatedEventId === relatedEventId);
+  }
+
+  async findByPartyId(partyId: string): Promise<LedgerEvent[]> {
+    return this.store.filter((e) =>
+      e.getParties().some((p) => p.partyId.value === partyId),
+    );
+  }
+
   async findAll(): Promise<LedgerEvent[]> {
     return [...this.store];
   }

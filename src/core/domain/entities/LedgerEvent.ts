@@ -1,6 +1,7 @@
 import { EconomicEffect } from "../enums/EconomicEffect";
 import { EventType } from "../enums/EventType";
 import { Direction } from "../enums/Direction";
+import { PartyRole } from "../enums/PartyRole";
 import { EventHash } from "../value-objects/EventHash";
 import { EventId } from "../value-objects/EventId";
 import { Money } from "../value-objects/Money";
@@ -25,6 +26,8 @@ export interface CreateLedgerEventProps {
   normalization: NormalizationMetadata;
   previousHash?: EventHash | null;
   commandId?: string | null;
+  /** ID of the originating event this one relates to (e.g. ADVANCE_SETTLEMENT → ADVANCE_PAYMENT). */
+  relatedEventId?: string | null;
 
   parties: LedgerEventParty[];
   objects: LedgerEventObject[];
@@ -47,6 +50,7 @@ export class LedgerEvent {
     public readonly hash: EventHash,
     public readonly previousHash: EventHash | null,
     public readonly commandId: string | null,
+    public readonly relatedEventId: string | null,
 
     private readonly parties: LedgerEventParty[],
     private readonly objects: LedgerEventObject[],
@@ -73,6 +77,7 @@ export class LedgerEvent {
     hash: EventHash;
     previousHash: EventHash | null;
     commandId: string | null;
+    relatedEventId: string | null;
     parties: LedgerEventParty[];
     objects: LedgerEventObject[];
     reason: EventReason | null;
@@ -92,6 +97,7 @@ export class LedgerEvent {
       props.hash,
       props.previousHash,
       props.commandId,
+      props.relatedEventId,
       props.parties,
       props.objects,
       props.reason,
@@ -122,6 +128,7 @@ export class LedgerEvent {
         workerId: props.normalization.workerId,
       },
       previousHash: props.previousHash?.value ?? null,
+      relatedEventId: props.relatedEventId ?? null,
       parties: props.parties.map((p) => ({
         partyId: p.partyId.value,
         role: p.role,
@@ -162,6 +169,7 @@ export class LedgerEvent {
       hash,
       props.previousHash ?? null,
       props.commandId ?? null,
+      props.relatedEventId ?? null,
       [...props.parties],
       [...props.objects],
       props.reason ?? null,
@@ -191,6 +199,15 @@ export class LedgerEvent {
 
     if (props.objects.length === 0) {
       throw new Error("Event must reference at least one economic object");
+    }
+
+    for (const p of props.parties) {
+      if (p.role === PartyRole.PAYER && p.direction === Direction.IN) {
+        throw new Error(`Party ${p.partyId.value}: PAYER cannot have direction IN`);
+      }
+      if (p.role === PartyRole.PAYEE && p.direction === Direction.OUT) {
+        throw new Error(`Party ${p.partyId.value}: PAYEE cannot have direction OUT`);
+      }
     }
   }
 

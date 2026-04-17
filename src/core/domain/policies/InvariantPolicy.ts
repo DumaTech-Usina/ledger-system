@@ -19,6 +19,15 @@ export class InvariantPolicy {
       throw new Error(`Missing semantic contract for ${props.eventType}`);
     }
 
+    // Separate positional (financial) objects from contextual (annotation) objects.
+    // Contextual objects only carry REFERENCES relation and are validated in step 9.
+    const positionalObjects = props.objects.filter(
+      (o) => OBJECT_NATURE_MATRIX[o.objectType] !== ObjectNature.CONTEXTUAL,
+    );
+    const contextualObjects = props.objects.filter(
+      (o) => OBJECT_NATURE_MATRIX[o.objectType] === ObjectNature.CONTEXTUAL,
+    );
+
     // ===============================
     // 1️⃣ Validate economic effect allowed by contract
     // ===============================
@@ -30,13 +39,14 @@ export class InvariantPolicy {
     }
 
     // ===============================
-    // 2️⃣ Validate economic_effect × relation (formal matrix)
+    // 2️⃣ Validate positional object relations against the effect × relation matrix
+    //    Contextual objects (REFERENCES) are exempt — they annotate, not flow.
     // ===============================
 
     const allowedRelationsByEffect =
       ECONOMIC_EFFECT_RELATION_MATRIX[props.economicEffect];
 
-    for (const obj of props.objects) {
+    for (const obj of positionalObjects) {
       if (!allowedRelationsByEffect.includes(obj.relation)) {
         throw new Error(
           `Relation ${obj.relation} not allowed for economic effect ${props.economicEffect}`,
@@ -61,7 +71,30 @@ export class InvariantPolicy {
     }
 
     // ===============================
-    // 4️⃣ Validate reason existence if required
+    // 4️⃣ Validate allowed object types and their relations against the contract
+    //    Every positional object must be declared in the contract's objects list.
+    // ===============================
+
+    for (const obj of positionalObjects) {
+      const contractEntry = contract.objects.find(
+        (c) => c.objectType === obj.objectType,
+      );
+
+      if (!contractEntry) {
+        throw new Error(
+          `Object type ${obj.objectType} not allowed for event type ${props.eventType}`,
+        );
+      }
+
+      if (!contractEntry.relations.includes(obj.relation)) {
+        throw new Error(
+          `Relation ${obj.relation} not allowed for object ${obj.objectType} on event type ${props.eventType}`,
+        );
+      }
+    }
+
+    // ===============================
+    // 5️⃣ Validate reason existence if required
     // ===============================
 
     if (contract.reasons) {
@@ -77,7 +110,7 @@ export class InvariantPolicy {
     }
 
     // ===============================
-    // 5️⃣ Validate reason × economic_effect
+    // 6️⃣ Validate reason × economic_effect
     // ===============================
 
     if (props.reason) {
@@ -93,14 +126,14 @@ export class InvariantPolicy {
     }
 
     // ===============================
-    // 6️⃣ Validate reason × relation
+    // 7️⃣ Validate reason × relation
     // ===============================
 
     if (props.reason) {
       const allowedRelations = REASON_RELATION_MATRIX[props.reason.type];
 
       if (allowedRelations) {
-        for (const obj of props.objects) {
+        for (const obj of positionalObjects) {
           if (!allowedRelations.includes(obj.relation)) {
             throw new Error(
               `Reason ${props.reason.type} incompatible with relation ${obj.relation}`,
@@ -111,7 +144,7 @@ export class InvariantPolicy {
     }
 
     // ===============================
-    // 7️⃣ Confidence hierarchy validation
+    // 8️⃣ Confidence hierarchy validation
     // ===============================
 
     if (contract.minConfidence && props.reason) {
@@ -129,10 +162,10 @@ export class InvariantPolicy {
     }
 
     // ===============================
-    // 8️⃣ Enforce previousHash for reversals and contract-mandated links
+    // 9️⃣ Enforce previousHash for reversals and contract-mandated links
     // ===============================
 
-    const hasReverse = props.objects.some(
+    const hasReverse = positionalObjects.some(
       (o) => o.relation === Relation.REVERSES,
     );
 
@@ -147,18 +180,24 @@ export class InvariantPolicy {
     }
 
     // ===============================
-    // 9️⃣ Structural dependency validation
+    // 🔟 Enforce relatedEventId for events that must link to an origin
     // ===============================
 
-    for (const obj of props.objects) {
-      const nature = OBJECT_NATURE_MATRIX[obj.objectType];
+    if (contract.requiresRelatedEventId && !props.relatedEventId) {
+      throw new Error(
+        `Event type ${props.eventType} requires relatedEventId pointing to its originating event`,
+      );
+    }
 
-      if (nature === ObjectNature.CONTEXTUAL) {
-        if (obj.relation !== Relation.REFERENCES) {
-          throw new Error(
-            `Contextual object ${obj.objectType} must use relation REFERENCES`,
-          );
-        }
+    // ===============================
+    // 1️⃣1️⃣ Contextual objects must use REFERENCES
+    // ===============================
+
+    for (const obj of contextualObjects) {
+      if (obj.relation !== Relation.REFERENCES) {
+        throw new Error(
+          `Contextual object ${obj.objectType} must use relation REFERENCES`,
+        );
       }
     }
   }

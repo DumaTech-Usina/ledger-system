@@ -185,8 +185,8 @@ describe("InvariantPolicy.validateSemantic", () => {
   // Step 9 — CONTEXTUAL objects must use REFERENCES
   // ============================
   it("throws when a CONTEXTUAL object does not use REFERENCES relation", () => {
-    // PROPOSAL is CONTEXTUAL; using SETTLES instead of REFERENCES should throw
-    // Setup: ADVANCE_PAYMENT + NON_CASH + PROPOSAL + SETTLES
+    // PROPOSAL is CONTEXTUAL; using SETTLES instead of REFERENCES should throw.
+    // Step 3 (OBJECT_RELATION_MATRIX) now catches this before step 11.
     const props = makeValidProps({
       eventType: EventType.ADVANCE_PAYMENT,
       economicEffect: EconomicEffect.NON_CASH,
@@ -194,7 +194,7 @@ describe("InvariantPolicy.validateSemantic", () => {
       reason: reason(ReasonType.ADVANCE_PAYMENT, ConfidenceLevel.HIGH),
     });
     expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
-      "must use relation REFERENCES",
+      "not allowed for object proposal",
     );
   });
 
@@ -206,7 +206,7 @@ describe("InvariantPolicy.validateSemantic", () => {
       reason: reason(ReasonType.ADVANCE_PAYMENT, ConfidenceLevel.HIGH),
     });
     expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
-      "must use relation REFERENCES",
+      "not allowed for object proposal",
     );
   });
 
@@ -283,11 +283,12 @@ describe("InvariantPolicy.validateSemantic", () => {
       );
     });
 
-    it("throws when reason is MANUAL_CORRECTION but relation is ORIGINATES", () => {
+    it("throws when relation is ORIGINATES (not allowed in correction contract)", () => {
+      // Step 4 (contract objects check) now fires before the reason×relation matrix check.
       const props = validCorrectionProps();
       props.objects = [obj(ObjectType.COMMISSION_RECEIVABLE, Relation.ORIGINATES)];
       expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
-        "incompatible with relation",
+        "not allowed for object commission_receivable on event type ledger_correction",
       );
     });
   });
