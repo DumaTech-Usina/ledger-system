@@ -13,8 +13,15 @@ export class MongoStagingRepository implements StagingRepository {
     this.collection = db.collection<StagingRecordDocument>(COLLECTION);
   }
 
-  async fetchPendingRecords(): Promise<StagingRecord[]> {
-    const docs = await this.collection.find({ status: 'pending' }).toArray();
+  async claimPendingRecords(limit = 100): Promise<StagingRecord[]> {
+    const docs = await this.collection
+      .find({ status: 'pending' })
+      .limit(limit)
+      .toArray();
+    const ids = docs.map((d) => d._id);
+    if (ids.length > 0) {
+      await this.collection.updateMany({ _id: { $in: ids } }, { $set: { status: 'processing' } });
+    }
     return docs.map((doc) => this.toDto(doc));
   }
 

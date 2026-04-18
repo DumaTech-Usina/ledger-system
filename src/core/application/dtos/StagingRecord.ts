@@ -20,6 +20,7 @@ export interface StagingRecord {
   normalizationWorkerId?: string;
 
   relatedEventId?: string | null;
+  previousHash?: string | null;
 
   parties?: Array<{
     partyId?: string;
