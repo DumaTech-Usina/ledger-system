@@ -126,9 +126,10 @@ describe("REASON_EFFECT_MATRIX", () => {
     ]);
   });
 
-  it("COMMISSION_SPLIT is restricted to CASH_INTERNAL", () => {
+  it("COMMISSION_SPLIT allows CASH_INTERNAL and CASH_OUT", () => {
     expect(REASON_EFFECT_MATRIX[ReasonType.COMMISSION_SPLIT]).toEqual([
       EconomicEffect.CASH_INTERNAL,
+      EconomicEffect.CASH_OUT,
     ]);
   });
 
@@ -190,9 +191,11 @@ describe("REASON_RELATION_MATRIX", () => {
     ]);
   });
 
-  it("COMMISSION_SPLIT is restricted to ADJUSTS", () => {
+  it("COMMISSION_SPLIT allows ADJUSTS, SETTLES, and ORIGINATES", () => {
     expect(REASON_RELATION_MATRIX[ReasonType.COMMISSION_SPLIT]).toEqual([
       Relation.ADJUSTS,
+      Relation.SETTLES,
+      Relation.ORIGINATES,
     ]);
   });
 

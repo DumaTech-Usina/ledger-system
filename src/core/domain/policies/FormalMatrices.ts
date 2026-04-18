@@ -115,8 +115,10 @@ export const REASON_EFFECT_MATRIX: Partial<
 > = {
   // Comissão
   [ReasonType.COMMISSION_PAYMENT]: [EconomicEffect.CASH_IN],
-  [ReasonType.DIRECT_COMMISSION_PAYMENT_AUTHORIZED]: [EconomicEffect.CASH_IN],
-  [ReasonType.COMMISSION_SPLIT]: [EconomicEffect.CASH_INTERNAL],
+  // CASH_IN when Usina records the receipt; NON_CASH when acknowledging operator paid broker directly
+  [ReasonType.DIRECT_COMMISSION_PAYMENT_AUTHORIZED]: [EconomicEffect.CASH_IN, EconomicEffect.NON_CASH],
+  // CASH_INTERNAL: pool reallocation between Usina accounts; CASH_OUT: actual distribution to broker
+  [ReasonType.COMMISSION_SPLIT]: [EconomicEffect.CASH_INTERNAL, EconomicEffect.CASH_OUT],
   [ReasonType.LATE_IDENTIFIED_COMMISSION]: [EconomicEffect.NON_CASH],
   [ReasonType.COMMISSION_WAIVER]: [EconomicEffect.NON_CASH],
 
@@ -124,7 +126,8 @@ export const REASON_EFFECT_MATRIX: Partial<
   [ReasonType.LOAN_ORIGINATION]: [EconomicEffect.CASH_OUT],
   [ReasonType.LOAN_REPAYMENT]: [EconomicEffect.CASH_IN],
   [ReasonType.LOAN_REPAYMENT_VIA_COMMISSION]: [EconomicEffect.NON_CASH, EconomicEffect.CASH_INTERNAL],
-  [ReasonType.ADVANCE_PAYMENT]: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH],
+  // CASH_OUT: advance disbursement; NON_CASH: offset via commission; CASH_IN: cash recovery
+  [ReasonType.ADVANCE_PAYMENT]: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH, EconomicEffect.CASH_IN],
   [ReasonType.DEBT_RESTRUCTURING]: [EconomicEffect.NON_CASH],
 
   // Penalidade
@@ -159,14 +162,15 @@ export const REASON_RELATION_MATRIX: Partial<
   // Comissão
   [ReasonType.COMMISSION_PAYMENT]: [Relation.SETTLES],
   [ReasonType.DIRECT_COMMISSION_PAYMENT_AUTHORIZED]: [Relation.SETTLES],
-  [ReasonType.COMMISSION_SPLIT]: [Relation.ADJUSTS],
+  // ADJUSTS for pool redistribution; SETTLES/ORIGINATES when paying out commission payables
+  [ReasonType.COMMISSION_SPLIT]: [Relation.ADJUSTS, Relation.SETTLES, Relation.ORIGINATES],
   [ReasonType.LATE_IDENTIFIED_COMMISSION]: [Relation.ORIGINATES, Relation.ADJUSTS],
   [ReasonType.COMMISSION_WAIVER]: [Relation.SETTLES, Relation.REVERSES],
 
   // Crédito
   [ReasonType.LOAN_ORIGINATION]: [Relation.ORIGINATES],
   [ReasonType.LOAN_REPAYMENT]: [Relation.SETTLES],
-  [ReasonType.LOAN_REPAYMENT_VIA_COMMISSION]: [Relation.SETTLES],
+  [ReasonType.LOAN_REPAYMENT_VIA_COMMISSION]: [Relation.SETTLES, Relation.ADJUSTS],
   [ReasonType.ADVANCE_PAYMENT]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES],
   [ReasonType.DEBT_RESTRUCTURING]: [Relation.ADJUSTS],
 
