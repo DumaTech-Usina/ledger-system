@@ -52,6 +52,12 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   }
 
   async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {
-    return paginate([...this.store], options);
+    let items = [...this.store];
+    if (options.sortBy) {
+      const key = options.sortBy;
+      const order = options.sortOrder === 'DESC' ? -1 : 1;
+      items.sort((a, b) => order * (a[key].getTime() - b[key].getTime()));
+    }
+    return paginate(items, options);
   }
 }

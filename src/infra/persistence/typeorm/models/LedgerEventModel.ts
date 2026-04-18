@@ -1,6 +1,7 @@
 import {
   Column,
   Entity,
+  Index,
   OneToMany,
   PrimaryColumn,
 } from 'typeorm';
@@ -27,9 +28,11 @@ export class LedgerEventModel {
   @Column({ name: 'economic_effect', type: 'varchar' })
   economicEffect!: string;
 
+  @Index()
   @Column({ name: 'occurred_at', type: 'timestamptz' })
   occurredAt!: Date;
 
+  @Index()
   @Column({ name: 'recorded_at', type: 'timestamptz' })
   recordedAt!: Date;
 

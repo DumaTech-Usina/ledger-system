@@ -100,10 +100,13 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
 
   async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {
     const offset = (options.page - 1) * options.limit;
+    const sortCol: keyof LedgerEventModel =
+      options.sortBy === 'occurredAt' ? 'occurredAt' : 'recordedAt';
+    const sortDir = options.sortOrder ?? 'ASC';
     const [rows, total] = await this.repo.findAndCount({
       skip: offset,
       take: options.limit,
-      order: { recordedAt: 'ASC' },
+      order: { [sortCol]: sortDir },
     });
     const totalPages = Math.ceil(total / options.limit) || 1;
     return {

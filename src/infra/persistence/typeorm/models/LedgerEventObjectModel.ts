@@ -1,6 +1,7 @@
 import {
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -21,6 +22,7 @@ export class LedgerEventObjectModel {
   @JoinColumn({ name: 'event_id' })
   event!: LedgerEventModel;
 
+  @Index()
   @Column({ name: 'object_id', type: 'varchar' })
   objectId!: string;
 
