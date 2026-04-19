@@ -98,6 +98,15 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     return rows.map((row) => this.toEntity(row));
   }
 
+  async findAllObjectIds(): Promise<string[]> {
+    const rows = await this.repo.manager
+      .getRepository(LedgerEventObjectModel)
+      .createQueryBuilder('o')
+      .select('DISTINCT o.objectId', 'objectId')
+      .getRawMany<{ objectId: string }>();
+    return rows.map((r) => r.objectId);
+  }
+
   async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {
     const offset = (options.page - 1) * options.limit;
     const sortCol: keyof LedgerEventModel =
