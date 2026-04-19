@@ -54,6 +54,16 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     return [...this.store];
   }
 
+  async findAllObjectIds(): Promise<string[]> {
+    const ids = new Set<string>();
+    for (const event of this.store) {
+      for (const obj of event.getObjects()) {
+        ids.add(obj.objectId.value);
+      }
+    }
+    return [...ids];
+  }
+
   async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {
     let items = [...this.store];
     if (options.sortBy) {

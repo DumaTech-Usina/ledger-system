@@ -27,4 +27,7 @@ export interface LedgerEventRepository {
   findAll(): Promise<LedgerEvent[]>;
 
   findPaginated(options: PageOptions): Promise<Page<LedgerEvent>>;
+
+  /** Deduplicated set of all objectIds that appear across every event in the store. */
+  findAllObjectIds(): Promise<string[]>;
 }
