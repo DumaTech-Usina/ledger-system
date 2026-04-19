@@ -34,4 +34,12 @@ export enum EventType {
    * must be recorded as a separate domain event.
    */
   LEDGER_CORRECTION = "ledger_correction",
+
+  /**
+   * Records the expected (accrued) amount of a commission before cash arrives.
+   * NON_CASH — no money moves; this is a bookkeeping entry that ORIGINATES a
+   * COMMISSION_RECEIVABLE so subsequent commission_received events can be
+   * reconciled against a known expected amount.
+   */
+  COMMISSION_EXPECTED = "commission_expected",
 }

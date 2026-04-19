@@ -60,8 +60,11 @@ export class PositionProjectionService {
 
     let totalOriginated = Money.zero(currency);
     let totalSettled = Money.zero(currency);
+    let totalAdjusted = Money.zero(currency);
     let cashRecovered = Money.zero(currency);
     let nonCashClosed = Money.zero(currency);
+    let refCashIn = Money.zero(currency);
+    let refCashOut = Money.zero(currency);
     let hasReversal = false;
 
     for (const event of events) {
@@ -82,29 +85,56 @@ export class PositionProjectionService {
             }
             break;
 
+          case Relation.ADJUSTS:
+            totalAdjusted = totalAdjusted.add(event.amount);
+            break;
+
           case Relation.REVERSES:
             hasReversal = true;
+            break;
+
+          case Relation.REFERENCES:
+            if (event.economicEffect === EconomicEffect.CASH_IN) {
+              refCashIn = refCashIn.add(event.amount);
+            } else if (event.economicEffect === EconomicEffect.CASH_OUT) {
+              refCashOut = refCashOut.add(event.amount);
+            }
             break;
         }
       }
     }
 
-    const openBalance =
-      totalSettled.toUnits() >= totalOriginated.toUnits()
-        ? Money.zero(currency)
-        : totalOriginated.subtract(totalSettled);
+    const totalClosed = totalSettled.add(totalAdjusted);
 
-    const status = this.deriveStatus(totalOriginated, totalSettled, hasReversal);
-    const outcome = this.deriveOutcome(status, cashRecovered, nonCashClosed, totalOriginated);
+    const openBalance =
+      totalClosed.toUnits() >= totalOriginated.toUnits()
+        ? Money.zero(currency)
+        : totalOriginated.subtract(totalClosed);
+
+    const overSettlement =
+      totalOriginated.isZero() || totalClosed.toUnits() <= totalOriginated.toUnits()
+        ? Money.zero(currency)
+        : totalClosed.subtract(totalOriginated);
+
+    const allocationGap =
+      refCashIn.toUnits() <= refCashOut.toUnits()
+        ? Money.zero(currency)
+        : refCashIn.subtract(refCashOut);
+
+    const status = this.deriveStatus(totalOriginated, totalClosed, hasReversal);
+    const outcome = this.deriveOutcome(status, cashRecovered, nonCashClosed);
 
     return {
       objectId,
       status,
       totalOriginated,
       totalSettled,
+      totalAdjusted,
       openBalance,
+      overSettlement,
       cashRecovered,
       nonCashClosed,
+      allocationGap,
       outcome,
       eventCount: events.length,
       events,
@@ -113,13 +143,13 @@ export class PositionProjectionService {
 
   private deriveStatus(
     originated: Money,
-    settled: Money,
+    totalClosed: Money,
     hasReversal: boolean,
   ): PositionStatus {
     if (hasReversal) return "reversed";
     if (originated.isZero()) return "open";
-    if (settled.toUnits() >= originated.toUnits()) return "fully_settled";
-    if (!settled.isZero()) return "partially_settled";
+    if (totalClosed.toUnits() >= originated.toUnits()) return "fully_settled";
+    if (!totalClosed.isZero()) return "partially_settled";
     return "open";
   }
 
@@ -127,7 +157,6 @@ export class PositionProjectionService {
     status: PositionStatus,
     cashRecovered: Money,
     nonCashClosed: Money,
-    totalOriginated: Money,
   ): EconomicOutcome {
     if (status === "reversed") return "cancelled";
     if (status === "open" || status === "partially_settled") return "pending";

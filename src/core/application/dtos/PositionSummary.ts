@@ -25,12 +25,22 @@ export interface PositionSummary {
   totalOriginated: Money;
   /** Sum of amounts from all SETTLES events (any economic effect). */
   totalSettled: Money;
-  /** Remaining: totalOriginated − totalSettled. Zero when fully settled or reversed. */
+  /** Sum of amounts from all ADJUSTS events (e.g. partial repayments via commission netting). */
+  totalAdjusted: Money;
+  /** Remaining: totalOriginated − (totalSettled + totalAdjusted). Zero when fully closed. */
   openBalance: Money;
+  /** Amount by which (totalSettled + totalAdjusted) exceeds totalOriginated. Zero when within bounds. */
+  overSettlement: Money;
   /** SETTLES events with CASH_IN effect — actual money returned. */
   cashRecovered: Money;
   /** SETTLES events with NON_CASH effect — written off or debt-renegotiated amounts. */
   nonCashClosed: Money;
+  /**
+   * For contextual objects (SETTLEMENT_BATCH): cash received (CASH_IN) minus cash distributed
+   * (CASH_OUT). Positive value means unallocated cash is sitting in the batch. Zero when fully
+   * allocated or when the object is not a correlation anchor for cash flows.
+   */
+  allocationGap: Money;
   outcome: EconomicOutcome;
   eventCount: number;
   events: readonly LedgerEvent[];

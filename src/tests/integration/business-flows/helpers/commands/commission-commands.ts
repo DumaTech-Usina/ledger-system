@@ -9,6 +9,31 @@ import { ReasonType } from "../../../../../core/domain/enums/ReasonType";
 import { Relation } from "../../../../../core/domain/enums/Relation";
 import { BROKER, TAX_AUTH, USINA, reporter } from "../parties";
 
+export const commissionExpected = (
+  ref: (label: string) => string,
+  objectId: string,
+  amount = "1000.00",
+): CreateLedgerEventCommand => ({
+  eventType: EventType.COMMISSION_EXPECTED,
+  economicEffect: EconomicEffect.NON_CASH,
+  occurredAt: new Date("2025-02-28"),
+  amount,
+  currency: "BRL",
+  sourceSystem: "normalizer",
+  sourceReference: ref("com-expected"),
+  normalizationVersion: "1.0",
+  normalizationWorkerId: "worker-test",
+  parties: [{ partyId: USINA, role: PartyRole.BENEFICIARY, direction: Direction.NEUTRAL }],
+  objects: [{ objectId, objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.ORIGINATES }],
+  reason: {
+    type: ReasonType.LATE_IDENTIFIED_COMMISSION,
+    description: "accrual of expected commission",
+    confidence: ConfidenceLevel.MEDIUM,
+    requiresFollowup: false,
+  },
+  reporter: reporter(),
+});
+
 export const commissionReceived = (
   ref: (label: string) => string,
   objectId: string,

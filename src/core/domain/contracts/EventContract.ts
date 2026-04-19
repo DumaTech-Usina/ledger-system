@@ -303,4 +303,24 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     minConfidence: ConfidenceLevel.HIGH,
     requiresPreviousHash: true,
   },
+
+  /**
+   * Accrual entry: records the amount Usina expects to receive for a commission
+   * before the cash actually arrives. Establishes the baseline so that a later
+   * commission_received can be compared and a discrepancy (or over-settlement)
+   * detected via PositionProjectionService.
+   */
+  [EventType.COMMISSION_EXPECTED]: {
+    economicEffects: [EconomicEffect.NON_CASH],
+
+    objects: [
+      {
+        objectType: ObjectType.COMMISSION_RECEIVABLE,
+        relations: [Relation.ORIGINATES],
+      },
+    ],
+
+    reasons: [ReasonType.COMMISSION_PAYMENT, ReasonType.LATE_IDENTIFIED_COMMISSION],
+    minConfidence: ConfidenceLevel.MEDIUM,
+  },
 };
