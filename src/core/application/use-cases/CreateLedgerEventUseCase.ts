@@ -3,6 +3,8 @@ import { EventReporter } from "../../domain/entities/EventReporter";
 import { LedgerEventObject } from "../../domain/entities/LedgerEconomicObject";
 import { LedgerEvent } from "../../domain/entities/LedgerEvent";
 import { LedgerEventParty } from "../../domain/entities/LedgerEventParty";
+import { EVENT_CONTRACTS } from "../../domain/contracts/EventContract";
+import { Relation } from "../../domain/enums/Relation";
 import { EventHash } from "../../domain/value-objects/EventHash";
 import { EventId } from "../../domain/value-objects/EventId";
 import { Money } from "../../domain/value-objects/Money";
@@ -26,9 +28,49 @@ export class CreateLedgerEventUseCase {
       if (existing) return existing;
     }
 
+    // Pillar 8 — idempotency: source reference must be unique across the ledger
+    if (await this.repository.existsBySourceReference(command.sourceReference)) {
+      throw new Error(`Duplicate source reference: ${command.sourceReference}`);
+    }
+
     const id = new EventId(crypto.randomUUID());
 
     const money = Money.fromDecimal(command.amount, command.currency);
+
+    // Pillar 10 — entity identity: validate relatedEventId existence and type
+    // Pillar 1  — conservation: enforce over-settlement guard
+    const contract = EVENT_CONTRACTS[command.eventType];
+    let originEvent: LedgerEvent | null = null;
+
+    if (command.relatedEventId) {
+      originEvent = await this.repository.getById(command.relatedEventId);
+
+      if (!originEvent) {
+        throw new Error(`Origin event not found: ${command.relatedEventId}`);
+      }
+
+      if (contract?.allowedOriginTypes && !contract.allowedOriginTypes.includes(originEvent.eventType)) {
+        throw new Error(
+          `relatedEventId must point to a ${contract.allowedOriginTypes.join(" or ")} event, ` +
+          `but found ${originEvent.eventType}`,
+        );
+      }
+    }
+
+    const hasSettlesRelation = command.objects.some((o) => o.relation === Relation.SETTLES);
+
+    if (originEvent && hasSettlesRelation) {
+      const existing = await this.repository.findByRelatedEventId(command.relatedEventId!);
+      const alreadySettled = existing
+        .filter((e) => e.getObjects().some((o) => o.relation === Relation.SETTLES))
+        .reduce((acc, e) => acc + e.amount.toUnits(), 0n);
+
+      if (alreadySettled + money.toUnits() > originEvent.amount.toUnits()) {
+        throw new Error(
+          `Over-settlement: total settled would exceed origin amount of ${originEvent.amount.toString()}`,
+        );
+      }
+    }
 
     const normalization = new NormalizationMetadata(
       command.normalizationVersion,

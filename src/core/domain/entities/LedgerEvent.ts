@@ -219,6 +219,7 @@ export class LedgerEvent {
 
     let totalIn = Money.zero(currency);
     let totalOut = Money.zero(currency);
+    let totalNeutral = Money.zero(currency);
 
     for (const p of props.parties) {
       if (!p.amount) continue;
@@ -237,7 +238,7 @@ export class LedgerEvent {
           break;
 
         case Direction.NEUTRAL:
-          // Neutral não participa de fluxo financeiro
+          totalNeutral = totalNeutral.add(p.amount);
           break;
       }
     }
@@ -302,6 +303,15 @@ export class LedgerEvent {
 
         break;
       }
+    }
+
+    // Neutral parties that carry amounts must fully account for all directional cash flow.
+    // Prevents silent allocation gaps in splits and receipts.
+    const totalDirectional = totalIn.isZero() ? totalOut : totalIn;
+    if (!totalNeutral.isZero() && !totalDirectional.isZero() && !totalNeutral.equals(totalDirectional)) {
+      throw new Error(
+        "Allocated amounts (neutral parties) must account for all directional cash flow",
+      );
     }
   }
 

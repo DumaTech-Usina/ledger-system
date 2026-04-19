@@ -8,6 +8,7 @@ import { InMemoryLedgerEventRepository } from "../../../infra/persistence/ledger
 import { InMemoryRejectedEventRepository } from "../../../infra/persistence/rejected/InMemoryRejectedEventRepository";
 import { InMemoryStagingRepository } from "../../../infra/persistence/staging/InMemoryStagingRepository";
 import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";
+import { EventId } from "../../../core/domain/value-objects/EventId";
 import { makeValidProps, makeValidStagingRecord } from "../../fixtures";
 
 // ============================
@@ -97,7 +98,10 @@ describe("InMemoryLedgerEventRepository.findPaginated", () => {
     const repo = new InMemoryLedgerEventRepository();
     for (let i = 0; i < count; i++) {
       const event = LedgerEvent.create(
-        makeValidProps({ source: { system: "normalizer", reference: `ref-${i}` } as any }),
+        makeValidProps({
+          id: new EventId(`evt-page-${i}`),
+          source: { system: "normalizer", reference: `ref-${i}` } as any,
+        }),
       );
       repo.save(event);
     }

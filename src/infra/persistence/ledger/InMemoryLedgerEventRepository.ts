@@ -7,6 +7,9 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   private readonly store: LedgerEvent[] = [];
 
   async save(event: LedgerEvent): Promise<void> {
+    if (this.store.some((e) => e.id.value === event.id.value)) {
+      throw new Error(`Immutability violation: event ${event.id.value} already exists in the ledger`);
+    }
     this.store.push(event);
   }
 

@@ -12,8 +12,14 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     economicEffects: [EconomicEffect.CASH_OUT, EconomicEffect.CASH_INTERNAL],
 
     objects: [
-      { objectType: ObjectType.COMMISSION_POOL,    relations: [Relation.ADJUSTS, Relation.SETTLES] },
-      { objectType: ObjectType.COMMISSION_PAYABLE, relations: [Relation.ORIGINATES, Relation.SETTLES] },
+      {
+        objectType: ObjectType.COMMISSION_POOL,
+        relations: [Relation.ADJUSTS, Relation.SETTLES],
+      },
+      {
+        objectType: ObjectType.COMMISSION_PAYABLE,
+        relations: [Relation.ORIGINATES, Relation.SETTLES],
+      },
     ],
 
     reasons: [ReasonType.COMMISSION_SPLIT],
@@ -111,16 +117,20 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     economicEffects: [EconomicEffect.CASH_IN, EconomicEffect.NON_CASH],
 
     objects: [
-      { objectType: ObjectType.ADVANCE, relations: [Relation.SETTLES, Relation.ADJUSTS] },
+      {
+        objectType: ObjectType.ADVANCE,
+        relations: [Relation.SETTLES, Relation.ADJUSTS],
+      },
     ],
 
     reasons: [
-      ReasonType.ADVANCE_PAYMENT,      // full or partial recovery
-      ReasonType.LOSS_RECOGNITION,     // realized loss on unrecovered advance
-      ReasonType.DEBT_RESTRUCTURING,   // renegotiation / deferral
+      ReasonType.ADVANCE_PAYMENT, // full or partial recovery
+      ReasonType.LOSS_RECOGNITION, // realized loss on unrecovered advance
+      ReasonType.DEBT_RESTRUCTURING, // renegotiation / deferral
     ],
 
     requiresRelatedEventId: true,
+    allowedOriginTypes: [EventType.ADVANCE_PAYMENT],
   },
 
   /** Usina disburses a loan to a broker. Creates a LOAN receivable in the ledger. */
@@ -142,7 +152,10 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     economicEffects: [EconomicEffect.CASH_IN, EconomicEffect.NON_CASH],
 
     objects: [
-      { objectType: ObjectType.LOAN, relations: [Relation.SETTLES, Relation.ADJUSTS] },
+      {
+        objectType: ObjectType.LOAN,
+        relations: [Relation.SETTLES, Relation.ADJUSTS],
+      },
     ],
 
     reasons: [
@@ -152,6 +165,7 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     ],
 
     requiresRelatedEventId: true,
+    allowedOriginTypes: [EventType.LOAN_ORIGINATION],
   },
 
   /**
@@ -163,8 +177,14 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     economicEffects: [EconomicEffect.NON_CASH],
 
     objects: [
-      { objectType: ObjectType.COMMISSION_RECEIVABLE,  relations: [Relation.SETTLES] },
-      { objectType: ObjectType.COMMISSION_ENTITLEMENT, relations: [Relation.SETTLES] },
+      {
+        objectType: ObjectType.COMMISSION_RECEIVABLE,
+        relations: [Relation.SETTLES],
+      },
+      {
+        objectType: ObjectType.COMMISSION_ENTITLEMENT,
+        relations: [Relation.SETTLES],
+      },
     ],
 
     reasons: [
@@ -178,8 +198,14 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     economicEffects: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH],
 
     objects: [
-      { objectType: ObjectType.INCENTIVE, relations: [Relation.ORIGINATES, Relation.SETTLES] },
-      { objectType: ObjectType.BONUS,     relations: [Relation.ORIGINATES, Relation.SETTLES] },
+      {
+        objectType: ObjectType.INCENTIVE,
+        relations: [Relation.ORIGINATES, Relation.SETTLES],
+      },
+      {
+        objectType: ObjectType.BONUS,
+        relations: [Relation.ORIGINATES, Relation.SETTLES],
+      },
     ],
 
     reasons: [ReasonType.INCENTIVE_PAYMENT],
@@ -202,22 +228,70 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     economicEffects: [EconomicEffect.NON_CASH],
 
     objects: [
-      { objectType: ObjectType.COMMISSION_RECEIVABLE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.COMMISSION_PAYABLE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.COMMISSION_ENTITLEMENT, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.COMMISSION_POOL, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.LOAN, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.ADVANCE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.RECEIVABLE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.PAYABLE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.PENALTY, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.CHARGEBACK, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.INCENTIVE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.BONUS, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.PAYROLL, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.SERVICE_FEE, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.INFRASTRUCTURE_COST, relations: [Relation.REVERSES, Relation.ADJUSTS] },
-      { objectType: ObjectType.TAX, relations: [Relation.REVERSES, Relation.ADJUSTS] },
+      {
+        objectType: ObjectType.COMMISSION_RECEIVABLE,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.COMMISSION_PAYABLE,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.COMMISSION_ENTITLEMENT,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.COMMISSION_POOL,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.LOAN,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.ADVANCE,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.RECEIVABLE,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.PAYABLE,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.PENALTY,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.CHARGEBACK,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.INCENTIVE,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.BONUS,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.PAYROLL,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.SERVICE_FEE,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.INFRASTRUCTURE_COST,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
+      {
+        objectType: ObjectType.TAX,
+        relations: [Relation.REVERSES, Relation.ADJUSTS],
+      },
     ],
 
     reasons: [
