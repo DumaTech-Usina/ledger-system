@@ -9,7 +9,7 @@ import {
   PositionSummary,
 } from "../dtos/PositionSummary";
 import { Page } from "../dtos/Pagination";
-import { PositionAggregateOptions, PositionListItem } from "../dtos/PositionAggregate";
+import { PositionAggregate, PositionAggregateOptions, PositionListItem } from "../dtos/PositionAggregate";
 
 export class PositionProjectionService {
   /** Default objectId batch size when iterating all positions. Tune via constructor. */
@@ -46,9 +46,57 @@ export class PositionProjectionService {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async summarizePaginated(_options: PositionAggregateOptions): Promise<Page<PositionListItem>> {
-    throw new Error("PositionProjectionService.summarizePaginated: not implemented");
+  async summarizePaginated(options: PositionAggregateOptions): Promise<Page<PositionListItem>> {
+    const page = await this.repo.findPositionAggregates(options);
+    return { ...page, data: page.data.map((agg) => this.aggregateToListItem(agg)) };
+  }
+
+  private aggregateToListItem(agg: PositionAggregate): PositionListItem {
+    const { currency } = agg;
+    const totalOriginated = Money.fromUnits(agg.totalOriginatedUnits, currency);
+    const totalSettled    = Money.fromUnits(agg.totalSettledUnits, currency);
+    const totalAdjusted   = Money.fromUnits(agg.totalAdjustedUnits, currency);
+    const cashRecovered   = Money.fromUnits(agg.cashRecoveredUnits, currency);
+    const nonCashClosed   = Money.fromUnits(agg.nonCashClosedUnits, currency);
+    const refCashIn       = Money.fromUnits(agg.refCashInUnits, currency);
+    const refCashOut      = Money.fromUnits(agg.refCashOutUnits, currency);
+
+    const totalClosed = totalSettled.add(totalAdjusted);
+
+    const openBalance =
+      totalClosed.toUnits() >= totalOriginated.toUnits()
+        ? Money.zero(currency)
+        : totalOriginated.subtract(totalClosed);
+
+    const overSettlement =
+      totalOriginated.isZero() || totalClosed.toUnits() <= totalOriginated.toUnits()
+        ? Money.zero(currency)
+        : totalClosed.subtract(totalOriginated);
+
+    const allocationGap =
+      refCashIn.toUnits() <= refCashOut.toUnits()
+        ? Money.zero(currency)
+        : refCashIn.subtract(refCashOut);
+
+    const status  = this.deriveStatus(totalOriginated, totalClosed, agg.hasReversal);
+    const outcome = this.deriveOutcome(status, cashRecovered, nonCashClosed);
+
+    return {
+      objectId:        agg.objectId,
+      objectType:      agg.objectType,
+      status,
+      outcome,
+      totalOriginated,
+      totalSettled,
+      totalAdjusted,
+      openBalance,
+      overSettlement,
+      cashRecovered,
+      nonCashClosed,
+      allocationGap,
+      eventCount:      agg.eventCount,
+      lastEventAt:     agg.lastEventAt,
+    };
   }
 
   /** Collects all positions into an array. Prefer `streamAll()` for large ledgers. */

@@ -10,18 +10,18 @@ export interface PositionAggregateOptions {
   objectType?: ObjectType;
 }
 
-/** Raw per-object numbers from the persistence layer. Units are integer cents. */
+/** Raw per-object numbers from the persistence layer. Units are bigint cents (same scale as Money.toUnits()). */
 export interface PositionAggregate {
   objectId: string;
   objectType: ObjectType;
   currency: string;
-  totalOriginatedUnits: number;
-  totalSettledUnits: number;
-  totalAdjustedUnits: number;
-  cashRecoveredUnits: number;
-  nonCashClosedUnits: number;
-  refCashInUnits: number;
-  refCashOutUnits: number;
+  totalOriginatedUnits: bigint;
+  totalSettledUnits: bigint;
+  totalAdjustedUnits: bigint;
+  cashRecoveredUnits: bigint;
+  nonCashClosedUnits: bigint;
+  refCashInUnits: bigint;
+  refCashOutUnits: bigint;
   hasReversal: boolean;
   eventCount: number;
   lastEventAt: Date;

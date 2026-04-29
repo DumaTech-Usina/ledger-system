@@ -25,6 +25,36 @@ import { LedgerEventModel } from './models/LedgerEventModel';
 import { LedgerEventPartyModel } from './models/LedgerEventPartyModel';
 import { LedgerEventObjectModel } from './models/LedgerEventObjectModel';
 import { Page, PageOptions } from '../../../core/application/dtos/Pagination';
+import { PositionAggregate, PositionAggregateOptions } from '../../../core/application/dtos/PositionAggregate';
+import { EconomicOutcome, PositionStatus } from '../../../core/application/dtos/PositionSummary';
+
+function statusToSql(status: PositionStatus): string {
+  switch (status) {
+    case 'open':
+      return `(NOT has_reversal AND (total_originated = 0 OR total_settled + total_adjusted = 0))`;
+    case 'partially_settled':
+      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted > 0 AND total_settled + total_adjusted < total_originated)`;
+    case 'fully_settled':
+      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated)`;
+    case 'reversed':
+      return `has_reversal = true`;
+  }
+}
+
+function outcomeToSql(outcome: EconomicOutcome): string {
+  switch (outcome) {
+    case 'pending':
+      return `(NOT has_reversal AND (total_originated = 0 OR total_settled + total_adjusted < total_originated))`;
+    case 'cancelled':
+      return `has_reversal = true`;
+    case 'gain':
+      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND non_cash_closed = 0)`;
+    case 'full_loss':
+      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND cash_recovered = 0)`;
+    case 'partial_loss':
+      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND cash_recovered > 0 AND non_cash_closed > 0)`;
+  }
+}
 
 export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
   private readonly repo: Repository<LedgerEventModel>;
@@ -105,6 +135,79 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       .select('DISTINCT o.objectId', 'objectId')
       .getRawMany<{ objectId: string }>();
     return rows.map((r) => r.objectId);
+  }
+
+  async findPositionAggregates(options: PositionAggregateOptions): Promise<Page<PositionAggregate>> {
+    const page  = Math.max(1, options.page  ?? 1);
+    const limit = Math.min(Math.max(1, options.limit ?? 50), 200);
+    const offset = (page - 1) * limit;
+
+    const filterParams: unknown[] = [];
+    const conditions: string[] = [];
+
+    if (options.objectType) {
+      filterParams.push(options.objectType);
+      conditions.push(`object_type = $${filterParams.length}`);
+    }
+    if (options.status)  conditions.push(statusToSql(options.status));
+    if (options.outcome) conditions.push(outcomeToSql(options.outcome));
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const cteSql = `
+      WITH aggs AS (
+        SELECT
+          o.object_id                                                                                    AS object_id,
+          MAX(o.object_type)                                                                             AS object_type,
+          MAX(e.amount_currency)                                                                         AS currency,
+          COALESCE(SUM(CASE WHEN o.relation = 'originates' THEN e.amount_units ELSE 0::bigint END), 0)  AS total_originated,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0::bigint END), 0)  AS total_settled,
+          COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0::bigint END), 0)  AS total_adjusted,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS cash_recovered,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'non_cash' THEN e.amount_units ELSE 0::bigint END), 0) AS non_cash_closed,
+          COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_in,
+          COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_out,
+          BOOL_OR(o.relation = 'reverses')                                                              AS has_reversal,
+          COUNT(DISTINCT e.id)                                                                           AS event_count,
+          MAX(e.occurred_at)                                                                             AS last_event_at
+        FROM ledger_events e
+        JOIN ledger_event_objects o ON o.event_id = e.id
+        GROUP BY o.object_id
+      )
+    `;
+
+    const [countResult] = await this.repo.manager.query(
+      `${cteSql} SELECT COUNT(*) AS total FROM aggs ${whereClause}`,
+      filterParams,
+    );
+    const total = parseInt(countResult.total as string, 10);
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    const dataParams = [...filterParams, limit, offset];
+    const pLimit  = filterParams.length + 1;
+    const pOffset = filterParams.length + 2;
+    const rows: Record<string, unknown>[] = await this.repo.manager.query(
+      `${cteSql} SELECT * FROM aggs ${whereClause} ORDER BY last_event_at DESC LIMIT $${pLimit} OFFSET $${pOffset}`,
+      dataParams,
+    );
+
+    const data: PositionAggregate[] = rows.map((row) => ({
+      objectId:             row.object_id as string,
+      objectType:           row.object_type as ObjectType,
+      currency:             row.currency as string,
+      totalOriginatedUnits: BigInt(row.total_originated as string),
+      totalSettledUnits:    BigInt(row.total_settled    as string),
+      totalAdjustedUnits:   BigInt(row.total_adjusted   as string),
+      cashRecoveredUnits:   BigInt(row.cash_recovered   as string),
+      nonCashClosedUnits:   BigInt(row.non_cash_closed  as string),
+      refCashInUnits:       BigInt(row.ref_cash_in      as string),
+      refCashOutUnits:      BigInt(row.ref_cash_out     as string),
+      hasReversal:          row.has_reversal as boolean,
+      eventCount:           parseInt(row.event_count as string, 10),
+      lastEventAt:          new Date(row.last_event_at as string),
+    }));
+
+    return { data, total, page, limit, totalPages };
   }
 
   async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {
