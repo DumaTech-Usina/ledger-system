@@ -5,6 +5,7 @@ import { TypeOrmLedgerEventRepository } from './infra/persistence/typeorm/TypeOr
 import { MongoRejectedEventRepository } from './infra/persistence/mongodb/MongoRejectedEventRepository';
 import { MongoStagingRepository } from './infra/persistence/mongodb/MongoStagingRepository';
 import { StagingRecordValidator } from './core/application/services/StagingRecordValidator';
+import { PositionProjectionService } from './core/application/services/PositionProjectionService';
 import { CreateLedgerEventUseCase } from './core/application/use-cases/CreateLedgerEventUseCase';
 import { RejectLedgerEventUseCase } from './core/application/use-cases/RejectLedgerEventUseCase';
 import { ProcessStagingJob } from './infra/jobs/ProcessStagingJob';
@@ -24,6 +25,7 @@ async function bootstrap(): Promise<void> {
 
   // ── Application ────────────────────────────────────────────────────────────
   const audit = new FileAuditLogger(env.AUDIT_LOG_DIR);
+  const positionService = new PositionProjectionService(ledgerRepo);
   const validator = new StagingRecordValidator(ledgerRepo);
   const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit);
   const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit);
@@ -33,7 +35,7 @@ async function bootstrap(): Promise<void> {
   await job.run();
 
   // ── HTTP server ────────────────────────────────────────────────────────────
-  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo });
+  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo, positionService });
 
   const server = app.listen(env.SERVER_PORT, () => {
     console.log(`Ledger service running on port ${env.SERVER_PORT}`);
