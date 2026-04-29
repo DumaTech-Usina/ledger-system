@@ -2,3 +2,4 @@ node_modules
 output
 read_file.sh
 .env
+logs
