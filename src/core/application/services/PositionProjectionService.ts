@@ -51,7 +51,7 @@ export class PositionProjectionService {
     return { ...page, data: page.data.map((agg) => this.aggregateToListItem(agg)) };
   }
 
-  private aggregateToListItem(agg: PositionAggregate): PositionListItem {
+  aggregateToListItem(agg: PositionAggregate): PositionListItem {
     const { currency } = agg;
     const totalOriginated = Money.fromUnits(agg.totalOriginatedUnits, currency);
     const totalSettled    = Money.fromUnits(agg.totalSettledUnits, currency);
@@ -96,6 +96,7 @@ export class PositionProjectionService {
       allocationGap,
       eventCount:      agg.eventCount,
       lastEventAt:     agg.lastEventAt,
+      originatedAt:    agg.originatedAt,
     };
   }
 

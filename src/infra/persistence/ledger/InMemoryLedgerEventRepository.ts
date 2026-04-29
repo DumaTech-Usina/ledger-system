@@ -75,6 +75,12 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     return [...this.store];
   }
 
+  async findByPeriod(from: Date, to: Date): Promise<LedgerEvent[]> {
+    return this.store.filter(
+      (e) => e.occurredAt >= from && e.occurredAt <= to,
+    );
+  }
+
   async findAllObjectIds(): Promise<string[]> {
     const ids = new Set<string>();
     for (const event of this.store) {
@@ -113,6 +119,7 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
             hasReversal: false,
             eventCount: 0,
             lastEventAt: new Date(0),
+            originatedAt: null,
           });
           eventIdsByObject.set(oid, new Set());
         }
@@ -123,6 +130,9 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
         switch (obj.relation) {
           case Relation.ORIGINATES:
             agg.totalOriginatedUnits += units;
+            if (agg.originatedAt === null || occurredAt < agg.originatedAt) {
+              agg.originatedAt = occurredAt;
+            }
             break;
           case Relation.SETTLES:
             agg.totalSettledUnits += units;

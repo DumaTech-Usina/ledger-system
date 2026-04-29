@@ -25,6 +25,8 @@ export interface PositionAggregate {
   hasReversal: boolean;
   eventCount: number;
   lastEventAt: Date;
+  /** Date of the first ORIGINATES event for this object. Null when the position has no origination event. */
+  originatedAt: Date | null;
 }
 
 /** A projected position for list views — PositionSummary without the events array. */
@@ -43,4 +45,6 @@ export interface PositionListItem {
   allocationGap: Money;
   eventCount: number;
   lastEventAt: Date;
+  /** Date of the first ORIGINATES event. Null when no origination event exists on this position. */
+  originatedAt: Date | null;
 }

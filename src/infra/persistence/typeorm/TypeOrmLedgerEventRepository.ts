@@ -128,6 +128,16 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     return rows.map((row) => this.toEntity(row));
   }
 
+  async findByPeriod(from: Date, to: Date): Promise<LedgerEvent[]> {
+    const rows = await this.repo
+      .createQueryBuilder('e')
+      .where('e.occurredAt >= :from', { from })
+      .andWhere('e.occurredAt <= :to', { to })
+      .orderBy('e.occurredAt', 'ASC')
+      .getMany();
+    return rows.map((row) => this.toEntity(row));
+  }
+
   async findAllObjectIds(): Promise<string[]> {
     const rows = await this.repo.manager
       .getRepository(LedgerEventObjectModel)
@@ -169,7 +179,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
           COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_out,
           BOOL_OR(o.relation = 'reverses')                                                              AS has_reversal,
           COUNT(DISTINCT e.id)                                                                           AS event_count,
-          MAX(e.occurred_at)                                                                             AS last_event_at
+          MAX(e.occurred_at)                                                                             AS last_event_at,
+          MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at
         FROM ledger_events e
         JOIN ledger_event_objects o ON o.event_id = e.id
         GROUP BY o.object_id
@@ -205,6 +216,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       hasReversal:          row.has_reversal as boolean,
       eventCount:           parseInt(row.event_count as string, 10),
       lastEventAt:          new Date(row.last_event_at as string),
+      originatedAt:         row.originated_at ? new Date(row.originated_at as string) : null,
     }));
 
     return { data, total, page, limit, totalPages };

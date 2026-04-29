@@ -32,6 +32,9 @@ export interface LedgerEventRepository {
   /** Deduplicated set of all objectIds that appear across every event in the store. */
   findAllObjectIds(): Promise<string[]>;
 
+  /** All events whose occurredAt falls within [from, to] inclusive. */
+  findByPeriod(from: Date, to: Date): Promise<LedgerEvent[]>;
+
   /** Aggregated position numbers per objectId, with optional filtering and pagination. */
   findPositionAggregates(options: PositionAggregateOptions): Promise<Page<PositionAggregate>>;
 }

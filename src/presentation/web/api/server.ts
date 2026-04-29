@@ -8,6 +8,8 @@ import { stagingRoutes } from "./routes/stagingRoutes";
 import { eventRoutes } from "./routes/eventRoutes";
 import { rejectedRoutes } from "./routes/rejectedRoutes";
 import { positionRoutes } from "./routes/positionRoutes";
+import { dashboardRoutes } from "./routes/dashboardRoutes";
+import { DashboardService } from "../../../core/application/services/DashboardService";
 
 interface ServerDeps {
   ledgerRepo: LedgerEventRepository;
@@ -21,10 +23,13 @@ export function createServer(deps: ServerDeps) {
 
   app.use(express.static(path.join(__dirname, "..", "client")));
 
-  app.use("/api/staging", stagingRoutes(deps.stagingRepo));
-  app.use("/api/events/rejected", rejectedRoutes(deps.rejectedRepo));
-  app.use("/api/events", eventRoutes(deps.ledgerRepo));
-  app.use("/api/positions", positionRoutes(deps.positionService));
+  const dashboardService = new DashboardService(deps.ledgerRepo, deps.positionService);
+
+  app.use("/api/dashboard",        dashboardRoutes(dashboardService));
+  app.use("/api/staging",          stagingRoutes(deps.stagingRepo));
+  app.use("/api/events/rejected",  rejectedRoutes(deps.rejectedRepo));
+  app.use("/api/events",           eventRoutes(deps.ledgerRepo));
+  app.use("/api/positions",        positionRoutes(deps.positionService));
 
   return app;
 }
