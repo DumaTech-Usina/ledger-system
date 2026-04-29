@@ -8,6 +8,8 @@ import {
   PositionStatus,
   PositionSummary,
 } from "../dtos/PositionSummary";
+import { Page } from "../dtos/Pagination";
+import { PositionAggregateOptions, PositionListItem } from "../dtos/PositionAggregate";
 
 export class PositionProjectionService {
   /** Default objectId batch size when iterating all positions. Tune via constructor. */
@@ -42,6 +44,11 @@ export class PositionProjectionService {
         }
       }
     }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async summarizePaginated(_options: PositionAggregateOptions): Promise<Page<PositionListItem>> {
+    throw new Error("PositionProjectionService.summarizePaginated: not implemented");
   }
 
   /** Collects all positions into an array. Prefer `streamAll()` for large ledgers. */

@@ -2,6 +2,7 @@ import { LedgerEventRepository } from "../../../core/application/repositories/Le
 import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";
 import { EventHash } from "../../../core/domain/value-objects/EventHash";
 import { Page, PageOptions, paginate } from "../../../core/application/dtos/Pagination";
+import { PositionAggregate, PositionAggregateOptions } from "../../../core/application/dtos/PositionAggregate";
 
 export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   private readonly store: LedgerEvent[] = [];
@@ -62,6 +63,11 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
       }
     }
     return [...ids];
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async findPositionAggregates(_options: PositionAggregateOptions): Promise<Page<PositionAggregate>> {
+    throw new Error("InMemoryLedgerEventRepository.findPositionAggregates: not implemented");
   }
 
   async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {

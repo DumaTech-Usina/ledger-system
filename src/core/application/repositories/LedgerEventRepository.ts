@@ -1,6 +1,7 @@
 import { LedgerEvent } from "../../domain/entities/LedgerEvent";
 import { EventHash } from "../../domain/value-objects/EventHash";
 import { Page, PageOptions } from "../dtos/Pagination";
+import { PositionAggregate, PositionAggregateOptions } from "../dtos/PositionAggregate";
 
 export interface LedgerEventRepository {
   save(event: LedgerEvent): Promise<void>;
@@ -30,4 +31,7 @@ export interface LedgerEventRepository {
 
   /** Deduplicated set of all objectIds that appear across every event in the store. */
   findAllObjectIds(): Promise<string[]>;
+
+  /** Aggregated position numbers per objectId, with optional filtering and pagination. */
+  findPositionAggregates(options: PositionAggregateOptions): Promise<Page<PositionAggregate>>;
 }
