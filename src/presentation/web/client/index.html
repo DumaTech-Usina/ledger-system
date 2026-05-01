@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>Ledger · Posições Econômicas</title>
+<title>Ledger · Usina</title>
 <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -35,6 +35,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
 @keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 @keyframes slideInRight{from{opacity:0;transform:translateX(100%)}to{opacity:1;transform:translateX(0)}}
 @keyframes toastIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:.6}}
 .fade{animation:fadeUp .18s ease both}
 .slide-in{animation:slideInRight .22s cubic-bezier(.16,1,.3,1) both}
 /* Layout */
@@ -48,17 +49,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
 .tick{font-size:11px;color:var(--faint)}
 .btn-icon{width:32px;height:32px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all var(--tr)}
 .btn-icon:hover{background:var(--surface2);color:var(--text)}
-/* Quick Stats */
-.qs-bar{border-bottom:1px solid var(--border);padding:14px 0}
-.qs-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
-@media(max-width:900px){.qs-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:540px){.qs-grid{grid-template-columns:repeat(2,1fr)}}
-.qs-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:11px 13px}
-.qs-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:4px}
-.qs-val{font-size:20px;font-weight:800;letter-spacing:-.03em;line-height:1}
-.qs-val.c-in{color:var(--in)}.qs-val.c-out{color:var(--out)}.qs-val.c-open{color:var(--open)}
-.qs-val.c-blue{color:var(--blue)}.qs-val.c-ok{color:var(--muted)}
-.qs-delta{font-size:10px;color:var(--faint);margin-top:3px}
 /* Tabs */
 .tabs{border-bottom:1px solid var(--border);display:flex;gap:0;margin-top:2px}
 .tab{padding:10px 16px;font-size:13px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap;transition:color var(--tr),border-color var(--tr)}
@@ -66,6 +56,86 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
 .tab.on{color:var(--text);border-bottom-color:var(--blue)}
 .tab-n{margin-left:5px;font-size:10px;font-weight:700;padding:1px 5px;border-radius:8px;background:var(--surface2);color:var(--faint)}
 .tab.on .tab-n{background:var(--blue-bg);color:var(--blue)}
+.tab-back{opacity:.55;font-size:12px}
+.tab-back:hover{opacity:.85}
+.tab-back.on{opacity:1}
+/* Sub-nav */
+.sub-nav{position:sticky;top:52px;z-index:40;background:var(--bg);border-bottom:1px solid var(--border)}
+.sub-nav-inner{display:flex;gap:0}
+.sub-pill{padding:8px 14px;font-size:12px;font-weight:500;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;transition:color var(--tr),border-color var(--tr)}
+.sub-pill:hover{color:var(--text)}
+.sub-pill.active{color:var(--text);border-bottom-color:var(--blue)}
+/* Period Bar */
+.period-bar{position:sticky;top:52px;z-index:40;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 0}
+.period-inner{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.period-pills{display:flex;gap:4px}
+.period-pill{padding:4px 12px;border-radius:16px;border:1px solid transparent;background:none;font-size:12px;color:var(--muted);cursor:pointer;transition:all var(--tr);white-space:nowrap}
+.period-pill:hover{color:var(--text)}
+.period-pill.active{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+.period-custom{display:flex;align-items:center;gap:8px}
+.period-date{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:var(--r-sm);font-size:12px;outline:none;cursor:pointer}
+.period-date:focus{border-color:var(--blue)}
+.period-apply{padding:4px 14px;border-radius:var(--r-sm);background:var(--blue);color:#fff;border:none;font-size:12px;font-weight:600;cursor:pointer;transition:opacity var(--tr)}
+.period-apply:hover{opacity:.85}
+.period-loading{font-size:11px;color:var(--faint);margin-left:4px}
+/* Zone 1 — Vital Signs */
+.z1-section{margin-bottom:28px}
+.z1-hero{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px}
+.z1-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:700px){.z1-hero,.z1-stats{grid-template-columns:1fr 1fr}}
+@media(max-width:420px){.z1-hero,.z1-stats{grid-template-columns:1fr}}
+.z1-hero-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px 18px}
+.z1-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.z1-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:8px}
+.z1-value{font-size:28px;font-weight:800;letter-spacing:-.04em;line-height:1;font-family:var(--mono)}
+.z1-value.sm{font-size:20px}
+.z1-sub{font-size:10px;color:var(--faint);margin-top:6px}
+.z1-skeleton{animation:pulse 1.2s ease infinite;background:var(--surface2);border-radius:var(--r-sm)}
+/* Zone 2 — P&L */
+.z2-section{margin-bottom:28px}
+.pnl-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+@media(max-width:640px){.pnl-grid{grid-template-columns:1fr}}
+.pnl-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.pnl-hdr{padding:12px 14px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.pnl-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.pnl-total{font-family:var(--mono);font-size:14px;font-weight:800}
+.pnl-row{display:flex;justify-content:space-between;align-items:center;padding:9px 14px;border-bottom:1px solid var(--border)}
+.pnl-row:last-child{border-bottom:none}
+.pnl-row-label{font-size:12px;color:var(--muted)}
+.pnl-row-val{font-family:var(--mono);font-size:13px;font-weight:700}
+.pnl-empty{padding:24px;text-align:center;font-size:12px;color:var(--faint)}
+.recovery-bar-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.recovery-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.recovery-label-text{font-size:11px;color:var(--muted)}
+.recovery-rate-val{font-family:var(--mono);font-size:18px;font-weight:800}
+.recovery-track{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
+.recovery-fill{height:100%;border-radius:4px;transition:width .5s ease}
+/* Zone 3 — Entry Points */
+.z3-section{margin-bottom:24px}
+.z3-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:640px){.z3-grid{grid-template-columns:1fr}}
+.z3-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.z3-hdr{padding:12px 14px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.z3-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+.att-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background var(--tr)}
+.att-item:hover{background:var(--surface2)}
+.att-item:last-child{border-bottom:none}
+.att-item-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:5px}
+.att-item-id{font-family:var(--mono);font-size:12px;font-weight:600}
+.att-item-meta{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px}
+.att-item-bottom{display:flex;justify-content:space-between;align-items:baseline;margin-top:4px}
+.att-item-bal{font-family:var(--mono);font-size:15px;font-weight:800;letter-spacing:-.02em}
+.att-item-age{font-size:10px;color:var(--faint)}
+.mov-item{display:flex;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);align-items:flex-start}
+.mov-item:last-child{border-bottom:none}
+.mov-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.mov-dot.in{background:var(--in)}.mov-dot.out{background:var(--out)}
+.mov-body{flex:1;min-width:0}
+.mov-top{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
+.mov-type{font-size:12px;font-weight:600}
+.mov-amount{font-family:var(--mono);font-size:12px;font-weight:700}
+.mov-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:3px}
+.mov-date{font-size:10px;color:var(--faint)}
 /* Position Filter Bar */
 .pos-filter-bar{position:sticky;top:52px;z-index:40;background:var(--bg);border-bottom:1px solid var(--border);padding:8px 0}
 .pfb-inner{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -94,17 +164,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
 /* Color helpers */
 .c-in{color:var(--in)}.c-out{color:var(--out)}.c-open{color:var(--open)}
 .c-blue{color:var(--blue)}.c-ok{color:var(--muted)}.mono{font-family:var(--mono)}
-/* Position cards v2 */
+/* Section header */
+.sec-hdr{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
+.sec-line{height:1px;background:var(--border);flex:1}
+.sec-count{font-size:10px;color:var(--faint)}
+/* Position cards */
 .pos-grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:12px}
 @media(max-width:420px){.pos-grid2{grid-template-columns:1fr}}
 .pos-card2{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;border-left-width:3px;cursor:pointer;transition:border-color var(--tr),box-shadow var(--tr)}
 .pos-card2:hover{box-shadow:0 0 0 1px var(--border2)}
-.pc-open{border-left-color:var(--open)}
-.pc-partial{border-left-color:var(--partial)}
-.pc-settled{border-left-color:var(--in)}
-.pc-reversed{border-left-color:var(--reversed)}
+.pc-open{border-left-color:var(--open)}.pc-partial{border-left-color:var(--partial)}
+.pc-settled{border-left-color:var(--in)}.pc-reversed{border-left-color:var(--reversed)}
 .pc-skeleton{border-left-color:var(--border);min-height:120px;animation:pulse 1.2s ease infinite}
-@keyframes pulse{0%,100%{opacity:.3}50%{opacity:.6}}
 .pc-header{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .pc-header-l{display:flex;flex-direction:column;gap:4px;min-width:0}
 .pc-header-r{display:flex;align-items:center;gap:5px;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0}
@@ -122,7 +194,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
 .pag-btn:hover:not(:disabled){background:var(--surface2);color:var(--text)}
 .pag-btn:disabled{opacity:.35;cursor:default}
 .pag-info{font-size:11px;color:var(--faint)}
-/* Detail Drawer */
+/* Drawer */
 .drawer-backdrop{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.5);backdrop-filter:blur(2px)}
 .drawer{position:fixed;top:0;right:0;bottom:0;z-index:61;width:420px;max-width:100vw;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 @media(max-width:480px){.drawer{width:100vw}}
@@ -137,7 +209,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
 .dt-row:last-child{border-bottom:none}
 .dt-label{font-size:12px;color:var(--muted)}
 .dt-val{font-family:var(--mono);font-size:13px;font-weight:700}
-/* Detail timeline */
 .dt-timeline{display:flex;flex-direction:column;gap:0}
 .dt-event{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);align-items:flex-start}
 .dt-event:last-child{border-bottom:none}
@@ -213,10 +284,6 @@ tr.cf-row:hover td{background:var(--surface2)}
 .raw{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:8px;font-family:var(--mono);font-size:10px;color:var(--muted);overflow-x:auto;white-space:pre;max-height:160px;overflow-y:auto;margin-top:4px}
 .rej-rate{padding:10px 14px;background:var(--out-bg);border:1px solid var(--out);border-radius:var(--r);font-size:12px;color:var(--out);margin-bottom:12px}
 /* Shared */
-.sec-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
-.sec-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
-.sec-line{height:1px;background:var(--border);flex:1}
-.sec-count{font-size:10px;color:var(--faint)}
 .empty{text-align:center;padding:40px 20px;color:var(--faint);display:flex;flex-direction:column;align-items:center;gap:6px}
 .empty-ico{font-size:24px;opacity:.5;margin-bottom:2px}
 .empty-title{font-size:13px;font-weight:500;color:var(--muted)}
@@ -234,6 +301,12 @@ const { useState, useEffect, useCallback, useRef } = React;
 // ─── API ──────────────────────────────────────────────────────────────────────
 
 const api = {
+  dashboard: ({ from, to } = {}) => {
+    const q = new URLSearchParams();
+    if (from) q.set('from', from instanceof Date ? from.toISOString() : from);
+    if (to)   q.set('to',   to   instanceof Date ? to.toISOString()   : to);
+    return fetch(`/api/dashboard?${q}`).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  },
   positions: (params = {}) => {
     const q = new URLSearchParams();
     if (params.page)       q.set('page',       String(params.page));
@@ -255,7 +328,7 @@ const api = {
   rejected: (p = {}) => fetch(`/api/events/rejected?limit=${p.limit||100}`).then(r => r.json()),
 };
 
-// ─── Formatters ───────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmtBRL = n =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(parseFloat(n) || 0);
@@ -271,6 +344,27 @@ const fmtDate = (raw, withTime = false) => {
 };
 
 const trunc = (s, n = 28) => s && s.length > n ? s.slice(0, n) + '…' : (s || '—');
+
+function daysSince(dateStr) {
+  if (!dateStr) return null;
+  return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+}
+
+function resolvePeriod(preset, customFrom = '', customTo = '') {
+  const now = new Date();
+  if (preset === 'custom') {
+    return {
+      from: customFrom ? new Date(customFrom + 'T00:00:00') : new Date(now - 30 * 86400000),
+      to:   customTo   ? new Date(customTo   + 'T23:59:59') : now,
+    };
+  }
+  const from = new Date(now);
+  if      (preset === '15d') from.setDate(from.getDate() - 15);
+  else if (preset === '1m')  from.setMonth(from.getMonth() - 1);
+  else if (preset === '3m')  from.setMonth(from.getMonth() - 3);
+  else if (preset === '6m')  from.setMonth(from.getMonth() - 6);
+  return { from, to: now };
+}
 
 // ─── Domain labels ────────────────────────────────────────────────────────────
 
@@ -376,49 +470,269 @@ function ObjectTypeBadge({ type }) {
   );
 }
 
-// ─── Quick Stats ──────────────────────────────────────────────────────────────
+// ─── Period Selector ──────────────────────────────────────────────────────────
 
-function QuickStats({ positions, rejectedTotal }) {
-  const items        = positions.data || [];
-  const openCount    = items.filter(p => p.status === 'open' || p.status === 'partially_settled').length;
-  const totalOrig    = items.reduce((s, p) => s + parseFloat(p.totalOriginated || 0), 0);
-  const totalOpenBal = items.reduce((s, p) => s + parseFloat(p.openBalance     || 0), 0);
-  const overCount    = items.filter(p => parseFloat(p.overSettlement) > 0).length;
+const PERIOD_PRESETS = ['15d', '1m', '3m', '6m', 'custom'];
+const PERIOD_LABELS  = { '15d': '15 dias', '1m': '1 mês', '3m': '3 meses', '6m': '6 meses', 'custom': 'Período' };
+
+function PeriodSelector({ preset, customFrom, customTo, onPreset, onCustomChange, onApply, loading }) {
+  return (
+    <div className="period-bar">
+      <div className="wrap">
+        <div className="period-inner">
+          <div className="period-pills">
+            {PERIOD_PRESETS.map(p => (
+              <button
+                key={p}
+                className={`period-pill${preset === p ? ' active' : ''}`}
+                onClick={() => onPreset(p)}
+              >
+                {PERIOD_LABELS[p]}
+              </button>
+            ))}
+          </div>
+          {preset === 'custom' && (
+            <div className="period-custom">
+              <input
+                type="date"
+                className="period-date"
+                value={customFrom}
+                onChange={e => onCustomChange('from', e.target.value)}
+              />
+              <span style={{fontSize:11,color:'var(--faint)'}}>até</span>
+              <input
+                type="date"
+                className="period-date"
+                value={customTo}
+                onChange={e => onCustomChange('to', e.target.value)}
+              />
+              <button className="period-apply" onClick={onApply}>Aplicar</button>
+            </div>
+          )}
+          {loading && <span className="period-loading">atualizando…</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Zone 1 — Vital Signs ─────────────────────────────────────────────────────
+
+function Zone1VitalSigns({ data, loading }) {
+  const netNeg = data?.netCashNegative ?? false;
+  const rateVal = data ? (data.recoveryRate * 100).toFixed(1) + '%' : '—';
+  const rateCls = !data ? '' : data.recoveryRate >= 0.8 ? 'c-in' : data.recoveryRate >= 0.5 ? 'c-open' : 'c-out';
 
   return (
-    <div className="qs-bar">
-      <div className="wrap">
-        <div className="qs-grid">
-          <div className="qs-card">
-            <div className="qs-label">Posições</div>
-            <div className="qs-val c-blue">{positions.total ?? items.length}</div>
-            <div className="qs-delta">rastreadas</div>
+    <div className="z1-section">
+      <div className="z1-hero">
+        <div className="z1-hero-card">
+          <div className="z1-label">Entradas</div>
+          {loading && !data
+            ? <div className="z1-skeleton" style={{height:32,width:'70%'}} />
+            : <div className="z1-value c-in">{fmtBRL(data?.cashIn ?? '0')}</div>
+          }
+          <div className="z1-sub">caixa recebido no período</div>
+        </div>
+
+        <div className="z1-hero-card">
+          <div className="z1-label">Saídas</div>
+          {loading && !data
+            ? <div className="z1-skeleton" style={{height:32,width:'70%'}} />
+            : <div className="z1-value c-out">{fmtBRL(data?.cashOut ?? '0')}</div>
+          }
+          <div className="z1-sub">caixa desembolsado no período</div>
+        </div>
+
+        <div className="z1-hero-card">
+          <div className="z1-label">Resultado Líquido</div>
+          {loading && !data
+            ? <div className="z1-skeleton" style={{height:32,width:'70%'}} />
+            : <div className={`z1-value ${netNeg ? 'c-out' : 'c-in'}`}>
+                {netNeg ? '−' : '+'}{fmtBRL(data?.netCash ?? '0')}
+              </div>
+          }
+          <div className="z1-sub">{netNeg ? 'saídas excedem entradas' : 'entradas excedem saídas'}</div>
+        </div>
+      </div>
+
+      <div className="z1-stats">
+        <div className="z1-stat-card">
+          <div className="z1-label">Exposição Aberta</div>
+          {loading && !data
+            ? <div className="z1-skeleton" style={{height:24,width:'60%'}} />
+            : <div className="z1-value sm c-open">{fmtBRL(data?.openExposure ?? '0')}</div>
+          }
+          <div className="z1-sub">saldo total a recuperar</div>
+        </div>
+
+        <div className="z1-stat-card">
+          <div className="z1-label">Capital em Risco</div>
+          {loading && !data
+            ? <div className="z1-skeleton" style={{height:24,width:'60%'}} />
+            : <div className={`z1-value sm ${data && parseFloat(data.capitalAtRisk) > 0 ? 'c-out' : 'c-ok'}`}>
+                {fmtBRL(data?.capitalAtRisk ?? '0')}
+              </div>
+          }
+          <div className="z1-sub">&gt;30 dias sem recuperação</div>
+        </div>
+
+        <div className="z1-stat-card">
+          <div className="z1-label">Taxa de Recuperação</div>
+          {loading && !data
+            ? <div className="z1-skeleton" style={{height:24,width:'50%'}} />
+            : <div className={`z1-value sm ${rateCls}`}>{rateVal}</div>
+          }
+          <div className="z1-sub">caixa recuperado / originado</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Zone 2 — Profits & Holes ─────────────────────────────────────────────────
+
+function Zone2ProfitsHoles({ data, loading }) {
+  const cashInEntries  = Object.entries(data?.cashInByType  || {});
+  const cashOutEntries = Object.entries(data?.cashOutByType || {});
+
+  const rate     = data?.recoveryRate ?? 0;
+  const fillPct  = Math.min(rate * 100, 100);
+  const fillColor = rate >= 0.8 ? 'var(--in)' : rate >= 0.5 ? 'var(--open)' : 'var(--out)';
+
+  return (
+    <div className="z2-section">
+      <div className="pnl-grid">
+        <div className="pnl-panel">
+          <div className="pnl-hdr">
+            <span className="pnl-title c-in">Entradas por Tipo</span>
+            <span className="pnl-total c-in">{data ? fmtBRL(data.cashIn) : '—'}</span>
           </div>
-          <div className="qs-card">
-            <div className="qs-label">Em Aberto</div>
-            <div className={`qs-val ${openCount > 0 ? 'c-open' : 'c-ok'}`}>{openCount}</div>
-            <div className="qs-delta">sem liquidação total</div>
+          {loading && !data
+            ? <div className="pnl-empty">…</div>
+            : cashInEntries.length === 0
+              ? <div className="pnl-empty">Nenhuma entrada no período</div>
+              : cashInEntries.map(([type, amount]) => (
+                  <div key={type} className="pnl-row">
+                    <span className="pnl-row-label">{EVENT_TYPE_LABELS[type] || type.replace(/_/g, ' ')}</span>
+                    <span className="pnl-row-val c-in">{fmtBRL(amount)}</span>
+                  </div>
+                ))
+          }
+        </div>
+
+        <div className="pnl-panel">
+          <div className="pnl-hdr">
+            <span className="pnl-title c-out">Saídas por Tipo</span>
+            <span className="pnl-total c-out">{data ? fmtBRL(data.cashOut) : '—'}</span>
           </div>
-          <div className="qs-card">
-            <div className="qs-label">Total Originado</div>
-            <div className="qs-val c-blue" style={{fontSize:15}}>{fmtBRL(totalOrig)}</div>
-            <div className="qs-delta">nesta página</div>
+          {loading && !data
+            ? <div className="pnl-empty">…</div>
+            : cashOutEntries.length === 0
+              ? <div className="pnl-empty">Nenhuma saída no período</div>
+              : cashOutEntries.map(([type, amount]) => (
+                  <div key={type} className="pnl-row">
+                    <span className="pnl-row-label">{EVENT_TYPE_LABELS[type] || type.replace(/_/g, ' ')}</span>
+                    <span className="pnl-row-val c-out">{fmtBRL(amount)}</span>
+                  </div>
+                ))
+          }
+        </div>
+      </div>
+
+      <div className="recovery-bar-wrap">
+        <div className="recovery-label">
+          <span className="recovery-label-text">Taxa de Recuperação Global (all-time, posições não estornadas)</span>
+          <span className="recovery-rate-val" style={{color: fillColor}}>
+            {data ? `${(rate * 100).toFixed(1)}%` : '—'}
+          </span>
+        </div>
+        <div className="recovery-track">
+          <div className="recovery-fill" style={{width: `${fillPct}%`, background: fillColor}} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Zone 3 — Entry Points ────────────────────────────────────────────────────
+
+function Zone3EntryPoints({ data, loading, onViewPosition }) {
+  const attPositions = data?.attentionPositions || [];
+  const recentMov    = data?.recentMovements    || [];
+
+  return (
+    <div className="z3-section">
+      <div className="z3-grid">
+        <div className="z3-panel">
+          <div className="z3-hdr">
+            <span className="z3-title">Posições em Atenção</span>
+            <span style={{fontSize:10,color:'var(--faint)'}}>
+              {loading && !data ? '…' : `${attPositions.length} posição${attPositions.length !== 1 ? 'ões' : ''}`}
+            </span>
           </div>
-          <div className="qs-card">
-            <div className="qs-label">Saldo Aberto</div>
-            <div className={`qs-val ${totalOpenBal > 0 ? 'c-open' : 'c-ok'}`} style={{fontSize:15}}>{fmtBRL(totalOpenBal)}</div>
-            <div className="qs-delta">a recuperar</div>
+          {loading && !data ? (
+            <div className="empty"><div className="empty-ico">○</div><div className="empty-title" style={{fontSize:11}}>Carregando…</div></div>
+          ) : attPositions.length === 0 ? (
+            <div className="empty">
+              <div className="empty-ico">✓</div>
+              <div className="empty-title">Nenhuma posição em aberto</div>
+            </div>
+          ) : attPositions.map(p => {
+            const age = daysSince(p.originatedAt);
+            const isRisky = age !== null && age > 30 && parseFloat(p.totalSettled || '0') === 0;
+            return (
+              <div key={p.objectId} className="att-item" onClick={() => onViewPosition(p.objectId)}>
+                <div className="att-item-top">
+                  <span className="att-item-id">{trunc(p.objectId, 22)}</span>
+                  {isRisky && <span className="badge b-red" style={{fontSize:9}}>⚠ Risco</span>}
+                </div>
+                <div className="att-item-meta">
+                  <StatusBadge status={p.status} />
+                  <ObjectTypeBadge type={p.objectType} />
+                </div>
+                <div className="att-item-bottom">
+                  <span className="att-item-bal c-open">{fmtBRL(p.openBalance)}</span>
+                  {age !== null && <span className="att-item-age">{age}d atrás</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="z3-panel">
+          <div className="z3-hdr">
+            <span className="z3-title">Movimentos Recentes</span>
+            <span style={{fontSize:10,color:'var(--faint)'}}>
+              {loading && !data ? '…' : `${recentMov.length} eventos`}
+            </span>
           </div>
-          <div className="qs-card">
-            <div className="qs-label">Sobreliquidação</div>
-            <div className={`qs-val ${overCount > 0 ? 'c-out' : 'c-ok'}`}>{overCount}</div>
-            <div className="qs-delta">posições com excesso</div>
-          </div>
-          <div className="qs-card">
-            <div className="qs-label">Rejeitados</div>
-            <div className={`qs-val ${rejectedTotal > 0 ? 'c-out' : 'c-ok'}`}>{rejectedTotal}</div>
-            <div className="qs-delta">eventos inválidos</div>
-          </div>
+          {loading && !data ? (
+            <div className="empty"><div className="empty-ico">○</div><div className="empty-title" style={{fontSize:11}}>Carregando…</div></div>
+          ) : recentMov.length === 0 ? (
+            <div className="empty">
+              <div className="empty-ico">◎</div>
+              <div className="empty-title">Nenhum movimento recente</div>
+            </div>
+          ) : recentMov.map(ev => (
+            <div key={ev.id} className="mov-item">
+              <div className={`mov-dot ${ev.economicEffect === 'cash_in' ? 'in' : 'out'}`} />
+              <div className="mov-body">
+                <div className="mov-top">
+                  <span className="mov-type">{EVENT_TYPE_LABELS[ev.eventType] || ev.eventType}</span>
+                  <span className={`mov-amount ${ev.economicEffect === 'cash_in' ? 'c-in' : 'c-out'}`}>
+                    {ev.economicEffect === 'cash_in' ? '↑' : '↓'} {fmtBRL(ev.amount)}
+                  </span>
+                </div>
+                <div className="mov-bottom">
+                  <span className="mono" style={{fontSize:9,color:'var(--faint)'}}>
+                    {trunc(ev.objects?.[0]?.objectId, 20)}
+                  </span>
+                  <span className="mov-date">{fmtDate(ev.occurredAt)}</span>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -428,9 +742,9 @@ function QuickStats({ positions, rejectedTotal }) {
 // ─── Position Filter Bar ──────────────────────────────────────────────────────
 
 const STATUS_FILTERS = [
-  { value: '',                  label: 'Todos'    },
-  { value: 'open',              label: 'Abertas'  },
-  { value: 'partially_settled', label: 'Parcial'  },
+  { value: '',                  label: 'Todos'      },
+  { value: 'open',              label: 'Abertas'    },
+  { value: 'partially_settled', label: 'Parcial'    },
   { value: 'fully_settled',     label: 'Liquidadas' },
   { value: 'reversed',          label: 'Estornadas' },
 ];
@@ -502,7 +816,6 @@ function PositionCard({ pos, onClick }) {
           {pos.outcome && <OutcomeBadge outcome={pos.outcome} />}
         </div>
       </div>
-
       <div className="pc-amounts">
         <div className="pc-amt-row">
           <span className="pc-amt-label">Originado</span>
@@ -526,7 +839,6 @@ function PositionCard({ pos, onClick }) {
           </div>
         )}
       </div>
-
       <div className="pc-footer">
         <span>{pos.eventCount} evento{pos.eventCount !== 1 ? 's' : ''}</span>
         <span>Último: {fmtDate(pos.lastEventAt)}</span>
@@ -553,7 +865,6 @@ function Pagination({ page, totalPages, onPage }) {
 
 function PositionsTab({ positions, filters, onFilter, loading, onSelect }) {
   const items = positions.data || [];
-
   if (!loading && items.length === 0) {
     return (
       <div className="empty" style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)'}}>
@@ -563,7 +874,6 @@ function PositionsTab({ positions, filters, onFilter, loading, onSelect }) {
       </div>
     );
   }
-
   return (
     <div>
       <div className="pos-grid2">
@@ -572,11 +882,7 @@ function PositionsTab({ positions, filters, onFilter, loading, onSelect }) {
           <div key={i} className="pos-card2 pc-skeleton" />
         ))}
       </div>
-      <Pagination
-        page={positions.page}
-        totalPages={positions.totalPages}
-        onPage={p => onFilter({ ...filters, page: p })}
-      />
+      <Pagination page={positions.page} totalPages={positions.totalPages} onPage={p => onFilter({ ...filters, page: p })} />
     </div>
   );
 }
@@ -634,7 +940,6 @@ function DetailDrawer({ objectId, listItem, onClose }) {
           </div>
           <button className="drawer-close" onClick={onClose}>✕</button>
         </div>
-
         {detail && (
           <div className="drawer-body">
             <div className="dt-section">
@@ -652,12 +957,9 @@ function DetailDrawer({ objectId, listItem, onClose }) {
                 <AmountRow label="Gap de Alocação"  value={detail.allocationGap}   cls={parseFloat(detail.allocationGap) > 0 ? 'c-in' : 'c-out'} />
               )}
             </div>
-
             {detail.events?.length > 0 && (
               <div className="dt-section">
-                <div className="dt-section-title">
-                  Cadeia de Eventos ({detail.events.length})
-                </div>
+                <div className="dt-section-title">Cadeia de Eventos ({detail.events.length})</div>
                 <div className="dt-timeline">
                   {[...detail.events]
                     .sort((a, b) => new Date(a.occurredAt) - new Date(b.occurredAt))
@@ -711,18 +1013,18 @@ function DetailDrawer({ objectId, listItem, onClose }) {
 // ─── Feed Tab ─────────────────────────────────────────────────────────────────
 
 const FEED_FILTERS = [
-  { key: 'all',      label: 'Todos'          },
-  { key: 'cash_in',  label: 'Recebíveis'     },
-  { key: 'cash_out', label: 'Pagáveis'       },
-  { key: 'non_cash', label: 'Non-Cash'       },
-  { key: 'settles',  label: 'Liquidações'    },
-  { key: 'reverses', label: 'Estornos'       },
+  { key: 'all',      label: 'Todos'       },
+  { key: 'cash_in',  label: 'Recebíveis'  },
+  { key: 'cash_out', label: 'Pagáveis'    },
+  { key: 'non_cash', label: 'Non-Cash'    },
+  { key: 'settles',  label: 'Liquidações' },
+  { key: 'reverses', label: 'Estornos'    },
 ];
 
 function applyFeedFilter(events, filter) {
-  if (filter === 'all')     return events;
-  if (filter === 'settles') return events.filter(e => e.objects?.[0]?.relation === 'settles');
-  if (filter === 'reverses')return events.filter(e => e.objects?.[0]?.relation === 'reverses');
+  if (filter === 'all')      return events;
+  if (filter === 'settles')  return events.filter(e => e.objects?.[0]?.relation === 'settles');
+  if (filter === 'reverses') return events.filter(e => e.objects?.[0]?.relation === 'reverses');
   return events.filter(e => e.economicEffect === filter);
 }
 
@@ -747,7 +1049,6 @@ function feedAmtPrefix(ev) {
 function EventCard({ ev, onViewPosition }) {
   const cls    = effectClass(ev);
   const prefix = feedAmtPrefix(ev);
-
   return (
     <div className={`feed-card ${cls} fade`}>
       <div className="fc-z1">
@@ -755,13 +1056,9 @@ function EventCard({ ev, onViewPosition }) {
           <span className="fc-type">{getEventLabel(ev)}</span>
           <span className="fc-ref">{ev.source?.reference}</span>
           <span className="badge b-neutral" style={{fontSize:9}}>{ev.source?.system}</span>
-          {ev.reporter?.channel === 'manual-override' && (
-            <span className="badge b-open" style={{fontSize:9}}>Manual</span>
-          )}
         </div>
         <span className="fc-date">{fmtDate(ev.occurredAt, true)}</span>
       </div>
-
       <div className="fc-z2">
         <div className="fc-headline">
           {ev.reason?.description || ev.eventType?.replace(/_/g, ' ')}
@@ -771,7 +1068,6 @@ function EventCard({ ev, onViewPosition }) {
         </div>
         <span className={`fc-amount ${cls}`}>{prefix}{fmtBRL(ev.amount)}</span>
       </div>
-
       <div className="fc-z3">
         {ev.parties?.length > 0
           ? ev.parties.map((p, i) => (
@@ -784,20 +1080,12 @@ function EventCard({ ev, onViewPosition }) {
           : <span style={{fontSize:10,color:'var(--faint)'}}>Sem partes</span>
         }
       </div>
-
       <div className="fc-z4">
         <div className="fc-z4-l">
           <span className="fc-obj">{ev.objects?.[0]?.objectId}</span>
-          {ev.positionStatus === 'liquidada' && <span className="badge b-settled" style={{fontSize:9}}>✓ Liquidada</span>}
-          {ev.positionStatus === 'estornada' && <span className="badge b-rev"     style={{fontSize:9}}>↩ Estornada</span>}
-          {ev.positionStatus === 'aberta' && (
-            ev.positionDaysOpen > 30
-              ? <span className="badge b-red"  style={{fontSize:9}}>⚠ Aberta há {ev.positionDaysOpen}d</span>
-              : <span className="badge b-open" style={{fontSize:9}}>Aberta</span>
-          )}
         </div>
         {ev.objects?.[0]?.objectId && (
-          <button className="fc-pos-link" onClick={() => onViewPosition(ev.objects[0].objectId, ev.objects[0].objectType)}>
+          <button className="fc-pos-link" onClick={() => onViewPosition(ev.objects[0].objectId)}>
             Ver posição →
           </button>
         )}
@@ -820,7 +1108,6 @@ function FeedTab({ feedData, loading, onLoadMore, onViewPosition }) {
       </div>
     );
   }
-
   return (
     <div>
       <div className="filter-bar">
@@ -932,7 +1219,6 @@ function CashflowTab({ feedData }) {
   const [expanded, setExpanded] = useState(null);
   const events = feedData?.data || [];
   const rows   = groupCashflow(events);
-
   if (!rows.length) {
     return (
       <div className="empty" style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'var(--r)'}}>
@@ -941,7 +1227,6 @@ function CashflowTab({ feedData }) {
       </div>
     );
   }
-
   return (
     <div>
       <div className="cf-table" style={{marginBottom:20}}>
@@ -961,7 +1246,7 @@ function CashflowTab({ feedData }) {
   );
 }
 
-// ─── Staging Tab ──────────────────────────────────────────────────────────────
+// ─── Staging / Backoffice Tab ─────────────────────────────────────────────────
 
 function StagingTable({ records }) {
   if (!records.length) {
@@ -1031,7 +1316,7 @@ function RejectedCard({ ev }) {
   );
 }
 
-function StagingTab({ stagingData, rejectedData }) {
+function BackofficeTab({ stagingData, rejectedData }) {
   const staging  = stagingData?.data  || [];
   const rejected = rejectedData?.data || [];
   const totS     = stagingData?.total  ?? staging.length;
@@ -1071,21 +1356,32 @@ function App() {
   const [theme, setTheme] = useState(() =>
     window.matchMedia('(prefers-color-scheme:light)').matches ? 'light' : 'dark'
   );
-  const [tab, setTab] = useState('positions');
+  const [tab, setTab] = useState('overview');
 
-  // Positions board
+  // Period selector
+  const [periodPreset,  setPeriodPreset]  = useState('15d');
+  const [customFrom,    setCustomFrom]    = useState('');
+  const [customTo,      setCustomTo]      = useState('');
+  const [appliedPeriod, setAppliedPeriod] = useState(() => resolvePeriod('15d'));
+
+  // Dashboard
+  const [dashData,    setDashData]    = useState(null);
+  const [dashLoading, setDashLoading] = useState(false);
+
+  // Positions
   const [positions,  setPositions]  = useState({ data: [], total: 0, page: 1, limit: 20, totalPages: 1 });
   const [posFilters, setPosFilters] = useState({ status: '', outcome: '', objectType: '', page: 1 });
   const [posLoading, setPosLoading] = useState(true);
 
-  // Detail drawer: { objectId, listItem }
+  // Detail drawer
   const [drawer, setDrawer] = useState(null);
 
-  // Feed
-  const [feedData,   setFeedData]   = useState(null);
-  const [feedLimit,  setFeedLimit]  = useState(50);
+  // Movements
+  const [movView,   setMovView]   = useState('feed');
+  const [feedData,  setFeedData]  = useState(null);
+  const [feedLimit, setFeedLimit] = useState(50);
 
-  // Staging / rejected
+  // Backoffice
   const [stagingData,  setStagingData]  = useState(null);
   const [rejectedData, setRejectedData] = useState(null);
 
@@ -1096,32 +1392,39 @@ function App() {
 
   useEffect(() => { document.documentElement.setAttribute('data-theme', theme); }, [theme]);
 
-  // Load positions when filters change
+  // Dashboard fetch
+  useEffect(() => {
+    if (tab !== 'overview') return;
+    setDashLoading(true);
+    api.dashboard({ from: appliedPeriod.from, to: appliedPeriod.to })
+      .then(d => setDashData(d))
+      .catch(console.error)
+      .finally(() => setDashLoading(false));
+  }, [tab, appliedPeriod]);
+
+  // Positions
   const loadPositions = useCallback(async (filters) => {
     setPosLoading(true);
     try {
       const data = await api.positions({ ...filters, limit: 20 });
       setPositions(data);
-    } catch (e) {
-      console.error('positions fetch error:', e);
-    } finally {
-      setPosLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setPosLoading(false); }
   }, []);
 
   useEffect(() => { loadPositions(posFilters); }, [posFilters, loadPositions]);
 
-  // Load feed when feed/cashflow tab is active or limit increases
+  // Feed / cashflow
   useEffect(() => {
-    if (tab !== 'feed' && tab !== 'cashflow') return;
+    if (tab !== 'movements') return;
     api.feed({ limit: feedLimit })
       .then(d => setFeedData(d))
       .catch(console.error);
   }, [tab, feedLimit]);
 
-  // Load staging when staging tab is active
+  // Backoffice
   useEffect(() => {
-    if (tab !== 'staging') return;
+    if (tab !== 'backoffice') return;
     Promise.all([api.staging(), api.rejected()])
       .then(([s, r]) => { setStagingData(s); setRejectedData(r); })
       .catch(console.error);
@@ -1143,20 +1446,39 @@ function App() {
     toastTimer.current = setTimeout(() => setToast(null), 3000);
   };
 
+  const handlePreset = (p) => {
+    setPeriodPreset(p);
+    if (p !== 'custom') setAppliedPeriod(resolvePeriod(p));
+  };
+
+  const handleCustomChange = (field, value) => {
+    if (field === 'from') setCustomFrom(value);
+    else                  setCustomTo(value);
+  };
+
+  const handleApplyCustom = () => {
+    setAppliedPeriod(resolvePeriod('custom', customFrom, customTo));
+  };
+
   const handleRefresh = () => {
     loadPositions(posFilters);
+    if (tab === 'overview') {
+      setDashLoading(true);
+      api.dashboard({ from: appliedPeriod.from, to: appliedPeriod.to })
+        .then(d => setDashData(d))
+        .catch(console.error)
+        .finally(() => setDashLoading(false));
+    }
     setLastTick(new Date());
     showToast('Dados atualizados');
   };
 
-  // Open detail from positions list
   const handleSelectPosition = (objectId) => {
     const listItem = positions.data.find(p => p.objectId === objectId) || null;
     setDrawer({ objectId, listItem });
   };
 
-  // Open detail from feed tab (navigates to positions tab too)
-  const handleViewPositionFromFeed = (objectId) => {
+  const handleViewPosition = (objectId) => {
     setDrawer({ objectId, listItem: null });
     setTab('positions');
   };
@@ -1166,21 +1488,17 @@ function App() {
       {toast && <div className="toast">● {toast}</div>}
 
       {drawer && (
-        <DetailDrawer
-          objectId={drawer.objectId}
-          listItem={drawer.listItem}
-          onClose={() => setDrawer(null)}
-        />
+        <DetailDrawer objectId={drawer.objectId} listItem={drawer.listItem} onClose={() => setDrawer(null)} />
       )}
 
       <header className="hdr">
         <div className="wrap">
           <div className="hdr-inner">
-            <div className="brand"><div className="brand-dot" />Ledger · Posições</div>
+            <div className="brand"><div className="brand-dot" />Ledger</div>
             <div className="hdr-right">
-              {lastTick && <span className="tick">Atualizado {lastTick.toLocaleTimeString('pt-BR')}</span>}
+              {lastTick && <span className="tick">{lastTick.toLocaleTimeString('pt-BR')}</span>}
               <button className="btn-icon" onClick={handleRefresh} title="Atualizar">↺</button>
-              <button className="btn-icon" onClick={() => setTheme(t => t==='dark'?'light':'dark')} title="Tema">
+              <button className="btn-icon" onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} title="Tema">
                 {theme === 'dark' ? '☀' : '◑'}
               </button>
             </div>
@@ -1188,25 +1506,34 @@ function App() {
         </div>
       </header>
 
-      <QuickStats positions={positions} rejectedTotal={rejectedData?.total ?? 0} />
-
       <div className="wrap">
         <div className="tabs">
-          <button className={`tab ${tab==='positions'?'on':''}`} onClick={() => setTab('positions')}>
+          <button className={`tab ${tab === 'overview'   ? 'on' : ''}`} onClick={() => setTab('overview')}>
+            Visão Geral
+          </button>
+          <button className={`tab ${tab === 'positions'  ? 'on' : ''}`} onClick={() => setTab('positions')}>
             Posições<span className="tab-n">{positions.total}</span>
           </button>
-          <button className={`tab ${tab==='feed'?'on':''}`} onClick={() => setTab('feed')}>
-            Feed de Eventos<span className="tab-n">{feedData?.total ?? '…'}</span>
+          <button className={`tab ${tab === 'movements'  ? 'on' : ''}`} onClick={() => setTab('movements')}>
+            Movimentações<span className="tab-n">{feedData?.total ?? '…'}</span>
           </button>
-          <button className={`tab ${tab==='cashflow'?'on':''}`} onClick={() => setTab('cashflow')}>
-            Fluxo por Período
-          </button>
-          <button className={`tab ${tab==='staging'?'on':''}`} onClick={() => setTab('staging')}>
-            Candidatos &amp; Rejeições
-            <span className="tab-n">{(stagingData?.total ?? 0) + (rejectedData?.total ?? 0) || '…'}</span>
+          <button className={`tab tab-back ${tab === 'backoffice' ? 'on' : ''}`} onClick={() => setTab('backoffice')}>
+            Backoffice
           </button>
         </div>
       </div>
+
+      {tab === 'overview' && (
+        <PeriodSelector
+          preset={periodPreset}
+          customFrom={customFrom}
+          customTo={customTo}
+          onPreset={handlePreset}
+          onCustomChange={handleCustomChange}
+          onApply={handleApplyCustom}
+          loading={dashLoading}
+        />
+      )}
 
       {tab === 'positions' && (
         <PositionFilterBar
@@ -1217,8 +1544,39 @@ function App() {
         />
       )}
 
+      {tab === 'movements' && (
+        <div className="sub-nav">
+          <div className="wrap">
+            <div className="sub-nav-inner">
+              <button className={`sub-pill${movView === 'feed'     ? ' active' : ''}`} onClick={() => setMovView('feed')}>
+                Feed de Eventos
+              </button>
+              <button className={`sub-pill${movView === 'cashflow' ? ' active' : ''}`} onClick={() => setMovView('cashflow')}>
+                Por Período
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="wrap">
         <div className="content">
+          {tab === 'overview' && (
+            <div className="fade">
+              <Zone1VitalSigns data={dashData} loading={dashLoading} />
+              <div className="sec-hdr">
+                <span className="sec-title">Receitas &amp; Despesas</span>
+                <div className="sec-line" />
+              </div>
+              <Zone2ProfitsHoles data={dashData} loading={dashLoading} />
+              <div className="sec-hdr">
+                <span className="sec-title">Pontos de Atenção</span>
+                <div className="sec-line" />
+              </div>
+              <Zone3EntryPoints data={dashData} loading={dashLoading} onViewPosition={handleViewPosition} />
+            </div>
+          )}
+
           {tab === 'positions' && (
             <PositionsTab
               positions={positions}
@@ -1228,16 +1586,16 @@ function App() {
               onSelect={handleSelectPosition}
             />
           )}
-          {tab === 'feed' && (
-            <FeedTab
-              feedData={feedData}
-              loading={!feedData}
-              onLoadMore={() => setFeedLimit(l => l + 50)}
-              onViewPosition={handleViewPositionFromFeed}
-            />
+
+          {tab === 'movements' && (
+            movView === 'feed'
+              ? <FeedTab feedData={feedData} loading={!feedData} onLoadMore={() => setFeedLimit(l => l + 50)} onViewPosition={handleViewPosition} />
+              : <CashflowTab feedData={feedData} />
           )}
-          {tab === 'cashflow' && <CashflowTab feedData={feedData} />}
-          {tab === 'staging'  && <StagingTab  stagingData={stagingData} rejectedData={rejectedData} />}
+
+          {tab === 'backoffice' && (
+            <BackofficeTab stagingData={stagingData} rejectedData={rejectedData} />
+          )}
         </div>
       </div>
     </div>

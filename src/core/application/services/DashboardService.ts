@@ -1,6 +1,5 @@
 import { EconomicEffect } from "../../domain/enums/EconomicEffect";
 import { EventType } from "../../domain/enums/EventType";
-import { Relation } from "../../domain/enums/Relation";
 import { Money } from "../../domain/value-objects/Money";
 import { LedgerEventRepository } from "../repositories/LedgerEventRepository";
 import { DashboardSummary } from "../dtos/DashboardSummary";

@@ -19,6 +19,7 @@ export function serializePositionListItem(item: PositionListItem) {
     allocationGap:   item.allocationGap.toString(),
     eventCount:     item.eventCount,
     lastEventAt:    item.lastEventAt,
+    originatedAt:   item.originatedAt ?? null,
   };
 }
 
