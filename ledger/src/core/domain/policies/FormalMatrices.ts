@@ -1,0 +1,197 @@
+import { EconomicEffect } from "../enums/EconomicEffect";
+import { Relation } from "../enums/Relation";
+import { ObjectNature } from "../enums/ObjectNature";
+import { ObjectType } from "../enums/ObjectType";
+import { ReasonType } from "../enums/ReasonType";
+
+// ===============================
+// economic_effect × relation
+// ===============================
+
+export const ECONOMIC_EFFECT_RELATION_MATRIX: Record<
+  EconomicEffect,
+  readonly Relation[]
+> = {
+  [EconomicEffect.CASH_IN]: [Relation.ORIGINATES, Relation.SETTLES],
+
+  [EconomicEffect.CASH_OUT]: [Relation.ORIGINATES, Relation.SETTLES],
+
+  [EconomicEffect.CASH_INTERNAL]: [Relation.ADJUSTS],
+
+  [EconomicEffect.NON_CASH]: [
+    Relation.ORIGINATES,
+    Relation.ADJUSTS,
+    Relation.SETTLES,
+    Relation.REVERSES,
+  ],
+
+  [EconomicEffect.CONTINGENT]: [Relation.ORIGINATES, Relation.ADJUSTS],
+};
+
+// ===============================
+// object_type × object_nature
+// ===============================
+
+export const OBJECT_NATURE_MATRIX: Record<ObjectType, ObjectNature> = {
+  [ObjectType.COMMISSION_ENTITLEMENT]: ObjectNature.POSITIONAL,
+  [ObjectType.COMMISSION_POOL]: ObjectNature.POSITIONAL,
+  [ObjectType.COMMISSION_RECEIVABLE]: ObjectNature.POSITIONAL,
+  [ObjectType.COMMISSION_PAYABLE]: ObjectNature.POSITIONAL,
+
+  [ObjectType.LOAN]: ObjectNature.POSITIONAL,
+  [ObjectType.ADVANCE]: ObjectNature.POSITIONAL,
+  [ObjectType.RECEIVABLE]: ObjectNature.POSITIONAL,
+  [ObjectType.PAYABLE]: ObjectNature.POSITIONAL,
+
+  [ObjectType.PENALTY]: ObjectNature.POSITIONAL,
+  [ObjectType.CHARGEBACK]: ObjectNature.POSITIONAL,
+  [ObjectType.CONTINGENT_CLAIM]: ObjectNature.POSITIONAL,
+  [ObjectType.DISPUTE]: ObjectNature.POSITIONAL,
+
+  [ObjectType.INCENTIVE]: ObjectNature.POSITIONAL,
+  [ObjectType.BONUS]: ObjectNature.POSITIONAL,
+
+  [ObjectType.PAYROLL]: ObjectNature.POSITIONAL,
+  [ObjectType.SERVICE_FEE]: ObjectNature.POSITIONAL,
+  [ObjectType.INFRASTRUCTURE_COST]: ObjectNature.POSITIONAL,
+  [ObjectType.TAX]: ObjectNature.POSITIONAL,
+
+  [ObjectType.CONTRACT]: ObjectNature.CONTEXTUAL,
+  [ObjectType.PROPOSAL]: ObjectNature.CONTEXTUAL,
+  [ObjectType.INSTALLMENT]: ObjectNature.CONTEXTUAL,
+  [ObjectType.SETTLEMENT_BATCH]: ObjectNature.CONTEXTUAL,
+  [ObjectType.CAMPAIGN]: ObjectNature.CONTEXTUAL,
+};
+
+// ===============================
+// object_type × relation
+// ===============================
+
+export const OBJECT_RELATION_MATRIX: Partial<
+  Record<ObjectType, readonly Relation[]>
+> = {
+  // Commission
+  [ObjectType.COMMISSION_ENTITLEMENT]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.COMMISSION_POOL]:        [Relation.ADJUSTS, Relation.REVERSES],
+  [ObjectType.COMMISSION_RECEIVABLE]:  [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.COMMISSION_PAYABLE]:     [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+
+  // Credit
+  [ObjectType.LOAN]:       [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.ADVANCE]:    [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.RECEIVABLE]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.PAYABLE]:    [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+
+  // Penalty / risk
+  [ObjectType.PENALTY]:          [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.CHARGEBACK]:       [Relation.ORIGINATES, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.CONTINGENT_CLAIM]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.REVERSES],
+  [ObjectType.DISPUTE]:          [Relation.ORIGINATES, Relation.SETTLES, Relation.REVERSES],
+
+  // Incentive
+  [ObjectType.INCENTIVE]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.BONUS]:     [Relation.ORIGINATES, Relation.SETTLES],
+
+  // Operational costs
+  [ObjectType.PAYROLL]:             [Relation.SETTLES],
+  [ObjectType.SERVICE_FEE]:         [Relation.SETTLES],
+  [ObjectType.INFRASTRUCTURE_COST]: [Relation.SETTLES],
+  [ObjectType.TAX]:                 [Relation.SETTLES],
+
+  // Contextual objects — only REFERENCES is valid; enforced by step 9 in InvariantPolicy
+  [ObjectType.CONTRACT]:         [Relation.REFERENCES],
+  [ObjectType.PROPOSAL]:         [Relation.REFERENCES],
+  [ObjectType.INSTALLMENT]:      [Relation.REFERENCES],
+  [ObjectType.SETTLEMENT_BATCH]: [Relation.REFERENCES],
+  [ObjectType.CAMPAIGN]:         [Relation.REFERENCES],
+};
+
+// ===============================
+// reason_type × economic_effect
+// ===============================
+
+export const REASON_EFFECT_MATRIX: Partial<
+  Record<ReasonType, readonly EconomicEffect[]>
+> = {
+  // Comissão
+  [ReasonType.COMMISSION_PAYMENT]: [EconomicEffect.CASH_IN],
+  // CASH_IN when Usina records the receipt; NON_CASH when acknowledging operator paid broker directly
+  [ReasonType.DIRECT_COMMISSION_PAYMENT_AUTHORIZED]: [EconomicEffect.CASH_IN, EconomicEffect.NON_CASH],
+  // CASH_INTERNAL: pool reallocation between Usina accounts; CASH_OUT: actual distribution to broker
+  [ReasonType.COMMISSION_SPLIT]: [EconomicEffect.CASH_INTERNAL, EconomicEffect.CASH_OUT],
+  [ReasonType.LATE_IDENTIFIED_COMMISSION]: [EconomicEffect.NON_CASH],
+  [ReasonType.COMMISSION_WAIVER]: [EconomicEffect.NON_CASH],
+
+  // Crédito
+  [ReasonType.LOAN_ORIGINATION]: [EconomicEffect.CASH_OUT],
+  [ReasonType.LOAN_REPAYMENT]: [EconomicEffect.CASH_IN],
+  [ReasonType.LOAN_REPAYMENT_VIA_COMMISSION]: [EconomicEffect.NON_CASH, EconomicEffect.CASH_INTERNAL],
+  // CASH_OUT: advance disbursement; NON_CASH: offset via commission; CASH_IN: cash recovery
+  [ReasonType.ADVANCE_PAYMENT]: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH, EconomicEffect.CASH_IN],
+  [ReasonType.DEBT_RESTRUCTURING]: [EconomicEffect.NON_CASH],
+
+  // Penalidade
+  [ReasonType.PENALTY_PAYMENT]: [EconomicEffect.CASH_OUT],
+  [ReasonType.PENALTY_RECOGNITION]: [EconomicEffect.CONTINGENT, EconomicEffect.NON_CASH],
+  [ReasonType.CHARGEBACK]: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH],
+  [ReasonType.DISPUTE_OPENED]: [EconomicEffect.CONTINGENT],
+  [ReasonType.LOSS_RECOGNITION]: [EconomicEffect.NON_CASH],
+
+  // Operação
+  [ReasonType.PAYROLL_PAYMENT]: [EconomicEffect.CASH_OUT],
+  [ReasonType.INFRASTRUCTURE_EXPENSE]: [EconomicEffect.CASH_OUT],
+  [ReasonType.THIRD_PARTY_PAYMENT]: [EconomicEffect.CASH_OUT],
+  [ReasonType.TAX_PAYMENT]: [EconomicEffect.CASH_OUT],
+  [ReasonType.INCENTIVE_PAYMENT]: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH],
+
+  // Governança — corrections are always bookkeeping entries (no cash movement)
+  [ReasonType.MANUAL_CORRECTION]: [EconomicEffect.NON_CASH],
+  [ReasonType.DATA_RECONCILIATION]: [EconomicEffect.NON_CASH],
+
+  // LATE_AWARENESS and UNKNOWN_ORIGIN are intentionally absent:
+  // they are polymorphic reasons that can accompany any economic effect.
+};
+
+// ===============================
+// reason_type × relation
+// ===============================
+
+export const REASON_RELATION_MATRIX: Partial<
+  Record<ReasonType, readonly Relation[]>
+> = {
+  // Comissão
+  [ReasonType.COMMISSION_PAYMENT]: [Relation.SETTLES],
+  [ReasonType.DIRECT_COMMISSION_PAYMENT_AUTHORIZED]: [Relation.SETTLES],
+  // ADJUSTS for pool redistribution; SETTLES/ORIGINATES when paying out commission payables
+  [ReasonType.COMMISSION_SPLIT]: [Relation.ADJUSTS, Relation.SETTLES, Relation.ORIGINATES],
+  [ReasonType.LATE_IDENTIFIED_COMMISSION]: [Relation.ORIGINATES, Relation.ADJUSTS],
+  [ReasonType.COMMISSION_WAIVER]: [Relation.SETTLES, Relation.REVERSES],
+
+  // Crédito
+  [ReasonType.LOAN_ORIGINATION]: [Relation.ORIGINATES],
+  [ReasonType.LOAN_REPAYMENT]: [Relation.SETTLES],
+  [ReasonType.LOAN_REPAYMENT_VIA_COMMISSION]: [Relation.SETTLES, Relation.ADJUSTS],
+  [ReasonType.ADVANCE_PAYMENT]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES],
+  [ReasonType.DEBT_RESTRUCTURING]: [Relation.ADJUSTS],
+
+  // Penalidade
+  [ReasonType.PENALTY_PAYMENT]: [Relation.SETTLES],
+  [ReasonType.PENALTY_RECOGNITION]: [Relation.ORIGINATES],
+  [ReasonType.CHARGEBACK]: [Relation.ORIGINATES, Relation.SETTLES],
+  [ReasonType.DISPUTE_OPENED]: [Relation.ORIGINATES],
+  [ReasonType.LOSS_RECOGNITION]: [Relation.ORIGINATES, Relation.SETTLES],
+
+  // Operação
+  [ReasonType.PAYROLL_PAYMENT]: [Relation.SETTLES],
+  [ReasonType.INFRASTRUCTURE_EXPENSE]: [Relation.SETTLES],
+  [ReasonType.THIRD_PARTY_PAYMENT]: [Relation.ORIGINATES, Relation.SETTLES],
+  [ReasonType.TAX_PAYMENT]: [Relation.SETTLES],
+  [ReasonType.INCENTIVE_PAYMENT]: [Relation.ORIGINATES, Relation.SETTLES],
+
+  // Governança — corrections fully reverse or partially adjust a prior entry
+  [ReasonType.MANUAL_CORRECTION]: [Relation.REVERSES, Relation.ADJUSTS],
+  [ReasonType.DATA_RECONCILIATION]: [Relation.REVERSES, Relation.ADJUSTS],
+
+  // LATE_AWARENESS and UNKNOWN_ORIGIN are intentionally absent:
+  // they can accompany any relation depending on what is being documented.
+};
