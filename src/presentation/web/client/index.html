@@ -104,12 +104,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
 .pnl-row-label{font-size:12px;color:var(--muted)}
 .pnl-row-val{font-family:var(--mono);font-size:13px;font-weight:700}
 .pnl-empty{padding:24px;text-align:center;font-size:12px;color:var(--faint)}
-.recovery-bar-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
-.recovery-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.recovery-label-text{font-size:11px;color:var(--muted)}
-.recovery-rate-val{font-family:var(--mono);font-size:18px;font-weight:800}
-.recovery-track{height:8px;background:var(--surface2);border-radius:4px;overflow:hidden}
-.recovery-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.health-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.health-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.health-left{display:flex;align-items:baseline;gap:8px}
+.health-score{font-family:var(--mono);font-size:28px;font-weight:800;letter-spacing:-.04em;line-height:1}
+.health-label{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+.hl-saudavel{background:var(--in-bg);color:var(--in)}
+.hl-atencao{background:var(--partial-bg);color:var(--partial)}
+.hl-critico{background:var(--out-bg);color:var(--out)}
+.health-trend{font-size:12px;font-weight:700;display:flex;align-items:center;gap:3px}
+.health-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+.health-legs{display:flex;flex-direction:column;gap:8px}
+.health-leg{display:flex;flex-direction:column;gap:4px}
+.health-leg-hdr{display:flex;justify-content:space-between;align-items:center}
+.health-leg-label{font-size:10px;color:var(--muted)}
+.health-leg-val{font-family:var(--mono);font-size:11px;font-weight:700}
+.health-track{height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}
+.health-fill{height:100%;border-radius:3px;transition:width .5s ease}
 /* Zone 3 — Entry Points */
 .z3-section{margin-bottom:24px}
 .z3-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -520,8 +531,13 @@ function PeriodSelector({ preset, customFrom, customTo, onPreset, onCustomChange
 
 function Zone1VitalSigns({ data, loading }) {
   const netNeg = data?.netCashNegative ?? false;
-  const rateVal = data ? (data.recoveryRate * 100).toFixed(1) + '%' : '—';
-  const rateCls = !data ? '' : data.recoveryRate >= 0.8 ? 'c-in' : data.recoveryRate >= 0.5 ? 'c-open' : 'c-out';
+  const hs     = data?.healthScore;
+  const scoreVal = hs ? hs.score.toFixed(1) : '—';
+  const labelCls = !hs ? '' : hs.label === 'saudável' ? 'hl-saudavel' : hs.label === 'em_atencao' ? 'hl-atencao' : 'hl-critico';
+  const labelTxt = !hs ? '' : hs.label === 'saudável' ? 'saudável' : hs.label === 'em_atencao' ? 'em atenção' : 'crítico';
+  const scoreCls = !hs ? '' : hs.score >= 80 ? 'c-in' : hs.score >= 50 ? 'c-open' : 'c-out';
+  const trendIcon = !hs ? '' : hs.trend === 'up' ? '↑' : hs.trend === 'down' ? '↓' : '→';
+  const trendCls  = !hs ? '' : hs.trend === 'up' ? 'c-in' : hs.trend === 'down' ? 'c-out' : 'c-ok';
 
   return (
     <div className="z1-section">
@@ -578,12 +594,17 @@ function Zone1VitalSigns({ data, loading }) {
         </div>
 
         <div className="z1-stat-card">
-          <div className="z1-label">Taxa de Recuperação</div>
+          <div className="z1-label">Saúde do Caixa</div>
           {loading && !data
             ? <div className="z1-skeleton" style={{height:24,width:'50%'}} />
-            : <div className={`z1-value sm ${rateCls}`}>{rateVal}</div>
+            : <div style={{display:'flex',alignItems:'baseline',gap:6}}>
+                <div className={`z1-value sm ${scoreCls}`}>{scoreVal}</div>
+                {hs && <span className={`health-label ${labelCls}`}>{labelTxt}</span>}
+              </div>
           }
-          <div className="z1-sub">caixa recuperado / originado</div>
+          <div className="z1-sub">
+            {hs ? <span className={`health-trend ${trendCls}`}>{trendIcon} {Math.abs(hs.trendDelta).toFixed(1)}pts vs 90d anteriores</span> : 'qualidade de fechamento + livro aberto'}
+          </div>
         </div>
       </div>
     </div>
@@ -595,10 +616,7 @@ function Zone1VitalSigns({ data, loading }) {
 function Zone2ProfitsHoles({ data, loading }) {
   const cashInEntries  = Object.entries(data?.cashInByType  || {});
   const cashOutEntries = Object.entries(data?.cashOutByType || {});
-
-  const rate     = data?.recoveryRate ?? 0;
-  const fillPct  = Math.min(rate * 100, 100);
-  const fillColor = rate >= 0.8 ? 'var(--in)' : rate >= 0.5 ? 'var(--open)' : 'var(--out)';
+  const hs = data?.healthScore;
 
   return (
     <div className="z2-section">
@@ -640,15 +658,57 @@ function Zone2ProfitsHoles({ data, loading }) {
         </div>
       </div>
 
-      <div className="recovery-bar-wrap">
-        <div className="recovery-label">
-          <span className="recovery-label-text">Taxa de Recuperação Global (all-time, posições não estornadas)</span>
-          <span className="recovery-rate-val" style={{color: fillColor}}>
-            {data ? `${(rate * 100).toFixed(1)}%` : '—'}
-          </span>
+      <div className="health-wrap">
+        <div className="health-top">
+          <div className="health-left">
+            {loading && !data
+              ? <div className="z1-skeleton" style={{height:28,width:60}} />
+              : <>
+                  <span className={`health-score ${!hs ? '' : hs.score >= 80 ? 'c-in' : hs.score >= 50 ? 'c-open' : 'c-out'}`}>
+                    {hs ? hs.score.toFixed(1) : '—'}
+                  </span>
+                  {hs && (
+                    <span className={`health-label ${hs.label === 'saudável' ? 'hl-saudavel' : hs.label === 'em_atencao' ? 'hl-atencao' : 'hl-critico'}`}>
+                      {hs.label === 'saudável' ? 'saudável' : hs.label === 'em_atencao' ? 'em atenção' : 'crítico'}
+                    </span>
+                  )}
+                </>
+            }
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div className="health-title">Saúde do Caixa</div>
+            {hs && (
+              <div className={`health-trend ${hs.trend === 'up' ? 'c-in' : hs.trend === 'down' ? 'c-out' : 'c-ok'}`} style={{marginTop:2}}>
+                {hs.trend === 'up' ? '↑' : hs.trend === 'down' ? '↓' : '→'} {Math.abs(hs.trendDelta).toFixed(1)}pts · últimos {hs.windowDays}d
+              </div>
+            )}
+          </div>
         </div>
-        <div className="recovery-track">
-          <div className="recovery-fill" style={{width: `${fillPct}%`, background: fillColor}} />
+        <div className="health-legs">
+          <div className="health-leg">
+            <div className="health-leg-hdr">
+              <span className="health-leg-label">Qualidade de Fechamento (Leg 1 · 40%)</span>
+              <span className="health-leg-val">{hs ? `${(hs.closureQuality * 100).toFixed(1)}%` : '—'}</span>
+            </div>
+            <div className="health-track">
+              <div className="health-fill" style={{
+                width: hs ? `${Math.min(hs.closureQuality * 100, 100)}%` : '0%',
+                background: !hs ? 'var(--border)' : hs.closureQuality >= 0.8 ? 'var(--in)' : hs.closureQuality >= 0.5 ? 'var(--open)' : 'var(--out)',
+              }} />
+            </div>
+          </div>
+          <div className="health-leg">
+            <div className="health-leg-hdr">
+              <span className="health-leg-label">Livro Aberto (Leg 2 · 60%)</span>
+              <span className="health-leg-val">{hs ? `${(hs.openBookHealth * 100).toFixed(1)}%` : '—'}</span>
+            </div>
+            <div className="health-track">
+              <div className="health-fill" style={{
+                width: hs ? `${Math.min(hs.openBookHealth * 100, 100)}%` : '0%',
+                background: !hs ? 'var(--border)' : hs.openBookHealth >= 0.8 ? 'var(--in)' : hs.openBookHealth >= 0.5 ? 'var(--open)' : 'var(--out)',
+              }} />
+            </div>
+          </div>
         </div>
       </div>
     </div>

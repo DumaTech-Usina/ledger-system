@@ -10,6 +10,7 @@ import { rejectedRoutes } from "./routes/rejectedRoutes";
 import { positionRoutes } from "./routes/positionRoutes";
 import { dashboardRoutes } from "./routes/dashboardRoutes";
 import { DashboardService } from "../../../core/application/services/DashboardService";
+import { BookHealthService } from "../../../core/application/services/BookHealthService";
 
 interface ServerDeps {
   ledgerRepo: LedgerEventRepository;
@@ -23,7 +24,8 @@ export function createServer(deps: ServerDeps) {
 
   app.use(express.static(path.join(__dirname, "..", "client")));
 
-  const dashboardService = new DashboardService(deps.ledgerRepo, deps.positionService);
+  const bookHealthService = new BookHealthService(deps.ledgerRepo);
+  const dashboardService  = new DashboardService(deps.ledgerRepo, deps.positionService, bookHealthService);
 
   app.use("/api/dashboard",        dashboardRoutes(dashboardService));
   app.use("/api/staging",          stagingRoutes(deps.stagingRepo));

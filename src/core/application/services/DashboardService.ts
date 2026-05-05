@@ -7,6 +7,7 @@ import { PositionAggregate } from "../dtos/PositionAggregate";
 import { PositionListItem } from "../dtos/PositionAggregate";
 import { PositionStatus } from "../dtos/PositionSummary";
 import { PositionProjectionService } from "./PositionProjectionService";
+import { BookHealthService } from "./BookHealthService";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const RECENT_MOVEMENTS_LIMIT = 8;
@@ -17,15 +18,17 @@ export class DashboardService {
   constructor(
     private readonly repo: LedgerEventRepository,
     private readonly positionService: PositionProjectionService,
+    private readonly bookHealthService: BookHealthService,
   ) {}
 
   async compute(from: Date, to: Date): Promise<DashboardSummary> {
     const riskCutoff = new Date(Date.now() - THIRTY_DAYS_MS);
 
-    const [periodEvents, allAggs, recentMovements] = await Promise.all([
+    const [periodEvents, allAggs, recentMovements, healthScore] = await Promise.all([
       this.repo.findByPeriod(from, to),
       this.loadAllPositionAggregates(),
       this.loadRecentMovements(),
+      this.bookHealthService.compute(),
     ]);
 
     // ── Period cash flow ─────────────────────────────────────────────────────
@@ -57,8 +60,6 @@ export class DashboardService {
     // ── Current-state position metrics ───────────────────────────────────────
     let openExposureUnits  = 0n;
     let capitalAtRiskUnits = 0n;
-    let totalOriginatedUnits  = 0n;
-    let totalCashRecoveredUnits = 0n;
     const attentionAggs: PositionAggregate[] = [];
 
     for (const agg of allAggs) {
@@ -72,11 +73,6 @@ export class DashboardService {
           : agg.totalOriginatedUnits - totalClosed;
 
       openExposureUnits += openBalanceUnits;
-
-      if (!agg.hasReversal) {
-        totalOriginatedUnits    += agg.totalOriginatedUnits;
-        totalCashRecoveredUnits += agg.cashRecoveredUnits;
-      }
 
       // capitalAtRisk: no settlement at all + originated > 30 days ago
       if (
@@ -96,11 +92,6 @@ export class DashboardService {
 
     const openExposure  = Money.fromUnits(openExposureUnits,  currency);
     const capitalAtRisk = Money.fromUnits(capitalAtRiskUnits, currency);
-
-    const recoveryRate =
-      totalOriginatedUnits === 0n
-        ? 0
-        : Number(totalCashRecoveredUnits * 10000n / totalOriginatedUnits) / 10000;
 
     // ── Attention positions: sorted oldest-origination first ─────────────────
     attentionAggs.sort((a, b) => {
@@ -122,7 +113,7 @@ export class DashboardService {
       capitalAtRisk,
       cashInByType,
       cashOutByType,
-      recoveryRate,
+      healthScore,
       attentionPositions,
       recentMovements,
     };

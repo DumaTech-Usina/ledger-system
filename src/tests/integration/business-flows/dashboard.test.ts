@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { DashboardService } from "../../../core/application/services/DashboardService";
 import { PositionProjectionService } from "../../../core/application/services/PositionProjectionService";
+import { BookHealthService } from "../../../core/application/services/BookHealthService";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
@@ -16,8 +17,9 @@ import { setup } from "./helpers/setup";
 const ref = makeRef();
 
 function makeSvc(ledgerRepo: ReturnType<typeof setup>["ledgerRepo"]) {
-  const posSvc = new PositionProjectionService(ledgerRepo);
-  return new DashboardService(ledgerRepo, posSvc);
+  const posSvc        = new PositionProjectionService(ledgerRepo);
+  const bookHealthSvc = new BookHealthService(ledgerRepo);
+  return new DashboardService(ledgerRepo, posSvc, bookHealthSvc);
 }
 
 // Wide period that covers all fixture dates
@@ -83,7 +85,7 @@ describe("Dashboard integration", () => {
     expect(d.attentionPositions.some((p) => p.objectId === "adv-db05")).toBe(false);
   });
 
-  it("DB06 — fully settled advance with cash recovery yields recoveryRate > 0", async () => {
+  it("DB06 — fully settled advance with cash recovery yields healthy score", async () => {
     const { ledgerRepo, run } = setup();
     const orig = await run(advancePayment(ref, "adv-db06", "600.00"));
     await run(
@@ -92,7 +94,8 @@ describe("Dashboard integration", () => {
 
     const d = await makeSvc(ledgerRepo).compute(ALL_TIME.from, ALL_TIME.to);
 
-    expect(d.recoveryRate).toBe(1);
+    expect(d.healthScore.openBookHealth).toBe(1);
+    expect(d.healthScore.score).toBeGreaterThanOrEqual(80);
   });
 
   it("DB07 — period filter excludes events before 'from'", async () => {

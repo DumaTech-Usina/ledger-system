@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { DashboardService } from "../../../core/application/services/DashboardService";
 import { PositionProjectionService } from "../../../core/application/services/PositionProjectionService";
+import { BookHealthService } from "../../../core/application/services/BookHealthService";
 import { InMemoryLedgerEventRepository } from "../../../infra/persistence/ledger/InMemoryLedgerEventRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
@@ -20,8 +21,9 @@ let _seq = 0;
 const ref = () => `ref-ds-${++_seq}`;
 
 function makeSvc(repo: InMemoryLedgerEventRepository) {
-  const posSvc = new PositionProjectionService(repo);
-  return new DashboardService(repo, posSvc);
+  const posSvc         = new PositionProjectionService(repo);
+  const bookHealthSvc  = new BookHealthService(repo);
+  return new DashboardService(repo, posSvc, bookHealthSvc);
 }
 
 async function runCmd(
@@ -67,7 +69,7 @@ describe("DashboardService.compute()", () => {
       expect(d.netCashUnits).toBe(0n);
       expect(d.openExposure.toString()).toBe("0.00");
       expect(d.capitalAtRisk.toString()).toBe("0.00");
-      expect(d.recoveryRate).toBe(0);
+      expect(d.healthScore.score).toBe(100);
       expect(d.attentionPositions).toHaveLength(0);
       expect(d.recentMovements).toHaveLength(0);
       expect(Object.keys(d.cashInByType)).toHaveLength(0);
@@ -335,87 +337,14 @@ describe("DashboardService.compute()", () => {
     });
   });
 
-  describe("recoveryRate", () => {
-    it("DS14 — 0 when nothing originated", async () => {
+  describe("healthScore", () => {
+    it("DS14 — healthScore is present on every compute() result", async () => {
       const repo = new InMemoryLedgerEventRepository();
       const d = await makeSvc(repo).compute(PERIOD_JAN.from, PERIOD_JAN.to);
-      expect(d.recoveryRate).toBe(0);
-    });
-
-    it("DS15 — 1.0 when all originated cash was recovered", async () => {
-      const repo = new InMemoryLedgerEventRepository();
-      const uc   = new CreateLedgerEventUseCase(repo, new NoOpAuditLogger());
-
-      const orig = await uc.execute(makeValidCommand({
-        sourceReference: ref(),
-        occurredAt:      JAN_01,
-        eventType:       EventType.ADVANCE_PAYMENT,
-        economicEffect:  EconomicEffect.CASH_OUT,
-        amount:          "500.00",
-        objects:  [{ objectId: "adv-rec", objectType: ObjectType.ADVANCE, relation: Relation.ORIGINATES }],
-        parties:  [
-          { partyId: "usina", role: PartyRole.PAYER,  direction: Direction.OUT,     amount: "500.00" },
-          { partyId: "bkr",   role: PartyRole.PAYEE,  direction: Direction.NEUTRAL, amount: "500.00" },
-        ],
-        reason: { type: ReasonType.ADVANCE_PAYMENT, description: "adv", confidence: ConfidenceLevel.HIGH, requiresFollowup: false },
-      }));
-
-      await uc.execute(makeValidCommand({
-        sourceReference:  ref(),
-        occurredAt:       JAN_15,
-        eventType:        EventType.ADVANCE_SETTLEMENT,
-        economicEffect:   EconomicEffect.CASH_IN,
-        amount:           "500.00",
-        relatedEventId:   orig.id.value,
-        objects:  [{ objectId: "adv-rec", objectType: ObjectType.ADVANCE, relation: Relation.SETTLES }],
-        parties:  [
-          { partyId: "usina", role: PartyRole.PAYEE,  direction: Direction.IN,      amount: "500.00" },
-          { partyId: "bkr",   role: PartyRole.PAYER,  direction: Direction.NEUTRAL, amount: "500.00" },
-        ],
-        reason: { type: ReasonType.ADVANCE_PAYMENT, description: "full recovery", confidence: ConfidenceLevel.MEDIUM, requiresFollowup: false },
-      }));
-
-      const d = await makeSvc(repo).compute(PERIOD_JAN.from, PERIOD_JAN.to);
-      expect(d.recoveryRate).toBe(1);
-    });
-
-    it("DS16 — partial recovery yields rate between 0 and 1", async () => {
-      const repo = new InMemoryLedgerEventRepository();
-      const uc   = new CreateLedgerEventUseCase(repo, new NoOpAuditLogger());
-
-      const orig = await uc.execute(makeValidCommand({
-        sourceReference: ref(),
-        occurredAt:      JAN_01,
-        eventType:       EventType.ADVANCE_PAYMENT,
-        economicEffect:  EconomicEffect.CASH_OUT,
-        amount:          "1000.00",
-        objects:  [{ objectId: "adv-partial-rate", objectType: ObjectType.ADVANCE, relation: Relation.ORIGINATES }],
-        parties:  [
-          { partyId: "usina", role: PartyRole.PAYER,  direction: Direction.OUT,     amount: "1000.00" },
-          { partyId: "bkr",   role: PartyRole.PAYEE,  direction: Direction.NEUTRAL, amount: "1000.00" },
-        ],
-        reason: { type: ReasonType.ADVANCE_PAYMENT, description: "adv", confidence: ConfidenceLevel.HIGH, requiresFollowup: false },
-      }));
-
-      await uc.execute(makeValidCommand({
-        sourceReference:  ref(),
-        occurredAt:       JAN_15,
-        eventType:        EventType.ADVANCE_SETTLEMENT,
-        economicEffect:   EconomicEffect.CASH_IN,
-        amount:           "500.00",
-        relatedEventId:   orig.id.value,
-        objects:  [{ objectId: "adv-partial-rate", objectType: ObjectType.ADVANCE, relation: Relation.SETTLES }],
-        parties:  [
-          { partyId: "usina", role: PartyRole.PAYEE,  direction: Direction.IN,      amount: "500.00" },
-          { partyId: "bkr",   role: PartyRole.PAYER,  direction: Direction.NEUTRAL, amount: "500.00" },
-        ],
-        reason: { type: ReasonType.ADVANCE_PAYMENT, description: "partial", confidence: ConfidenceLevel.MEDIUM, requiresFollowup: false },
-      }));
-
-      const d = await makeSvc(repo).compute(PERIOD_JAN.from, PERIOD_JAN.to);
-      expect(d.recoveryRate).toBeGreaterThan(0);
-      expect(d.recoveryRate).toBeLessThan(1);
-      expect(d.recoveryRate).toBeCloseTo(0.5, 3);
+      expect(d.healthScore).toBeDefined();
+      expect(typeof d.healthScore.score).toBe("number");
+      expect(["saudável", "em_atencao", "crítico"]).toContain(d.healthScore.label);
+      expect(["up", "down", "stable"]).toContain(d.healthScore.trend);
     });
   });
 

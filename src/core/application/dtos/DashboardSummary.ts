@@ -2,6 +2,7 @@ import { LedgerEvent } from "../../domain/entities/LedgerEvent";
 import { EventType } from "../../domain/enums/EventType";
 import { Money } from "../../domain/value-objects/Money";
 import { PositionListItem } from "./PositionAggregate";
+import { BookHealthScore } from "./BookHealthScore";
 
 export interface DashboardSummary {
   period: { from: Date; to: Date };
@@ -28,11 +29,8 @@ export interface DashboardSummary {
   // ── Zone 2: Profits & Holes (period-scoped) ─────────────────────────────────
   cashInByType: Readonly<Partial<Record<EventType, Money>>>;
   cashOutByType: Readonly<Partial<Record<EventType, Money>>>;
-  /**
-   * All-time fraction: totalCashRecovered / totalOriginated across all non-reversed positions.
-   * 0 when nothing has been originated. Value is 0–1.
-   */
-  recoveryRate: number;
+  /** Composite book health score derived from closure quality (Leg 1) and open book health (Leg 2). */
+  healthScore: BookHealthScore;
 
   // ── Zone 3: Entry Points (current state) ────────────────────────────────────
   /** Open and partially-settled positions sorted oldest-origination first, capped at 6. */

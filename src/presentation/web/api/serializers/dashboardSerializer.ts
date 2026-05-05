@@ -23,7 +23,15 @@ export function serializeDashboard(summary: DashboardSummary) {
     // Zone 2
     cashInByType: serializeMoneyMap(summary.cashInByType),
     cashOutByType: serializeMoneyMap(summary.cashOutByType),
-    recoveryRate: summary.recoveryRate,
+    healthScore: {
+      score:          summary.healthScore.score,
+      label:          summary.healthScore.label,
+      trend:          summary.healthScore.trend,
+      trendDelta:     summary.healthScore.trendDelta,
+      closureQuality: summary.healthScore.closureQuality,
+      openBookHealth: summary.healthScore.openBookHealth,
+      windowDays:     summary.healthScore.windowDays,
+    },
 
     // Zone 3
     attentionPositions: summary.attentionPositions.map(serializePositionListItem),
