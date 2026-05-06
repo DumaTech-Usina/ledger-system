@@ -1,6 +1,7 @@
 import { LedgerEventRepository } from "../../../core/application/repositories/LedgerEventRepository";
 import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
+import { ObjectType } from "../../../core/domain/enums/ObjectType";
 import { Relation } from "../../../core/domain/enums/Relation";
 import { EventHash } from "../../../core/domain/value-objects/EventHash";
 import { Page, PageOptions, paginate } from "../../../core/application/dtos/Pagination";
@@ -182,6 +183,74 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     const data = results.slice((page - 1) * limit, page * limit);
 
     return { data, total, page, limit, totalPages };
+  }
+
+  async aggregateOpenBalancesByObjectType(): Promise<Array<{ objectType: ObjectType; openBalanceUnits: bigint; currency: string }>> {
+    const perObject = new Map<string, {
+      objectType: ObjectType; currency: string;
+      originated: bigint; settled: bigint; adjusted: bigint; hasReversal: boolean;
+    }>();
+
+    for (const event of this.store) {
+      const units = event.amount.toUnits();
+      for (const obj of event.getObjects()) {
+        const oid = obj.objectId.value;
+        if (!perObject.has(oid)) {
+          perObject.set(oid, {
+            objectType: obj.objectType,
+            currency: event.amount.currency,
+            originated: 0n, settled: 0n, adjusted: 0n, hasReversal: false,
+          });
+        }
+        const agg = perObject.get(oid)!;
+        switch (obj.relation) {
+          case Relation.ORIGINATES: agg.originated += units; break;
+          case Relation.SETTLES:    agg.settled    += units; break;
+          case Relation.ADJUSTS:    agg.adjusted   += units; break;
+          case Relation.REVERSES:   agg.hasReversal = true;  break;
+        }
+      }
+    }
+
+    const byType = new Map<ObjectType, { openBalance: bigint; currency: string }>();
+
+    for (const agg of perObject.values()) {
+      if (agg.hasReversal) continue;
+      const totalClosed = agg.settled + agg.adjusted;
+      if (agg.originated === 0n || totalClosed >= agg.originated) continue;
+      const openBalance = agg.originated - totalClosed;
+      const existing = byType.get(agg.objectType);
+      if (existing) {
+        existing.openBalance += openBalance;
+      } else {
+        byType.set(agg.objectType, { openBalance, currency: agg.currency });
+      }
+    }
+
+    return [...byType.entries()].map(([objectType, { openBalance, currency }]) => ({
+      objectType,
+      openBalanceUnits: openBalance,
+      currency,
+    }));
+  }
+
+  async aggregateCashFlows(): Promise<{ cashInUnits: bigint; cashOutUnits: bigint; currency: string }> {
+    let cashInUnits = 0n;
+    let cashOutUnits = 0n;
+    let currency = "BRL";
+    let found = false;
+
+    for (const event of this.store) {
+      if (event.economicEffect === EconomicEffect.CASH_IN) {
+        if (!found) { currency = event.amount.currency; found = true; }
+        cashInUnits += event.amount.toUnits();
+      } else if (event.economicEffect === EconomicEffect.CASH_OUT) {
+        if (!found) { currency = event.amount.currency; found = true; }
+        cashOutUnits += event.amount.toUnits();
+      }
+    }
+
+    return { cashInUnits, cashOutUnits, currency };
   }
 
   async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {
