@@ -27,6 +27,7 @@ import { LedgerEventObjectModel } from './models/LedgerEventObjectModel';
 import { Page, PageOptions } from '../../../core/application/dtos/Pagination';
 import { PositionAggregate, PositionAggregateOptions } from '../../../core/application/dtos/PositionAggregate';
 import { EconomicOutcome, PositionStatus } from '../../../core/application/dtos/PositionSummary';
+import { CashMovementsPaginatedOptions } from '../../../core/application/dtos/CashStatement';
 
 function statusToSql(status: PositionStatus): string {
   switch (status) {
@@ -222,6 +223,65 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     return { data, total, page, limit, totalPages };
   }
 
+  async aggregateOpenBalancesByObjectType(): Promise<Array<{ objectType: ObjectType; openBalanceUnits: bigint; currency: string }>> {
+    const rows: { object_type: string; open_balance: string; currency: string }[] =
+      await this.repo.manager.query(`
+        WITH per_object AS (
+          SELECT
+            o.object_id,
+            MAX(o.object_type)                                                                              AS object_type,
+            MAX(e.amount_currency)                                                                          AS currency,
+            COALESCE(SUM(CASE WHEN o.relation = 'originates' THEN e.amount_units ELSE 0::bigint END), 0)   AS total_originated,
+            COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0::bigint END), 0)   AS total_settled,
+            COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0::bigint END), 0)   AS total_adjusted,
+            BOOL_OR(o.relation = 'reverses')                                                               AS has_reversal
+          FROM ledger_events e
+          JOIN ledger_event_objects o ON o.event_id = e.id
+          GROUP BY o.object_id
+        ),
+        open_objects AS (
+          SELECT object_type, currency,
+                 total_originated - total_settled - total_adjusted AS open_balance
+          FROM per_object
+          WHERE NOT has_reversal
+            AND total_originated > 0
+            AND total_settled + total_adjusted < total_originated
+        )
+        SELECT object_type, SUM(open_balance) AS open_balance, MAX(currency) AS currency
+        FROM open_objects
+        GROUP BY object_type
+      `);
+
+    return rows.map((row) => ({
+      objectType:      row.object_type as ObjectType,
+      openBalanceUnits: BigInt(row.open_balance),
+      currency:        row.currency,
+    }));
+  }
+
+  async aggregateCashFlows(): Promise<{ cashInUnits: bigint; cashOutUnits: bigint; currency: string }> {
+    const rows: { effect: string; total: string; currency: string }[] = await this.repo.manager.query(`
+      SELECT economic_effect AS effect,
+             SUM(amount_units)   AS total,
+             MAX(amount_currency) AS currency
+      FROM ledger_events
+      WHERE economic_effect IN ('cash_in', 'cash_out')
+      GROUP BY economic_effect
+    `);
+
+    let cashInUnits = 0n;
+    let cashOutUnits = 0n;
+    let currency = "BRL";
+
+    for (const row of rows) {
+      currency = row.currency;
+      if (row.effect === "cash_in")  cashInUnits  = BigInt(row.total);
+      if (row.effect === "cash_out") cashOutUnits = BigInt(row.total);
+    }
+
+    return { cashInUnits, cashOutUnits, currency };
+  }
+
   async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {
     const offset = (options.page - 1) * options.limit;
     const sortCol: keyof LedgerEventModel =
@@ -240,6 +300,62 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       limit: options.limit,
       totalPages,
     };
+  }
+
+  async aggregateCashFlowsBefore(date: Date): Promise<{ cashInUnits: bigint; cashOutUnits: bigint; currency: string }> {
+    const rows: { effect: string; total: string; currency: string }[] = await this.repo.manager.query(`
+      SELECT economic_effect AS effect,
+             SUM(amount_units)    AS total,
+             MAX(amount_currency) AS currency
+      FROM ledger_events
+      WHERE economic_effect IN ('cash_in', 'cash_out')
+        AND occurred_at < $1
+      GROUP BY economic_effect
+    `, [date]);
+
+    let cashInUnits = 0n;
+    let cashOutUnits = 0n;
+    let currency = "BRL";
+
+    for (const row of rows) {
+      currency = row.currency;
+      if (row.effect === "cash_in")  cashInUnits  = BigInt(row.total);
+      if (row.effect === "cash_out") cashOutUnits = BigInt(row.total);
+    }
+
+    return { cashInUnits, cashOutUnits, currency };
+  }
+
+  async findCashMovementsPaginated(options: CashMovementsPaginatedOptions): Promise<{ items: LedgerEvent[]; hasMore: boolean; nextCursor: { occurredAt: Date; id: string } | null }> {
+    const qb = this.repo
+      .createQueryBuilder('e')
+      .innerJoin(
+        'e.parties',
+        'p',
+        'p.partyId = :partyId AND ((e.economicEffect = \'cash_in\' AND p.direction = \'in\') OR (e.economicEffect = \'cash_out\' AND p.direction = \'out\'))',
+        { partyId: options.partyId },
+      )
+      .where('e.economicEffect IN (:...effects)', { effects: ['cash_in', 'cash_out'] })
+      .orderBy('e.occurredAt', 'ASC')
+      .addOrderBy('e.id', 'ASC')
+      .take(options.limit + 1);
+
+    if (options.from) qb.andWhere('e.occurredAt >= :from', { from: options.from });
+    if (options.to)   qb.andWhere('e.occurredAt <= :to',   { to: options.to });
+    if (options.cursor) {
+      qb.andWhere(
+        '(e.occurredAt > :cursorAt OR (e.occurredAt = :cursorAt AND e.id > :cursorId))',
+        { cursorAt: options.cursor.occurredAt, cursorId: options.cursor.id },
+      );
+    }
+
+    const taken = await qb.getMany();
+    const hasMore = taken.length > options.limit;
+    const rows = hasMore ? taken.slice(0, options.limit) : taken;
+    const last = rows.length > 0 ? rows[rows.length - 1] : null;
+    const nextCursor = hasMore && last ? { occurredAt: last.occurredAt, id: last.id } : null;
+
+    return { items: rows.map((row) => this.toEntity(row)), hasMore, nextCursor };
   }
 
   // ── Mapping ──────────────────────────────────────────────────────────────

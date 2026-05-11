@@ -1,4 +1,5 @@
 import { LedgerEvent } from "../../domain/entities/LedgerEvent";
+import { ObjectType } from "../../domain/enums/ObjectType";
 import { Money } from "../../domain/value-objects/Money";
 
 /**
@@ -20,6 +21,7 @@ export type EconomicOutcome = "gain" | "partial_loss" | "full_loss" | "cancelled
 
 export interface PositionSummary {
   objectId: string;
+  objectType: ObjectType;
   status: PositionStatus;
   /** Sum of amounts from all ORIGINATES events for this object. */
   totalOriginated: Money;

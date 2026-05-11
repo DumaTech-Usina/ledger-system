@@ -112,6 +112,10 @@ export class PositionProjectionService {
   // ─── private ────────────────────────────────────────────────────────────────
 
   private project(objectId: string, events: LedgerEvent[]): PositionSummary {
+    const objectType = events
+      .flatMap((e) => e.getObjects())
+      .find((o) => o.objectId.value === objectId)!.objectType;
+
     const currency = events[0].amount.currency;
 
     let totalOriginated = Money.zero(currency);
@@ -182,6 +186,7 @@ export class PositionProjectionService {
 
     return {
       objectId,
+      objectType,
       status,
       totalOriginated,
       totalSettled,

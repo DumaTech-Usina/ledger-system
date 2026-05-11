@@ -1,7 +1,9 @@
 import { LedgerEvent } from "../../domain/entities/LedgerEvent";
+import { ObjectType } from "../../domain/enums/ObjectType";
 import { EventHash } from "../../domain/value-objects/EventHash";
 import { Page, PageOptions } from "../dtos/Pagination";
 import { PositionAggregate, PositionAggregateOptions } from "../dtos/PositionAggregate";
+import { CashMovementsPaginatedOptions } from "../dtos/CashStatement";
 
 export interface LedgerEventRepository {
   save(event: LedgerEvent): Promise<void>;
@@ -37,4 +39,32 @@ export interface LedgerEventRepository {
 
   /** Aggregated position numbers per objectId, with optional filtering and pagination. */
   findPositionAggregates(options: PositionAggregateOptions): Promise<Page<PositionAggregate>>;
+
+  /**
+   * Sums all CASH_IN and CASH_OUT event amounts in a single pass.
+   * Callers never receive individual events — O(1) memory regardless of ledger size.
+   * Returns units (bigint) to stay consistent with the aggregate DTO pattern.
+   * Currency defaults to "BRL" when the ledger has no cash-flow events.
+   */
+  aggregateCashFlows(): Promise<{ cashInUnits: bigint; cashOutUnits: bigint; currency: string }>;
+
+  /**
+   * Returns the sum of open balances grouped by ObjectType — at most 24 rows regardless of ledger size.
+   * "Open" means: not reversed, originated > 0, and totalSettled + totalAdjusted < totalOriginated.
+   * Used by CashPositionService to bucket positions into receivables vs contingent exposure
+   * without loading individual events or running N+1 queries.
+   */
+  aggregateOpenBalancesByObjectType(): Promise<Array<{ objectType: ObjectType; openBalanceUnits: bigint; currency: string }>>;
+
+  /**
+   * Same as aggregateCashFlows() but only counts events where occurredAt < date.
+   * Used by CashStatementService to compute opening balance.
+   */
+  aggregateCashFlowsBefore(date: Date): Promise<{ cashInUnits: bigint; cashOutUnits: bigint; currency: string }>;
+
+  /**
+   * Filters cash movements (CASH_IN | CASH_OUT) for a given party, with optional period and cursor.
+   * Returns at most limit+1 items so callers can detect hasMore without a count query.
+   */
+  findCashMovementsPaginated(options: CashMovementsPaginatedOptions): Promise<{ items: LedgerEvent[]; hasMore: boolean; nextCursor: { occurredAt: Date; id: string } | null }>;
 }
