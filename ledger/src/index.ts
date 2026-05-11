@@ -1,17 +1,20 @@
-import 'reflect-metadata';
-import { AppDataSource } from './infra/database/data-source';
-import { getMongoDb, closeMongoDb } from './infra/database/mongo-client';
-import { TypeOrmLedgerEventRepository } from './infra/persistence/typeorm/TypeOrmLedgerEventRepository';
-import { MongoRejectedEventRepository } from './infra/persistence/mongodb/MongoRejectedEventRepository';
-import { MongoStagingRepository } from './infra/persistence/mongodb/MongoStagingRepository';
-import { StagingRecordValidator } from './core/application/services/StagingRecordValidator';
-import { PositionProjectionService } from './core/application/services/PositionProjectionService';
-import { CreateLedgerEventUseCase } from './core/application/use-cases/CreateLedgerEventUseCase';
-import { RejectLedgerEventUseCase } from './core/application/use-cases/RejectLedgerEventUseCase';
-import { ProcessStagingJob } from './infra/jobs/ProcessStagingJob';
-import { createServer } from './presentation/web/api/server';
-import { FileAuditLogger } from './infra/audit/FileAuditLogger';
-import { env } from './config/env';
+import "reflect-metadata";
+import { AppDataSource } from "./infra/database/data-source";
+import { getMongoDb, closeMongoDb } from "./infra/database/mongo-client";
+import { TypeOrmLedgerEventRepository } from "./infra/persistence/typeorm/TypeOrmLedgerEventRepository";
+import { MongoRejectedEventRepository } from "./infra/persistence/mongodb/MongoRejectedEventRepository";
+import { MongoStagingRepository } from "./infra/persistence/mongodb/MongoStagingRepository";
+import { StagingRecordValidator } from "./core/application/services/StagingRecordValidator";
+import { CashEventListingService } from "./core/application/services/CashEventListingService";
+import { CashPositionService } from "./core/application/services/CashPositionService";
+import { CashStatementService } from "./core/application/services/CashStatementService";
+import { PositionProjectionService } from "./core/application/services/PositionProjectionService";
+import { CreateLedgerEventUseCase } from "./core/application/use-cases/CreateLedgerEventUseCase";
+import { RejectLedgerEventUseCase } from "./core/application/use-cases/RejectLedgerEventUseCase";
+import { ProcessStagingJob } from "./infra/jobs/ProcessStagingJob";
+import { createServer } from "./presentation/web/api/server";
+import { FileAuditLogger } from "./infra/audit/FileAuditLogger";
+import { env } from "./config/env";
 
 async function bootstrap(): Promise<void> {
   // ── Databases ──────────────────────────────────────────────────────────────
@@ -26,16 +29,36 @@ async function bootstrap(): Promise<void> {
   // ── Application ────────────────────────────────────────────────────────────
   const audit = new FileAuditLogger(env.AUDIT_LOG_DIR);
   const positionService = new PositionProjectionService(ledgerRepo);
+  const cashPositionService = new CashPositionService(ledgerRepo);
+  const cashStatementService = new CashStatementService(
+    ledgerRepo,
+    env.USINA_PARTY_ID,
+  );
+  const cashListingService = new CashEventListingService(ledgerRepo);
   const validator = new StagingRecordValidator(ledgerRepo);
   const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit);
   const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit);
-  const job = new ProcessStagingJob(stagingRepo, validator, createUseCase, rejectUseCase);
+  const job = new ProcessStagingJob(
+    stagingRepo,
+    validator,
+    createUseCase,
+    rejectUseCase,
+  );
 
   // ── Staging job (runs once on boot, extend to interval/cron as needed) ─────
   await job.run();
 
   // ── HTTP server ────────────────────────────────────────────────────────────
-  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo, positionService });
+  const app = createServer({
+    ledgerRepo,
+    rejectedRepo,
+    stagingRepo,
+    positionService,
+    usinaPartyId: env.USINA_PARTY_ID,
+    cashPositionService,
+    cashStatementService,
+    cashListingService,
+  });
 
   const server = app.listen(env.SERVER_PORT, () => {
     console.log(`Ledger service running on port ${env.SERVER_PORT}`);
@@ -51,11 +74,11 @@ async function bootstrap(): Promise<void> {
     });
   };
 
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
 bootstrap().catch((err: unknown) => {
-  console.error('Fatal error during bootstrap:', err);
+  console.error("Fatal error during bootstrap:", err);
   process.exit(1);
 });

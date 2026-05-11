@@ -1,5 +1,6 @@
 import { LedgerEventRepository } from "../../../core/application/repositories/LedgerEventRepository";
 import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";
+import { Direction } from "../../../core/domain/enums/Direction";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
 import { Relation } from "../../../core/domain/enums/Relation";
@@ -7,6 +8,7 @@ import { EventHash } from "../../../core/domain/value-objects/EventHash";
 import { Page, PageOptions, paginate } from "../../../core/application/dtos/Pagination";
 import { PositionAggregate, PositionAggregateOptions } from "../../../core/application/dtos/PositionAggregate";
 import { EconomicOutcome, PositionStatus } from "../../../core/application/dtos/PositionSummary";
+import { CashMovementsPaginatedOptions } from "../../../core/application/dtos/CashStatement";
 
 function deriveStatusFromAggregate(agg: PositionAggregate): PositionStatus {
   if (agg.hasReversal) return "reversed";
@@ -261,5 +263,73 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
       items.sort((a, b) => order * (a[key].getTime() - b[key].getTime()));
     }
     return paginate(items, options);
+  }
+
+  async aggregateCashFlowsBefore(date: Date): Promise<{ cashInUnits: bigint; cashOutUnits: bigint; currency: string }> {
+    let cashInUnits = 0n;
+    let cashOutUnits = 0n;
+    let currency = "BRL";
+    let found = false;
+
+    for (const event of this.store) {
+      if (event.occurredAt >= date) continue;
+      if (event.economicEffect === EconomicEffect.CASH_IN) {
+        if (!found) { currency = event.amount.currency; found = true; }
+        cashInUnits += event.amount.toUnits();
+      } else if (event.economicEffect === EconomicEffect.CASH_OUT) {
+        if (!found) { currency = event.amount.currency; found = true; }
+        cashOutUnits += event.amount.toUnits();
+      }
+    }
+
+    return { cashInUnits, cashOutUnits, currency };
+  }
+
+  async findCashMovementsPaginated(options: CashMovementsPaginatedOptions): Promise<{ items: LedgerEvent[]; hasMore: boolean; nextCursor: { occurredAt: Date; id: string } | null }> {
+    let filtered = this.store.filter((event) => {
+      if (event.economicEffect === EconomicEffect.CASH_IN) {
+        const match = event.getParties().some(
+          (p) => p.partyId.value === options.partyId && p.direction === Direction.IN,
+        );
+        if (!match) return false;
+      } else if (event.economicEffect === EconomicEffect.CASH_OUT) {
+        const match = event.getParties().some(
+          (p) => p.partyId.value === options.partyId && p.direction === Direction.OUT,
+        );
+        if (!match) return false;
+      } else {
+        return false;
+      }
+
+      if (options.from && event.occurredAt < options.from) return false;
+      if (options.to && event.occurredAt > options.to) return false;
+
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      const timeDiff = a.occurredAt.getTime() - b.occurredAt.getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return a.id.value < b.id.value ? -1 : a.id.value > b.id.value ? 1 : 0;
+    });
+
+    if (options.cursor) {
+      const { occurredAt: cursorAt, id: cursorId } = options.cursor;
+      filtered = filtered.filter((event) => {
+        const tEvent = event.occurredAt.getTime();
+        const tCursor = cursorAt.getTime();
+        if (tEvent > tCursor) return true;
+        if (tEvent === tCursor && event.id.value > cursorId) return true;
+        return false;
+      });
+    }
+
+    const taken = filtered.slice(0, options.limit + 1);
+    const hasMore = taken.length > options.limit;
+    const items = hasMore ? taken.slice(0, options.limit) : taken;
+    const last = items.length > 0 ? items[items.length - 1] : null;
+    const nextCursor = hasMore && last ? { occurredAt: last.occurredAt, id: last.id.value } : null;
+
+    return { items, hasMore, nextCursor };
   }
 }

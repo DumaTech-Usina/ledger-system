@@ -1,6 +1,11 @@
 import { CreateLedgerEventUseCase } from "../../core/application/use-cases/CreateLedgerEventUseCase";
 import { RejectLedgerEventUseCase } from "../../core/application/use-cases/RejectLedgerEventUseCase";
+import { FileAuditLogger } from "../audit/FileAuditLogger";
 import { StagingRecordValidator } from "../../core/application/services/StagingRecordValidator";
+import { CashEventListingService } from "../../core/application/services/CashEventListingService";
+import { CashPositionService } from "../../core/application/services/CashPositionService";
+import { CashStatementService } from "../../core/application/services/CashStatementService";
+import { PositionProjectionService } from "../../core/application/services/PositionProjectionService";
 import { StagingRecord } from "../../core/application/dtos/StagingRecord";
 import { InMemoryLedgerEventRepository } from "../persistence/ledger/InMemoryLedgerEventRepository";
 import { InMemoryRejectedEventRepository } from "../persistence/rejected/InMemoryRejectedEventRepository";
@@ -17,23 +22,46 @@ function d(iso: string): string {
   return new Date(iso).toISOString();
 }
 
-// ─── Position A — SETTLED: Comissão a Receber (originated Feb 15, settled Feb 20) ──
+// ─── Position A — Comissão originada e depois recebida da operadora ──
 
 const a1: StagingRecord = {
   id: "stg-a1",
   status: "pending",
   eventType: "commission_received",
   economicEffect: "cash_in",
-  occurredAt: d("2026-02-15T10:00:00Z"),
+  occurredAt: d("2026-02-20T14:00:00Z"),
   amount: "4500.00",
   currency: "BRL",
   sourceSystem: "normalizer",
-  sourceReference: "COM-A-ORIG",
+  sourceReference: "COM-A-SETTLE",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-partner-xyz", role: "payee", direction: "in", amount: "4500.00" }],
-  objects: [{ objectId: "obj-com-rec-a", objectType: "commission_receivable", relation: "originates" }],
-  reason: { type: "commission_payment", description: "Comissão mensal parceiro XYZ — originação", confidence: "high", requiresFollowup: false },
+  parties: [
+    {
+      partyId: "party-operadora-a",
+      role: "payer",
+      direction: "neutral",
+    },
+    {
+      partyId: "party-usina",
+      role: "payee",
+      direction: "in",
+      amount: "4500.00",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-com-rec-a",
+      objectType: "commission_receivable",
+      relation: "settles",
+    },
+  ],
+  reason: {
+    type: "commission_payment",
+    description: "Pagamento de comissão recebido da operadora",
+    confidence: "high",
+    requiresFollowup: false,
+  },
   reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
 };
 
@@ -49,13 +77,31 @@ const a2: StagingRecord = {
   sourceReference: "COM-A-SETTLE",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-partner-xyz", role: "payee", direction: "in", amount: "4500.00" }],
-  objects: [{ objectId: "obj-com-rec-a", objectType: "commission_receivable", relation: "settles" }],
-  reason: { type: "commission_payment", description: "Comissão mensal parceiro XYZ — liquidação confirmada", confidence: "high", requiresFollowup: false },
+  parties: [
+    {
+      partyId: "party-partner-xyz",
+      role: "payee",
+      direction: "in",
+      amount: "4500.00",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-com-rec-a",
+      objectType: "commission_receivable",
+      relation: "settles",
+    },
+  ],
+  reason: {
+    type: "commission_payment",
+    description: "Pagamento de comissão recebido da operadora",
+    confidence: "high",
+    requiresFollowup: false,
+  },
   reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
 };
 
-// ─── Position B — SETTLED: Adiantamento a Parceiro (originated Feb 20, settled Mar 05) ──
+// ─── Position B — Adiantamento ao corretor e posterior compensação ──
 
 const b1: StagingRecord = {
   id: "stg-b1",
@@ -69,17 +115,36 @@ const b1: StagingRecord = {
   sourceReference: "ADV-B-ORIG",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-merchant-b", role: "payee", direction: "out", amount: "12000.00" }],
-  objects: [{ objectId: "obj-adv-b", objectType: "advance", relation: "originates" }],
-  reason: { type: "advance_payment", description: "Adiantamento capital de giro parceiro B", confidence: "high", requiresFollowup: false },
+  parties: [
+    {
+      partyId: "party-usina",
+      role: "payer",
+      direction: "out",
+      amount: "12000.00",
+    },
+    {
+      partyId: "party-merchant-b",
+      role: "payee",
+      direction: "neutral",
+    },
+  ],
+  objects: [
+    { objectId: "obj-adv-b", objectType: "advance", relation: "originates" },
+  ],
+  reason: {
+    type: "advance_payment",
+    description: "Adiantamento pago ao parceiro sobre comissão futura",
+    confidence: "high",
+    requiresFollowup: false,
+  },
   reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
 };
 
 const b2: StagingRecord = {
   id: "stg-b2",
   status: "pending",
-  eventType: "advance_payment",
-  economicEffect: "non_cash",
+  eventType: "commission_split",
+  economicEffect: "cash_internal",
   occurredAt: d("2026-03-05T11:00:00Z"),
   amount: "12000.00",
   currency: "BRL",
@@ -87,13 +152,41 @@ const b2: StagingRecord = {
   sourceReference: "ADV-B-SETTLE",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-merchant-b", role: "payee", direction: "neutral" }],
-  objects: [{ objectId: "obj-adv-b", objectType: "advance", relation: "settles" }],
-  reason: { type: "advance_payment", description: "Adiantamento capital de giro parceiro B — liquidado via repasse de comissão", confidence: "high", requiresFollowup: false },
-  reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
+  parties: [
+    {
+      partyId: "party-usina",
+      role: "payer",
+      direction: "out",
+      amount: "12000.00",
+    },
+    {
+      partyId: "party-merchant-b",
+      role: "payee",
+      direction: "in",
+      amount: "12000.00",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-adv-b",
+      objectType: "advance",
+      relation: "adjusts",
+    },
+  ],
+  reason: {
+    type: "commission_split",
+    description: "Compensação do adiantamento via comissão",
+    confidence: "high",
+    requiresFollowup: false,
+  },
+  reporter: {
+    reporterType: "system",
+    reporterId: WORKER,
+    channel: "batch",
+  },
 };
 
-// ─── Position C — OPEN: Comissão a Receber sem liquidação (Mar 01) ───────────
+// ─── Position C — Comissão aguardando pagamento ──
 
 const c1: StagingRecord = {
   id: "stg-c1",
@@ -107,13 +200,77 @@ const c1: StagingRecord = {
   sourceReference: "COM-C-ORIG",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-partner-abc", role: "payee", direction: "in", amount: "2750.00" }],
-  objects: [{ objectId: "obj-com-rec-c", objectType: "commission_receivable", relation: "originates" }],
-  reason: { type: "commission_payment", description: "Comissão Q1 parceiro ABC — aguardando confirmação bancária", confidence: "medium", requiresFollowup: false },
+  parties: [
+    {
+      partyId: "party-operadora-c",
+      role: "payer",
+      direction: "neutral",
+    },
+    {
+      partyId: "party-usina",
+      role: "payee",
+      direction: "in",
+      amount: "2750.00",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-com-rec-c",
+      objectType: "commission_receivable",
+      relation: "settles",
+    },
+  ],
+  reason: {
+    type: "commission_payment",
+    description: "Pagamento de comissão identificado",
+    confidence: "medium",
+    requiresFollowup: true,
+  },
   reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
 };
 
-// ─── Position D — OPEN: Adiantamento não liquidado (Mar 01) ─────────────────
+const c2: StagingRecord = {
+  id: "stg-c2",
+  status: "pending",
+  eventType: "commission_received",
+  economicEffect: "cash_in",
+  occurredAt: d("2026-03-11T10:00:00Z"),
+  amount: "2750.00",
+  currency: "BRL",
+  sourceSystem: "normalizer",
+  sourceReference: "COM-C-SETTLE",
+  normalizationVersion: NORM_VERSION,
+  normalizationWorkerId: WORKER,
+  parties: [
+    {
+      partyId: "party-operadora-c",
+      role: "payer",
+      direction: "neutral",
+    },
+    {
+      partyId: "party-usina",
+      role: "payee",
+      direction: "in",
+      amount: "2750.00",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-com-rec-c",
+      objectType: "commission_receivable",
+      relation: "settles",
+    },
+  ],
+  reason: {
+    type: "commission_payment",
+    description: "Pagamento da comissão confirmado",
+    confidence: "high",
+    requiresFollowup: false,
+  },
+  reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
+};
+
+// ─── Position D — Adiantamento não liquidado ──
 
 const d1: StagingRecord = {
   id: "stg-d1",
@@ -127,13 +284,35 @@ const d1: StagingRecord = {
   sourceReference: "ADV-D-ORIG",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-merchant-d", role: "payee", direction: "out", amount: "8500.00" }],
-  objects: [{ objectId: "obj-adv-d", objectType: "advance", relation: "originates" }],
-  reason: { type: "advance_payment", description: "Adiantamento parceiro D — pendente de liquidação", confidence: "high", requiresFollowup: false },
-  reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
+  parties: [
+    {
+      partyId: "party-usina",
+      role: "payer",
+      direction: "out",
+      amount: "8500.00",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-adv-d",
+      objectType: "advance",
+      relation: "originates",
+    },
+  ],
+  reason: {
+    type: "advance_payment",
+    description: "Adiantamento pago aguardando compensação futura",
+    confidence: "high",
+    requiresFollowup: false,
+  },
+  reporter: {
+    reporterType: "integration",
+    reporterId: "ops-team",
+    channel: "manual-override",
+  },
 };
 
-// ─── Position E — REVERSED: Isenção de comissão estornada (Mar 08 → Mar 09) ──
+// ─── Position E — Isenção e estorno de comissão ──
 
 const e1: StagingRecord = {
   id: "stg-e1",
@@ -147,9 +326,26 @@ const e1: StagingRecord = {
   sourceReference: "WAIVER-E-ORIG",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-partner-xyz", role: "payee", direction: "neutral" }],
-  objects: [{ objectId: "obj-com-ent-e", objectType: "commission_entitlement", relation: "settles" }],
-  reason: { type: "commission_waiver", description: "Isenção de comissão — acordo contratual Q1", confidence: "high", requiresFollowup: false },
+  parties: [
+    {
+      partyId: "party-partner-xyz",
+      role: "payee",
+      direction: "neutral",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-com-ent-e",
+      objectType: "commission_entitlement",
+      relation: "settles",
+    },
+  ],
+  reason: {
+    type: "commission_waiver",
+    description: "Isenção concedida de comissão",
+    confidence: "high",
+    requiresFollowup: false,
+  },
   reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
 };
 
@@ -166,126 +362,287 @@ const e2: StagingRecord = {
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
   previousHash: "dev-reversal-placeholder",
-  parties: [{ partyId: "party-partner-xyz", role: "payee", direction: "neutral" }],
-  objects: [{ objectId: "obj-com-ent-e", objectType: "commission_entitlement", relation: "reverses" }],
-  reason: { type: "commission_waiver", description: "Estorno da isenção — contrato renegociado", confidence: "high", requiresFollowup: false },
-  reporter: { reporterType: "integration", reporterId: "ops-team", channel: "manual-override" },
+  parties: [
+    {
+      partyId: "party-partner-xyz",
+      role: "payee",
+      direction: "neutral",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-com-ent-e",
+      objectType: "commission_entitlement",
+      relation: "reverses",
+    },
+  ],
+  reason: {
+    type: "commission_waiver",
+    description: "Estorno da isenção de comissão",
+    confidence: "high",
+    requiresFollowup: false,
+  },
+  reporter: {
+    reporterType: "integration",
+    reporterId: "ops-team",
+    channel: "manual-override",
+  },
 };
 
-// ─── Position C — settlement (closes position C, Mar 11) ─────────────────────
+// ─────────────────────────────────────────────────────────────
+// Comissão recebida da operadora
+// ─────────────────────────────────────────────────────────────
 
-const c2: StagingRecord = {
-  id: "stg-c2",
+const commissionReceived: StagingRecord = {
+  id: "stg-001",
   status: "pending",
   eventType: "commission_received",
   economicEffect: "cash_in",
-  occurredAt: d("2026-03-11T10:00:00Z"),
-  amount: "2750.00",
+  occurredAt: d("2026-03-01T10:00:00Z"),
+  amount: "5000.00",
   currency: "BRL",
   sourceSystem: "normalizer",
-  sourceReference: "COM-C-SETTLE",
+  sourceReference: "COM-001",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-partner-abc", role: "payee", direction: "in", amount: "2750.00" }],
-  objects: [{ objectId: "obj-com-rec-c", objectType: "commission_receivable", relation: "settles" }],
-  reason: { type: "commission_payment", description: "Comissão Q1 parceiro ABC — confirmação bancária recebida", confidence: "high", requiresFollowup: false },
+  parties: [
+    {
+      partyId: "party-operadora",
+      role: "payer",
+      direction: "neutral",
+    },
+    {
+      partyId: "party-usina",
+      role: "payee",
+      direction: "in",
+      amount: "5000.00",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-commission-001",
+      objectType: "commission_receivable",
+      relation: "settles",
+    },
+  ],
+  reason: {
+    type: "commission_payment",
+    description: "Recebimento de comissão da operadora",
+    confidence: "high",
+    requiresFollowup: false,
+  },
   reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
 };
 
-// ─── Position G — OPEN: Conta a pagar recente (now) ──────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Adiantamento ao corretor
+// ─────────────────────────────────────────────────────────────
 
-const g1: StagingRecord = {
-  id: "stg-g1",
+const advancePayment: StagingRecord = {
+  id: "stg-003",
   status: "pending",
   eventType: "advance_payment",
   economicEffect: "cash_out",
-  occurredAt: new Date().toISOString(),
-  amount: "6200.00",
+  occurredAt: d("2026-03-02T09:00:00Z"),
+  amount: "2000.00",
   currency: "BRL",
   sourceSystem: "normalizer",
-  sourceReference: "ADV-G-NOW",
+  sourceReference: "ADV-001",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-merchant-g", role: "payee", direction: "out", amount: "6200.00" }],
-  objects: [{ objectId: "obj-adv-g", objectType: "advance", relation: "originates" }],
-  reason: { type: "advance_payment", description: "Adiantamento urgente parceiro G — aprovado agora", confidence: "high", requiresFollowup: false },
-  reporter: { reporterType: "integration", reporterId: "ops-team", channel: "manual-override" },
+  parties: [
+    {
+      partyId: "party-usina",
+      role: "payer",
+      direction: "out",
+      amount: "2000.00",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-advance-001",
+      objectType: "advance",
+      relation: "originates",
+    },
+  ],
+  reason: {
+    type: "advance_payment",
+    description: "Adiantamento ao corretor sobre comissão futura",
+    confidence: "high",
+    requiresFollowup: false,
+  },
+  reporter: {
+    reporterType: "integration",
+    reporterId: "ops",
+    channel: "manual",
+  },
 };
 
-// ─── Position F — OPEN >30 days: Adiantamento antigo (Jan 10) ────────────────
+// ─────────────────────────────────────────────────────────────
+// Compensação do adiantamento via comissão
+// ─────────────────────────────────────────────────────────────
 
-const f1: StagingRecord = {
-  id: "stg-f1",
+const advanceSettlement: StagingRecord = {
+  id: "stg-004",
   status: "pending",
-  eventType: "advance_payment",
+  eventType: "advance_settlement",
+  economicEffect: "non_cash",
+  occurredAt: d("2026-03-10T10:00:00Z"),
+  amount: "2000.00",
+  currency: "BRL",
+  sourceSystem: "normalizer",
+  sourceReference: "ADV-SET-001",
+  normalizationVersion: NORM_VERSION,
+  normalizationWorkerId: WORKER,
+  parties: [
+    {
+      partyId: "party-corretor-001",
+      role: "debtor",
+      direction: "neutral",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-advance-001",
+      objectType: "advance",
+      relation: "settles",
+    },
+  ],
+  reason: {
+    type: "advance_settlement",
+    description: "Compensação do adiantamento com comissão",
+    confidence: "high",
+    requiresFollowup: false,
+  },
+  reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
+};
+
+// ─────────────────────────────────────────────────────────────
+// Multa paga pela Usina
+// ─────────────────────────────────────────────────────────────
+
+const finePayment: StagingRecord = {
+  id: "stg-005",
+  status: "pending",
+  eventType: "penalty_payment",
   economicEffect: "cash_out",
-  occurredAt: d("2026-01-10T08:00:00Z"),
-  amount: "25000.00",
+  occurredAt: d("2026-03-05T11:00:00Z"),
+  amount: "750.00",
   currency: "BRL",
   sourceSystem: "normalizer",
-  sourceReference: "ADV-F-OLD",
+  sourceReference: "FINE-001",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-merchant-f", role: "payee", direction: "out", amount: "25000.00" }],
-  objects: [{ objectId: "obj-adv-f", objectType: "advance", relation: "originates" }],
-  reason: { type: "advance_payment", description: "Adiantamento parceiro F — pendente liquidação há mais de 30 dias", confidence: "high", requiresFollowup: false },
-  reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
+  parties: [
+    {
+      partyId: "party-usina",
+      role: "payer",
+      direction: "out",
+      amount: "750.00",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-fine-001",
+      objectType: "penalty",
+      relation: "settles",
+    },
+  ],
+  reason: {
+    type: "penalty_payment",
+    description: "Pagamento de multa à operadora",
+    confidence: "high",
+    requiresFollowup: false,
+  },
+  reporter: {
+    reporterType: "integration",
+    reporterId: "ops",
+    channel: "manual",
+  },
 };
 
-// ─── Rejected records ─────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// Despesa operacional
+// ─────────────────────────────────────────────────────────────
 
-const r1: StagingRecord = {
-  id: "stg-r1",
-  status: "pending",
-  eventType: "payroll_payment",
-  economicEffect: "cash_out",
-  occurredAt: d("2026-03-10T09:00:00Z"),
-  amount: "9999.999",        // invalid: 3 decimal places
-  currency: "BRL",
-  sourceSystem: "normalizer",
-  sourceReference: "PAY-R1-BAD",
-  normalizationVersion: NORM_VERSION,
-  normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-employee-001", role: "payee", direction: "out", amount: "9999.999" }],
-  objects: [{ objectId: "obj-payroll-r1", objectType: "payroll", relation: "settles" }],
-  reason: { type: "payroll_payment", description: "Folha março — valor com formato inválido", confidence: "high", requiresFollowup: false },
-  reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
-};
-
-const r2: StagingRecord = {
-  id: "stg-r2",
-  status: "pending",
-  eventType: "commission_received",
-  economicEffect: "cash_in",
-  occurredAt: d("2026-03-11T07:00:00Z"),
-  amount: "4500.00",
-  currency: "BRL",
-  sourceSystem: "normalizer",
-  sourceReference: "COM-A-ORIG",  // duplicate of stg-a1 sourceReference
-  normalizationVersion: NORM_VERSION,
-  normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-partner-xyz", role: "payee", direction: "in", amount: "4500.00" }],
-  objects: [{ objectId: "obj-com-rec-a", objectType: "commission_receivable", relation: "originates" }],
-  reason: { type: "commission_payment", description: "Reenvio acidental pelo normalizador", confidence: "high", requiresFollowup: false },
-  reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
-};
-
-const r3: StagingRecord = {
-  id: "stg-r3",
+const infraExpense: StagingRecord = {
+  id: "stg-006",
   status: "pending",
   eventType: "infrastructure_expense",
   economicEffect: "cash_out",
-  occurredAt: d("2026-03-11T08:00:00Z"),
+  occurredAt: d("2026-03-06T08:00:00Z"),
   amount: "1200.00",
   currency: "BRL",
-  // sourceSystem intentionally omitted → INVALID_SCHEMA
-  sourceReference: "INFRA-R3-NOSS",
+  sourceSystem: "normalizer",
+  sourceReference: "INFRA-001",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
-  parties: [{ partyId: "party-vendor-cloud", role: "payee", direction: "out", amount: "1200.00" }],
-  objects: [{ objectId: "obj-infra-r3", objectType: "infrastructure_cost", relation: "settles" }],
-  reason: { type: "infrastructure_expense", description: "Custo cloud — sistema de origem ausente no payload", confidence: "medium", requiresFollowup: false },
+  parties: [
+    {
+      partyId: "party-usina",
+      role: "payer",
+      direction: "out",
+      amount: "1200.00",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-infra-001",
+      objectType: "infrastructure_cost",
+      relation: "settles",
+    },
+  ],
+  reason: {
+    type: "infrastructure_expense",
+    description: "Pagamento de infraestrutura e servidores",
+    confidence: "high",
+    requiresFollowup: false,
+  },
   reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
+};
+
+// ─────────────────────────────────────────────────────────────
+// Reversão de multa
+// ─────────────────────────────────────────────────────────────
+
+const fineReversal: StagingRecord = {
+  id: "stg-007",
+  status: "pending",
+  eventType: "penalty_payment",
+  economicEffect: "non_cash",
+  occurredAt: d("2026-03-07T10:00:00Z"),
+  amount: "750.00",
+  currency: "BRL",
+  sourceSystem: "normalizer",
+  sourceReference: "FINE-REV-001",
+  normalizationVersion: NORM_VERSION,
+  normalizationWorkerId: WORKER,
+  previousHash: "dev-placeholder",
+  parties: [
+    {
+      partyId: "party-operadora",
+      role: "issuer",
+      direction: "neutral",
+    },
+  ],
+  objects: [
+    {
+      objectId: "obj-fine-001",
+      objectType: "penalty",
+      relation: "reverses",
+    },
+  ],
+  reason: {
+    type: "penalty_reversal",
+    description: "Estorno de multa após revisão contratual",
+    confidence: "high",
+    requiresFollowup: false,
+  },
+  reporter: {
+    reporterType: "integration",
+    reporterId: "ops",
+    channel: "manual",
+  },
 };
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -294,13 +651,31 @@ async function main(): Promise<void> {
   const ledgerRepo = new InMemoryLedgerEventRepository();
   const rejectedRepo = new InMemoryRejectedEventRepository();
 
-  const allSeeds = [a1, a2, b1, b2, c1, c2, d1, e1, e2, f1, g1, r1, r2, r3];
+  const allSeeds = [
+    a1,
+    a2,
+    b1,
+    b2,
+    c1,
+    c2,
+    d1,
+    e1,
+    e2,
+    commissionReceived,
+    advancePayment,
+  ];
   const stagingRepo = new InMemoryStagingRepository(allSeeds);
 
+  const audit = new FileAuditLogger("./logs/audit");
   const validator = new StagingRecordValidator(ledgerRepo);
-  const createUseCase = new CreateLedgerEventUseCase(ledgerRepo);
-  const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo);
-  const job = new ProcessStagingJob(stagingRepo, validator, createUseCase, rejectUseCase);
+  const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit);
+  const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit);
+  const job = new ProcessStagingJob(
+    stagingRepo,
+    validator,
+    createUseCase,
+    rejectUseCase,
+  );
 
   console.log("=".repeat(64));
   console.log("  ProcessStagingJob — simulação financeira");
@@ -317,26 +692,38 @@ async function main(): Promise<void> {
   console.log("─".repeat(64));
 
   for (const seed of allSeeds) {
-    const reg = allEvents.find((e) => e.source.reference === seed.sourceReference);
+    const reg = allEvents.find(
+      (e) => e.source.reference === seed.sourceReference,
+    );
     const rej = allRejected.find((e) => e.stagingId.value === seed.id);
 
     if (reg) {
       console.log(`  [OK] ${seed.id.padEnd(10)} ${seed.sourceReference}`);
     } else if (rej) {
       const types = rej.reasons.map((r) => r.type).join(", ");
-      console.log(`  [RJ] ${seed.id.padEnd(10)} ${seed.sourceReference} — ${types}`);
+      console.log(
+        `  [RJ] ${seed.id.padEnd(10)} ${seed.sourceReference} — ${types}`,
+      );
     }
   }
 
   console.log("─".repeat(64));
-  console.log(`  Registrados: ${allEvents.length}  |  Rejeitados: ${allRejected.length}`);
+  console.log(
+    `  Registrados: ${allEvents.length}  |  Rejeitados: ${allRejected.length}`,
+  );
   console.log("=".repeat(64));
 
   const PORT = 3000;
-  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo });
+  const positionService    = new PositionProjectionService(ledgerRepo);
+  const cashPositionService  = new CashPositionService(ledgerRepo);
+  const cashStatementService = new CashStatementService(ledgerRepo, "party-usina");
+  const cashListingService   = new CashEventListingService(ledgerRepo);
+  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo, positionService, usinaPartyId: "party-usina", cashPositionService, cashStatementService, cashListingService });
 
   app.listen(PORT, () => {
-    console.log(`\n  Dashboard financeiro disponível em http://localhost:${PORT}`);
+    console.log(
+      `\n  Dashboard financeiro disponível em http://localhost:${PORT}`,
+    );
     console.log("  Pressione Ctrl+C para encerrar.\n");
   });
 }

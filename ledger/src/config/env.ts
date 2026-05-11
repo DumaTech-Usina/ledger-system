@@ -26,6 +26,8 @@ const envSchema = z.object({
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
 
   AUDIT_LOG_DIR: z.string().default("./logs/audit"),
+
+  USINA_PARTY_ID: z.string().default("party-usina"),
 });
 
 const result = envSchema.safeParse(process.env);
