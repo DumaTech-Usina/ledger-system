@@ -149,7 +149,9 @@ describe("Full Staging Flow — Integration", () => {
         makeValidStagingRecord({ id: "stg-ok", sourceReference: "ref-ok" }),
       ]);
       await job.run();
-      const record = (await stagingRepo.findAll()).find((r) => r.id === "stg-ok");
+      const record = (await stagingRepo.findAll()).find(
+        (r) => r.id === "stg-ok",
+      );
       expect(record?.status).toBe("accepted");
     });
 
@@ -158,7 +160,9 @@ describe("Full Staging Flow — Integration", () => {
         makeValidStagingRecord({ id: "stg-bad", parties: [] }),
       ]);
       await job.run();
-      const record = (await stagingRepo.findAll()).find((r) => r.id === "stg-bad");
+      const record = (await stagingRepo.findAll()).find(
+        (r) => r.id === "stg-bad",
+      );
       expect(record?.status).toBe("rejected");
     });
 

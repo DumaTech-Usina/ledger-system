@@ -13,6 +13,30 @@ export class MongoStagingRepository implements StagingRepository {
     this.collection = db.collection<StagingRecordDocument>(COLLECTION);
   }
 
+  async save(record: StagingRecord): Promise<void> {
+    const doc: StagingRecordDocument = {
+      _id: record.id,
+      status: record.status,
+      eventType: record.eventType,
+      economicEffect: record.economicEffect,
+      occurredAt: record.occurredAt,
+      sourceAt: record.sourceAt ?? null,
+      amount: record.amount,
+      currency: record.currency,
+      description: record.description ?? null,
+      sourceSystem: record.sourceSystem,
+      sourceReference: record.sourceReference,
+      normalizationVersion: record.normalizationVersion,
+      normalizationWorkerId: record.normalizationWorkerId,
+      previousHash: record.previousHash ?? null,
+      parties: record.parties ?? null,
+      objects: record.objects ?? null,
+      reason: record.reason ?? null,
+      reporter: record.reporter,
+    };
+    await this.collection.insertOne(doc);
+  }
+
   async claimPendingRecords(limit = 100): Promise<StagingRecord[]> {
     const docs = await this.collection
       .find({ status: 'pending' })

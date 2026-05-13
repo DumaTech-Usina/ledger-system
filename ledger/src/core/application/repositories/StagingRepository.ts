@@ -9,6 +9,7 @@ export interface StagingRepository {
    * only holds accepted LedgerEvents and is never involved in staging.
    */
   claimPendingRecords(limit?: number): Promise<StagingRecord[]>;
+  save(record: StagingRecord): Promise<void>;
   markAsAccepted(id: string): Promise<void>;
   markAsRejected(id: string): Promise<void>;
   findAll(): Promise<StagingRecord[]>;

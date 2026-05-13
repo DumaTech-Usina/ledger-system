@@ -9,6 +9,10 @@ export class InMemoryStagingRepository implements StagingRepository {
     this.store = records.map((r) => ({ ...r }));
   }
 
+  async save(record: StagingRecord): Promise<void> {
+    this.store.push({ ...record });
+  }
+
   async claimPendingRecords(limit = 100): Promise<StagingRecord[]> {
     const pending = this.store.filter((r) => r.status === "pending").slice(0, limit);
     for (const r of pending) r.status = "processing";
