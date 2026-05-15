@@ -72,6 +72,61 @@ func WithProposalNumber(n string) func(*domain.Receipt) {
 	return func(r *domain.Receipt) { r.ProposalNumber = n }
 }
 
+func WithDownloadedValue(v string) func(*domain.Receipt) {
+	return func(r *domain.Receipt) { r.DownloadedValue = v }
+}
+
+func WithReceiptStatus(s string) func(*domain.Receipt) {
+	return func(r *domain.Receipt) { r.ReceiptStatus = s }
+}
+
+// NewCanonicalProposal returns a CLEAN canonical proposal with sensible defaults.
+func NewCanonicalProposal(opts ...func(*domain.CanonicalProposal)) domain.CanonicalProposal {
+	p := domain.CanonicalProposal{
+		RunID:      "run-1",
+		ProposalID: "proposal-1",
+		Number:     "123456",
+		Value:      1000.00,
+		ClientID:   "client-1",
+		PlanID:     "plan-1",
+		Status:     domain.ProposalStatusClean,
+		Violations: []domain.Violation{},
+	}
+	for _, opt := range opts {
+		opt(&p)
+	}
+	return p
+}
+
+func WithCanonicalProposalID(id string) func(*domain.CanonicalProposal) {
+	return func(p *domain.CanonicalProposal) { p.ProposalID = id }
+}
+
+// CanonicalProposalList generates n CLEAN canonical proposals with distinct IDs.
+func CanonicalProposalList(n int) []domain.CanonicalProposal {
+	ps := make([]domain.CanonicalProposal, n)
+	for i := range ps {
+		ps[i] = NewCanonicalProposal(
+			WithCanonicalProposalID(fmt.Sprintf("proposal-%d", i+1)),
+		)
+	}
+	return ps
+}
+
+// ReceiptList generates n receipts with valid monetary format and distinct IDs.
+func ReceiptList(n int) []domain.Receipt {
+	rs := make([]domain.Receipt, n)
+	for i := range rs {
+		rs[i] = NewReceipt(
+			WithReceiptID(fmt.Sprintf("receipt-%d", i+1)),
+			WithProposalID(fmt.Sprintf("proposal-%d", i+1)),
+			WithDownloadedValue("1000.00"),
+			WithReceiptStatus("LIQUIDADO"),
+		)
+	}
+	return rs
+}
+
 // NewCluster returns a cluster containing two proposals by default.
 func NewCluster(opts ...func(*domain.Cluster)) domain.Cluster {
 	c := domain.Cluster{

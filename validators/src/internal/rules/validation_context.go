@@ -18,6 +18,9 @@ type ValidationContext struct {
 	// ProposalStats holds aggregate counts fetched during enrichment.
 	ProposalStats ProposalStats
 
+	// CanonicalReceipts holds receipts fetched during the receipts pipeline enrichment.
+	CanonicalReceipts []domain.Receipt
+
 	// Metadata is an open map for extensibility between stages.
 	Metadata map[string]any
 }

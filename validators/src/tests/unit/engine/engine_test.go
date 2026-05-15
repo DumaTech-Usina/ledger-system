@@ -85,4 +85,27 @@ func TestEngine_Parallel_CollectsAllResults(t *testing.T) {
 	if len(results) != 10 {
 		t.Fatalf("expected 10 results, got %d", len(results))
 	}
+
+	// Parallel mode preserves registration order (index-based slot assignment).
+	for i, r := range results {
+		expected := string(rune('A' + i))
+		if r.RuleName != expected {
+			t.Errorf("slot %d: expected rule %q, got %q", i, expected, r.RuleName)
+		}
+	}
+}
+
+func TestEngine_EmptyRegistry_ReturnsEmptySlice(t *testing.T) {
+	reg := engine.NewRegistry()
+	eng := engine.NewValidationEngine(reg, engine.Sequential)
+	ctx := fixtures.NewValidationContextBuilder().Build()
+
+	results := eng.Run(context.Background(), ctx)
+
+	if results == nil {
+		t.Error("expected non-nil empty slice from empty registry, got nil")
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results, got %d", len(results))
+	}
 }

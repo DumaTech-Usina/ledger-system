@@ -63,6 +63,58 @@ func (m *MockReceiptRepository) FetchFalseDelinquentProposalIDs(_ context.Contex
 	return ids, m.Err
 }
 
+func (m *MockReceiptRepository) FetchAllByProposalIDs(_ context.Context, _ []string) ([]domain.Receipt, error) {
+	return m.Receipts, m.Err
+}
+
+// MockCanonicalProposalReader satisfies ports.CanonicalProposalReader.
+type MockCanonicalProposalReader struct {
+	Proposals []domain.CanonicalProposal
+	Err       error
+}
+
+func (m *MockCanonicalProposalReader) FetchClean(_ context.Context) ([]domain.CanonicalProposal, error) {
+	return m.Proposals, m.Err
+}
+
+func (m *MockCanonicalProposalReader) CountClean(_ context.Context) (int, error) {
+	return len(m.Proposals), m.Err
+}
+
+func (m *MockCanonicalProposalReader) FetchCleanBatch(_ context.Context, afterID string, limit int) ([]domain.CanonicalProposal, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	start := 0
+	if afterID != "" {
+		for i, p := range m.Proposals {
+			if p.ProposalID == afterID {
+				start = i + 1
+				break
+			}
+		}
+	}
+	if start >= len(m.Proposals) {
+		return nil, nil
+	}
+	end := start + limit
+	if end > len(m.Proposals) {
+		end = len(m.Proposals)
+	}
+	return m.Proposals[start:end], nil
+}
+
+// MockAspiantReceiptCanonicalRepository satisfies ports.AspiantReceiptCanonicalRepository.
+type MockAspiantReceiptCanonicalRepository struct {
+	Saved []domain.AspiantReceiptCanonical
+	Err   error
+}
+
+func (m *MockAspiantReceiptCanonicalRepository) SaveAll(_ context.Context, records []domain.AspiantReceiptCanonical) error {
+	m.Saved = append(m.Saved, records...)
+	return m.Err
+}
+
 // MockAuditRepository satisfies ports.AuditRepository.
 type MockAuditRepository struct {
 	SavedClusters   []domain.Cluster

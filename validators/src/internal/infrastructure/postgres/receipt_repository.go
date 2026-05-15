@@ -24,7 +24,7 @@ func (r *ReceiptRepository) FetchPaidByProposalIDs(ctx context.Context, proposal
 		FROM receipts r
 		JOIN proposals p ON p.id = r.proposal_id
 		WHERE r.payment_status = 'PAGO'
-		  AND r.proposal_id::text = ANY($1)
+		  AND r.proposal_id = ANY($1::integer[])
 	`, pq.Array(proposalIDs))
 	if err != nil {
 		return nil, err
@@ -67,6 +67,39 @@ func (r *ReceiptRepository) CountFalseDelinquents(ctx context.Context) (int, err
 		  AND r.installment_number < pm.max_paid
 	`).Scan(&count)
 	return count, err
+}
+
+func (r *ReceiptRepository) FetchAllByProposalIDs(ctx context.Context, proposalIDs []string) ([]domain.Receipt, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT r.id::text, r.proposal_id::text, p.proposal_number,
+		       r.installment_number, r.payment_status,
+		       COALESCE(TRIM(TO_CHAR(r.downloaded_value, 'FM999999999990.00')), '') AS downloaded_value,
+		       r.discharge_date,
+		       COALESCE(r.receipt_status, '') AS receipt_status,
+		       p.created_at
+		FROM receipts r
+		JOIN proposals p ON p.id = r.proposal_id
+		WHERE r.proposal_id = ANY($1::integer[])
+	`, pq.Array(proposalIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var receipts []domain.Receipt
+	for rows.Next() {
+		var rec domain.Receipt
+		if err := rows.Scan(
+			&rec.ID, &rec.ProposalID, &rec.ProposalNumber,
+			&rec.InstallmentNumber, &rec.PaymentStatus,
+			&rec.DownloadedValue, &rec.DischargeDate,
+			&rec.ReceiptStatus, &rec.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		receipts = append(receipts, rec)
+	}
+	return receipts, rows.Err()
 }
 
 // Help the Rule-003

@@ -13,4 +13,7 @@ type ReceiptRepository interface {
 	// FetchFalseDelinquentProposalIDs returns the IDs of proposals that have
 	// at least one open installment while a later installment is already paid.
 	FetchFalseDelinquentProposalIDs(ctx context.Context) ([]string, error)
+	// FetchAllByProposalIDs returns all receipts for the given proposal IDs
+	// regardless of payment status, including full monetary fields.
+	FetchAllByProposalIDs(ctx context.Context, proposalIDs []string) ([]domain.Receipt, error)
 }

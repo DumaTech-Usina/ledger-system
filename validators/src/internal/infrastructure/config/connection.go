@@ -23,6 +23,10 @@ func Connect(postgresURL, mongoURL, mongoDBName string) (*DBConnections, error) 
 	if err := pg.Ping(); err != nil {
 		return nil, err
 	}
+	pg.SetMaxOpenConns(5)
+	pg.SetMaxIdleConns(3)
+	pg.SetConnMaxLifetime(5 * time.Minute)
+	pg.SetConnMaxIdleTime(2 * time.Minute)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

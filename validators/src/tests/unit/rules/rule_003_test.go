@@ -59,3 +59,41 @@ func TestRule003_EmptyStats(t *testing.T) {
 		t.Error("zero-value stats must not trigger the rule")
 	}
 }
+
+func TestRule003_FlaggedProposalsContainsKnownIDs(t *testing.T) {
+	rule := proposals.NewRule003()
+	ctx := fixtures.NewValidationContextBuilder().
+		WithStats(rules.ProposalStats{
+			TotalPaidProposals:   10,
+			FalseDelinquentCount: 2,
+			FalseDelinquentIDs:   []string{"proposal-A", "proposal-B"},
+		}).
+		Build()
+
+	result := rule.Execute(ctx)
+
+	for _, id := range []string{"proposal-A", "proposal-B"} {
+		if _, ok := result.FlaggedProposals[id]; !ok {
+			t.Errorf("expected proposal %q in FlaggedProposals", id)
+		}
+	}
+	if len(result.FlaggedProposals) != 2 {
+		t.Errorf("expected exactly 2 flagged proposals, got %d", len(result.FlaggedProposals))
+	}
+}
+
+func TestRule003_FlaggedProposalsEmptyWhenNotTriggered(t *testing.T) {
+	rule := proposals.NewRule003()
+	ctx := fixtures.NewValidationContextBuilder().
+		WithStats(rules.ProposalStats{
+			TotalPaidProposals:   50,
+			FalseDelinquentCount: 0,
+		}).
+		Build()
+
+	result := rule.Execute(ctx)
+
+	if len(result.FlaggedProposals) != 0 {
+		t.Errorf("expected no flagged proposals when count is 0, got %d", len(result.FlaggedProposals))
+	}
+}

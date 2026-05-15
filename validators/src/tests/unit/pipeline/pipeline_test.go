@@ -96,6 +96,30 @@ func TestPipeline_StageCanMutateData(t *testing.T) {
 	}
 }
 
+func TestPipeline_ContextCancellationPropagatedToStage(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel before the pipeline runs
+
+	s := &ctxAwareStage{}
+	p := pipeline.New[string](s)
+
+	err := p.Run(ctx, newCtx())
+	if err == nil {
+		t.Fatal("expected error when context is already cancelled")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled in error chain, got: %v", err)
+	}
+}
+
+// ctxAwareStage returns ctx.Err() so the pipeline can observe cancellation.
+type ctxAwareStage struct{}
+
+func (s *ctxAwareStage) Name() string { return "ctx-aware" }
+func (s *ctxAwareStage) Execute(ctx context.Context, _ *pipeline.Context[string]) error {
+	return ctx.Err()
+}
+
 type mutatingStage struct{ appendVal string }
 
 func (m *mutatingStage) Name() string { return "mutator" }

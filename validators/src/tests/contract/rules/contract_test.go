@@ -5,6 +5,7 @@ import (
 
 	"validators/src/internal/rules"
 	"validators/src/internal/rules/proposals"
+	receiptRules "validators/src/internal/rules/receipts"
 	"validators/src/tests/fixtures"
 )
 
@@ -40,31 +41,51 @@ func verifyRuleContract(t *testing.T, rule rules.Rule) {
 	})
 
 	t.Run("Execute is idempotent on the same context", func(t *testing.T) {
-		ctx := fixtures.NewValidationContextBuilder().Build()
+		ctx := fixtures.NewValidationContextBuilder().
+			WithProposals(fixtures.ProposalList(3)...).
+			WithCanonicalReceipts(fixtures.ReceiptList(3)...).
+			Build()
 		r1 := rule.Execute(ctx)
 		r2 := rule.Execute(ctx)
 
-		if r1.RuleName != r2.RuleName || r1.IssuesFound != r2.IssuesFound {
-			t.Error("two calls with the same context must return the same result")
+		if r1.RuleName != r2.RuleName {
+			t.Error("RuleName must be stable across calls")
+		}
+		if r1.IssuesFound != r2.IssuesFound {
+			t.Error("IssuesFound must be stable across calls")
+		}
+		if r1.Triggered != r2.Triggered {
+			t.Error("Triggered must be stable across calls")
+		}
+		if r1.RecordsScanned != r2.RecordsScanned {
+			t.Error("RecordsScanned must be stable across calls")
+		}
+		if len(r1.FlaggedProposals) != len(r2.FlaggedProposals) {
+			t.Error("FlaggedProposals length must be stable across calls")
 		}
 	})
 
 	t.Run("Execute does not mutate the context", func(t *testing.T) {
 		ctx := fixtures.NewValidationContextBuilder().
 			WithProposals(fixtures.ProposalList(3)...).
+			WithCanonicalReceipts(fixtures.ReceiptList(3)...).
 			Build()
 
-		before := len(ctx.Proposals)
+		beforeProposals := len(ctx.Proposals)
+		beforeReceipts := len(ctx.CanonicalReceipts)
 		rule.Execute(ctx)
-		after := len(ctx.Proposals)
 
-		if before != after {
-			t.Errorf("Execute must not mutate Proposals: before=%d after=%d", before, after)
+		if len(ctx.Proposals) != beforeProposals {
+			t.Errorf("Execute must not mutate Proposals: before=%d after=%d", beforeProposals, len(ctx.Proposals))
+		}
+		if len(ctx.CanonicalReceipts) != beforeReceipts {
+			t.Errorf("Execute must not mutate CanonicalReceipts: before=%d after=%d", beforeReceipts, len(ctx.CanonicalReceipts))
 		}
 	})
 }
 
-func TestRule001_Contract(t *testing.T) { verifyRuleContract(t, proposals.NewRule001()) }
-func TestRule002_Contract(t *testing.T) { verifyRuleContract(t, proposals.NewRule002()) }
-func TestRule003_Contract(t *testing.T) { verifyRuleContract(t, proposals.NewRule003()) }
-func TestRule004_Contract(t *testing.T) { verifyRuleContract(t, proposals.NewRule004()) }
+func TestRule001_Contract(t *testing.T)        { verifyRuleContract(t, proposals.NewRule001()) }
+func TestRule002_Contract(t *testing.T)        { verifyRuleContract(t, proposals.NewRule002()) }
+func TestRule003_Contract(t *testing.T)        { verifyRuleContract(t, proposals.NewRule003()) }
+func TestRule004_Contract(t *testing.T)        { verifyRuleContract(t, proposals.NewRule004()) }
+func TestReceiptRule001_Contract(t *testing.T) { verifyRuleContract(t, receiptRules.NewRule001()) }

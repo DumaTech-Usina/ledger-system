@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"validators/src/internal/domain"
 	"validators/src/internal/engine"
 	"validators/src/internal/pipelines/proposals"
 	proposalRules "validators/src/internal/rules/proposals"
@@ -132,5 +133,138 @@ func TestBuild_ResultsNilBeforeRun(t *testing.T) {
 
 	if runner.Results() != nil {
 		t.Error("Results() should be nil before Run is called")
+	}
+}
+
+func TestBuild_PropagatesEnrichmentError(t *testing.T) {
+	boom := errors.New("receipt db down")
+	pRepo := &fixtures.MockProposalRepository{
+		Proposals:  fixtures.ProposalList(1),
+		TotalCount: 1,
+	}
+	rRepo := &fixtures.MockReceiptRepository{Err: boom}
+	aRepo := &fixtures.MockAuditRepository{}
+
+	runner := proposals.Build(proposals.Deps{
+		ProposalRepo: pRepo,
+		ReceiptRepo:  rRepo,
+		AuditRepo:    aRepo,
+		Engine:       buildEngine(),
+	})
+
+	err := runner.Run(context.Background())
+	if !errors.Is(err, boom) {
+		t.Errorf("expected enrichment error to propagate, got: %v", err)
+	}
+}
+
+func TestBuild_AggregationFailureIsNonFatal(t *testing.T) {
+	pRepo := &fixtures.MockProposalRepository{
+		Proposals:  fixtures.ProposalList(2),
+		TotalCount: 2,
+	}
+	rRepo := &fixtures.MockReceiptRepository{}
+	aRepo := &fixtures.MockAuditRepository{Err: errors.New("mongo write failed")}
+
+	runner := proposals.Build(proposals.Deps{
+		ProposalRepo: pRepo,
+		ReceiptRepo:  rRepo,
+		AuditRepo:    aRepo,
+		Engine:       buildEngine(),
+	})
+
+	if err := runner.Run(context.Background()); err != nil {
+		t.Errorf("aggregation failure must be non-fatal, but got: %v", err)
+	}
+}
+
+func TestBuild_ZeroProposalsCompletesCleanly(t *testing.T) {
+	pRepo := &fixtures.MockProposalRepository{TotalCount: 0}
+	rRepo := &fixtures.MockReceiptRepository{}
+	aRepo := &fixtures.MockAuditRepository{}
+
+	runner := proposals.Build(proposals.Deps{
+		ProposalRepo: pRepo,
+		ReceiptRepo:  rRepo,
+		AuditRepo:    aRepo,
+		Engine:       buildEngine(),
+	})
+
+	if err := runner.Run(context.Background()); err != nil {
+		t.Errorf("zero proposals must not error, got: %v", err)
+	}
+	if len(runner.Results()) != 4 {
+		t.Errorf("expected 4 rule results even with zero proposals, got %d", len(runner.Results()))
+	}
+}
+
+func TestBuild_CanonicalProposals_CleanWhenNoViolations(t *testing.T) {
+	pRepo := &fixtures.MockProposalRepository{
+		Proposals:  fixtures.ProposalList(3),
+		TotalCount: 3,
+	}
+	rRepo := &fixtures.MockReceiptRepository{}
+	aRepo := &fixtures.MockAuditRepository{}
+
+	runner := proposals.Build(proposals.Deps{
+		ProposalRepo: pRepo,
+		ReceiptRepo:  rRepo,
+		AuditRepo:    aRepo,
+		Engine:       buildEngine(),
+	})
+
+	if err := runner.Run(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(aRepo.SavedCanonical) != 3 {
+		t.Fatalf("expected 3 canonical proposals saved, got %d", len(aRepo.SavedCanonical))
+	}
+	for _, cp := range aRepo.SavedCanonical {
+		if cp.Status != domain.ProposalStatusClean {
+			t.Errorf("proposal %q: expected CLEAN status, got %q", cp.ProposalID, cp.Status)
+		}
+	}
+}
+
+func TestBuild_CanonicalProposals_SuspiciousWhenFlagged(t *testing.T) {
+	// The mock generates IDs like "invalid-number-1" for InvalidCount=1.
+	// Use a matching proposal ID so the violation is attributed correctly.
+	pRepo := &fixtures.MockProposalRepository{
+		Proposals: []domain.Proposal{
+			fixtures.NewProposal(fixtures.WithID("invalid-number-1"), fixtures.WithNumber("000000")),
+			fixtures.NewProposal(fixtures.WithID("proposal-2"), fixtures.WithNumber("654321")),
+		},
+		TotalCount:   2,
+		InvalidCount: 1,
+	}
+	rRepo := &fixtures.MockReceiptRepository{}
+	aRepo := &fixtures.MockAuditRepository{}
+
+	runner := proposals.Build(proposals.Deps{
+		ProposalRepo: pRepo,
+		ReceiptRepo:  rRepo,
+		AuditRepo:    aRepo,
+		Engine:       buildEngine(),
+	})
+
+	if err := runner.Run(context.Background()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	found := false
+	for _, cp := range aRepo.SavedCanonical {
+		if cp.ProposalID == "invalid-number-1" {
+			found = true
+			if cp.Status != domain.ProposalStatusSuspicious {
+				t.Errorf("expected SUSPICIOUS for invalid-number-1, got %q", cp.Status)
+			}
+			if len(cp.Violations) == 0 {
+				t.Error("expected at least one violation for the suspicious proposal")
+			}
+		}
+	}
+	if !found {
+		t.Error("expected invalid-number-1 to appear in SavedCanonical")
 	}
 }

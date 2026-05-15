@@ -36,6 +36,11 @@ func (b *ValidationContextBuilder) WithStats(stats rules.ProposalStats) *Validat
 	return b
 }
 
+func (b *ValidationContextBuilder) WithCanonicalReceipts(receipts ...domain.Receipt) *ValidationContextBuilder {
+	b.ctx.CanonicalReceipts = receipts
+	return b
+}
+
 func (b *ValidationContextBuilder) WithMetadata(key string, value any) *ValidationContextBuilder {
 	b.ctx.Metadata[key] = value
 	return b

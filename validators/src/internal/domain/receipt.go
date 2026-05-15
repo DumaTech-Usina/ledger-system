@@ -8,5 +8,8 @@ type Receipt struct {
 	ProposalNumber    string
 	InstallmentNumber int
 	PaymentStatus     string
+	DownloadedValue   string
+	DischargeDate     *time.Time // nullable — not all receipts have a discharge date
+	ReceiptStatus     string
 	CreatedAt         time.Time
 }
