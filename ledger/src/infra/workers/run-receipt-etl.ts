@@ -4,7 +4,6 @@ import { env } from '../../config/env';
 import { getMongoDb, getMongoDatabase, closeMongoDb } from '../database/mongo-client';
 import { MongoStagingRepository } from '../persistence/mongodb/MongoStagingRepository';
 import { MongoReceiptETLReader } from '../etl/MongoReceiptETLReader';
-import { ProposalContextNormalizer } from '../../core/application/services/ProposalContextNormalizer';
 import { ReceiptStagingBuilder } from '../../core/application/services/ReceiptStagingBuilder';
 import { ReceiptETLJob } from '../jobs/ReceiptETLJob';
 
@@ -14,9 +13,8 @@ async function main(): Promise<void> {
 
   const stagingRepo = new MongoStagingRepository(stagingDb);
   const reader = new MongoReceiptETLReader(etlDb);
-  const normalizer = new ProposalContextNormalizer(console.warn.bind(console));
   const builder = new ReceiptStagingBuilder(stagingRepo, env.USINA_PARTY_ID, 'receipt-etl', console.warn.bind(console));
-  const etl = new ReceiptETLJob(reader, normalizer, builder);
+  const etl = new ReceiptETLJob(reader, builder);
 
   const shutdown = async (signal: string) => {
     console.log(`[run-receipt-etl] ${signal} — shutting down`);

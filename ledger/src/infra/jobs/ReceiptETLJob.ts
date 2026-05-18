@@ -1,31 +1,36 @@
 import { ReceiptETLReader } from '../../core/application/ports/ReceiptETLReader';
-import { ProposalContextNormalizer } from '../../core/application/services/ProposalContextNormalizer';
+import { EnrichedReceiptInput } from '../../core/application/dtos/EnrichedReceiptInput';
 import { ReceiptStagingBuilder } from '../../core/application/services/ReceiptStagingBuilder';
 import { sleep } from '../utils/sleep';
+
+const RECEIPT_BATCH_SIZE = 500;
 
 export class ReceiptETLJob {
   constructor(
     private readonly reader: ReceiptETLReader,
-    private readonly normalizer: ProposalContextNormalizer,
     private readonly builder: ReceiptStagingBuilder,
   ) {}
 
   async run(): Promise<void> {
-    const [proposalInputs, receiptInputs] = await Promise.all([
-      this.reader.fetchCleanProposals(),
-      this.reader.fetchCleanReceipts(),
-    ]);
+    // Receipts are streamed via a server-side $lookup cursor — proposals are
+    // joined at the database level, so the Node process holds at most one batch.
+    const buf: EnrichedReceiptInput[] = [];
+    let staged = 0;
 
-    console.log(
-      `[ReceiptETLJob] fetched ${proposalInputs.length} proposals, ${receiptInputs.length} receipts`,
-    );
+    for await (const enriched of this.reader.streamEnrichedReceipts()) {
+      buf.push(enriched);
+      if (buf.length >= RECEIPT_BATCH_SIZE) {
+        await this.builder.run(buf.splice(0));
+        staged += RECEIPT_BATCH_SIZE;
+      }
+    }
 
-    const contexts = this.normalizer.normalize(proposalInputs);
-    const contextMap = new Map(contexts.map((c) => [c.proposalId, c]));
+    if (buf.length > 0) {
+      await this.builder.run(buf);
+      staged += buf.length;
+    }
 
-    await this.builder.run(receiptInputs, contextMap);
-
-    console.log(`[ReceiptETLJob] done — ${receiptInputs.length} receipts posted to staging`);
+    console.log(`[ReceiptETLJob] done — streamed ${staged} receipts to staging`);
   }
 
   async startPolling(intervalMs = 30_000): Promise<void> {

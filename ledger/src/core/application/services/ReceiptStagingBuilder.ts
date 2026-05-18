@@ -1,5 +1,4 @@
-import { ProposalContext } from "../dtos/ProposalContext";
-import { ReceiptPostingInput } from "../dtos/ReceiptPostingInput";
+import { EnrichedReceiptInput } from "../dtos/EnrichedReceiptInput";
 import { StagingRecord } from "../dtos/StagingRecord";
 import { StagingRepository } from "../repositories/StagingRepository";
 import { ConfidenceLevel } from "../../domain/enums/ConfidenceLevel";
@@ -21,30 +20,34 @@ export class ReceiptStagingBuilder {
     private readonly warn: (message: string) => void = () => {},
   ) {}
 
-  async run(
-    inputs: ReceiptPostingInput[],
-    contexts: Map<string, ProposalContext>,
-  ): Promise<void> {
+  async run(inputs: EnrichedReceiptInput[]): Promise<void> {
     for (const input of inputs) {
-      const record = this.buildCandidate(input, contexts);
+      const record = this.buildCandidate(input);
       if (record !== null) {
         await this.stagingRepo.save(record);
       }
     }
   }
 
-  private buildCandidate(
-    input: ReceiptPostingInput,
-    contexts: Map<string, ProposalContext>,
-  ): StagingRecord | null {
+  private buildCandidate(input: EnrichedReceiptInput): StagingRecord | null {
     if (!isNonEmpty(input.receiptId)) {
       this.warn("Rejected: receiptId null or empty");
       return null;
     }
 
-    const ctx = contexts.get(input.proposalId);
-    if (!ctx) {
-      this.warn(`Rejected receipt ${input.receiptId}: no ProposalContext for proposalId "${input.proposalId}"`);
+    // Proposal field guards — these fire only if MongoDB yields a corrupt proposal
+    // document (e.g., missing required fields despite status=CLEAN).
+    if (!isNonEmpty(input.operatorId)) {
+      this.warn(`Rejected receipt ${input.receiptId}: operatorId null or empty`);
+      return null;
+    }
+    if (!isNonEmpty(input.proposalNumber)) {
+      this.warn(`Rejected receipt ${input.receiptId}: proposalNumber null or empty`);
+      return null;
+    }
+    const registeredAt = new Date(input.registeredAt);
+    if (isNaN(registeredAt.getTime())) {
+      this.warn(`Rejected receipt ${input.receiptId}: registeredAt is not a valid date`);
       return null;
     }
 
@@ -91,7 +94,7 @@ export class ReceiptStagingBuilder {
       status: "pending",
       eventType: isBaixado ? EventType.COMMISSION_RECEIVED : EventType.COMMISSION_EXPECTED,
       economicEffect: isBaixado ? EconomicEffect.CASH_IN : EconomicEffect.NON_CASH,
-      occurredAt: isBaixado ? input.dischargeDate! : ctx.registeredAt.toISOString(),
+      occurredAt: isBaixado ? input.dischargeDate! : registeredAt.toISOString(),
       sourceAt: input.dischargeDate,
       amount: input.downloadedValue,
       currency: "BRL",
@@ -100,9 +103,9 @@ export class ReceiptStagingBuilder {
       normalizationVersion: "1.0",
       normalizationWorkerId: this.workerId,
       parties: isBaixado
-        ? buildCashInParties(ctx.operatorId, this.usinaPartyId, input.downloadedValue)
-        : buildNonCashParties(ctx.operatorId, this.usinaPartyId),
-      objects: buildObjects(input.receiptId, ctx, input.installmentNumber, isBaixado),
+        ? buildCashInParties(input.operatorId, this.usinaPartyId, input.downloadedValue)
+        : buildNonCashParties(input.operatorId, this.usinaPartyId),
+      objects: buildObjects(input.receiptId, input.proposalId, input.installmentNumber, isBaixado),
       reason: {
         type: isBaixado ? ReasonType.COMMISSION_PAYMENT : ReasonType.LATE_IDENTIFIED_COMMISSION,
         description: "Receipt receivable recognition",
@@ -141,7 +144,7 @@ function buildNonCashParties(
 
 function buildObjects(
   receiptId: string,
-  ctx: ProposalContext,
+  proposalId: string,
   installmentNumber: number,
   isBaixado: boolean,
 ): StagingRecord["objects"] {
@@ -152,12 +155,12 @@ function buildObjects(
       relation: isBaixado ? Relation.SETTLES : Relation.ORIGINATES,
     },
     {
-      objectId: ctx.proposalId,
+      objectId: proposalId,
       objectType: ObjectType.PROPOSAL,
       relation: Relation.REFERENCES,
     },
     {
-      objectId: `${ctx.proposalId}:${installmentNumber}`,
+      objectId: `${proposalId}:${installmentNumber}`,
       objectType: ObjectType.INSTALLMENT,
       relation: Relation.REFERENCES,
     },

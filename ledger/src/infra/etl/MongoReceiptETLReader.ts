@@ -1,50 +1,90 @@
-import { Db } from 'mongodb';
-import { ProposalContextInput } from '../../../core/application/dtos/ProposalContextInput';
-import { ReceiptPostingInput } from '../../../core/application/dtos/ReceiptPostingInput';
-import { ReceiptETLReader } from '../../../core/application/ports/ReceiptETLReader';
+import { Db } from "mongodb";
+import { EnrichedReceiptInput } from "../../core/application/dtos/EnrichedReceiptInput";
+import { ReceiptETLReader } from "../../core/application/ports/ReceiptETLReader";
 
 export class MongoReceiptETLReader implements ReceiptETLReader {
   constructor(private readonly db: Db) {}
 
-  async fetchCleanProposals(): Promise<ProposalContextInput[]> {
-    const docs = await this.db
-      .collection('canonical_proposals')
-      .find({ status: 'CLEAN' })
-      .toArray();
+  /**
+   * Runs a $lookup aggregation that inner-joins receipts to their clean proposals
+   * entirely server-side. Receipts with no matching clean proposal are dropped by
+   * the $unwind stage. The Node process holds at most one cursor batch at a time
+   * regardless of collection size.
+   *
+   * Index requirements for performance:
+   *   - aspirant_receipt_canonical: { 'metadata.receiptValidationStatus': 1 }
+   *   - canonical_proposals: { proposal_id: 1, status: 1 }
+   */
+  async *streamEnrichedReceipts(): AsyncGenerator<EnrichedReceiptInput> {
+    const cursor = this.db.collection("aspirant_receipt_canonical").aggregate([
+      { $match: { "metadata.receiptValidationStatus": "CLEAN" } },
+      {
+        $lookup: {
+          from: "canonical_proposals",
+          localField: "proposal_id",
+          foreignField: "proposal_id",
+          pipeline: [
+            { $match: { status: "CLEAN" } },
+            { $limit: 1 },
+            {
+              $project: {
+                _id: 0,
+                proposal_id: 1,
+                number: 1,
+                client_id: 1,
+                effective_date: 1,
+                updated_at: 1,
+              },
+            },
+          ],
+          as: "proposal",
+        },
+      },
+      // $unwind with no preserveNullAndEmptyArrays acts as an inner join:
+      // receipts with zero matching proposals are silently dropped.
+      { $unwind: "$proposal" },
+      {
+        $project: {
+          _id: 0,
+          receipt_id: 1,
+          proposal_id: 1,
+          installment_number: 1,
+          downloaded_value: 1,
+          discharge_date: 1,
+          receipt_status: 1,
+          "proposal.number": 1,
+          "proposal.client_id": 1,
+          "proposal.effective_date": 1,
+          "proposal.updated_at": 1,
+        },
+      },
+    ]);
 
-    return docs.map((doc) => ({
-      proposalId: doc.proposal_id,
-      proposalNumber: doc.number,
-      operatorId: doc.client_id,
-      planId: doc.plan_id,
-      brokerId: null,
-      registeredAt: isNonEmptyString(doc.effective_date)
-        ? doc.effective_date
-        : (doc.updated_at instanceof Date
-            ? doc.updated_at.toISOString()
-            : new Date().toISOString()),
-    }));
-  }
-
-  async fetchCleanReceipts(): Promise<ReceiptPostingInput[]> {
-    const docs = await this.db
-      .collection('aspirant_receipt_canonical')
-      .find({ 'metadata.receiptValidationStatus': 'CLEAN' })
-      .toArray();
-
-    return docs.map((doc) => ({
-      receiptId: doc.receipt_id,
-      proposalId: doc.proposal_id,
-      installmentNumber: doc.installment_number,
-      downloadedValue: doc.downloaded_value,
-      dischargeDate: doc.discharge_date instanceof Date
-        ? doc.discharge_date.toISOString()
-        : null,
-      receiptStatus: doc.receipt_status,
-    }));
+    for await (const doc of cursor) {
+      const p = doc.proposal as Record<string, unknown>;
+      yield {
+        receiptId: doc.receipt_id as string,
+        proposalId: doc.proposal_id as string,
+        installmentNumber: doc.installment_number as number,
+        downloadedValue: doc.downloaded_value as string,
+        dischargeDate:
+          doc.discharge_date instanceof Date
+            ? doc.discharge_date.toISOString()
+            : null,
+        receiptStatus: doc.receipt_status as string,
+        proposalNumber: p.number as string,
+        operatorId: p.client_id as string,
+        brokerId: null,
+        registeredAt: isNonEmptyString(p.effective_date)
+          ? (p.effective_date as string)
+          : p.updated_at instanceof Date
+            ? (p.updated_at as Date).toISOString()
+            : new Date().toISOString(),
+      };
+    }
   }
 }
 
 function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
+  return typeof value === "string" && value.trim().length > 0;
 }

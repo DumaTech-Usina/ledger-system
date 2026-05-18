@@ -1,36 +1,19 @@
 import { describe, it, expect, vi } from "vitest";
 import { ReceiptStagingBuilder } from "../../../core/application/services/ReceiptStagingBuilder";
-import { ReceiptPostingInput } from "../../../core/application/dtos/ReceiptPostingInput";
+import { EnrichedReceiptInput } from "../../../core/application/dtos/EnrichedReceiptInput";
 import { InMemoryStagingRepository } from "../../../infra/persistence/staging/InMemoryStagingRepository";
-import { ProposalContext } from "../../../core/application/dtos/ProposalContext";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
 import { Direction } from "../../../core/domain/enums/Direction";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
 import { Relation } from "../../../core/domain/enums/Relation";
 
-// ── Fixtures ─────────────────────────────────────────────────────────────────
+// ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const USINA_ID = "usina-001";
 const WORKER_ID = "worker-etl-v1";
 
-function makeContext(overrides: Partial<ProposalContext> = {}): ProposalContext {
-  return {
-    proposalId: "prop-abc",
-    proposalNumber: "12345678",
-    operatorId: "op-001",
-    brokerId: null,
-    supervisorId: null,
-    registeredAt: new Date("2024-05-01T08:00:00Z"),
-    ...overrides,
-  };
-}
-
-function ctxMap(...contexts: ProposalContext[]): Map<string, ProposalContext> {
-  return new Map(contexts.map((c) => [c.proposalId, c]));
-}
-
-function baixado(overrides: Partial<ReceiptPostingInput> = {}): ReceiptPostingInput {
+function baixado(overrides: Partial<EnrichedReceiptInput> = {}): EnrichedReceiptInput {
   return {
     receiptId: "rcpt-111",
     proposalId: "prop-abc",
@@ -38,11 +21,15 @@ function baixado(overrides: Partial<ReceiptPostingInput> = {}): ReceiptPostingIn
     downloadedValue: "250.00",
     dischargeDate: "2024-07-10T00:00:00Z",
     receiptStatus: "BAIXADO",
+    proposalNumber: "12345678",
+    operatorId: "op-001",
+    brokerId: null,
+    registeredAt: "2024-05-01T08:00:00Z",
     ...overrides,
   };
 }
 
-function naoBaixado(overrides: Partial<ReceiptPostingInput> = {}): ReceiptPostingInput {
+function naoBaixado(overrides: Partial<EnrichedReceiptInput> = {}): EnrichedReceiptInput {
   return {
     receiptId: "rcpt-222",
     proposalId: "prop-abc",
@@ -50,6 +37,10 @@ function naoBaixado(overrides: Partial<ReceiptPostingInput> = {}): ReceiptPostin
     downloadedValue: "180.00",
     dischargeDate: null,
     receiptStatus: "NÃO BAIXADO",
+    proposalNumber: "12345678",
+    operatorId: "op-001",
+    brokerId: null,
+    registeredAt: "2024-05-01T08:00:00Z",
     ...overrides,
   };
 }
@@ -68,7 +59,7 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
     it("a BAIXADO receipt with a known proposal context becomes a COMMISSION_RECEIVED staging record carrying a CASH_IN economic effect — the operator has been paid and the ledger must capture the cash inflow", async () => {
       const { job, stagingRepo } = buildJob();
 
-      await job.run([baixado()], ctxMap(makeContext()));
+      await job.run([baixado()]);
 
       const [record] = await stagingRepo.findAll();
       expect(record.eventType).toBe(EventType.COMMISSION_RECEIVED);
@@ -78,7 +69,7 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
     it("the source reference encodes the receipt identity so the same receipt can never be posted twice — deduplication depends on this exact format", async () => {
       const { job, stagingRepo } = buildJob();
 
-      await job.run([baixado({ receiptId: "rcpt-unique" })], ctxMap(makeContext()));
+      await job.run([baixado({ receiptId: "rcpt-unique" })]);
 
       const [record] = await stagingRepo.findAll();
       expect(record.sourceReference).toBe("receipt:rcpt-unique:receivable");
@@ -86,9 +77,8 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
 
     it("the BAIXADO record's parties show money flowing: the operator pays out and Usina receives the exact commission amount", async () => {
       const { job, stagingRepo } = buildJob();
-      const ctx = makeContext({ operatorId: "op-specific" });
 
-      await job.run([baixado({ downloadedValue: "300.00" })], ctxMap(ctx));
+      await job.run([baixado({ operatorId: "op-specific", downloadedValue: "300.00" })]);
 
       const [record] = await stagingRepo.findAll();
       const payer = record.parties!.find((p) => p.direction === Direction.OUT);
@@ -102,10 +92,7 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
     it("the BAIXADO record is timestamped to the actual discharge date — the event happened when the money arrived, not when the batch ran", async () => {
       const { job, stagingRepo } = buildJob();
 
-      await job.run(
-        [baixado({ dischargeDate: "2024-07-10T14:30:00Z" })],
-        ctxMap(makeContext()),
-      );
+      await job.run([baixado({ dischargeDate: "2024-07-10T14:30:00Z" })]);
 
       const [record] = await stagingRepo.findAll();
       expect(record.occurredAt).toBe("2024-07-10T14:30:00Z");
@@ -113,12 +100,8 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
 
     it("the BAIXADO record links three economic objects: the receivable being settled, the proposal it belongs to, and the specific installment being paid off", async () => {
       const { job, stagingRepo } = buildJob();
-      const ctx = makeContext({ proposalId: "prop-target" });
 
-      await job.run(
-        [baixado({ receiptId: "rcpt-links", installmentNumber: 5, proposalId: "prop-target" })],
-        ctxMap(ctx),
-      );
+      await job.run([baixado({ receiptId: "rcpt-links", installmentNumber: 5, proposalId: "prop-target" })]);
 
       const [record] = await stagingRepo.findAll();
       const objects = record.objects!;
@@ -135,7 +118,7 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
     it("a BAIXADO staging record enters the pipeline in 'pending' status — it has been accepted for processing but not yet promoted to the ledger", async () => {
       const { job, stagingRepo } = buildJob();
 
-      await job.run([baixado()], ctxMap(makeContext()));
+      await job.run([baixado()]);
 
       const [record] = await stagingRepo.findAll();
       expect(record.status).toBe("pending");
@@ -148,7 +131,7 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
     it("a NÃO BAIXADO receipt becomes a COMMISSION_EXPECTED staging record with NON_CASH effect — the commission obligation exists on paper but Usina has not received the money", async () => {
       const { job, stagingRepo } = buildJob();
 
-      await job.run([naoBaixado()], ctxMap(makeContext()));
+      await job.run([naoBaixado()]);
 
       const [record] = await stagingRepo.findAll();
       expect(record.eventType).toBe(EventType.COMMISSION_EXPECTED);
@@ -158,7 +141,7 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
     it("a NÃO BAIXADO record's parties carry NEUTRAL direction — no cash transfer is implied, only the economic obligation is being named", async () => {
       const { job, stagingRepo } = buildJob();
 
-      await job.run([naoBaixado()], ctxMap(makeContext()));
+      await job.run([naoBaixado()]);
 
       const [record] = await stagingRepo.findAll();
       expect(record.parties!.every((p) => p.direction === Direction.NEUTRAL)).toBe(true);
@@ -167,10 +150,7 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
     it("an ABERTA receipt is treated identically to NÃO BAIXADO — both statuses represent unresolved commission obligations and the ledger must record them the same way", async () => {
       const { job, stagingRepo } = buildJob();
 
-      await job.run(
-        [naoBaixado({ receiptStatus: "ABERTA", receiptId: "rcpt-aberta" })],
-        ctxMap(makeContext()),
-      );
+      await job.run([naoBaixado({ receiptStatus: "ABERTA", receiptId: "rcpt-aberta" })]);
 
       const [record] = await stagingRepo.findAll();
       expect(record.economicEffect).toBe(EconomicEffect.NON_CASH);
@@ -180,7 +160,7 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
     it("the NÃO BAIXADO record links the receivable with the ORIGINATES relation — the commission position is being opened, not closed", async () => {
       const { job, stagingRepo } = buildJob();
 
-      await job.run([naoBaixado()], ctxMap(makeContext()));
+      await job.run([naoBaixado()]);
 
       const [record] = await stagingRepo.findAll();
       const receivable = record.objects!.find((o) => o.objectType === ObjectType.COMMISSION_RECEIVABLE);
@@ -189,9 +169,8 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
 
     it("a NÃO BAIXADO record is timestamped to the proposal registration date — since no discharge occurred, the obligation is anchored to when the proposal was first registered", async () => {
       const { job, stagingRepo } = buildJob();
-      const ctx = makeContext({ registeredAt: new Date("2024-04-20T09:00:00Z") });
 
-      await job.run([naoBaixado()], ctxMap(ctx));
+      await job.run([naoBaixado({ registeredAt: "2024-04-20T09:00:00Z" })]);
 
       const [record] = await stagingRepo.findAll();
       expect(record.occurredAt).toBe("2024-04-20T09:00:00.000Z");
@@ -203,79 +182,79 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
 
     it("a receipt with no receiptId is silently dropped — without an identity the record cannot be deduplicated or traced back to its source system", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run([baixado({ receiptId: "" })], ctxMap(makeContext()));
+      await job.run([baixado({ receiptId: "" })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
-    it("a receipt referencing a proposalId with no matching context is dropped — the operator who earned the commission cannot be identified, so the event cannot be financially attributed", async () => {
+    it("a receipt whose proposal carries an empty operatorId is dropped — the operator who earned the commission cannot be identified, so the event cannot be financially attributed", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run(
-        [baixado({ proposalId: "prop-orphan" })],
-        ctxMap(makeContext({ proposalId: "prop-known" })),
-      );
+      await job.run([baixado({ operatorId: "" })]);
+      expect(await stagingRepo.findAll()).toHaveLength(0);
+    });
+
+    it("a receipt whose proposal carries an invalid registeredAt is dropped — an unparseable date on the proposal cannot anchor the obligation in the ledger timeline", async () => {
+      const { job, stagingRepo } = buildJob();
+      await job.run([naoBaixado({ registeredAt: "not-a-date" })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
     it("a receipt with downloadedValue of zero is dropped — a zero-value commission event carries no economic content and would silently inflate position aggregates without meaning", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run([baixado({ downloadedValue: "0" })], ctxMap(makeContext()));
+      await job.run([baixado({ downloadedValue: "0" })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
     it("a receipt with a negative downloadedValue is dropped — a negative amount signals a data error at the source; legitimate reversals are represented as separate ledger events", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run([baixado({ downloadedValue: "-100.00" })], ctxMap(makeContext()));
+      await job.run([baixado({ downloadedValue: "-100.00" })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
     it("a receipt with a non-numeric downloadedValue is dropped — unparseable amounts cannot be committed to the financial ledger without risking calculation corruption", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run([baixado({ downloadedValue: "abc" })], ctxMap(makeContext()));
+      await job.run([baixado({ downloadedValue: "abc" })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
     it("a receipt with installmentNumber zero is dropped — installment numbers are 1-based in this domain; zero indicates a corrupt source record that must not be posted", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run([baixado({ installmentNumber: 0 })], ctxMap(makeContext()));
+      await job.run([baixado({ installmentNumber: 0 })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
     it("a receipt with a negative installmentNumber is dropped — structural data corruption in installment references must be caught before it creates phantom obligations", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run([baixado({ installmentNumber: -1 })], ctxMap(makeContext()));
+      await job.run([baixado({ installmentNumber: -1 })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
     it("a receipt with a fractional installmentNumber is dropped — installments are discrete numbered obligations; 1.5 does not correspond to any real financial contract term", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run([baixado({ installmentNumber: 1.5 })], ctxMap(makeContext()));
+      await job.run([baixado({ installmentNumber: 1.5 })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
     it("a receipt that carries a dischargeDate but claims status NÃO BAIXADO is dropped — a discharge date means the cash moved, which directly contradicts the 'not discharged' claim", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run(
-        [baixado({ dischargeDate: "2024-07-10T00:00:00Z", receiptStatus: "NÃO BAIXADO" })],
-        ctxMap(makeContext()),
-      );
+      await job.run([baixado({ dischargeDate: "2024-07-10T00:00:00Z", receiptStatus: "NÃO BAIXADO" })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
     it("a BAIXADO receipt with no dischargeDate is dropped — a discharged receipt must record when the money arrived to establish the event's temporal position in the ledger chain", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run([baixado({ dischargeDate: null })], ctxMap(makeContext()));
+      await job.run([baixado({ dischargeDate: null })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
     it("a BAIXADO receipt with an unparseable dischargeDate is dropped — an invalid date string cannot anchor an event in the timeline and would corrupt the ledger's hash chain", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run([baixado({ dischargeDate: "not-a-date" })], ctxMap(makeContext()));
+      await job.run([baixado({ dischargeDate: "not-a-date" })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
     it("a receipt with an unrecognized status is dropped — the system only understands BAIXADO, NÃO BAIXADO, and ABERTA; unknown statuses cannot be safely categorized as either cash or obligation events", async () => {
       const { job, stagingRepo } = buildJob();
-      await job.run([baixado({ receiptStatus: "PENDENTE" })], ctxMap(makeContext()));
+      await job.run([baixado({ receiptStatus: "PENDENTE" })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 
@@ -288,7 +267,7 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
       const saveSpy = vi.spyOn(repo, "save");
       const { job } = buildJob(repo);
 
-      await job.run([baixado()], ctxMap(makeContext()));
+      await job.run([baixado()]);
 
       expect(saveSpy).toHaveBeenCalledTimes(1);
     });
@@ -298,23 +277,19 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
       const saveSpy = vi.spyOn(repo, "save");
       const { job } = buildJob(repo);
 
-      await job.run([baixado({ receiptId: "" })], ctxMap(makeContext()));
+      await job.run([baixado({ receiptId: "" })]);
 
       expect(saveSpy).not.toHaveBeenCalled();
     });
 
     it("a batch of three receipts — two valid and one with a missing receiptId — produces exactly two staging records: the corrupt receipt is silently quarantined without blocking the valid ones", async () => {
       const { job, stagingRepo } = buildJob();
-      const ctx = makeContext();
 
-      await job.run(
-        [
-          baixado({ receiptId: "rcpt-ok-1", installmentNumber: 1 }),
-          baixado({ receiptId: "",          installmentNumber: 2 }),  // invalid: no id
-          baixado({ receiptId: "rcpt-ok-2", installmentNumber: 3 }),
-        ],
-        ctxMap(ctx),
-      );
+      await job.run([
+        baixado({ receiptId: "rcpt-ok-1", installmentNumber: 1 }),
+        baixado({ receiptId: "",          installmentNumber: 2 }),  // invalid: no id
+        baixado({ receiptId: "rcpt-ok-2", installmentNumber: 3 }),
+      ]);
 
       expect(await stagingRepo.findAll()).toHaveLength(2);
     });
