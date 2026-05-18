@@ -10,6 +10,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "audit": "npx tsx src/infra/tools/read-audit.ts",
+    "dev:server": "tsx src/index.ts",
+    "worker:staging": "tsx src/infra/workers/run-staging-worker.ts",
+    "relay:staging": "tsx src/infra/workers/run-staging-relay.ts",
+    "etl:receipts": "tsx src/infra/workers/run-receipt-etl.ts",
+    "dev:full": "concurrently --names \"server,worker,relay,etl\" -c \"blue,green,yellow,cyan\" \"npm:dev:server\" \"npm:worker:staging\" \"npm:relay:staging\" \"npm:etl:receipts\"",
     "test:coverage": "vitest run --coverage",
     "typeorm": "node --require tsx/cjs ./node_modules/typeorm/cli.js",
     "db:migration:generate": "npm run typeorm -- migration:generate src/infra/database/migrations/Migration -d src/infra/database/data-source.ts",
@@ -21,6 +26,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "amqplib": "^2.0.1",
     "dotenv": "^17.4.2",
     "express": "^4.18.2",
     "mongodb": "^6.21.0",
@@ -30,10 +36,12 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/amqplib": "^0.10.8",
     "@types/express": "^4.17.21",
     "@types/node": "^25.3.3",
     "@types/pg": "^8.20.0",
     "@vitest/coverage-v8": "^4.1.0",
+    "concurrently": "^9.2.1",
     "tsx": "^4.21.0",
     "typescript": "^5.4.5",
     "vitest": "^4.1.0"

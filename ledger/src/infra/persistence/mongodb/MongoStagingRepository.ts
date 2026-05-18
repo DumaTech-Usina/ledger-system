@@ -34,19 +34,25 @@ export class MongoStagingRepository implements StagingRepository {
       reason: record.reason ?? null,
       reporter: record.reporter,
     };
-    await this.collection.insertOne(doc);
+    await this.collection.updateOne(
+      { sourceReference: record.sourceReference },
+      { $setOnInsert: doc },
+      { upsert: true },
+    );
   }
 
-  async claimPendingRecords(limit = 100): Promise<StagingRecord[]> {
-    const docs = await this.collection
-      .find({ status: 'pending' })
-      .limit(limit)
-      .toArray();
-    const ids = docs.map((d) => d._id);
-    if (ids.length > 0) {
-      await this.collection.updateMany({ _id: { $in: ids } }, { $set: { status: 'processing' } });
+  async claimPending(targetStatus: 'processing' | 'queued', limit = 100): Promise<StagingRecord[]> {
+    const results: StagingRecord[] = [];
+    for (let i = 0; i < limit; i++) {
+      const doc = await this.collection.findOneAndUpdate(
+        { status: 'pending' },
+        { $set: { status: targetStatus } },
+        { returnDocument: 'after' },
+      );
+      if (!doc) break;
+      results.push(this.toDto(doc));
     }
-    return docs.map((doc) => this.toDto(doc));
+    return results;
   }
 
   async markAsAccepted(id: string): Promise<void> {
@@ -55,6 +61,10 @@ export class MongoStagingRepository implements StagingRepository {
 
   async markAsRejected(id: string): Promise<void> {
     await this.collection.updateOne({ _id: id }, { $set: { status: 'rejected' } });
+  }
+
+  async markAsPending(id: string): Promise<void> {
+    await this.collection.updateOne({ _id: id }, { $set: { status: 'pending' } });
   }
 
   async findAll(): Promise<StagingRecord[]> {

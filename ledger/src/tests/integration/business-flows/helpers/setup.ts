@@ -1,6 +1,6 @@
 import { CreateLedgerEventUseCase } from "../../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { CreateLedgerEventCommand } from "../../../../core/application/dtos/CreateLedgerEventInput";
-import { InMemoryLedgerEventRepository } from "../../../../infra/persistence/ledger/InMemoryLedgerEventRepository";
+import { InMemoryLedgerEventRepository } from "../../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { NoOpAuditLogger } from "../../../../infra/audit/NoOpAuditLogger";
 
 export function setup() {

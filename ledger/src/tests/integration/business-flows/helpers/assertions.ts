@@ -1,5 +1,5 @@
 import { expect } from "vitest";
-import { InMemoryLedgerEventRepository } from "../../../../infra/persistence/ledger/InMemoryLedgerEventRepository";
+import { InMemoryLedgerEventRepository } from "../../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { EventType } from "../../../../core/domain/enums/EventType";
 
 export async function assertChain(ledgerRepo: InMemoryLedgerEventRepository) {

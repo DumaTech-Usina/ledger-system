@@ -14,7 +14,7 @@ import { LedgerEvent } from "../../core/domain/entities/LedgerEvent";
 import { EconomicEffect } from "../../core/domain/enums/EconomicEffect";
 import { EventHash } from "../../core/domain/value-objects/EventHash";
 import { NoOpAuditLogger } from "../../infra/audit/NoOpAuditLogger";
-import { InMemoryLedgerEventRepository } from "../../infra/persistence/ledger/InMemoryLedgerEventRepository";
+import { InMemoryLedgerEventRepository } from "../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { InMemoryRejectedEventRepository } from "../../infra/persistence/rejected/InMemoryRejectedEventRepository";
 import { InMemoryStagingRepository } from "../../infra/persistence/staging/InMemoryStagingRepository";
 import { StagingRecordValidator } from "../../core/application/services/StagingRecordValidator";

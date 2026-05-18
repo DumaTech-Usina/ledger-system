@@ -1214,6 +1214,179 @@
         gap: 3px;
         margin-top: 5px;
       }
+      /* Origin context section */
+      .ori-ref-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .ori-ref-system {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        background: var(--surface2);
+        border: 1px solid var(--border2);
+        border-radius: var(--r-sm);
+        padding: 2px 5px;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+      .ori-ref-id {
+        font-family: var(--mono);
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--blue);
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ori-copy-btn {
+        background: none;
+        border: 1px solid var(--border);
+        border-radius: var(--r-sm);
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 10px;
+        padding: 2px 6px;
+        transition: color var(--tr), background var(--tr), border-color var(--tr);
+        flex-shrink: 0;
+        line-height: 1.4;
+      }
+      .ori-copy-btn:hover {
+        color: var(--text);
+        background: var(--surface2);
+        border-color: var(--border2);
+      }
+      .ori-meta-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .ori-meta-row:last-child {
+        border-bottom: none;
+      }
+      .ori-meta-label {
+        font-size: 11px;
+        color: var(--muted);
+        flex-shrink: 0;
+      }
+      .ori-meta-val {
+        font-size: 11px;
+        color: var(--text);
+        text-align: right;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ori-desc {
+        font-size: 11px;
+        color: var(--muted);
+        font-style: italic;
+        line-height: 1.5;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .ori-rel-header {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--faint);
+        margin-top: 10px;
+        margin-bottom: 6px;
+      }
+      .ori-rel-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .ori-rel-chip {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--surface2);
+        border: 1px solid var(--border2);
+        border-radius: var(--r-sm);
+        padding: 4px 8px;
+        font-size: 10px;
+        cursor: pointer;
+        transition: border-color var(--tr), background var(--tr);
+        text-align: left;
+      }
+      .ori-rel-chip:hover {
+        border-color: var(--blue);
+        background: var(--blue-bg);
+      }
+      .ori-rel-chip-type {
+        color: var(--muted);
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        flex-shrink: 0;
+      }
+      .ori-rel-chip-id {
+        font-family: var(--mono);
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text);
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ori-rel-chip-arrow {
+        color: var(--faint);
+        font-size: 9px;
+        flex-shrink: 0;
+      }
+      .ori-rel-chip.ori-rel-chip-active {
+        border-color: var(--blue);
+        background: var(--blue-bg);
+      }
+      .ori-rel-chip.ori-rel-chip-active .ori-rel-chip-arrow {
+        color: var(--blue);
+      }
+      .ori-peek {
+        margin-top: 10px;
+        background: var(--surface2);
+        border: 1px solid var(--border2);
+        border-radius: var(--r);
+        padding: 10px 12px;
+        animation: fadeUp 0.15s ease;
+      }
+      .ori-peek-hdr {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      .ori-peek-id {
+        font-family: var(--mono);
+        font-size: 10px;
+        color: var(--faint);
+        margin-left: auto;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ori-peek-empty {
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+        padding: 10px 0;
+      }
       /* Feed */
       .filter-bar {
         display: flex;
@@ -2683,6 +2856,219 @@
         );
       }
 
+      function OriginSection({ origin }) {
+        const [copied, setCopied] = React.useState(false);
+        const [selectedObj, setSelectedObj] = React.useState(null);
+        const [peek, setPeek] = React.useState(null);
+        const [peekLoading, setPeekLoading] = React.useState(false);
+
+        // Reset expanded chip whenever the parent position changes.
+        React.useEffect(() => {
+          setSelectedObj(null);
+          setPeek(null);
+          setPeekLoading(false);
+        }, [origin?.eventId]);
+
+        if (!origin) return null;
+
+        function copyRef() {
+          navigator.clipboard?.writeText(origin.sourceReference).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1600);
+          });
+        }
+
+        function handleChipClick(obj) {
+          if (selectedObj?.objectId === obj.objectId) {
+            setSelectedObj(null);
+            setPeek(null);
+            return;
+          }
+          setSelectedObj(obj);
+          setPeek(null);
+          setPeekLoading(true);
+          api
+            .positionDetail(obj.objectId)
+            .then((d) => setPeek(d))
+            .catch(() => setPeek(null))
+            .finally(() => setPeekLoading(false));
+        }
+
+        const relObjs = (origin.relatedObjects || []).filter(
+          (o) => o.relation === "references",
+        );
+
+        return (
+          <div className="dt-section">
+            <div className="dt-section-title">Contexto de Origem</div>
+
+            <div className="ori-ref-row">
+              <span className="ori-ref-system">{origin.sourceSystem}</span>
+              <span className="ori-ref-id" title={origin.sourceReference}>
+                {origin.sourceReference}
+              </span>
+              <button
+                className="ori-copy-btn"
+                onClick={copyRef}
+                title="Copiar referência externa"
+              >
+                {copied ? "✓" : "cópia"}
+              </button>
+            </div>
+
+            <div className="ori-meta-row">
+              <span className="ori-meta-label">Tipo de Origem</span>
+              <span className="ori-meta-val">
+                {EVENT_TYPE_LABELS[origin.eventType] ||
+                  origin.eventType?.replace(/_/g, " ")}
+                {" · "}
+                {fmtDate(origin.occurredAt, false)}
+              </span>
+            </div>
+
+            {origin.reporter?.reporterId && (
+              <div className="ori-meta-row">
+                <span className="ori-meta-label">Reportado por</span>
+                <span
+                  className="ori-meta-val mono"
+                  style={{ fontSize: 10 }}
+                  title={origin.reporter.reporterId}
+                >
+                  {trunc(origin.reporter.reporterId, 24)}
+                  {origin.reporter.channel
+                    ? ` · ${origin.reporter.channel}`
+                    : ""}
+                </span>
+              </div>
+            )}
+
+            {origin.parties?.length > 0 && (
+              <div
+                className="ori-meta-row"
+                style={{ alignItems: "flex-start" }}
+              >
+                <span className="ori-meta-label" style={{ paddingTop: 2 }}>
+                  Partes
+                </span>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 3,
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  {origin.parties.map((p, i) => (
+                    <span
+                      key={i}
+                      className={`badge ${p.direction === "in" ? "b-in" : p.direction === "out" ? "b-out" : "b-neutral"}`}
+                      style={{ fontSize: 9 }}
+                      title={p.partyId}
+                    >
+                      {p.role?.toUpperCase()} {trunc(p.partyId, 14)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {origin.description && (
+              <div className="ori-desc">{origin.description}</div>
+            )}
+
+            {relObjs.length > 0 && (
+              <>
+                <div className="ori-rel-header">Objetos Relacionados</div>
+                <div className="ori-rel-chips">
+                  {relObjs.map((obj, i) => {
+                    const active = selectedObj?.objectId === obj.objectId;
+                    return (
+                      <button
+                        key={i}
+                        className={`ori-rel-chip${active ? " ori-rel-chip-active" : ""}`}
+                        onClick={() => handleChipClick(obj)}
+                        title={active ? "Fechar resumo" : `Resumo: ${obj.objectId}`}
+                      >
+                        <span className="ori-rel-chip-type">
+                          {OBJECT_TYPE_LABELS[obj.objectType] ||
+                            obj.objectType?.replace(/_/g, " ")}
+                        </span>
+                        <span className="ori-rel-chip-id">
+                          {trunc(obj.objectId, 20)}
+                        </span>
+                        <span className="ori-rel-chip-arrow">
+                          {active ? "↑" : "↓"}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedObj && (
+                  <div className="ori-peek">
+                    {peekLoading ? (
+                      <div className="ori-peek-empty">Carregando…</div>
+                    ) : peek ? (
+                      <>
+                        <div className="ori-peek-hdr">
+                          <ObjectTypeBadge type={selectedObj.objectType} />
+                          <StatusBadge status={peek.status} />
+                          <OutcomeBadge outcome={peek.outcome} />
+                          <span className="ori-peek-id">
+                            {trunc(selectedObj.objectId, 24)}
+                          </span>
+                        </div>
+                        <AmountRow
+                          label="Total Originado"
+                          value={peek.totalOriginated}
+                          cls="c-blue"
+                        />
+                        <AmountRow
+                          label="Total Liquidado"
+                          value={peek.totalSettled}
+                          cls={parseFloat(peek.totalSettled) > 0 ? "c-in" : ""}
+                        />
+                        <AmountRow
+                          label="Saldo em Aberto"
+                          value={peek.openBalance}
+                          cls={
+                            parseFloat(peek.openBalance) > 0
+                              ? "c-open"
+                              : "c-ok"
+                          }
+                        />
+                        <AmountRow
+                          label="Caixa Recuperado"
+                          value={peek.cashRecovered}
+                          cls={
+                            parseFloat(peek.cashRecovered) > 0 ? "c-in" : ""
+                          }
+                        />
+                        <AmountRow
+                          label="Fechado Non-Cash"
+                          value={peek.nonCashClosed}
+                        />
+                        {parseFloat(peek.overSettlement) > 0 && (
+                          <AmountRow
+                            label="⚠ Sobreliquidação"
+                            value={peek.overSettlement}
+                            cls="c-out"
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <div className="ori-peek-empty">
+                        Posição não encontrada
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      }
+
       function DetailDrawer({ objectId, listItem, onClose }) {
         const [detail, setDetail] = useState(null);
         const [loading, setLoading] = useState(true);
@@ -2734,6 +3120,7 @@
               </div>
               {detail && (
                 <div className="drawer-body">
+                  <OriginSection origin={detail.origin} />
                   <div className="dt-section">
                     <div className="dt-section-title">Resumo Financeiro</div>
                     <AmountRow

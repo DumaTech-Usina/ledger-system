@@ -85,12 +85,9 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
   }
 
   async getLastEventHash(): Promise<EventHash | null> {
-    const row = await this.repo.findOne({
-      where: {},
-      order: { recordedAt: 'DESC' },
-      select: ['hash'],
-    });
-
+    const [row] = await this.repo.manager.query<{ hash: string }[]>(
+      `SELECT hash FROM ledger_events ORDER BY recorded_at DESC LIMIT 1`,
+    );
     return row ? EventHash.fromValue(row.hash) : null;
   }
 
@@ -101,7 +98,9 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
   async findByObjectId(objectId: string): Promise<LedgerEvent[]> {
     const rows = await this.repo
       .createQueryBuilder('e')
-      .innerJoin('e.objects', 'o', 'o.objectId = :objectId', { objectId })
+      .leftJoinAndSelect('e.parties', 'parties')
+      .leftJoinAndSelect('e.objects', 'objects')
+      .innerJoin('e.objects', 'filterObj', 'filterObj.objectId = :objectId', { objectId })
       .orderBy('e.recordedAt', 'ASC')
       .getMany();
     return rows.map((row) => this.toEntity(row));
@@ -118,7 +117,9 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
   async findByPartyId(partyId: string): Promise<LedgerEvent[]> {
     const rows = await this.repo
       .createQueryBuilder('e')
-      .innerJoin('e.parties', 'p', 'p.partyId = :partyId', { partyId })
+      .leftJoinAndSelect('e.parties', 'parties')
+      .leftJoinAndSelect('e.objects', 'objects')
+      .innerJoin('e.parties', 'filterParty', 'filterParty.partyId = :partyId', { partyId })
       .orderBy('e.recordedAt', 'ASC')
       .getMany();
     return rows.map((row) => this.toEntity(row));
@@ -132,6 +133,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
   async findByPeriod(from: Date, to: Date): Promise<LedgerEvent[]> {
     const rows = await this.repo
       .createQueryBuilder('e')
+      .leftJoinAndSelect('e.parties', 'parties')
+      .leftJoinAndSelect('e.objects', 'objects')
       .where('e.occurredAt >= :from', { from })
       .andWhere('e.occurredAt <= :to', { to })
       .orderBy('e.occurredAt', 'ASC')
@@ -326,13 +329,117 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     return { cashInUnits, cashOutUnits, currency };
   }
 
+  async aggregateClosureStats(
+    from: Date,
+    to: Date,
+    currency: string,
+  ): Promise<{ cashInSettledUnits: bigint; totalSettledUnits: bigint }> {
+    const [row] = await this.repo.manager.query<
+      { cash_in_settled: string; total_settled: string }[]
+    >(
+      `SELECT
+         COALESCE(SUM(CASE WHEN e.economic_effect = 'cash_in' THEN e.amount_units ELSE 0 END), 0) AS cash_in_settled,
+         COALESCE(SUM(e.amount_units), 0)                                                          AS total_settled
+       FROM ledger_events e
+       WHERE e.occurred_at >= $1
+         AND e.occurred_at <= $2
+         AND e.amount_currency = $3
+         AND EXISTS (
+           SELECT 1 FROM ledger_event_objects o
+           WHERE o.event_id = e.id AND o.relation = 'settles'
+         )`,
+      [from, to, currency],
+    );
+    return {
+      cashInSettledUnits: BigInt(row.cash_in_settled),
+      totalSettledUnits:  BigInt(row.total_settled),
+    };
+  }
+
+  async findAllPositionAggregates(): Promise<PositionAggregate[]> {
+    const rows: Record<string, unknown>[] = await this.repo.manager.query(`
+      SELECT
+        o.object_id                                                                                    AS object_id,
+        MAX(o.object_type)                                                                             AS object_type,
+        MAX(e.amount_currency)                                                                         AS currency,
+        COALESCE(SUM(CASE WHEN o.relation = 'originates' THEN e.amount_units ELSE 0::bigint END), 0)  AS total_originated,
+        COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0::bigint END), 0)  AS total_settled,
+        COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0::bigint END), 0)  AS total_adjusted,
+        COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS cash_recovered,
+        COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'non_cash' THEN e.amount_units ELSE 0::bigint END), 0) AS non_cash_closed,
+        COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_in,
+        COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_out,
+        BOOL_OR(o.relation = 'reverses')                                                              AS has_reversal,
+        COUNT(DISTINCT e.id)                                                                           AS event_count,
+        MAX(e.occurred_at)                                                                             AS last_event_at,
+        MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at
+      FROM ledger_events e
+      JOIN ledger_event_objects o ON o.event_id = e.id
+      GROUP BY o.object_id
+      ORDER BY last_event_at DESC
+    `);
+
+    return rows.map((row) => ({
+      objectId:             row.object_id as string,
+      objectType:           row.object_type as ObjectType,
+      currency:             row.currency as string,
+      totalOriginatedUnits: BigInt(row.total_originated as string),
+      totalSettledUnits:    BigInt(row.total_settled    as string),
+      totalAdjustedUnits:   BigInt(row.total_adjusted   as string),
+      cashRecoveredUnits:   BigInt(row.cash_recovered   as string),
+      nonCashClosedUnits:   BigInt(row.non_cash_closed  as string),
+      refCashInUnits:       BigInt(row.ref_cash_in      as string),
+      refCashOutUnits:      BigInt(row.ref_cash_out     as string),
+      hasReversal:          row.has_reversal as boolean,
+      eventCount:           parseInt(row.event_count as string, 10),
+      lastEventAt:          new Date(row.last_event_at as string),
+      originatedAt:         row.originated_at ? new Date(row.originated_at as string) : null,
+    }));
+  }
+
+  async aggregatePeriodCashFlow(
+    from: Date,
+    to: Date,
+  ): Promise<Array<{ eventType: EventType; economicEffect: EconomicEffect; totalUnits: bigint; currency: string }>> {
+    const rows: { event_type: string; economic_effect: string; total_units: string; currency: string }[] =
+      await this.repo.manager.query(
+        `SELECT event_type, economic_effect, SUM(amount_units) AS total_units, MAX(amount_currency) AS currency
+         FROM ledger_events
+         WHERE occurred_at >= $1 AND occurred_at <= $2
+           AND economic_effect IN ('cash_in', 'cash_out')
+         GROUP BY event_type, economic_effect`,
+        [from, to],
+      );
+
+    return rows.map((row) => ({
+      eventType:      row.event_type      as EventType,
+      economicEffect: row.economic_effect as EconomicEffect,
+      totalUnits:     BigInt(row.total_units),
+      currency:       row.currency,
+    }));
+  }
+
+  async findRecentCashMovements(limit: number): Promise<LedgerEvent[]> {
+    const rows = await this.repo
+      .createQueryBuilder('e')
+      .leftJoinAndSelect('e.parties', 'parties')
+      .leftJoinAndSelect('e.objects', 'objects')
+      .where('e.economicEffect IN (:...effects)', { effects: ['cash_in', 'cash_out'] })
+      .orderBy('e.occurredAt', 'DESC')
+      .take(limit)
+      .getMany();
+    return rows.map((row) => this.toEntity(row));
+  }
+
   async findCashMovementsPaginated(options: CashMovementsPaginatedOptions): Promise<{ items: LedgerEvent[]; hasMore: boolean; nextCursor: { occurredAt: Date; id: string } | null }> {
     const qb = this.repo
       .createQueryBuilder('e')
+      .leftJoinAndSelect('e.parties', 'parties')
+      .leftJoinAndSelect('e.objects', 'objects')
       .innerJoin(
         'e.parties',
-        'p',
-        'p.partyId = :partyId AND ((e.economicEffect = \'cash_in\' AND p.direction = \'in\') OR (e.economicEffect = \'cash_out\' AND p.direction = \'out\'))',
+        'filterParty',
+        'filterParty.partyId = :partyId AND ((e.economicEffect = \'cash_in\' AND filterParty.direction = \'in\') OR (e.economicEffect = \'cash_out\' AND filterParty.direction = \'out\'))',
         { partyId: options.partyId },
       )
       .where('e.economicEffect IN (:...effects)', { effects: ['cash_in', 'cash_out'] })

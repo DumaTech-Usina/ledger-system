@@ -5,6 +5,7 @@ import { Money } from "../../domain/value-objects/Money";
 import { LedgerEventRepository } from "../repositories/LedgerEventRepository";
 import {
   EconomicOutcome,
+  PositionOrigin,
   PositionStatus,
   PositionSummary,
 } from "../dtos/PositionSummary";
@@ -183,6 +184,7 @@ export class PositionProjectionService {
 
     const status = this.deriveStatus(totalOriginated, totalClosed, hasReversal);
     const outcome = this.deriveOutcome(status, cashRecovered, nonCashClosed);
+    const origin = this.extractOrigin(objectId, events);
 
     return {
       objectId,
@@ -199,6 +201,43 @@ export class PositionProjectionService {
       outcome,
       eventCount: events.length,
       events,
+      origin,
+    };
+  }
+
+  private extractOrigin(objectId: string, events: LedgerEvent[]): PositionOrigin | null {
+    const ev = events.find((e) =>
+      e.getObjects().some((o) => o.objectId.value === objectId && o.relation === Relation.ORIGINATES),
+    );
+    if (!ev) return null;
+
+    const reporter = ev.getReporter();
+    return {
+      eventId:         ev.id.value,
+      eventType:       ev.eventType,
+      occurredAt:      ev.occurredAt,
+      sourceReference: ev.source.reference,
+      sourceSystem:    ev.source.system,
+      description:     ev.description,
+      reporter: {
+        reporterType: reporter.reporterType,
+        reporterId:   reporter.reporterId,
+        reporterName: reporter.reporterName,
+        channel:      reporter.channel,
+      },
+      parties: ev.getParties().map((p) => ({
+        partyId:   p.partyId.value,
+        role:      p.role,
+        direction: p.direction,
+        amount:    p.amount?.toString() ?? null,
+      })),
+      relatedObjects: ev.getObjects()
+        .filter((o) => o.objectId.value !== objectId)
+        .map((o) => ({
+          objectId:   o.objectId.value,
+          objectType: o.objectType,
+          relation:   o.relation,
+        })),
     };
   }
 

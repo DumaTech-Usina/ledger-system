@@ -1,4 +1,4 @@
-export type HealthLabel = 'saudável' | 'em_atencao' | 'crítico';
+export type HealthLabel = 'healthy' | 'at_risk' | 'critical';
 export type HealthTrend = 'up' | 'down' | 'stable';
 
 export interface BookHealthScore {

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { DashboardService } from "../../../core/application/services/DashboardService";
 import { PositionProjectionService } from "../../../core/application/services/PositionProjectionService";
 import { BookHealthService } from "../../../core/application/services/BookHealthService";
-import { InMemoryLedgerEventRepository } from "../../../infra/persistence/ledger/InMemoryLedgerEventRepository";
+import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
 import { makeValidCommand } from "../../fixtures";
@@ -343,7 +343,7 @@ describe("DashboardService.compute()", () => {
       const d = await makeSvc(repo).compute(PERIOD_JAN.from, PERIOD_JAN.to);
       expect(d.healthScore).toBeDefined();
       expect(typeof d.healthScore.score).toBe("number");
-      expect(["saudável", "em_atencao", "crítico"]).toContain(d.healthScore.label);
+      expect(["healthy", "at_risk", "critical"]).toContain(d.healthScore.label);
       expect(["up", "down", "stable"]).toContain(d.healthScore.trend);
     });
   });

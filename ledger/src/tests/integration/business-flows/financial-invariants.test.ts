@@ -9,7 +9,7 @@ import { PartyRole } from "../../../core/domain/enums/PartyRole";
 import { ReasonType } from "../../../core/domain/enums/ReasonType";
 import { Relation } from "../../../core/domain/enums/Relation";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
-import { InMemoryLedgerEventRepository } from "../../../infra/persistence/ledger/InMemoryLedgerEventRepository";
+import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { BROKER, TAX_AUTH, USINA } from "./helpers/parties";
 import { advancePayment, advanceSettlement } from "./helpers/commands/advance-commands";
 import {

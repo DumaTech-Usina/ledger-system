@@ -2,6 +2,7 @@ import { LedgerEventRepository } from "../../../core/application/repositories/Le
 import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";
 import { Direction } from "../../../core/domain/enums/Direction";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
+import { EventType } from "../../../core/domain/enums/EventType";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
 import { Relation } from "../../../core/domain/enums/Relation";
 import { EventHash } from "../../../core/domain/value-objects/EventHash";
@@ -9,15 +10,7 @@ import { Page, PageOptions, paginate } from "../../../core/application/dtos/Pagi
 import { PositionAggregate, PositionAggregateOptions } from "../../../core/application/dtos/PositionAggregate";
 import { EconomicOutcome, PositionStatus } from "../../../core/application/dtos/PositionSummary";
 import { CashMovementsPaginatedOptions } from "../../../core/application/dtos/CashStatement";
-
-function deriveStatusFromAggregate(agg: PositionAggregate): PositionStatus {
-  if (agg.hasReversal) return "reversed";
-  const totalClosed = agg.totalSettledUnits + agg.totalAdjustedUnits;
-  if (agg.totalOriginatedUnits === 0n) return "open";
-  if (totalClosed >= agg.totalOriginatedUnits) return "fully_settled";
-  if (totalClosed > 0n) return "partially_settled";
-  return "open";
-}
+import { derivePositionStatus, openBalanceUnitsOf } from "../../../core/application/dtos/positionUtils";
 
 function deriveOutcomeFromAggregate(status: PositionStatus, agg: PositionAggregate): EconomicOutcome {
   if (status === "reversed") return "cancelled";
@@ -95,7 +88,82 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   }
 
   async findPositionAggregates(options: PositionAggregateOptions): Promise<Page<PositionAggregate>> {
-    // Build per-objectId aggregate from the event store
+    let results = [...this.buildAggregateMap().values()];
+
+    if (options.objectType) {
+      results = results.filter((a) => a.objectType === options.objectType);
+    }
+    if (options.status) {
+      const target = options.status;
+      results = results.filter((a) => derivePositionStatus(a) === target);
+    }
+    if (options.outcome) {
+      const target = options.outcome;
+      results = results.filter((a) => deriveOutcomeFromAggregate(derivePositionStatus(a), a) === target);
+    }
+
+    const page  = Math.max(1, options.page  ?? 1);
+    const limit = Math.min(Math.max(1, options.limit ?? 50), 200);
+    const total = results.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const data = results.slice((page - 1) * limit, page * limit);
+
+    return { data, total, page, limit, totalPages };
+  }
+
+  async findAllPositionAggregates(): Promise<PositionAggregate[]> {
+    return [...this.buildAggregateMap().values()].sort(
+      (a, b) => b.lastEventAt.getTime() - a.lastEventAt.getTime(),
+    );
+  }
+
+  async aggregatePeriodCashFlow(
+    from: Date,
+    to: Date,
+  ): Promise<Array<{ eventType: EventType; economicEffect: EconomicEffect; totalUnits: bigint; currency: string }>> {
+    const byKey = new Map<string, { totalUnits: bigint; currency: string }>();
+
+    for (const event of this.store) {
+      if (event.occurredAt < from || event.occurredAt > to) continue;
+      if (
+        event.economicEffect !== EconomicEffect.CASH_IN &&
+        event.economicEffect !== EconomicEffect.CASH_OUT
+      ) continue;
+
+      const key = `${event.eventType}|${event.economicEffect}`;
+      const cur = byKey.get(key);
+      if (cur) {
+        cur.totalUnits += event.amount.toUnits();
+      } else {
+        byKey.set(key, { totalUnits: event.amount.toUnits(), currency: event.amount.currency });
+      }
+    }
+
+    return [...byKey.entries()].map(([key, val]) => {
+      const [eventType, economicEffect] = key.split("|");
+      return {
+        eventType:      eventType      as EventType,
+        economicEffect: economicEffect as EconomicEffect,
+        totalUnits:     val.totalUnits,
+        currency:       val.currency,
+      };
+    });
+  }
+
+  async findRecentCashMovements(limit: number): Promise<LedgerEvent[]> {
+    return this.store
+      .filter(
+        (e) =>
+          e.economicEffect === EconomicEffect.CASH_IN ||
+          e.economicEffect === EconomicEffect.CASH_OUT,
+      )
+      .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
+      .slice(0, limit);
+  }
+
+  // ── Private helpers ──────────────────────────────────────────────────────────
+
+  private buildAggregateMap(): Map<string, PositionAggregate> {
     const aggMap = new Map<string, PositionAggregate>();
     const eventIdsByObject = new Map<string, Set<string>>();
 
@@ -162,77 +230,21 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
       aggMap.get(oid)!.eventCount = eventIds.size;
     }
 
-    // Apply filters
-    let results = [...aggMap.values()];
-
-    if (options.objectType) {
-      results = results.filter((a) => a.objectType === options.objectType);
-    }
-    if (options.status) {
-      const target = options.status;
-      results = results.filter((a) => deriveStatusFromAggregate(a) === target);
-    }
-    if (options.outcome) {
-      const target = options.outcome;
-      results = results.filter((a) => deriveOutcomeFromAggregate(deriveStatusFromAggregate(a), a) === target);
-    }
-
-    // Paginate
-    const page  = Math.max(1, options.page  ?? 1);
-    const limit = Math.min(Math.max(1, options.limit ?? 50), 200);
-    const total = results.length;
-    const totalPages = Math.ceil(total / limit) || 1;
-    const data = results.slice((page - 1) * limit, page * limit);
-
-    return { data, total, page, limit, totalPages };
+    return aggMap;
   }
 
   async aggregateOpenBalancesByObjectType(): Promise<Array<{ objectType: ObjectType; openBalanceUnits: bigint; currency: string }>> {
-    const perObject = new Map<string, {
-      objectType: ObjectType; currency: string;
-      originated: bigint; settled: bigint; adjusted: bigint; hasReversal: boolean;
-    }>();
-
-    for (const event of this.store) {
-      const units = event.amount.toUnits();
-      for (const obj of event.getObjects()) {
-        const oid = obj.objectId.value;
-        if (!perObject.has(oid)) {
-          perObject.set(oid, {
-            objectType: obj.objectType,
-            currency: event.amount.currency,
-            originated: 0n, settled: 0n, adjusted: 0n, hasReversal: false,
-          });
-        }
-        const agg = perObject.get(oid)!;
-        switch (obj.relation) {
-          case Relation.ORIGINATES: agg.originated += units; break;
-          case Relation.SETTLES:    agg.settled    += units; break;
-          case Relation.ADJUSTS:    agg.adjusted   += units; break;
-          case Relation.REVERSES:   agg.hasReversal = true;  break;
-        }
-      }
-    }
-
     const byType = new Map<ObjectType, { openBalance: bigint; currency: string }>();
-
-    for (const agg of perObject.values()) {
-      if (agg.hasReversal) continue;
-      const totalClosed = agg.settled + agg.adjusted;
-      if (agg.originated === 0n || totalClosed >= agg.originated) continue;
-      const openBalance = agg.originated - totalClosed;
+    for (const agg of this.buildAggregateMap().values()) {
+      if (agg.hasReversal || agg.totalOriginatedUnits === 0n) continue;
+      const openBalance = openBalanceUnitsOf(agg);
+      if (openBalance === 0n) continue;
       const existing = byType.get(agg.objectType);
-      if (existing) {
-        existing.openBalance += openBalance;
-      } else {
-        byType.set(agg.objectType, { openBalance, currency: agg.currency });
-      }
+      if (existing) existing.openBalance += openBalance;
+      else byType.set(agg.objectType, { openBalance, currency: agg.currency });
     }
-
     return [...byType.entries()].map(([objectType, { openBalance, currency }]) => ({
-      objectType,
-      openBalanceUnits: openBalance,
-      currency,
+      objectType, openBalanceUnits: openBalance, currency,
     }));
   }
 
@@ -283,6 +295,23 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     }
 
     return { cashInUnits, cashOutUnits, currency };
+  }
+
+  async aggregateClosureStats(
+    from: Date,
+    to: Date,
+    currency: string,
+  ): Promise<{ cashInSettledUnits: bigint; totalSettledUnits: bigint }> {
+    let cashInSettledUnits = 0n;
+    let totalSettledUnits  = 0n;
+    for (const ev of this.store) {
+      if (ev.occurredAt < from || ev.occurredAt > to) continue;
+      if (ev.amount.currency !== currency) continue;
+      if (!ev.getObjects().some((o) => o.relation === Relation.SETTLES)) continue;
+      totalSettledUnits += ev.amount.toUnits();
+      if (ev.economicEffect === EconomicEffect.CASH_IN) cashInSettledUnits += ev.amount.toUnits();
+    }
+    return { cashInSettledUnits, totalSettledUnits };
   }
 
   async findCashMovementsPaginated(options: CashMovementsPaginatedOptions): Promise<{ items: LedgerEvent[]; hasMore: boolean; nextCursor: { occurredAt: Date; id: string } | null }> {

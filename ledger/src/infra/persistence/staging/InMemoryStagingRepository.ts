@@ -13,9 +13,9 @@ export class InMemoryStagingRepository implements StagingRepository {
     this.store.push({ ...record });
   }
 
-  async claimPendingRecords(limit = 100): Promise<StagingRecord[]> {
+  async claimPending(targetStatus: 'processing' | 'queued', limit = 100): Promise<StagingRecord[]> {
     const pending = this.store.filter((r) => r.status === "pending").slice(0, limit);
-    for (const r of pending) r.status = "processing";
+    for (const r of pending) r.status = targetStatus;
     return pending;
   }
 
@@ -27,6 +27,11 @@ export class InMemoryStagingRepository implements StagingRepository {
   async markAsRejected(id: string): Promise<void> {
     const record = this.store.find((r) => r.id === id);
     if (record) record.status = "rejected";
+  }
+
+  async markAsPending(id: string): Promise<void> {
+    const record = this.store.find((r) => r.id === id);
+    if (record) record.status = "pending";
   }
 
   async findAll(): Promise<StagingRecord[]> {

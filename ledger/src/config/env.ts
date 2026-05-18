@@ -24,6 +24,9 @@ const envSchema = z.object({
   DB_MIGRATIONS_RUN: boolFromString,
 
   MONGODB_URI: z.string().min(1, "MONGODB_URI is required"),
+  MONGO_ETL_DB: z.string().default("rules_engine_v3"),
+
+  RABBITMQ_URL: z.string().default("amqp://guest:guest@localhost:5672"),
 
   AUDIT_LOG_DIR: z.string().default("./logs/audit"),
 

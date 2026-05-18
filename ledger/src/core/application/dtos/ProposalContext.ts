@@ -2,8 +2,7 @@ export interface ProposalContext {
   proposalId: string;
   proposalNumber: string;
   operatorId: string;
-  planId: string;
-  brokerId: string;
+  brokerId: string | null;
   supervisorId: string | null;
   registeredAt: Date;
 }

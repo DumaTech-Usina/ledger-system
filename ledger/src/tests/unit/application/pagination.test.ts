@@ -4,7 +4,7 @@ import {
   paginate,
   MAX_PAGE_LIMIT,
 } from "../../../core/application/dtos/Pagination";
-import { InMemoryLedgerEventRepository } from "../../../infra/persistence/ledger/InMemoryLedgerEventRepository";
+import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { InMemoryRejectedEventRepository } from "../../../infra/persistence/rejected/InMemoryRejectedEventRepository";
 import { InMemoryStagingRepository } from "../../../infra/persistence/staging/InMemoryStagingRepository";
 import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";

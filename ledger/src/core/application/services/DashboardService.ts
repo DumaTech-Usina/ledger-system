@@ -5,9 +5,9 @@ import { LedgerEventRepository } from "../repositories/LedgerEventRepository";
 import { DashboardSummary } from "../dtos/DashboardSummary";
 import { PositionAggregate } from "../dtos/PositionAggregate";
 import { PositionListItem } from "../dtos/PositionAggregate";
-import { PositionStatus } from "../dtos/PositionSummary";
 import { PositionProjectionService } from "./PositionProjectionService";
 import { BookHealthService } from "./BookHealthService";
+import { derivePositionStatus, computeCapitalMetrics } from "../dtos/positionUtils";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const RECENT_MOVEMENTS_LIMIT = 8;
@@ -22,34 +22,35 @@ export class DashboardService {
   ) {}
 
   async compute(from: Date, to: Date): Promise<DashboardSummary> {
-    const riskCutoff = new Date(Date.now() - THIRTY_DAYS_MS);
-
-    const [periodEvents, allAggs, recentMovements, healthScore] = await Promise.all([
-      this.repo.findByPeriod(from, to),
-      this.loadAllPositionAggregates(),
-      this.loadRecentMovements(),
-      this.bookHealthService.compute(),
+    // Phase 1: 3 independent DB operations in parallel.
+    // findAllPositionAggregates replaces the old while-loop that fired N×2 serial CTE queries.
+    // aggregatePeriodCashFlow replaces findByPeriod full entity hydration with a single GROUP BY.
+    // findRecentCashMovements filters by economic_effect in SQL instead of over-fetching 4× in JS.
+    const [allAggs, periodCashFlow, recentMovements] = await Promise.all([
+      this.repo.findAllPositionAggregates(),
+      this.repo.aggregatePeriodCashFlow(from, to),
+      this.repo.findRecentCashMovements(RECENT_MOVEMENTS_LIMIT),
     ]);
 
+    // Phase 2: health score needs allAggs for currency resolution and open-book computation.
+    const healthScore = await this.bookHealthService.compute(allAggs);
+
     // ── Period cash flow ─────────────────────────────────────────────────────
-    const currency = this.resolveCurrency(periodEvents, allAggs);
+    // periodCashFlow rows are already grouped by (event_type × economic_effect) — no accumulation needed.
+    const currency = this.resolveCurrency(periodCashFlow, allAggs);
     let cashInUnits  = 0n;
     let cashOutUnits = 0n;
     const cashInByType:  Partial<Record<EventType, Money>> = {};
     const cashOutByType: Partial<Record<EventType, Money>> = {};
 
-    for (const ev of periodEvents) {
-      if (ev.amount.currency !== currency) continue;
-      const units = ev.amount.toUnits();
-
-      if (ev.economicEffect === EconomicEffect.CASH_IN) {
-        cashInUnits += units;
-        const prev = cashInByType[ev.eventType];
-        cashInByType[ev.eventType] = prev ? prev.add(ev.amount) : ev.amount;
-      } else if (ev.economicEffect === EconomicEffect.CASH_OUT) {
-        cashOutUnits += units;
-        const prev = cashOutByType[ev.eventType];
-        cashOutByType[ev.eventType] = prev ? prev.add(ev.amount) : ev.amount;
+    for (const row of periodCashFlow) {
+      if (row.currency !== currency) continue;
+      if (row.economicEffect === EconomicEffect.CASH_IN) {
+        cashInUnits += row.totalUnits;
+        cashInByType[row.eventType] = Money.fromUnits(row.totalUnits, row.currency);
+      } else if (row.economicEffect === EconomicEffect.CASH_OUT) {
+        cashOutUnits += row.totalUnits;
+        cashOutByType[row.eventType] = Money.fromUnits(row.totalUnits, row.currency);
       }
     }
 
@@ -58,33 +59,16 @@ export class DashboardService {
     const netCashUnits = cashInUnits - cashOutUnits;
 
     // ── Current-state position metrics ───────────────────────────────────────
-    let openExposureUnits  = 0n;
-    let capitalAtRiskUnits = 0n;
-    const attentionAggs: PositionAggregate[] = [];
+    const { openExposureUnits, capitalAtRiskUnits } = computeCapitalMetrics(
+      allAggs,
+      currency,
+      Date.now() - THIRTY_DAYS_MS,
+    );
 
+    const attentionAggs: PositionAggregate[] = [];
     for (const agg of allAggs) {
       if (agg.currency !== currency) continue;
-
-      const status = this.deriveStatus(agg);
-      const totalClosed = agg.totalSettledUnits + agg.totalAdjustedUnits;
-      const openBalanceUnits =
-        totalClosed >= agg.totalOriginatedUnits
-          ? 0n
-          : agg.totalOriginatedUnits - totalClosed;
-
-      openExposureUnits += openBalanceUnits;
-
-      // capitalAtRisk: no settlement at all + originated > 30 days ago
-      if (
-        status === "open" &&
-        agg.totalSettledUnits === 0n &&
-        agg.totalAdjustedUnits === 0n &&
-        agg.originatedAt !== null &&
-        agg.originatedAt <= riskCutoff
-      ) {
-        capitalAtRiskUnits += openBalanceUnits;
-      }
-
+      const status = derivePositionStatus(agg);
       if (status === "open" || status === "partially_settled") {
         attentionAggs.push(agg);
       }
@@ -121,51 +105,16 @@ export class DashboardService {
 
   // ── Private helpers ─────────────────────────────────────────────────────────
 
-  private async loadAllPositionAggregates(): Promise<PositionAggregate[]> {
-    const all: PositionAggregate[] = [];
-    let page = 1;
-    while (true) {
-      const result = await this.repo.findPositionAggregates({ page, limit: 200 });
-      all.push(...result.data);
-      if (page >= result.totalPages) break;
-      page++;
-    }
-    return all;
-  }
-
-  private async loadRecentMovements() {
-    const result = await this.repo.findPaginated({
-      page: 1,
-      limit: RECENT_MOVEMENTS_LIMIT * 4,
-      sortBy: "occurredAt",
-      sortOrder: "DESC",
-    });
-    return result.data
-      .filter(
-        (e) =>
-          e.economicEffect === EconomicEffect.CASH_IN ||
-          e.economicEffect === EconomicEffect.CASH_OUT,
-      )
-      .slice(0, RECENT_MOVEMENTS_LIMIT);
-  }
-
   private resolveCurrency(
-    periodEvents: Awaited<ReturnType<LedgerEventRepository["findByPeriod"]>>,
+    periodCashFlow: Array<{ currency: string }>,
     allAggs: PositionAggregate[],
   ): string {
     return (
-      periodEvents[0]?.amount.currency ??
+      periodCashFlow[0]?.currency ??
       allAggs[0]?.currency ??
       DEFAULT_CURRENCY
     );
   }
 
-  private deriveStatus(agg: PositionAggregate): PositionStatus {
-    if (agg.hasReversal) return "reversed";
-    const totalClosed = agg.totalSettledUnits + agg.totalAdjustedUnits;
-    if (agg.totalOriginatedUnits === 0n) return "open";
-    if (totalClosed >= agg.totalOriginatedUnits) return "fully_settled";
-    if (totalClosed > 0n) return "partially_settled";
-    return "open";
-  }
 }
+

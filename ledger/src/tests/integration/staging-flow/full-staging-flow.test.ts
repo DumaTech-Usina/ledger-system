@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ProcessStagingJob } from "../../../infra/jobs/ProcessStagingJob";
-import { InMemoryLedgerEventRepository } from "../../../infra/persistence/ledger/InMemoryLedgerEventRepository";
+import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { InMemoryRejectedEventRepository } from "../../../infra/persistence/rejected/InMemoryRejectedEventRepository";
 import { InMemoryStagingRepository } from "../../../infra/persistence/staging/InMemoryStagingRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";

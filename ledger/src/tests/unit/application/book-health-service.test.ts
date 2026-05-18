@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { BookHealthService } from "../../../core/application/services/BookHealthService";
-import { InMemoryLedgerEventRepository } from "../../../infra/persistence/ledger/InMemoryLedgerEventRepository";
+import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
 import { makeValidCommand } from "../../fixtures";
@@ -20,6 +20,18 @@ const ref = () => `ref-bh-${++_seq}`;
 
 function makeSvc(repo: InMemoryLedgerEventRepository) {
   return new BookHealthService(repo);
+}
+
+async function computeHealth(repo: InMemoryLedgerEventRepository) {
+  const allAggs = [];
+  let page = 1;
+  while (true) {
+    const result = await repo.findPositionAggregates({ page, limit: 200 });
+    allAggs.push(...result.data);
+    if (page >= result.totalPages) break;
+    page++;
+  }
+  return makeSvc(repo).compute(allAggs);
 }
 
 async function createAdvance(
@@ -83,12 +95,12 @@ const DAYS_10 = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
 
 describe("BookHealthService.compute()", () => {
 
-  it("BH01 — empty ledger returns score=100, label=saudável, trend=stable", async () => {
+  it("BH01 — empty ledger returns score=100, label=healthy, trend=stable", async () => {
     const repo = new InMemoryLedgerEventRepository();
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
 
     expect(result.score).toBe(100);
-    expect(result.label).toBe("saudável");
+    expect(result.label).toBe("healthy");
     expect(result.trend).toBe("stable");
     expect(result.trendDelta).toBe(0);
     expect(result.closureQuality).toBe(1);
@@ -101,7 +113,7 @@ describe("BookHealthService.compute()", () => {
     const orig = await createAdvance(repo, "adv-bh02", "1000.00", DAYS_45);
     await settleAdvance(repo, "adv-bh02", orig.id.value, "1000.00", RECENT, EconomicEffect.CASH_IN);
 
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
     expect(result.closureQuality).toBe(1);
   });
 
@@ -110,7 +122,7 @@ describe("BookHealthService.compute()", () => {
     const orig = await createAdvance(repo, "adv-bh03", "1000.00", DAYS_45);
     await settleAdvance(repo, "adv-bh03", orig.id.value, "1000.00", RECENT, EconomicEffect.NON_CASH);
 
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
     expect(result.closureQuality).toBe(0);
   });
 
@@ -123,19 +135,19 @@ describe("BookHealthService.compute()", () => {
     const orig2 = await createAdvance(repo, "adv-bh04b", "1000.00", DAYS_45);
     await settleAdvance(repo, "adv-bh04b", orig2.id.value, "1000.00", RECENT, EconomicEffect.NON_CASH);
 
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
     expect(result.closureQuality).toBeCloseTo(0.5, 3);
   });
 
-  it("BH05 — all open exposure is capital at risk → openBookHealth=0, label=crítico", async () => {
+  it("BH05 — all open exposure is capital at risk → openBookHealth=0, label=critical", async () => {
     const repo = new InMemoryLedgerEventRepository();
     // Two old open positions, zero settlement
     await createAdvance(repo, "adv-bh05a", "500.00", DAYS_45);
     await createAdvance(repo, "adv-bh05b", "500.00", DAYS_45);
 
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
     expect(result.openBookHealth).toBe(0);
-    expect(result.label).toBe("crítico");
+    expect(result.label).toBe("critical");
   });
 
   it("BH06 — fully settled book → openBookHealth=1.0", async () => {
@@ -143,7 +155,7 @@ describe("BookHealthService.compute()", () => {
     const orig = await createAdvance(repo, "adv-bh06", "800.00", DAYS_45);
     await settleAdvance(repo, "adv-bh06", orig.id.value, "800.00", RECENT, EconomicEffect.CASH_IN);
 
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
     expect(result.openBookHealth).toBe(1);
   });
 
@@ -152,7 +164,7 @@ describe("BookHealthService.compute()", () => {
     // Originated only 10 days ago — not capitalAtRisk, no settlements yet
     await createAdvance(repo, "adv-bh07", "1000.00", DAYS_10);
 
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
     // Leg 1 = 1.0 (no settlements in window → no penalty)
     // Leg 2 = 1.0 (open exposure > 0 but capitalAtRisk = 0 since < 30 days)
     expect(result.closureQuality).toBe(1);
@@ -172,7 +184,7 @@ describe("BookHealthService.compute()", () => {
     const origCurr = await createAdvance(repo, "adv-bh08-curr", "1000.00", DAYS_45);
     await settleAdvance(repo, "adv-bh08-curr", origCurr.id.value, "1000.00", RECENT, EconomicEffect.CASH_IN);
 
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
     expect(result.trend).toBe("up");
     expect(result.trendDelta).toBeGreaterThan(2);
   });
@@ -189,7 +201,7 @@ describe("BookHealthService.compute()", () => {
     const origCurr = await createAdvance(repo, "adv-bh09-curr", "1000.00", DAYS_45);
     await settleAdvance(repo, "adv-bh09-curr", origCurr.id.value, "1000.00", RECENT, EconomicEffect.NON_CASH);
 
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
     expect(result.trend).toBe("down");
     expect(result.trendDelta).toBeLessThan(-2);
   });
@@ -206,7 +218,7 @@ describe("BookHealthService.compute()", () => {
     const origCurr = await createAdvance(repo, "adv-bh10-curr", "1000.00", DAYS_45);
     await settleAdvance(repo, "adv-bh10-curr", origCurr.id.value, "1000.00", RECENT, EconomicEffect.CASH_IN);
 
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
     expect(result.trend).toBe("stable");
     expect(Math.abs(result.trendDelta)).toBeLessThanOrEqual(2);
   });
@@ -229,7 +241,7 @@ describe("BookHealthService.compute()", () => {
     // 1 young open position (not at risk)
     await createAdvance(repo, "adv-bh11e", "1000.00", DAYS_10);
 
-    const result = await makeSvc(repo).compute();
+    const result = await computeHealth(repo);
 
     expect(result.closureQuality).toBeCloseTo(2/3, 2);
     // openExposure = 2000, capitalAtRisk = 1000 (only adv-bh11d) → openBookHealth = 0.5
@@ -237,6 +249,6 @@ describe("BookHealthService.compute()", () => {
     // score = (0.667 × 0.4 + 0.5 × 0.6) × 100 ≈ 56.7
     expect(result.score).toBeGreaterThan(50);
     expect(result.score).toBeLessThan(80);
-    expect(result.label).toBe("em_atencao");
+    expect(result.label).toBe("at_risk");
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CashStatementService } from "../../../core/application/services/CashStatementService";
-import { InMemoryLedgerEventRepository } from "../../../infra/persistence/ledger/InMemoryLedgerEventRepository";
+import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
 import { makeValidCommand } from "../../fixtures";

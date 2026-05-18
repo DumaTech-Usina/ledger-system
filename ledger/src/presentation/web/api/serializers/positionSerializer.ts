@@ -40,5 +40,16 @@ export function serializePositionSummary(summary: PositionSummary) {
     allocationGap:   summary.allocationGap.toString(),
     eventCount:      summary.eventCount,
     events:          [...summary.events].map(serializeEvent),
+    origin:          summary.origin ? {
+      eventId:         summary.origin.eventId,
+      eventType:       summary.origin.eventType,
+      occurredAt:      summary.origin.occurredAt,
+      sourceReference: summary.origin.sourceReference,
+      sourceSystem:    summary.origin.sourceSystem,
+      description:     summary.origin.description,
+      reporter:        summary.origin.reporter,
+      parties:         summary.origin.parties,
+      relatedObjects:  summary.origin.relatedObjects,
+    } : null,
   };
 }

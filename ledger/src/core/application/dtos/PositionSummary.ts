@@ -1,6 +1,35 @@
 import { LedgerEvent } from "../../domain/entities/LedgerEvent";
+import { EventType } from "../../domain/enums/EventType";
 import { ObjectType } from "../../domain/enums/ObjectType";
 import { Money } from "../../domain/value-objects/Money";
+
+export interface PositionOrigin {
+  eventId: string;
+  eventType: EventType;
+  occurredAt: Date;
+  /** External ID from the source system — proposal number, contract ID, etc. */
+  sourceReference: string;
+  sourceSystem: string;
+  description: string | null;
+  reporter: {
+    reporterType: string;
+    reporterId: string;
+    reporterName: string | null;
+    channel: string;
+  };
+  parties: Array<{
+    partyId: string;
+    role: string;
+    direction: string;
+    amount: string | null;
+  }>;
+  /** Sibling objects from the originating event (proposal, contract, installment, etc.) */
+  relatedObjects: Array<{
+    objectId: string;
+    objectType: string;
+    relation: string;
+  }>;
+}
 
 /**
  * open            — no SETTLES or REVERSES events yet
@@ -46,4 +75,6 @@ export interface PositionSummary {
   outcome: EconomicOutcome;
   eventCount: number;
   events: readonly LedgerEvent[];
+  /** Context extracted from the ORIGINATES event — null when no origination event exists. */
+  origin: PositionOrigin | null;
 }
