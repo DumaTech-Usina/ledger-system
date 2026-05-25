@@ -2,10 +2,33 @@ package fixtures
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"validators/src/internal/domain"
 )
+
+// PublishedMessage records a single Publish call on MockMessagePublisher.
+type PublishedMessage struct {
+	RoutingKey string
+	Body       []byte
+}
+
+// MockMessagePublisher satisfies ports.MessagePublisher.
+// It captures every published message so tests can assert routing key and payload.
+type MockMessagePublisher struct {
+	Published []PublishedMessage
+	Err       error
+}
+
+func (m *MockMessagePublisher) Publish(_ context.Context, routingKey string, payload any) error {
+	if m.Err != nil {
+		return m.Err
+	}
+	body, _ := json.Marshal(payload)
+	m.Published = append(m.Published, PublishedMessage{RoutingKey: routingKey, Body: body})
+	return nil
+}
 
 // MockProposalRepository satisfies ports.ProposalRepository.
 type MockProposalRepository struct {

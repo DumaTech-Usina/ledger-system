@@ -26,6 +26,9 @@ func NewIngestionStage(proposalRepo ports.ProposalRepository) *IngestionStage {
 func (s *IngestionStage) Name() string { return "IngestionStage" }
 
 func (s *IngestionStage) Execute(ctx context.Context, pctx *pipeline.Context[*Data]) error {
+	// TODO(scale): FetchAll loads the entire proposals table into memory in one query.
+	// At 10M+ records this will cause OOM. Migrate to a paginated cursor before scaling —
+	// see ReceiptCanonicalJob for the batching pattern (FetchCleanBatch + anchor).
 	proposals, err := s.proposalRepo.FetchAll(ctx)
 	if err != nil {
 		return err
