@@ -86,3 +86,77 @@ func (r *PostgresProposalRepository) FetchInvalidNumberProposalIDs(ctx context.C
 	}
 	return ids, rows.Err()
 }
+
+// FetchDistinctBlockingKeys returns every distinct blocking key present in the
+// proposals table. The key mirrors clustering.blockingKey: first2|last2 digits
+// of the leading-zero-stripped proposal number.
+func (r *PostgresProposalRepository) FetchDistinctBlockingKeys(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		WITH n AS (
+			SELECT ltrim(proposal_number, '0') AS num
+			FROM proposals
+			WHERE proposal_number IS NOT NULL
+			  AND TRIM(proposal_number) != ''
+			  AND proposal_number !~ '^0+$'
+		)
+		SELECT DISTINCT
+			CASE WHEN length(num) <= 4 THEN num
+			     ELSE left(num, 2) || '|' || right(num, 2)
+			END
+		FROM n
+		WHERE num != ''
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var keys []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, rows.Err()
+}
+
+// FetchByBlockingKey returns all proposals whose normalized number maps to key.
+func (r *PostgresProposalRepository) FetchByBlockingKey(ctx context.Context, key string) ([]domain.Proposal, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		WITH n AS (
+			SELECT
+				id::text,
+				proposal_number,
+				ltrim(proposal_number, '0') AS num,
+				COALESCE(proposal_value, 0)::numeric,
+				COALESCE(client_id::text, ''),
+				COALESCE(plan_id::text, ''),
+				COALESCE(effective_date::text, '')
+			FROM proposals
+			WHERE proposal_number IS NOT NULL
+			  AND TRIM(proposal_number) != ''
+			  AND proposal_number !~ '^0+$'
+		)
+		SELECT id, proposal_number, proposal_value, client_id, plan_id, effective_date
+		FROM n
+		WHERE CASE WHEN length(num) <= 4 THEN num
+		           ELSE left(num, 2) || '|' || right(num, 2)
+		      END = $1
+	`, key)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var proposals []domain.Proposal
+	for rows.Next() {
+		var p domain.Proposal
+		if err := rows.Scan(&p.ID, &p.Number, &p.Value, &p.ClientID, &p.PlanID, &p.EffectiveDate); err != nil {
+			return nil, err
+		}
+		proposals = append(proposals, p)
+	}
+	return proposals, rows.Err()
+}

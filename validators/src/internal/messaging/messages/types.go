@@ -19,3 +19,16 @@ type ReceiptCanonicalBatch struct {
 	Anchor      string   `json:"anchor"`
 	ProposalIDs []string `json:"proposal_ids"`
 }
+
+// ProposalBlockBatch is published by the proposal-batch-producer and consumed by the
+// proposal-batch-consumer. One message is published per distinct blocking key so
+// consumers load only the proposals for that block, avoiding a full table scan.
+//
+// RunID is shared across all batches in a single scan cycle so all canonical records
+// written from the same run can be queried together.
+// BatchID is SHA-256(blocking_key) — deterministic, safe to replay.
+type ProposalBlockBatch struct {
+	RunID       string `json:"run_id"`
+	BatchID     string `json:"batch_id"`
+	BlockingKey string `json:"blocking_key"`
+}

@@ -32,10 +32,17 @@ func (m *MockMessagePublisher) Publish(_ context.Context, routingKey string, pay
 
 // MockProposalRepository satisfies ports.ProposalRepository.
 type MockProposalRepository struct {
-	Proposals    []domain.Proposal
-	TotalCount   int
-	InvalidCount int
-	Err          error
+	Proposals      []domain.Proposal
+	TotalCount     int
+	InvalidCount   int
+	BlockingKeys   []string
+	ProposalsByKey map[string][]domain.Proposal
+
+	// Err is the fallback error for all methods except FetchByBlockingKey.
+	Err error
+	// ErrFetchByKey overrides Err for FetchByBlockingKey only, allowing tests to
+	// set Err on aggregate-stat methods while keeping the fetch path clean.
+	ErrFetchByKey error
 }
 
 func (m *MockProposalRepository) FetchAll(_ context.Context) ([]domain.Proposal, error) {
@@ -56,6 +63,20 @@ func (m *MockProposalRepository) FetchInvalidNumberProposalIDs(_ context.Context
 		ids[i] = fmt.Sprintf("invalid-number-%d", i+1)
 	}
 	return ids, m.Err
+}
+
+func (m *MockProposalRepository) FetchDistinctBlockingKeys(_ context.Context) ([]string, error) {
+	return m.BlockingKeys, m.Err
+}
+
+func (m *MockProposalRepository) FetchByBlockingKey(_ context.Context, key string) ([]domain.Proposal, error) {
+	if m.ErrFetchByKey != nil {
+		return nil, m.ErrFetchByKey
+	}
+	if m.ProposalsByKey != nil {
+		return m.ProposalsByKey[key], nil
+	}
+	return m.Proposals, nil
 }
 
 // MockReceiptRepository satisfies ports.ReceiptRepository.
