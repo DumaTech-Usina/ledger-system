@@ -108,7 +108,7 @@ export class ReceiptStagingBuilder {
     const downloadedValue = parseFloat(input.downloadedValue);
     if (isBaixado && (!isFinite(downloadedValue) || downloadedValue <= 0)) {
       this.warn(
-        `Rejected receipt ${input.receiptId}: downloadedValue "${input.downloadedValue}" is zero, negative, or non-parseable even with receiptStatus equals BAIXADO`,
+        `Rejected receipt ${input.receiptId}: downloadedValue "${input.downloadedValue}" is zero, negative, or non-parseable`,
       );
       return null;
     }
