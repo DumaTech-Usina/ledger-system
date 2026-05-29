@@ -32,3 +32,18 @@ type ProposalBlockBatch struct {
 	BatchID     string `json:"batch_id"`
 	BlockingKey string `json:"blocking_key"`
 }
+
+// AdvanceBatch is published by the advance-batch-producer and consumed by the
+// advance-batch-consumer. One message is published per page of advance report IDs
+// fetched via cursor pagination (tenant_id = 1 in lab mode).
+//
+// RunID is shared across all batches in a single scan cycle so rule-run audit
+// records from the same run can be correlated.
+// BatchID is SHA-256(sorted advance_report_ids) — deterministic, safe to replay
+// because all writes to aspirant_advance_canonical are upserts keyed on advance_report_id.
+type AdvanceBatch struct {
+	RunID            string   `json:"run_id"`
+	BatchID          string   `json:"batch_id"`
+	Anchor           string   `json:"anchor"`
+	AdvanceReportIDs []string `json:"advance_report_ids"`
+}

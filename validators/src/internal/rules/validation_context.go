@@ -21,6 +21,19 @@ type ValidationContext struct {
 	// CanonicalReceipts holds receipts fetched during the receipts pipeline enrichment.
 	CanonicalReceipts []domain.Receipt
 
+	// AdvanceReports holds the advance reports loaded for the current batch.
+	AdvanceReports []domain.AdvanceReport
+
+	// AdvanceReportReceipts holds the active advance_report_receipts links for the batch.
+	AdvanceReportReceipts []domain.AdvanceReportReceipt
+
+	// AdvanceReceipts holds the receipt projection data needed by the advance rules.
+	AdvanceReceipts []domain.AdvanceReceipt
+
+	// SuspectProposalIDs is the set of proposal IDs marked SUSPICIOUS in canonical_proposals.
+	// Populated during advance enrichment; used by RULE-ADV-002.
+	SuspectProposalIDs map[string]bool
+
 	// Metadata is an open map for extensibility between stages.
 	Metadata map[string]any
 }
@@ -45,7 +58,8 @@ type ProposalStats struct {
 // NewValidationContext returns an initialised ValidationContext.
 func NewValidationContext() *ValidationContext {
 	return &ValidationContext{
-		Receipts: make(map[string][]domain.Receipt),
-		Metadata: make(map[string]any),
+		Receipts:           make(map[string][]domain.Receipt),
+		SuspectProposalIDs: make(map[string]bool),
+		Metadata:           make(map[string]any),
 	}
 }

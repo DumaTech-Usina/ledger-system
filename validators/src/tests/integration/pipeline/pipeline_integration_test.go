@@ -7,12 +7,16 @@ import (
 
 	"validators/src/internal/domain"
 	"validators/src/internal/engine"
+	"validators/src/internal/messaging/messages"
 	"validators/src/internal/pipeline"
 	"validators/src/internal/pipelines/proposals"
 	receiptPipeline "validators/src/internal/pipelines/receipts"
+	"validators/src/internal/application/jobs"
+	advanceRules "validators/src/internal/rules/advances"
 	proposalRules "validators/src/internal/rules/proposals"
 	receiptRules "validators/src/internal/rules/receipts"
 	"validators/src/tests/fixtures"
+	"encoding/json"
 )
 
 // TestFullPipeline_WithMocks wires every real layer (rules, engine, stages,
@@ -222,6 +226,100 @@ func TestReceiptPipeline_AggregationFailureIsNonFatal(t *testing.T) {
 
 	if err := runner.Run(context.Background()); err != nil {
 		t.Errorf("aggregation failure must be non-fatal, but got: %v", err)
+	}
+}
+
+// TestAdvanceBatchHandler_FullFlow_WithMocks wires every real layer of the advance
+// pipeline (rules, engine, handler) with mocked infra and asserts end-to-end behavior.
+func TestAdvanceBatchHandler_FullFlow_WithMocks(t *testing.T) {
+	advances := fixtures.AdvanceReportList(3)
+	// Make advance-2 simultaneously paid and cancelled → ADV-007 should flag it.
+	advances[1].IsPaid = true
+	advances[1].IsCancelled = true
+
+	repo := &fixtures.MockAdvanceReportRepository{Advances: advances}
+	cRepo := &fixtures.MockAspiantAdvanceCanonicalRepository{}
+	aRepo := &fixtures.MockAuditRepository{}
+
+	reg := engine.NewRegistry()
+	reg.MustRegister(advanceRules.NewRuleAdv001())
+	reg.MustRegister(advanceRules.NewRuleAdv002())
+	reg.MustRegister(advanceRules.NewRuleAdv003())
+	reg.MustRegister(advanceRules.NewRuleAdv004())
+	reg.MustRegister(advanceRules.NewRuleAdv005())
+	reg.MustRegister(advanceRules.NewRuleAdv006())
+	reg.MustRegister(advanceRules.NewRuleAdv007())
+	reg.MustRegister(advanceRules.NewRuleAdv008())
+	reg.MustRegister(advanceRules.NewRuleAdv009())
+	reg.MustRegister(advanceRules.NewRuleAdv010())
+	eng := engine.NewValidationEngine(reg, engine.Sequential)
+
+	handler := jobs.NewAdvanceBatchHandler(
+		repo, cRepo, &fixtures.MockCanonicalProposalStatusChecker{}, aRepo, eng,
+	)
+
+	msg := messages.AdvanceBatch{
+		RunID:            "run-int-1",
+		BatchID:          "batch-int-1",
+		Anchor:           "advance-3",
+		AdvanceReportIDs: []string{"advance-1", "advance-2", "advance-3"},
+	}
+	body, _ := json.Marshal(msg)
+
+	if err := handler.Handle(context.Background(), body); err != nil {
+		t.Fatalf("handler failed: %v", err)
+	}
+
+	if len(cRepo.Saved) != 3 {
+		t.Fatalf("expected 3 canonical records, got %d", len(cRepo.Saved))
+	}
+
+	// advance-2 should be SUSPICIOUS (ADV-007) and advance-5 should have ADV-005 (no receipts).
+	// In this batch all 3 have no receipt links, so ADV-005 should flag all 3.
+	for _, rec := range cRepo.Saved {
+		if rec.Status != domain.AdvanceReportStatusSuspicious {
+			t.Errorf("advance %s: expected SUSPICIOUS (no receipt links → ADV-005), got %q",
+				rec.AdvanceReportID, rec.Status)
+		}
+	}
+
+	// advance-2 must have at least ADV-007 violation in addition to ADV-005.
+	var found bool
+	for _, rec := range cRepo.Saved {
+		if rec.AdvanceReportID == "advance-2" {
+			for _, v := range rec.Violations {
+				if v.Rule == "RULE-ADV-007" {
+					found = true
+				}
+			}
+		}
+	}
+	if !found {
+		t.Errorf("advance-2 must have RULE-ADV-007 violation")
+	}
+}
+
+// TestAdvanceBatchHandler_FetchByIDsError_Propagates verifies that a Postgres failure
+// on the advance fetch step surfaces as a handler error (→ nack → DLQ).
+func TestAdvanceBatchHandler_FetchByIDsError_Propagates(t *testing.T) {
+	boom := errors.New("postgres connection refused")
+	repo := &fixtures.MockAdvanceReportRepository{ErrFetchByID: boom}
+
+	reg := engine.NewRegistry()
+	reg.MustRegister(advanceRules.NewRuleAdv001())
+	eng := engine.NewValidationEngine(reg, engine.Sequential)
+
+	handler := jobs.NewAdvanceBatchHandler(
+		repo, &fixtures.MockAspiantAdvanceCanonicalRepository{},
+		&fixtures.MockCanonicalProposalStatusChecker{}, &fixtures.MockAuditRepository{}, eng,
+	)
+
+	msg := messages.AdvanceBatch{RunID: "r1", BatchID: "b1", AdvanceReportIDs: []string{"adv-1"}}
+	body, _ := json.Marshal(msg)
+
+	err := handler.Handle(context.Background(), body)
+	if !errors.Is(err, boom) {
+		t.Errorf("expected postgres error to propagate, got: %v", err)
 	}
 }
 

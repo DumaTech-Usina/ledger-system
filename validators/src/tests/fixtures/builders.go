@@ -41,6 +41,28 @@ func (b *ValidationContextBuilder) WithCanonicalReceipts(receipts ...domain.Rece
 	return b
 }
 
+func (b *ValidationContextBuilder) WithAdvanceReports(reports ...domain.AdvanceReport) *ValidationContextBuilder {
+	b.ctx.AdvanceReports = reports
+	return b
+}
+
+func (b *ValidationContextBuilder) WithAdvanceReportReceipts(links ...domain.AdvanceReportReceipt) *ValidationContextBuilder {
+	b.ctx.AdvanceReportReceipts = links
+	return b
+}
+
+func (b *ValidationContextBuilder) WithAdvanceReceipts(receipts ...domain.AdvanceReceipt) *ValidationContextBuilder {
+	b.ctx.AdvanceReceipts = receipts
+	return b
+}
+
+func (b *ValidationContextBuilder) WithSuspectProposalIDs(ids ...string) *ValidationContextBuilder {
+	for _, id := range ids {
+		b.ctx.SuspectProposalIDs[id] = true
+	}
+	return b
+}
+
 func (b *ValidationContextBuilder) WithMetadata(key string, value any) *ValidationContextBuilder {
 	b.ctx.Metadata[key] = value
 	return b

@@ -159,12 +159,101 @@ func (m *MockAspiantReceiptCanonicalRepository) SaveAll(_ context.Context, recor
 	return m.Err
 }
 
+// MockAdvanceReportRepository satisfies ports.AdvanceReportRepository.
+// Use ErrFetchByID / ErrLinks / ErrReceipts to inject failures at specific fetch
+// stages while leaving other methods clean — mirrors MockProposalRepository's
+// Err/ErrFetchByKey split pattern.
+type MockAdvanceReportRepository struct {
+	Advances   []domain.AdvanceReport
+	Links      []domain.AdvanceReportReceipt
+	Receipts   []domain.AdvanceReceipt
+	TotalCount int
+
+	// Err is returned by CountAll and FetchBatch.
+	Err error
+	// ErrFetchByID overrides Err for FetchByIDs only.
+	ErrFetchByID error
+	// ErrLinks overrides Err for FetchActiveReceiptLinks only.
+	ErrLinks error
+	// ErrReceipts overrides Err for FetchReceiptsByIDs only.
+	ErrReceipts error
+}
+
+func (m *MockAdvanceReportRepository) CountAll(_ context.Context) (int, error) {
+	return m.TotalCount, m.Err
+}
+
+func (m *MockAdvanceReportRepository) FetchBatch(_ context.Context, afterID string, limit int) ([]domain.AdvanceReport, error) {
+	if m.Err != nil {
+		return nil, m.Err
+	}
+	start := 0
+	if afterID != "" {
+		for i, ar := range m.Advances {
+			if ar.ID == afterID {
+				start = i + 1
+				break
+			}
+		}
+	}
+	if start >= len(m.Advances) {
+		return nil, nil
+	}
+	end := start + limit
+	if end > len(m.Advances) {
+		end = len(m.Advances)
+	}
+	return m.Advances[start:end], nil
+}
+
+func (m *MockAdvanceReportRepository) FetchByIDs(_ context.Context, _ []string) ([]domain.AdvanceReport, error) {
+	if m.ErrFetchByID != nil {
+		return nil, m.ErrFetchByID
+	}
+	return m.Advances, nil
+}
+
+func (m *MockAdvanceReportRepository) FetchActiveReceiptLinks(_ context.Context, _ []string) ([]domain.AdvanceReportReceipt, error) {
+	if m.ErrLinks != nil {
+		return nil, m.ErrLinks
+	}
+	return m.Links, nil
+}
+
+func (m *MockAdvanceReportRepository) FetchReceiptsByIDs(_ context.Context, _ []string) ([]domain.AdvanceReceipt, error) {
+	if m.ErrReceipts != nil {
+		return nil, m.ErrReceipts
+	}
+	return m.Receipts, nil
+}
+
+// MockAspiantAdvanceCanonicalRepository satisfies ports.AspiantAdvanceCanonicalRepository.
+type MockAspiantAdvanceCanonicalRepository struct {
+	Saved []domain.CanonicalAdvanceReport
+	Err   error
+}
+
+func (m *MockAspiantAdvanceCanonicalRepository) SaveAll(_ context.Context, records []domain.CanonicalAdvanceReport) error {
+	m.Saved = append(m.Saved, records...)
+	return m.Err
+}
+
+// MockCanonicalProposalStatusChecker satisfies ports.CanonicalProposalStatusChecker.
+type MockCanonicalProposalStatusChecker struct {
+	SuspectIDs []string
+	Err        error
+}
+
+func (m *MockCanonicalProposalStatusChecker) FetchSuspiciousByProposalIDs(_ context.Context, _ []string) ([]string, error) {
+	return m.SuspectIDs, m.Err
+}
+
 // MockAuditRepository satisfies ports.AuditRepository.
 type MockAuditRepository struct {
-	SavedClusters   []domain.Cluster
-	SavedRuns       []domain.RuleRunResult
-	SavedCanonical  []domain.CanonicalProposal
-	Err             error
+	SavedClusters  []domain.Cluster
+	SavedRuns      []domain.RuleRunResult
+	SavedCanonical []domain.CanonicalProposal
+	Err            error
 }
 
 func (m *MockAuditRepository) SaveClusters(_ context.Context, clusters []domain.Cluster) error {

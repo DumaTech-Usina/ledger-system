@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"validators/src/internal/rules"
+	advanceRules "validators/src/internal/rules/advances"
 	"validators/src/internal/rules/proposals"
 	receiptRules "validators/src/internal/rules/receipts"
 	"validators/src/tests/fixtures"
@@ -89,3 +90,14 @@ func TestRule002_Contract(t *testing.T)        { verifyRuleContract(t, proposals
 func TestRule003_Contract(t *testing.T)        { verifyRuleContract(t, proposals.NewRule003()) }
 func TestRule004_Contract(t *testing.T)        { verifyRuleContract(t, proposals.NewRule004()) }
 func TestReceiptRule001_Contract(t *testing.T) { verifyRuleContract(t, receiptRules.NewRule001()) }
+
+func TestRuleAdv001_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv001()) }
+func TestRuleAdv002_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv002()) }
+func TestRuleAdv003_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv003()) }
+func TestRuleAdv004_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv004()) }
+func TestRuleAdv005_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv005()) }
+func TestRuleAdv006_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv006()) }
+func TestRuleAdv007_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv007()) }
+func TestRuleAdv008_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv008()) }
+func TestRuleAdv009_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv009()) }
+func TestRuleAdv010_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv010()) }

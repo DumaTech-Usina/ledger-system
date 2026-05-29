@@ -17,6 +17,9 @@ func EnsureIndexes(ctx context.Context, db *mongo.Database) error {
 	if err := ensureAspiantReceiptCanonicalIndexes(ctx, db); err != nil {
 		return err
 	}
+	if err := ensureAspiantAdvanceCanonicalIndexes(ctx, db); err != nil {
+		return err
+	}
 	if err := ensureClustersIndexes(ctx, db); err != nil {
 		return err
 	}
@@ -44,6 +47,15 @@ func ensureAspiantReceiptCanonicalIndexes(ctx context.Context, db *mongo.Databas
 	_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
 		Keys:    bson.D{{Key: "receipt_id", Value: 1}},
 		Options: options.Index().SetUnique(true).SetName("uq_receipt_id"),
+	})
+	return err
+}
+
+func ensureAspiantAdvanceCanonicalIndexes(ctx context.Context, db *mongo.Database) error {
+	col := db.Collection("aspirant_advance_canonical")
+	_, err := col.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: "advance_report_id", Value: 1}},
+		Options: options.Index().SetUnique(true).SetName("uq_advance_report_id"),
 	})
 	return err
 }

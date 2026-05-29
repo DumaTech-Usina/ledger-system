@@ -32,7 +32,7 @@ func (r *Rule001) Execute(ctx *rules.ValidationContext) rules.RuleResult {
 	flagged := map[string]string{}
 
 	for _, rec := range ctx.CanonicalReceipts {
-		if !monetaryPattern.MatchString(NormalizeDownloadedValue(rec.DownloadedValue)) {
+		if !monetaryPattern.MatchString(rec.DownloadedValue) {
 			flagged[rec.ID] = "downloaded_value does not match expected monetary format (e.g. 1000.00)"
 		}
 	}

@@ -46,6 +46,42 @@ func (r *CanonicalProposalReader) FetchCleanBatch(ctx context.Context, afterID s
 	return r.fetchWithFilter(ctx, filter, int64(limit))
 }
 
+// FetchSuspiciousByProposalIDs returns the subset of the given proposal IDs that
+// are stored with status = "SUSPICIOUS" in canonical_proposals.
+// Implements ports.CanonicalProposalStatusChecker.
+func (r *CanonicalProposalReader) FetchSuspiciousByProposalIDs(ctx context.Context, proposalIDs []string) ([]string, error) {
+	if len(proposalIDs) == 0 {
+		return []string{}, nil
+	}
+
+	filter := bson.D{
+		{Key: "proposal_id", Value: bson.D{{Key: "$in", Value: proposalIDs}}},
+		{Key: "status", Value: "SUSPICIOUS"},
+	}
+	cursor, err := r.db.Collection("canonical_proposals").Find(ctx, filter,
+		options.Find().SetProjection(bson.D{{Key: "proposal_id", Value: 1}}),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var ids []string
+	for cursor.Next(ctx) {
+		var doc struct {
+			ProposalID string `bson:"proposal_id"`
+		}
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, err
+		}
+		ids = append(ids, doc.ProposalID)
+	}
+	if ids == nil {
+		ids = []string{}
+	}
+	return ids, cursor.Err()
+}
+
 func (r *CanonicalProposalReader) fetchWithFilter(ctx context.Context, filter bson.D, limit int64) ([]domain.CanonicalProposal, error) {
 	opts := options.Find().SetSort(bson.D{{Key: "proposal_id", Value: 1}})
 	if limit > 0 {

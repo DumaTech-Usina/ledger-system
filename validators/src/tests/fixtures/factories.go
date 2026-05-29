@@ -142,6 +142,124 @@ func NewCluster(opts ...func(*domain.Cluster)) domain.Cluster {
 	return c
 }
 
+// NewAdvanceReport returns a valid advance report with sensible defaults.
+func NewAdvanceReport(opts ...func(*domain.AdvanceReport)) domain.AdvanceReport {
+	ar := domain.AdvanceReport{
+		ID:          "advance-1",
+		TenantID:    1,
+		IsPaid:      true,
+		IsCancelled: false,
+		AmountToPay: 1000.00,
+		AdvanceFee:  10.00,
+		BrokerID:    "broker-1",
+	}
+	for _, opt := range opts {
+		opt(&ar)
+	}
+	return ar
+}
+
+func WithAdvanceID(id string) func(*domain.AdvanceReport) {
+	return func(ar *domain.AdvanceReport) { ar.ID = id }
+}
+
+func WithIsPaid(v bool) func(*domain.AdvanceReport) {
+	return func(ar *domain.AdvanceReport) { ar.IsPaid = v }
+}
+
+func WithIsCancelled(v bool) func(*domain.AdvanceReport) {
+	return func(ar *domain.AdvanceReport) { ar.IsCancelled = v }
+}
+
+func WithAmountToPay(v float64) func(*domain.AdvanceReport) {
+	return func(ar *domain.AdvanceReport) { ar.AmountToPay = v }
+}
+
+func WithAdvanceFee(v float64) func(*domain.AdvanceReport) {
+	return func(ar *domain.AdvanceReport) { ar.AdvanceFee = v }
+}
+
+func WithAdvanceBrokerID(v string) func(*domain.AdvanceReport) {
+	return func(ar *domain.AdvanceReport) { ar.BrokerID = v }
+}
+
+// AdvanceReportList generates n advance reports with distinct IDs.
+func AdvanceReportList(n int) []domain.AdvanceReport {
+	reports := make([]domain.AdvanceReport, n)
+	for i := range reports {
+		reports[i] = NewAdvanceReport(WithAdvanceID(fmt.Sprintf("advance-%d", i+1)))
+	}
+	return reports
+}
+
+// NewAdvanceReportReceipt returns an active link with sensible defaults.
+func NewAdvanceReportReceipt(opts ...func(*domain.AdvanceReportReceipt)) domain.AdvanceReportReceipt {
+	l := domain.AdvanceReportReceipt{
+		AdvanceReportID: "advance-1",
+		ReceiptID:       "receipt-1",
+		IsActive:        true,
+	}
+	for _, opt := range opts {
+		opt(&l)
+	}
+	return l
+}
+
+func WithLinkAdvanceID(id string) func(*domain.AdvanceReportReceipt) {
+	return func(l *domain.AdvanceReportReceipt) { l.AdvanceReportID = id }
+}
+
+func WithLinkReceiptID(id string) func(*domain.AdvanceReportReceipt) {
+	return func(l *domain.AdvanceReportReceipt) { l.ReceiptID = id }
+}
+
+// NewAdvanceReceipt returns a receipt projection with sensible defaults.
+func NewAdvanceReceipt(opts ...func(*domain.AdvanceReceipt)) domain.AdvanceReceipt {
+	r := domain.AdvanceReceipt{
+		ID:          "receipt-1",
+		ProposalID:  "proposal-1",
+		Amount:      1000.00,
+		AmountToPay: 0.00,
+		BrokerID:    "broker-1",
+	}
+	for _, opt := range opts {
+		opt(&r)
+	}
+	return r
+}
+
+func WithAdvReceiptID(id string) func(*domain.AdvanceReceipt) {
+	return func(r *domain.AdvanceReceipt) { r.ID = id }
+}
+
+func WithAdvReceiptProposalID(pid string) func(*domain.AdvanceReceipt) {
+	return func(r *domain.AdvanceReceipt) { r.ProposalID = pid }
+}
+
+func WithAdvReceiptAmount(v float64) func(*domain.AdvanceReceipt) {
+	return func(r *domain.AdvanceReceipt) { r.Amount = v }
+}
+
+func WithAdvReceiptAmountToPay(v float64) func(*domain.AdvanceReceipt) {
+	return func(r *domain.AdvanceReceipt) { r.AmountToPay = v }
+}
+
+func WithAdvReceiptBrokerID(v string) func(*domain.AdvanceReceipt) {
+	return func(r *domain.AdvanceReceipt) { r.BrokerID = v }
+}
+
+// AdvanceReceiptList generates n advance receipts with distinct IDs.
+func AdvanceReceiptList(n int) []domain.AdvanceReceipt {
+	rs := make([]domain.AdvanceReceipt, n)
+	for i := range rs {
+		rs[i] = NewAdvanceReceipt(
+			WithAdvReceiptID(fmt.Sprintf("receipt-%d", i+1)),
+			WithAdvReceiptProposalID(fmt.Sprintf("proposal-%d", i+1)),
+		)
+	}
+	return rs
+}
+
 // ProposalList generates n proposals with distinct IDs and numbers.
 func ProposalList(n int) []domain.Proposal {
 	ps := make([]domain.Proposal, n)
