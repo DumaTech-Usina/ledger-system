@@ -36,7 +36,7 @@ func (r *AdvanceReportRepository) FetchBatch(ctx context.Context, afterID string
 		rows, err = r.db.QueryContext(ctx, `
 			SELECT id::text, tenant_id,
 			       COALESCE(is_paid, false),
-			       COALESCE(is_cancelled, false),
+			       COALESCE(is_canceled, false),
 			       COALESCE(amount_to_pay, 0)::numeric,
 			       COALESCE(advance_fee, 0)::numeric,
 			       COALESCE(broker_id::text, '')
@@ -49,7 +49,7 @@ func (r *AdvanceReportRepository) FetchBatch(ctx context.Context, afterID string
 		rows, err = r.db.QueryContext(ctx, `
 			SELECT id::text, tenant_id,
 			       COALESCE(is_paid, false),
-			       COALESCE(is_cancelled, false),
+			       COALESCE(is_canceled, false),
 			       COALESCE(amount_to_pay, 0)::numeric,
 			       COALESCE(advance_fee, 0)::numeric,
 			       COALESCE(broker_id::text, '')
@@ -71,7 +71,7 @@ func (r *AdvanceReportRepository) FetchByIDs(ctx context.Context, ids []string) 
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id::text, tenant_id,
 		       COALESCE(is_paid, false),
-		       COALESCE(is_cancelled, false),
+		       COALESCE(is_canceled, false),
 		       COALESCE(amount_to_pay, 0)::numeric,
 		       COALESCE(advance_fee, 0)::numeric,
 		       COALESCE(broker_id::text, '')
@@ -112,7 +112,6 @@ func (r *AdvanceReportRepository) FetchReceiptsByIDs(ctx context.Context, receip
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT id::text,
 		       COALESCE(proposal_id::text, ''),
-		       COALESCE(amount, 0)::numeric,
 		       COALESCE(amount_to_pay, 0)::numeric,
 		       COALESCE(broker_id::text, '')
 		FROM receipts
@@ -126,7 +125,7 @@ func (r *AdvanceReportRepository) FetchReceiptsByIDs(ctx context.Context, receip
 	var receipts []domain.AdvanceReceipt
 	for rows.Next() {
 		var rec domain.AdvanceReceipt
-		if err := rows.Scan(&rec.ID, &rec.ProposalID, &rec.Amount, &rec.AmountToPay, &rec.BrokerID); err != nil {
+		if err := rows.Scan(&rec.ID, &rec.ProposalID, &rec.AmountToPay, &rec.BrokerID); err != nil {
 			return nil, err
 		}
 		receipts = append(receipts, rec)

@@ -156,7 +156,7 @@ func TestAdvanceBatchHandler_Handle_StatusCheckerError_Nacks(t *testing.T) {
 	repo := &fixtures.MockAdvanceReportRepository{
 		Advances: fixtures.AdvanceReportList(1),
 		Links:    []domain.AdvanceReportReceipt{{AdvanceReportID: "advance-1", ReceiptID: "rec-1", IsActive: true}},
-		Receipts: []domain.AdvanceReceipt{{ID: "rec-1", ProposalID: "proposal-1", Amount: 100, AmountToPay: 0}},
+		Receipts: []domain.AdvanceReceipt{{ID: "rec-1", ProposalID: "proposal-1", AmountToPay: 100}},
 	}
 	checker := &fixtures.MockCanonicalProposalStatusChecker{Err: boom}
 
@@ -226,7 +226,7 @@ func TestAdvanceBatchHandler_Handle_SuspectProposalFlagsAdvance(t *testing.T) {
 			{AdvanceReportID: "adv-1", ReceiptID: "rec-1", IsActive: true},
 		},
 		Receipts: []domain.AdvanceReceipt{
-			{ID: "rec-1", ProposalID: "proposal-bad", Amount: 1000, AmountToPay: 0},
+			{ID: "rec-1", ProposalID: "proposal-bad", AmountToPay: 1000},
 		},
 	}
 	checker := &fixtures.MockCanonicalProposalStatusChecker{

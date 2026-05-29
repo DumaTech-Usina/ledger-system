@@ -185,6 +185,10 @@ func buildAdvanceCanonicals(vctx *rules.ValidationContext, results []rules.RuleR
 			TenantID:        ar.TenantID,
 			Status:          domain.AdvanceReportStatusClean,
 			Violations:      []domain.AdvanceViolation{},
+			AmountToPay:     ar.AmountToPay,
+			BrokerID:        ar.BrokerID,
+			IsPaid:          ar.IsPaid,
+			IsCancelled:     ar.IsCancelled,
 			CreatedAt:       now,
 		}
 		if violations, found := violationIndex[ar.ID]; found {

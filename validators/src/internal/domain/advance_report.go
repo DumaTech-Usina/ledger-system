@@ -25,8 +25,7 @@ type AdvanceReportReceipt struct {
 type AdvanceReceipt struct {
 	ID          string
 	ProposalID  string
-	Amount      float64 // receipts.amount       (ADV-006: sum check)
-	AmountToPay float64 // receipts.amount_to_pay (ADV-003: residual check)
+	AmountToPay float64 // receipts.amount_to_pay (ADV-006: sum check, ADV-003: residual check)
 	BrokerID    string  // receipts.broker_id     (ADV-009: broker mismatch)
 }
 
@@ -47,10 +46,16 @@ type AdvanceViolation struct {
 // CanonicalAdvanceReport is the authoritative read-model for an advance report's
 // validation status. Written to the aspirant_advance_canonical MongoDB collection
 // at the end of every validation run.
+// Business fields (AmountToPay, BrokerID, IsPaid, IsCancelled) are denormalised
+// here so the Ledger ETL reader can source everything from one collection.
 type CanonicalAdvanceReport struct {
 	AdvanceReportID string
 	TenantID        int64
 	Status          AdvanceReportStatus
 	Violations      []AdvanceViolation
+	AmountToPay     float64
+	BrokerID        string
+	IsPaid          bool
+	IsCancelled     bool
 	CreatedAt       time.Time
 }

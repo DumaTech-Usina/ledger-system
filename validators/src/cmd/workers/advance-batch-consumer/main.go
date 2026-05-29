@@ -47,7 +47,7 @@ func main() {
 	ruleRegistry.MustRegister(advanceRules.NewRuleAdv003())
 	ruleRegistry.MustRegister(advanceRules.NewRuleAdv004())
 	ruleRegistry.MustRegister(advanceRules.NewRuleAdv005())
-	ruleRegistry.MustRegister(advanceRules.NewRuleAdv006())
+	// ruleRegistry.MustRegister(advanceRules.NewRuleAdv006())
 	ruleRegistry.MustRegister(advanceRules.NewRuleAdv007())
 	ruleRegistry.MustRegister(advanceRules.NewRuleAdv008())
 	ruleRegistry.MustRegister(advanceRules.NewRuleAdv009())

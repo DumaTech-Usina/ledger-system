@@ -218,8 +218,7 @@ func NewAdvanceReceipt(opts ...func(*domain.AdvanceReceipt)) domain.AdvanceRecei
 	r := domain.AdvanceReceipt{
 		ID:          "receipt-1",
 		ProposalID:  "proposal-1",
-		Amount:      1000.00,
-		AmountToPay: 0.00,
+		AmountToPay: 1000.00,
 		BrokerID:    "broker-1",
 	}
 	for _, opt := range opts {
@@ -237,7 +236,7 @@ func WithAdvReceiptProposalID(pid string) func(*domain.AdvanceReceipt) {
 }
 
 func WithAdvReceiptAmount(v float64) func(*domain.AdvanceReceipt) {
-	return func(r *domain.AdvanceReceipt) { r.Amount = v }
+	return func(r *domain.AdvanceReceipt) { r.AmountToPay = v }
 }
 
 func WithAdvReceiptAmountToPay(v float64) func(*domain.AdvanceReceipt) {

@@ -32,7 +32,7 @@ func (r *RuleAdv006) Execute(ctx *rules.ValidationContext) rules.RuleResult {
 
 	receiptAmount := make(map[string]float64, len(ctx.AdvanceReceipts))
 	for _, rec := range ctx.AdvanceReceipts {
-		receiptAmount[rec.ID] = rec.Amount
+		receiptAmount[rec.ID] = rec.AmountToPay
 	}
 
 	// Sum receipt amounts per advance report.

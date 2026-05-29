@@ -130,10 +130,10 @@ func (r *PostgresProposalRepository) FetchByBlockingKey(ctx context.Context, key
 				id::text,
 				proposal_number,
 				ltrim(proposal_number, '0') AS num,
-				COALESCE(proposal_value, 0)::numeric,
-				COALESCE(client_id::text, ''),
-				COALESCE(plan_id::text, ''),
-				COALESCE(effective_date::text, '')
+				COALESCE(proposal_value, 0)::numeric AS proposal_value,
+				COALESCE(client_id::text, '') AS client_id,
+				COALESCE(plan_id::text, '') AS plan_id,
+				COALESCE(effective_date::text, '') AS effective_date
 			FROM proposals
 			WHERE proposal_number IS NOT NULL
 			  AND TRIM(proposal_number) != ''
