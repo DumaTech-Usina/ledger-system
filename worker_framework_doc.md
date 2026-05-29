@@ -53,14 +53,14 @@ Validators types.
 
 Fill this table before writing any code. The archetype determines which sections of this guide apply.
 
-| Archetype                | Service     | Input              | Output                                  | Use when                                              |
-| ------------------------ | ----------- | ------------------ | --------------------------------------- | ----------------------------------------------------- |
-| **Domain Validator**     | validators/ | batch AMQP message | `<domain>_canonical` (CLEAN/SUSPICIOUS) | New entity class needs semantic validation rules      |
-| **Cross-Domain Checker** | validators/ | batch AMQP message | extends existing canonical              | A rule needs state from another domain's canonical    |
-| **Enrichment Extender**  | validators/ | existing domain    | no new canonical                        | Existing domain needs a new data source for new rules |
-| **Posting Job**          | ledger/     | external ETL event | StagingRecord → LedgerEvent             | Cash physically moved and needs ledger recording      |
-| **Context Job**          | ledger/     | external ETL event | lineage DTO only (no StagingRecord)     | Causal lineage only, no economic effect               |
-| **Resolution Worker**    | ledger/     | edge case event    | StagingRecord                           | Compensations, corrections, zero-amount cases         |
+| Archetype                | Service     | Input              | Output                                           | Use when                                              |
+| ------------------------ | ----------- | ------------------ | ------------------------------------------------ | ----------------------------------------------------- |
+| **Domain Validator**     | validators/ | batch AMQP message | `aspirant_<domain>_canonical` (CLEAN/SUSPICIOUS) | New entity class needs semantic validation rules      |
+| **Cross-Domain Checker** | validators/ | batch AMQP message | extends existing canonical                       | A rule needs state from another domain's canonical    |
+| **Enrichment Extender**  | validators/ | existing domain    | no new canonical                                 | Existing domain needs a new data source for new rules |
+| **Posting Job**          | ledger/     | external ETL event | StagingRecord → LedgerEvent                      | Cash physically moved and needs ledger recording      |
+| **Context Job**          | ledger/     | external ETL event | lineage DTO only (no StagingRecord)              | Causal lineage only, no economic effect               |
+| **Resolution Worker**    | ledger/     | edge case event    | StagingRecord                                    | Compensations, corrections, zero-amount cases         |
 
 ---
 
@@ -368,7 +368,7 @@ import (
 	"validators/src/internal/application/jobs"
 	infraConfig "validators/src/internal/infrastructure/config"
 	infraPostgres "validators/src/internal/infrastructure/postgres"
-	"validators/src/internal/infrastructure/messaging/rabbitmq"
+	"validators/src/internal/messaging/rabbitmq"
 )
 
 func main() {
@@ -383,10 +383,11 @@ func main() {
 		log.Fatalf("connect: %v", err)
 	}
 
-	publisher, err := rabbitmq.NewPublisher(mustEnv("AMQP_URL"))
-	if err != nil {
+	publisher := rabbitmq.NewPublisher(mustEnv("AMQP_URL"))
+	if err := publisher.Connect(); err != nil {
 		log.Fatalf("publisher: %v", err)
 	}
+	defer publisher.Close()
 
 	producer := jobs.New<ENTITY>BatchProducer(
 		infraPostgres.New<ENTITY>Repository(conns.Postgres),
@@ -435,7 +436,7 @@ import (
 	infraConfig "validators/src/internal/infrastructure/config"
 	infraMongo "validators/src/internal/infrastructure/mongodb"
 	infraPostgres "validators/src/internal/infrastructure/postgres"
-	"validators/src/internal/infrastructure/messaging/rabbitmq"
+	"validators/src/internal/messaging/rabbitmq"
 	<domain>Rules "validators/src/internal/rules/<domain>"
 )
 
