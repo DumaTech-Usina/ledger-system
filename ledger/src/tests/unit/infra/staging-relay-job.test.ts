@@ -36,7 +36,7 @@ describe("StagingRelayJob — forwarding staged commission records to the messag
     const stagingRepo = new InMemoryStagingRepository([]);
     const publisher = makePublisher();
 
-    await new StagingRelayJob(stagingRepo, publisher).run();
+    await new StagingRelayJob(stagingRepo, publisher, ROUTING_KEY).run();
 
     expect(publisher.publish).not.toHaveBeenCalled();
   });
@@ -45,7 +45,7 @@ describe("StagingRelayJob — forwarding staged commission records to the messag
     const stagingRepo = new InMemoryStagingRepository([makeRecord("r-1"), makeRecord("r-2")]);
     const publisher = makePublisher();
 
-    await new StagingRelayJob(stagingRepo, publisher).run();
+    await new StagingRelayJob(stagingRepo, publisher, ROUTING_KEY).run();
 
     expect(publisher.publish).toHaveBeenCalledTimes(2);
     expect(publisher.publish).toHaveBeenCalledWith(ROUTING_KEY, expect.objectContaining({ id: "r-1" }));
@@ -55,7 +55,7 @@ describe("StagingRelayJob — forwarding staged commission records to the messag
   it("after a successful broker acknowledgement, the record remains in 'queued' status — it is not reverted because the broker confirmed receipt", async () => {
     const stagingRepo = new InMemoryStagingRepository([makeRecord("r-success")]);
 
-    await new StagingRelayJob(stagingRepo, makePublisher()).run();
+    await new StagingRelayJob(stagingRepo, makePublisher(), ROUTING_KEY).run();
 
     const [record] = await stagingRepo.findAll();
     expect(record.status).toBe("queued");
@@ -65,7 +65,7 @@ describe("StagingRelayJob — forwarding staged commission records to the messag
     const stagingRepo = new InMemoryStagingRepository([makeRecord("r-fail")]);
     const publisher = makePublisher({ failIds: ["r-fail"] });
 
-    await new StagingRelayJob(stagingRepo, publisher).run();
+    await new StagingRelayJob(stagingRepo, publisher, ROUTING_KEY).run();
 
     const [record] = await stagingRepo.findAll();
     expect(record.status).toBe("pending");
@@ -79,7 +79,7 @@ describe("StagingRelayJob — forwarding staged commission records to the messag
     ]);
     const publisher = makePublisher({ failIds: ["r-fail"] });
 
-    await new StagingRelayJob(stagingRepo, publisher).run();
+    await new StagingRelayJob(stagingRepo, publisher, ROUTING_KEY).run();
 
     const records = await stagingRepo.findAll();
     const byId = Object.fromEntries(records.map((r) => [r.id, r.status]));
@@ -93,7 +93,7 @@ describe("StagingRelayJob — forwarding staged commission records to the messag
     const stagingRepo = new InMemoryStagingRepository([makeRecord("r-1"), makeRecord("r-2")]);
     const publisher = makePublisher({ failAll: true });
 
-    await new StagingRelayJob(stagingRepo, publisher).run();
+    await new StagingRelayJob(stagingRepo, publisher, ROUTING_KEY).run();
 
     const records = await stagingRepo.findAll();
     expect(records.every((r) => r.status === "pending")).toBe(true);
@@ -102,7 +102,7 @@ describe("StagingRelayJob — forwarding staged commission records to the messag
   it("running relay on an already-empty queue completes without throwing — the job is idempotent when there is nothing to do and must never crash on an empty run", async () => {
     const stagingRepo = new InMemoryStagingRepository([]);
 
-    await expect(new StagingRelayJob(stagingRepo, makePublisher()).run()).resolves.not.toThrow();
+    await expect(new StagingRelayJob(stagingRepo, makePublisher(), ROUTING_KEY).run()).resolves.not.toThrow();
   });
 
 });

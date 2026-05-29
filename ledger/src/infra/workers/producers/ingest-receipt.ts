@@ -1,11 +1,11 @@
 import 'reflect-metadata';
 import 'dotenv/config';
-import { env } from '../../config/env';
-import { getMongoDb, getMongoDatabase, closeMongoDb } from '../database/mongo-client';
-import { MongoStagingRepository } from '../persistence/mongodb/MongoStagingRepository';
-import { MongoReceiptETLReader } from '../etl/MongoReceiptETLReader';
-import { ReceiptStagingBuilder } from '../../core/application/services/ReceiptStagingBuilder';
-import { ReceiptETLJob } from '../jobs/ReceiptETLJob';
+import { env } from '../../../config/env';
+import { getMongoDb, getMongoDatabase, closeMongoDb } from '../../database/mongo-client';
+import { MongoStagingRepository } from '../../persistence/mongodb/MongoStagingRepository';
+import { MongoReceiptETLReader } from '../../etl/MongoReceiptETLReader';
+import { ReceiptStagingBuilder } from '../../../core/application/services/ReceiptStagingBuilder';
+import { ReceiptETLJob } from '../../jobs/ReceiptETLJob';
 
 async function main(): Promise<void> {
   const stagingDb = await getMongoDb();
@@ -17,7 +17,7 @@ async function main(): Promise<void> {
   const etl = new ReceiptETLJob(reader, builder);
 
   const shutdown = async (signal: string) => {
-    console.log(`[run-receipt-etl] ${signal} — shutting down`);
+    console.log(`[ingest-receipt] ${signal} — shutting down`);
     await closeMongoDb();
     process.exit(0);
   };
@@ -25,11 +25,11 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 
-  console.log(`[run-receipt-etl] starting — polling ${env.MONGO_ETL_DB} every 30s`);
+  console.log(`[ingest-receipt] starting — polling ${env.MONGO_ETL_DB} every 30s`);
   await etl.startPolling(30_000);
 }
 
 main().catch((err) => {
-  console.error('[run-receipt-etl] fatal:', err);
+  console.error('[ingest-receipt] fatal:', err);
   process.exit(1);
 });

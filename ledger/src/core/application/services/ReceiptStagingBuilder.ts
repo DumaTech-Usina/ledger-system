@@ -38,76 +38,118 @@ export class ReceiptStagingBuilder {
     // Proposal field guards — these fire only if MongoDB yields a corrupt proposal
     // document (e.g., missing required fields despite status=CLEAN).
     if (!isNonEmpty(input.operatorId)) {
-      this.warn(`Rejected receipt ${input.receiptId}: operatorId null or empty`);
+      this.warn(
+        `Rejected receipt ${input.receiptId}: operatorId null or empty`,
+      );
       return null;
     }
     if (!isNonEmpty(input.proposalNumber)) {
-      this.warn(`Rejected receipt ${input.receiptId}: proposalNumber null or empty`);
+      this.warn(
+        `Rejected receipt ${input.receiptId}: proposalNumber null or empty`,
+      );
       return null;
     }
     const registeredAt = new Date(input.registeredAt);
     if (isNaN(registeredAt.getTime())) {
-      this.warn(`Rejected receipt ${input.receiptId}: registeredAt is not a valid date`);
+      this.warn(
+        `Rejected receipt ${input.receiptId}: registeredAt is not a valid date`,
+      );
       return null;
     }
 
     const DISCHARGED = "BAIXADO";
     const NOT_DISCHARGED = new Set(["NÃO BAIXADO", "ABERTA"]);
 
-    if (input.receiptStatus !== DISCHARGED && !NOT_DISCHARGED.has(input.receiptStatus)) {
-      this.warn(`Rejected receipt ${input.receiptId}: unknown receiptStatus "${input.receiptStatus}"`);
+    if (
+      input.receiptStatus !== DISCHARGED &&
+      !NOT_DISCHARGED.has(input.receiptStatus)
+    ) {
+      this.warn(
+        `Rejected receipt ${input.receiptId}: unknown receiptStatus "${input.receiptStatus}"`,
+      );
       return null;
     }
 
     if (input.dischargeDate !== null) {
       if (input.receiptStatus !== DISCHARGED) {
-        this.warn(`Rejected receipt ${input.receiptId}: dischargeDate present but receiptStatus is "${input.receiptStatus}"`);
+        this.warn(
+          `Rejected receipt ${input.receiptId}: dischargeDate present but receiptStatus is "${input.receiptStatus}"`,
+        );
         return null;
       }
       const d = new Date(input.dischargeDate);
       if (isNaN(d.getTime())) {
-        this.warn(`Rejected receipt ${input.receiptId}: dischargeDate is not a valid date`);
+        this.warn(
+          `Rejected receipt ${input.receiptId}: dischargeDate is not a valid date`,
+        );
         return null;
       }
     } else {
       if (!NOT_DISCHARGED.has(input.receiptStatus)) {
-        this.warn(`Rejected receipt ${input.receiptId}: dischargeDate is null but receiptStatus is "${input.receiptStatus}"`);
+        this.warn(
+          `Rejected receipt ${input.receiptId}: dischargeDate is null but receiptStatus is "${input.receiptStatus}"`,
+        );
         return null;
       }
     }
 
-    const downloadedValue = parseFloat(input.downloadedValue);
-    if (!isFinite(downloadedValue) || downloadedValue <= 0) {
-      this.warn(`Rejected receipt ${input.receiptId}: downloadedValue "${input.downloadedValue}" is zero, negative, or non-parseable`);
-      return null;
-    }
-
-    if (!Number.isInteger(input.installmentNumber) || input.installmentNumber <= 0) {
-      this.warn(`Rejected receipt ${input.receiptId}: installmentNumber must be a positive integer`);
+    if (
+      !Number.isInteger(input.installmentNumber) ||
+      input.installmentNumber <= 0
+    ) {
+      this.warn(
+        `Rejected receipt ${input.receiptId}: installmentNumber must be a positive integer`,
+      );
       return null;
     }
 
     const isBaixado = input.receiptStatus === DISCHARGED;
 
+    const downloadedValue = parseFloat(input.downloadedValue);
+    if (isBaixado && (!isFinite(downloadedValue) || downloadedValue <= 0)) {
+      this.warn(
+        `Rejected receipt ${input.receiptId}: downloadedValue "${input.downloadedValue}" is zero, negative, or non-parseable even with receiptStatus equals BAIXADO`,
+      );
+      return null;
+    }
+
     return {
       id: crypto.randomUUID(),
       status: "pending",
-      eventType: isBaixado ? EventType.COMMISSION_RECEIVED : EventType.COMMISSION_EXPECTED,
-      economicEffect: isBaixado ? EconomicEffect.CASH_IN : EconomicEffect.NON_CASH,
+      eventType: isBaixado
+        ? EventType.COMMISSION_RECEIVED
+        : EventType.COMMISSION_EXPECTED,
+      economicEffect: isBaixado
+        ? EconomicEffect.CASH_IN
+        : EconomicEffect.NON_CASH,
       occurredAt: isBaixado ? input.dischargeDate! : registeredAt.toISOString(),
       sourceAt: input.dischargeDate,
-      amount: input.downloadedValue,
+      amount:
+        isFinite(downloadedValue) && downloadedValue > 0
+          ? input.downloadedValue
+          : "0",
       currency: "BRL",
       sourceSystem: "integration",
       sourceReference: `receipt:${input.receiptId}:receivable`,
       normalizationVersion: "1.0",
       normalizationWorkerId: this.workerId,
       parties: isBaixado
-        ? buildCashInParties(input.operatorId, this.usinaPartyId, input.downloadedValue)
+        ? buildCashInParties(
+            input.operatorId,
+            this.usinaPartyId,
+            input.downloadedValue,
+          )
         : buildNonCashParties(input.operatorId, this.usinaPartyId),
-      objects: buildObjects(input.receiptId, input.proposalId, input.installmentNumber, isBaixado),
+      objects: buildObjects(
+        input.receiptId,
+        input.proposalId,
+        input.installmentNumber,
+        isBaixado,
+      ),
       reason: {
-        type: isBaixado ? ReasonType.COMMISSION_PAYMENT : ReasonType.LATE_IDENTIFIED_COMMISSION,
+        type: isBaixado
+          ? ReasonType.COMMISSION_PAYMENT
+          : ReasonType.LATE_IDENTIFIED_COMMISSION,
         description: "Receipt receivable recognition",
         confidence: ConfidenceLevel.MEDIUM,
         requiresFollowup: false,
@@ -128,7 +170,12 @@ function buildCashInParties(
 ): StagingRecord["parties"] {
   return [
     { partyId: operatorId, role: PartyRole.PAYER, direction: Direction.OUT },
-    { partyId: usinaPartyId, role: PartyRole.PAYEE, direction: Direction.IN, amount: downloadedValue },
+    {
+      partyId: usinaPartyId,
+      role: PartyRole.PAYEE,
+      direction: Direction.IN,
+      amount: downloadedValue,
+    },
   ];
 }
 
@@ -137,8 +184,16 @@ function buildNonCashParties(
   usinaPartyId: string,
 ): StagingRecord["parties"] {
   return [
-    { partyId: operatorId, role: PartyRole.PAYER, direction: Direction.NEUTRAL },
-    { partyId: usinaPartyId, role: PartyRole.PAYEE, direction: Direction.NEUTRAL },
+    {
+      partyId: operatorId,
+      role: PartyRole.PAYER,
+      direction: Direction.NEUTRAL,
+    },
+    {
+      partyId: usinaPartyId,
+      role: PartyRole.PAYEE,
+      direction: Direction.NEUTRAL,
+    },
   ];
 }
 

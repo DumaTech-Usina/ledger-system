@@ -13,8 +13,10 @@ export class InMemoryStagingRepository implements StagingRepository {
     this.store.push({ ...record });
   }
 
-  async claimPending(targetStatus: 'processing' | 'queued', limit = 100): Promise<StagingRecord[]> {
-    const pending = this.store.filter((r) => r.status === "pending").slice(0, limit);
+  async claimPending(targetStatus: 'processing' | 'queued', limit = 100, eventTypes?: string[]): Promise<StagingRecord[]> {
+    const pending = this.store
+      .filter((r) => r.status === 'pending' && (!eventTypes?.length || eventTypes.includes(r.eventType as string)))
+      .slice(0, limit);
     for (const r of pending) r.status = targetStatus;
     return pending;
   }

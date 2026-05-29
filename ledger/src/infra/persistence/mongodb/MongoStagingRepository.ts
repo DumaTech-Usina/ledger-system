@@ -41,11 +41,13 @@ export class MongoStagingRepository implements StagingRepository {
     );
   }
 
-  async claimPending(targetStatus: 'processing' | 'queued', limit = 100): Promise<StagingRecord[]> {
+  async claimPending(targetStatus: 'processing' | 'queued', limit = 100, eventTypes?: string[]): Promise<StagingRecord[]> {
+    const filter: Record<string, unknown> = { status: 'pending' };
+    if (eventTypes?.length) filter['eventType'] = { $in: eventTypes };
     const results: StagingRecord[] = [];
     for (let i = 0; i < limit; i++) {
       const doc = await this.collection.findOneAndUpdate(
-        { status: 'pending' },
+        filter,
         { $set: { status: targetStatus } },
         { returnDocument: 'after' },
       );

@@ -2,7 +2,7 @@ import { StagingRecord } from "../dtos/StagingRecord";
 import { Page, PageOptions } from "../dtos/Pagination";
 
 export interface StagingRepository {
-  claimPending(targetStatus: 'processing' | 'queued', limit?: number): Promise<StagingRecord[]>;
+  claimPending(targetStatus: 'processing' | 'queued', limit?: number, eventTypes?: string[]): Promise<StagingRecord[]>;
   save(record: StagingRecord): Promise<void>;
   markAsAccepted(id: string): Promise<void>;
   markAsRejected(id: string): Promise<void>;

@@ -7,12 +7,12 @@ const EXCHANGE = 'ledger';
 const DLX = 'ledger.dlx';
 const QUEUE = 'ledger.staging';
 const DLQ = 'ledger.staging.dead';
-const ROUTING_KEY = 'staging.receipt';
 
 export class StagingWorker {
   constructor(
     private readonly amqpUrl: string,
     private readonly job: StagingMessageHandler,
+    private readonly routingKeys: string[],
   ) {}
 
   async start(): Promise<void> {
@@ -32,14 +32,18 @@ export class StagingWorker {
 
     await channel.assertExchange(DLX, 'direct', { durable: true });
     await channel.assertQueue(DLQ, { durable: true });
-    await channel.bindQueue(DLQ, DLX, ROUTING_KEY);
+    for (const key of this.routingKeys) {
+      await channel.bindQueue(DLQ, DLX, key);
+    }
 
     await channel.assertExchange(EXCHANGE, 'direct', { durable: true });
     await channel.assertQueue(QUEUE, {
       durable: true,
       arguments: { 'x-dead-letter-exchange': DLX },
     });
-    await channel.bindQueue(QUEUE, EXCHANGE, ROUTING_KEY);
+    for (const key of this.routingKeys) {
+      await channel.bindQueue(QUEUE, EXCHANGE, key);
+    }
 
     channel.prefetch(1);
 

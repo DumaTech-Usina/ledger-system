@@ -2,22 +2,22 @@ import { StagingRepository } from '../../core/application/repositories/StagingRe
 import { MessagePublisher } from '../../core/application/ports/MessagePublisher';
 import { sleep } from '../utils/sleep';
 
-const ROUTING_KEY = 'staging.receipt';
-
 export class StagingRelayJob {
   constructor(
     private readonly stagingRepo: StagingRepository,
     private readonly publisher: MessagePublisher,
+    private readonly routingKey: string,
+    private readonly eventTypes?: string[],
   ) {}
 
   async run(): Promise<void> {
-    const records = await this.stagingRepo.claimPending('queued');
+    const records = await this.stagingRepo.claimPending('queued', 100, this.eventTypes);
     if (records.length > 0) {
       console.log(`[StagingRelayJob] relaying ${records.length} record(s)`);
     }
     for (const record of records) {
       try {
-        await this.publisher.publish(ROUTING_KEY, record);
+        await this.publisher.publish(this.routingKey, record);
       } catch (err) {
         console.error(`[StagingRelayJob] failed to publish ${record.id}, rolling back to pending`, err);
         await this.stagingRepo.markAsPending(record.id);

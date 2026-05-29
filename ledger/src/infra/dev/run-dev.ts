@@ -7,7 +7,7 @@ import { CashPositionService } from "../../core/application/services/CashPositio
 import { CashStatementService } from "../../core/application/services/CashStatementService";
 import { PositionProjectionService } from "../../core/application/services/PositionProjectionService";
 import { StagingRecord } from "../../core/application/dtos/StagingRecord";
-import { InMemoryLedgerEventRepository } from "../persistence/ledger/InMemoryLedgerEventRepository";
+import { InMemoryLedgerEventRepository } from "../persistence/memory/InMemoryLedgerEventRepository";
 import { InMemoryRejectedEventRepository } from "../persistence/rejected/InMemoryRejectedEventRepository";
 import { InMemoryStagingRepository } from "../persistence/staging/InMemoryStagingRepository";
 import { ProcessStagingJob } from "../jobs/ProcessStagingJob";
