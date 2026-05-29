@@ -16,7 +16,7 @@ import { ReasonType } from "../../core/domain/enums/ReasonType";
 import { Relation } from "../../core/domain/enums/Relation";
 import { ReporterType } from "../../core/domain/enums/ReporterType";
 
-export class ProcessStagingJob implements StagingMessageHandler {
+export class StagingPostingJob implements StagingMessageHandler {
   constructor(
     private readonly stagingRepo: StagingRepository,
     private readonly validator: StagingRecordValidator,
@@ -37,7 +37,7 @@ export class ProcessStagingJob implements StagingMessageHandler {
         });
         await this.stagingRepo.markAsRejected(record.id);
       } else {
-        const command = ProcessStagingJob.toCreateCommand(record as ValidatedStagingRecord);
+        const command = StagingPostingJob.toCreateCommand(record as ValidatedStagingRecord);
         await this.createUseCase.execute(command);
         await this.stagingRepo.markAsAccepted(record.id);
       }

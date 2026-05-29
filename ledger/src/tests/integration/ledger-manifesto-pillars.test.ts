@@ -18,7 +18,7 @@ import { InMemoryLedgerEventRepository } from "../../infra/persistence/memory/In
 import { InMemoryRejectedEventRepository } from "../../infra/persistence/rejected/InMemoryRejectedEventRepository";
 import { InMemoryStagingRepository } from "../../infra/persistence/staging/InMemoryStagingRepository";
 import { StagingRecordValidator } from "../../core/application/services/StagingRecordValidator";
-import { ProcessStagingJob } from "../../infra/jobs/ProcessStagingJob";
+import { StagingPostingJob } from "../../infra/jobs/StagingPostingJob";
 import { makeValidCommand, makeValidProps, makeValidStagingRecord } from "../fixtures";
 
 // ============================
@@ -245,7 +245,7 @@ describe("Pillar 8 — Idempotency", () => {
     const rejectedRepo = new InMemoryRejectedEventRepository();
     const validator = new StagingRecordValidator(ledgerRepo);
     const audit = new NoOpAuditLogger();
-    const job = new ProcessStagingJob(
+    const job = new StagingPostingJob(
       stagingRepo,
       validator,
       new CreateLedgerEventUseCase(ledgerRepo, audit),
@@ -290,7 +290,7 @@ describe("Pillar 9 — Atomicity", () => {
     const rejectedRepo = new InMemoryRejectedEventRepository();
     const validator = new StagingRecordValidator(ledgerRepo);
     const audit = new NoOpAuditLogger();
-    const job = new ProcessStagingJob(
+    const job = new StagingPostingJob(
       stagingRepo,
       validator,
       new CreateLedgerEventUseCase(ledgerRepo, audit),

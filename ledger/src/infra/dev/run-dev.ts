@@ -10,7 +10,7 @@ import { StagingRecord } from "../../core/application/dtos/StagingRecord";
 import { InMemoryLedgerEventRepository } from "../persistence/memory/InMemoryLedgerEventRepository";
 import { InMemoryRejectedEventRepository } from "../persistence/rejected/InMemoryRejectedEventRepository";
 import { InMemoryStagingRepository } from "../persistence/staging/InMemoryStagingRepository";
-import { ProcessStagingJob } from "../jobs/ProcessStagingJob";
+import { StagingPostingJob } from "../jobs/StagingPostingJob";
 import { createServer } from "../../presentation/web/api/server";
 
 // ─── Seed helpers ─────────────────────────────────────────────────────────────
@@ -670,7 +670,7 @@ async function main(): Promise<void> {
   const validator = new StagingRecordValidator(ledgerRepo);
   const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit);
   const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit);
-  const job = new ProcessStagingJob(
+  const job = new StagingPostingJob(
     stagingRepo,
     validator,
     createUseCase,
@@ -678,7 +678,7 @@ async function main(): Promise<void> {
   );
 
   console.log("=".repeat(64));
-  console.log("  ProcessStagingJob — simulação financeira");
+  console.log("  StagingPostingJob — simulação financeira");
   console.log("=".repeat(64));
   console.log(`  ${allSeeds.length} registros de staging carregados\n`);
 

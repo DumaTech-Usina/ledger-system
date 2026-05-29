@@ -5,7 +5,7 @@ import { getMongoDb, getMongoDatabase, closeMongoDb } from '../../database/mongo
 import { MongoStagingRepository } from '../../persistence/mongodb/MongoStagingRepository';
 import { MongoReceiptETLReader } from '../../etl/MongoReceiptETLReader';
 import { ReceiptStagingBuilder } from '../../../core/application/services/ReceiptStagingBuilder';
-import { ReceiptETLJob } from '../../jobs/ReceiptETLJob';
+import { ReceiptIngestJob } from '../../jobs/ReceiptIngestJob';
 
 async function main(): Promise<void> {
   const stagingDb = await getMongoDb();
@@ -14,7 +14,7 @@ async function main(): Promise<void> {
   const stagingRepo = new MongoStagingRepository(stagingDb);
   const reader = new MongoReceiptETLReader(etlDb);
   const builder = new ReceiptStagingBuilder(stagingRepo, env.USINA_PARTY_ID, 'receipt-etl', console.warn.bind(console));
-  const etl = new ReceiptETLJob(reader, builder);
+  const etl = new ReceiptIngestJob(reader, builder);
 
   const shutdown = async (signal: string) => {
     console.log(`[ingest-receipt] ${signal} — shutting down`);

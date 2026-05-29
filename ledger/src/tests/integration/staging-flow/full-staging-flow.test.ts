@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ProcessStagingJob } from "../../../infra/jobs/ProcessStagingJob";
+import { StagingPostingJob } from "../../../infra/jobs/StagingPostingJob";
 import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { InMemoryRejectedEventRepository } from "../../../infra/persistence/rejected/InMemoryRejectedEventRepository";
 import { InMemoryStagingRepository } from "../../../infra/persistence/staging/InMemoryStagingRepository";
@@ -22,7 +22,7 @@ function buildPipeline(records: StagingRecord[]) {
   const audit = new NoOpAuditLogger();
   const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit);
   const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit);
-  const job = new ProcessStagingJob(
+  const job = new StagingPostingJob(
     stagingRepo,
     validator,
     createUseCase,

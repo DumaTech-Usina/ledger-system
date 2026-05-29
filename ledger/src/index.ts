@@ -11,7 +11,7 @@ import { CashStatementService } from "./core/application/services/CashStatementS
 import { PositionProjectionService } from "./core/application/services/PositionProjectionService";
 import { CreateLedgerEventUseCase } from "./core/application/use-cases/CreateLedgerEventUseCase";
 import { RejectLedgerEventUseCase } from "./core/application/use-cases/RejectLedgerEventUseCase";
-import { ProcessStagingJob } from "./infra/jobs/ProcessStagingJob";
+import { StagingPostingJob } from "./infra/jobs/StagingPostingJob";
 import { createServer } from "./presentation/web/api/server";
 import { FileAuditLogger } from "./infra/audit/FileAuditLogger";
 import { env } from "./config/env";
@@ -38,7 +38,7 @@ async function bootstrap(): Promise<void> {
   const validator = new StagingRecordValidator(ledgerRepo);
   const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit);
   const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit);
-  const job = new ProcessStagingJob(
+  const job = new StagingPostingJob(
     stagingRepo,
     validator,
     createUseCase,

@@ -5,7 +5,7 @@ import { sleep } from '../utils/sleep';
 
 const RECEIPT_BATCH_SIZE = 500;
 
-export class ReceiptETLJob {
+export class ReceiptIngestJob {
   constructor(
     private readonly reader: ReceiptETLReader,
     private readonly builder: ReceiptStagingBuilder,
@@ -30,7 +30,7 @@ export class ReceiptETLJob {
       staged += buf.length;
     }
 
-    console.log(`[ReceiptETLJob] done — streamed ${staged} receipts to staging`);
+    console.log(`[ReceiptIngestJob] done — streamed ${staged} receipts to staging`);
   }
 
   async startPolling(intervalMs = 30_000): Promise<void> {
@@ -38,7 +38,7 @@ export class ReceiptETLJob {
       try {
         await this.run();
       } catch (err) {
-        console.error('[ReceiptETLJob] error during run:', err);
+        console.error('[ReceiptIngestJob] error during run:', err);
       }
       await sleep(intervalMs);
     }

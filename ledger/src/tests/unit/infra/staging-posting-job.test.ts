@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { ProcessStagingJob } from "../../../infra/jobs/ProcessStagingJob";
+import { StagingPostingJob } from "../../../infra/jobs/StagingPostingJob";
 import { InMemoryStagingRepository } from "../../../infra/persistence/staging/InMemoryStagingRepository";
 import { InMemoryRejectedEventRepository } from "../../../infra/persistence/rejected/InMemoryRejectedEventRepository";
 import { StagingRecord } from "../../../core/application/dtos/StagingRecord";
@@ -27,7 +27,7 @@ function buildPipeline(record: StagingRecord) {
     validate: vi.fn().mockResolvedValue([]),
   };
 
-  const job = new ProcessStagingJob(
+  const job = new StagingPostingJob(
     stagingRepo,
     validator as never,
     createUseCase as never,
@@ -39,7 +39,7 @@ function buildPipeline(record: StagingRecord) {
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("ProcessStagingJob.toCreateCommand — assembling a ledger command from a validated staging record", () => {
+describe("StagingPostingJob.toCreateCommand — assembling a ledger command from a validated staging record", () => {
 
   it("a staging record carrying a relatedEventId has that id forwarded verbatim into the ledger command — settlement events must preserve the causal link back to their originating event", async () => {
     const record = makeValidStagingRecord({

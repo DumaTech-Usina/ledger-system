@@ -4,8 +4,8 @@ import { env } from '../../../config/env';
 import { getMongoDb, getMongoDatabase, closeMongoDb } from '../../database/mongo-client';
 import { MongoStagingRepository } from '../../persistence/mongodb/MongoStagingRepository';
 import { MongoAdvanceReportReader } from '../../etl/MongoAdvanceReportReader';
-import { AdvancePostingJob } from '../../jobs/AdvancePostingJob';
-import { AdvanceETLJob } from '../../jobs/AdvanceETLJob';
+import { AdvanceStagingJob } from '../../jobs/AdvanceStagingJob';
+import { AdvanceIngestJob } from '../../jobs/AdvanceIngestJob';
 
 async function main(): Promise<void> {
   const stagingDb = await getMongoDb();
@@ -13,8 +13,8 @@ async function main(): Promise<void> {
 
   const stagingRepo = new MongoStagingRepository(stagingDb);
   const reader = new MongoAdvanceReportReader(etlDb);
-  const postingJob = new AdvancePostingJob(stagingRepo, env.USINA_PARTY_ID, 'advance-etl', console.warn.bind(console));
-  const etl = new AdvanceETLJob(reader, postingJob);
+  const stagingJob = new AdvanceStagingJob(stagingRepo, env.USINA_PARTY_ID, 'advance-etl', console.warn.bind(console));
+  const etl = new AdvanceIngestJob(reader, stagingJob);
 
   const shutdown = async (signal: string) => {
     console.log(`[ingest-advance] ${signal} — shutting down`);

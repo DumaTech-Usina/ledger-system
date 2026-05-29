@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { AdvancePostingJob } from '../../../infra/jobs/AdvancePostingJob'
+import { AdvanceStagingJob } from '../../../infra/jobs/AdvanceStagingJob'
 import { EnrichedAdvanceInput } from '../../../core/application/dtos/EnrichedAdvanceInput'
-import { ProcessStagingJob } from '../../../infra/jobs/ProcessStagingJob'
+import { StagingPostingJob } from '../../../infra/jobs/StagingPostingJob'
 import { InMemoryLedgerEventRepository } from '../../../infra/persistence/memory/InMemoryLedgerEventRepository'
 import { InMemoryRejectedEventRepository } from '../../../infra/persistence/rejected/InMemoryRejectedEventRepository'
 import { InMemoryStagingRepository } from '../../../infra/persistence/staging/InMemoryStagingRepository'
@@ -21,8 +21,8 @@ function buildPipeline() {
   const validator = new StagingRecordValidator(ledgerRepo)
   const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit)
   const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit)
-  const processJob = new ProcessStagingJob(stagingRepo, validator, createUseCase, rejectUseCase)
-  const postingJob = new AdvancePostingJob(stagingRepo, 'usina-party-id', 'advance-worker-v1')
+  const processJob = new StagingPostingJob(stagingRepo, validator, createUseCase, rejectUseCase)
+  const postingJob = new AdvanceStagingJob(stagingRepo, 'usina-party-id', 'advance-worker-v1')
   return { stagingRepo, ledgerRepo, rejectedRepo, processJob, postingJob }
 }
 
@@ -38,7 +38,7 @@ function validInput(overrides: Partial<EnrichedAdvanceInput> = {}): EnrichedAdva
   }
 }
 
-describe('Advance posting flow — AdvancePostingJob → ProcessStagingJob → LedgerEvent', () => {
+describe('Advance posting flow — AdvanceStagingJob → StagingPostingJob → LedgerEvent', () => {
 
   it('a valid advance produces one LedgerEvent with ADVANCE_PAYMENT and CASH_OUT', async () => {
     const { postingJob, processJob, ledgerRepo } = buildPipeline()

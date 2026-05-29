@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { AdvancePostingJob } from '../../../infra/jobs/AdvancePostingJob'
+import { AdvanceStagingJob } from '../../../infra/jobs/AdvanceStagingJob'
 import { EnrichedAdvanceInput } from '../../../core/application/dtos/EnrichedAdvanceInput'
 import { InMemoryStagingRepository } from '../../../infra/persistence/staging/InMemoryStagingRepository'
 import { EconomicEffect } from '../../../core/domain/enums/EconomicEffect'
@@ -25,10 +25,10 @@ function validInput(overrides: Partial<EnrichedAdvanceInput> = {}): EnrichedAdva
 
 function buildJob(repo?: InMemoryStagingRepository, warn?: (msg: string) => void) {
   const stagingRepo = repo ?? new InMemoryStagingRepository([])
-  return { job: new AdvancePostingJob(stagingRepo, USINA_ID, WORKER_ID, warn), stagingRepo }
+  return { job: new AdvanceStagingJob(stagingRepo, USINA_ID, WORKER_ID, warn), stagingRepo }
 }
 
-describe('AdvancePostingJob — translating advance reports into ledger staging records', () => {
+describe('AdvanceStagingJob — translating advance reports into ledger staging records', () => {
 
   describe('eligible advances — paid, not cancelled, positive amount, broker present', () => {
 

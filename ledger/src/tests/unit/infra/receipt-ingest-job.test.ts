@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { ReceiptETLJob } from "../../../infra/jobs/ReceiptETLJob";
+import { ReceiptIngestJob } from "../../../infra/jobs/ReceiptIngestJob";
 import { InMemoryStagingRepository } from "../../../infra/persistence/staging/InMemoryStagingRepository";
 import { EnrichedReceiptInput } from "../../../core/application/dtos/EnrichedReceiptInput";
 import { ReceiptStagingBuilder } from "../../../core/application/services/ReceiptStagingBuilder";
@@ -49,13 +49,13 @@ function buildPipeline(
     "usina-001",
     "worker-etl-1",
   );
-  const job = new ReceiptETLJob(reader, builder);
+  const job = new ReceiptIngestJob(reader, builder);
   return { job, stagingRepo };
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
-describe("ReceiptETLJob — orchestrating the full ETL pipeline from source system to staging", () => {
+describe("ReceiptIngestJob — orchestrating the full ETL pipeline from source system to staging", () => {
   it("when the source cursor yields no receipts, nothing is staged — an empty run is a valid no-op and must not produce phantom records", async () => {
     const { job, stagingRepo } = buildPipeline(makeReader([]));
 

@@ -43,7 +43,7 @@ import { ReasonType } from '../../core/domain/enums/ReasonType'
 import { Relation } from '../../core/domain/enums/Relation'
 import { ReporterType } from '../../core/domain/enums/ReporterType'
 
-export class AdvancePostingJob {
+export class AdvanceStagingJob {
   constructor(
     private readonly stagingRepo: StagingRepository,
     private readonly usinaPartyId: string,
