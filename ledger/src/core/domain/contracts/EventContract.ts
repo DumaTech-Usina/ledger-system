@@ -39,6 +39,13 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     minConfidence: ConfidenceLevel.MEDIUM,
   },
 
+  /**
+   * Cash (or directly-acknowledged) settlement of a commission receivable. A received
+   * can never exist on its own: it must SETTLE a receivable that a COMMISSION_EXPECTED
+   * originated. relatedEventId must therefore point to that originating COMMISSION_EXPECTED —
+   * the commission's "ignition point" — preserving causality and CFO-level traceability
+   * even though the accrual carries no cash effect.
+   */
   [EventType.COMMISSION_RECEIVED]: {
     economicEffects: [EconomicEffect.CASH_IN],
 
@@ -54,6 +61,8 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
       ReasonType.DIRECT_COMMISSION_PAYMENT_AUTHORIZED,
     ],
     minConfidence: ConfidenceLevel.MEDIUM,
+    requiresRelatedEventId: true,
+    allowedOriginTypes: [EventType.COMMISSION_EXPECTED],
   },
 
   [EventType.COMMISSION_WAIVER]: {
@@ -320,7 +329,10 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
       },
     ],
 
-    reasons: [ReasonType.COMMISSION_PAYMENT, ReasonType.LATE_IDENTIFIED_COMMISSION],
+    reasons: [
+      ReasonType.COMMISSION_PAYMENT,
+      ReasonType.LATE_IDENTIFIED_COMMISSION,
+    ],
     minConfidence: ConfidenceLevel.MEDIUM,
   },
 };

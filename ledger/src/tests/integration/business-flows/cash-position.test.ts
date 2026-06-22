@@ -3,7 +3,7 @@ import { setup } from "./helpers/setup";
 import { makeRef } from "./helpers/ref";
 import { loanOrigination, loanRepayment } from "./helpers/commands/loan-commands";
 import { advancePayment } from "./helpers/commands/advance-commands";
-import { commissionReceived } from "./helpers/commands/commission-commands";
+import { receivedFor } from "./helpers/commands/commission-commands";
 import { CashPositionService } from "../../../core/application/services/CashPositionService";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { Relation } from "../../../core/domain/enums/Relation";
@@ -56,7 +56,7 @@ describe("CashPositionService — integration", () => {
     const { ledgerRepo, run } = setup();
     const svc = new CashPositionService(ledgerRepo);
 
-    await run(commissionReceived(ref, "cps4-com", "2000.00"));
+    await receivedFor(run, ref, "cps4-com", "2000.00");
 
     const result = await svc.summarize();
 

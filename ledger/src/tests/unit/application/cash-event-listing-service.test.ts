@@ -3,7 +3,7 @@ import { CashEventListingService } from "../../../core/application/services/Cash
 import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
-import { makeValidCommand } from "../../fixtures";
+import { makeExpectedCommand, makeValidCommand } from "../../fixtures";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
@@ -39,12 +39,15 @@ async function createCashIn(
     : [
         { partyId: partyId, role: PartyRole.PAYEE, direction: Direction.IN, amount },
       ];
+  // NON_CASH ignition point — excluded from cash listings, but required for causality.
+  const expected = await uc.execute(makeExpectedCommand({ sourceReference: ref(), amount }));
   return uc.execute(makeValidCommand({
     sourceReference: ref(),
     occurredAt,
     eventType: EventType.COMMISSION_RECEIVED,
     economicEffect: EconomicEffect.CASH_IN,
     amount,
+    relatedEventId: expected.id.value,
     objects: [{ objectId: objId(), objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES }],
     parties,
     reason: { type: ReasonType.COMMISSION_PAYMENT, description: "comm", confidence: ConfidenceLevel.HIGH, requiresFollowup: false },

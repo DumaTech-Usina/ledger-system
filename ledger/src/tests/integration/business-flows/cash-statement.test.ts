@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { setup } from "./helpers/setup";
 import { makeRef } from "./helpers/ref";
 import { loanOrigination, loanRepayment } from "./helpers/commands/loan-commands";
-import { commissionReceived, commissionSplit } from "./helpers/commands/commission-commands";
+import { commissionExpected, commissionReceived, commissionSplit } from "./helpers/commands/commission-commands";
 import { USINA } from "./helpers/parties";
 import { CashStatementService } from "../../../core/application/services/CashStatementService";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
@@ -54,7 +54,8 @@ describe("CashStatementService — integration", () => {
     const periodTo   = new Date("2026-03-31T23:59:59Z");
     const inPeriod   = new Date("2026-03-10T00:00:00Z");
 
-    await run({ ...commissionReceived(ref, "css2-com-recv", "1000.00"), occurredAt: inPeriod });
+    const css2Expected = await run(commissionExpected(ref, "css2-com-recv", "1000.00"));
+    await run({ ...commissionReceived(ref, "css2-com-recv", css2Expected.id.value, "1000.00"), occurredAt: inPeriod });
     await run({ ...commissionSplit(ref, "css2-com-split", "700.00"), occurredAt: inPeriod });
 
     const result = await svc.summarize(periodFrom, periodTo);
@@ -73,7 +74,8 @@ describe("CashStatementService — integration", () => {
 
     // Prior: 3000 out, 1000 in → net = -2000
     await run(loanOut(ref, "css4-loan-prior", "3000.00", PRIOR));
-    await run({ ...commissionReceived(ref, "css4-comm-prior", "1000.00"), occurredAt: PRIOR });
+    const css4Expected = await run(commissionExpected(ref, "css4-comm-prior", "1000.00"));
+    await run({ ...commissionReceived(ref, "css4-comm-prior", css4Expected.id.value, "1000.00"), occurredAt: PRIOR });
 
     const result = await svc.summarize(PERIOD_FROM, PERIOD_TO);
 
@@ -91,8 +93,9 @@ describe("CashStatementService — integration", () => {
     const svc = new CashStatementService(ledgerRepo, USINA);
 
     // Prior: CASH_IN 4000 (commission)
+    const css3PriorExpected = await run(commissionExpected(ref, "css3-com-prior", "4000.00"));
     await run({
-      ...commissionReceived(ref, "css3-com-prior", "4000.00"),
+      ...commissionReceived(ref, "css3-com-prior", css3PriorExpected.id.value, "4000.00"),
       occurredAt: PRIOR,
     });
 
@@ -103,8 +106,9 @@ describe("CashStatementService — integration", () => {
     });
 
     // In-period: CASH_IN 2000
+    const css3PeriodExpected = await run(commissionExpected(ref, "css3-com-period", "2000.00"));
     await run({
-      ...commissionReceived(ref, "css3-com-period", "2000.00"),
+      ...commissionReceived(ref, "css3-com-period", css3PeriodExpected.id.value, "2000.00"),
       occurredAt: IN_PERIOD,
     });
 

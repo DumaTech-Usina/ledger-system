@@ -4,13 +4,16 @@ import { LedgerEventRepository } from "../../../core/application/repositories/Le
 import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
-import { makeValidCommand, makeValidProps } from "../../fixtures";
+import { makeExpectedProps, makeValidCommand, makeValidProps } from "../../fixtures";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
 
 function makeMockRepo(): Mocked<LedgerEventRepository> {
   return {
     save: vi.fn().mockResolvedValue(undefined),
-    getById: vi.fn().mockResolvedValue(null),
+    // Default commands are COMMISSION_RECEIVED, which must resolve an originating
+    // COMMISSION_EXPECTED via relatedEventId — return one so the happy paths succeed.
+    getById: vi.fn().mockResolvedValue(LedgerEvent.create(makeExpectedProps())),
+    findByRelatedEventId: vi.fn().mockResolvedValue([]),
     getByHash: vi.fn().mockResolvedValue(null),
     getByCommandId: vi.fn().mockResolvedValue(null),
     getLastEventHash: vi.fn().mockResolvedValue(null),
@@ -118,6 +121,35 @@ describe("CreateLedgerEventUseCase", () => {
       await useCase.execute(makeValidCommand());
       await useCase.execute(makeValidCommand({ sourceReference: "ref-002" }));
       expect(repo.save).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // ============================
+  // Commission causality — a received must link to an existing COMMISSION_EXPECTED
+  // ============================
+  describe("commission causality guarantee", () => {
+    it("rejects a COMMISSION_RECEIVED that carries no relatedEventId (orphan settlement)", async () => {
+      await expect(
+        useCase.execute(makeValidCommand({ relatedEventId: null })),
+      ).rejects.toThrow("requires relatedEventId");
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it("rejects a COMMISSION_RECEIVED whose relatedEventId resolves to nothing", async () => {
+      repo.getById.mockResolvedValue(null);
+      await expect(
+        useCase.execute(makeValidCommand({ relatedEventId: "evt-missing" })),
+      ).rejects.toThrow("Origin event not found");
+      expect(repo.save).not.toHaveBeenCalled();
+    });
+
+    it("rejects a COMMISSION_RECEIVED whose origin is not a COMMISSION_EXPECTED", async () => {
+      // Point relatedEventId at a non-expected event (a received standing in for any wrong type)
+      repo.getById.mockResolvedValue(LedgerEvent.create(makeValidProps()));
+      await expect(
+        useCase.execute(makeValidCommand({ relatedEventId: "evt-wrong-type" })),
+      ).rejects.toThrow("must point to a commission_expected");
+      expect(repo.save).not.toHaveBeenCalled();
     });
   });
 

@@ -41,6 +41,8 @@ export function makeValidProps(
     source: new EventSource("normalizer", "ref-001"),
     normalization: new NormalizationMetadata("1.0", "worker-1"),
     previousHash: null,
+    // COMMISSION_RECEIVED must link to its originating COMMISSION_EXPECTED (ignition point).
+    relatedEventId: "evt-commission-expected-001",
     parties: [
       new LedgerEventParty(
         new PartyId("party-1"),
@@ -74,13 +76,68 @@ export function makeValidProps(
 }
 
 // ============================
+// Commission ignition point (COMMISSION_EXPECTED)
+// ============================
+
+/** Domain props for a COMMISSION_EXPECTED — the ignition point a COMMISSION_RECEIVED must
+ *  link back to. NON_CASH, ORIGINATES the receivable, no parent of its own. */
+export function makeExpectedProps(
+  overrides: Partial<CreateLedgerEventProps> = {},
+): CreateLedgerEventProps {
+  return makeValidProps({
+    id: new EventId("evt-commission-expected-001"),
+    eventType: EventType.COMMISSION_EXPECTED,
+    economicEffect: EconomicEffect.NON_CASH,
+    relatedEventId: null,
+    parties: [
+      new LedgerEventParty(new PartyId("party-1"), PartyRole.BENEFICIARY, Direction.NEUTRAL, null),
+    ],
+    objects: [
+      new LedgerEventObject(new ObjectId("obj-1"), ObjectType.COMMISSION_RECEIVABLE, Relation.ORIGINATES),
+    ],
+    reason: new EventReason(
+      ReasonType.LATE_IDENTIFIED_COMMISSION,
+      "ignition point",
+      ConfidenceLevel.MEDIUM,
+      false,
+    ),
+    ...overrides,
+  });
+}
+
+/** Command form of the ignition point. Execute this before a COMMISSION_RECEIVED command and
+ *  pass the resulting event id as the received's relatedEventId. */
+export function makeExpectedCommand(
+  overrides: Partial<CreateLedgerEventCommand> = {},
+): CreateLedgerEventCommand {
+  return makeValidCommand({
+    eventType: EventType.COMMISSION_EXPECTED,
+    economicEffect: EconomicEffect.NON_CASH,
+    relatedEventId: null,
+    parties: [
+      { partyId: "party-1", role: PartyRole.BENEFICIARY, direction: Direction.NEUTRAL },
+    ],
+    objects: [
+      { objectId: "obj-1", objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.ORIGINATES },
+    ],
+    reason: {
+      type: ReasonType.LATE_IDENTIFIED_COMMISSION,
+      description: "ignition point",
+      confidence: ConfidenceLevel.MEDIUM,
+      requiresFollowup: false,
+    },
+    ...overrides,
+  });
+}
+
+// ============================
 // Application-layer command fixture
 // ============================
 
 export function makeValidCommand(
   overrides: Partial<CreateLedgerEventCommand> = {},
 ): CreateLedgerEventCommand {
-  return {
+  const command: CreateLedgerEventCommand = {
     eventType: EventType.COMMISSION_RECEIVED,
     economicEffect: EconomicEffect.CASH_IN,
     occurredAt: new Date("2024-01-15T00:00:00Z"),
@@ -121,6 +178,18 @@ export function makeValidCommand(
     },
     ...overrides,
   };
+
+  // COMMISSION_RECEIVED must carry an ignition link. Default one only for that type so
+  // non-commission overrides (advance/loan originations) stay parent-free. Tests against a
+  // real repository must seed a COMMISSION_EXPECTED and override relatedEventId with its id.
+  if (
+    command.eventType === EventType.COMMISSION_RECEIVED &&
+    overrides.relatedEventId === undefined
+  ) {
+    command.relatedEventId = "evt-commission-expected-001";
+  }
+
+  return command;
 }
 
 // ============================
@@ -130,7 +199,7 @@ export function makeValidCommand(
 export function makeValidStagingRecord(
   overrides: Partial<StagingRecord> = {},
 ): StagingRecord {
-  return {
+  const record: StagingRecord = {
     id: "stg-001",
     status: "pending",
     eventType: "commission_received",
@@ -168,4 +237,14 @@ export function makeValidStagingRecord(
     },
     ...overrides,
   };
+
+  // Mirror makeValidCommand: a commission_received staging record must carry an ignition link.
+  if (
+    record.eventType === "commission_received" &&
+    overrides.relatedEventId === undefined
+  ) {
+    record.relatedEventId = "evt-commission-expected-001";
+  }
+
+  return record;
 }

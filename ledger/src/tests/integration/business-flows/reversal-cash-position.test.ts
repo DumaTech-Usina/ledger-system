@@ -83,6 +83,62 @@ function fraudulentReceipt(
 }
 
 /**
+ * The ignition point for a receipt: a COMMISSION_EXPECTED that ORIGINATES the receivable
+ * a fraudulentReceipt later settles. The real ReceiptStagingBuilder must produce this same
+ * accrual leg so the received is never an orphan settlement.
+ */
+function expectedReceipt(
+  ref: (label: string) => string,
+  receiptId: string,
+  amount = "500.00",
+): CreateLedgerEventCommand {
+  return {
+    eventType: EventType.COMMISSION_EXPECTED,
+    economicEffect: EconomicEffect.NON_CASH,
+    occurredAt: new Date("2025-02-15"),
+    amount,
+    currency: "BRL",
+    sourceSystem: "receipt-etl",
+    sourceReference: ref(`receipt:${receiptId}:expected`),
+    normalizationVersion: "1.0",
+    normalizationWorkerId: "receipt-etl",
+    parties: [
+      { partyId: USINA, role: PartyRole.BENEFICIARY, direction: Direction.NEUTRAL },
+    ],
+    objects: [
+      {
+        objectId: `receivable:${receiptId}`,
+        objectType: ObjectType.COMMISSION_RECEIVABLE,
+        relation: Relation.ORIGINATES,
+      },
+    ],
+    reason: {
+      type: ReasonType.LATE_IDENTIFIED_COMMISSION,
+      description: "expected commission accrual",
+      confidence: ConfidenceLevel.MEDIUM,
+      requiresFollowup: false,
+    },
+    reporter: reporter(),
+  };
+}
+
+/** Runs the ignition point then the linked fraudulent receipt. */
+async function runFraudulentReceipt(
+  run: (cmd: CreateLedgerEventCommand) => Promise<{ id: { value: string } }>,
+  ref: (label: string) => string,
+  receiptId: string,
+  proposalId: string,
+  installmentNumber: number,
+  amount = "500.00",
+) {
+  const expected = await run(expectedReceipt(ref, receiptId, amount));
+  return run({
+    ...fraudulentReceipt(ref, receiptId, proposalId, installmentNumber, amount),
+    relatedEventId: expected.id.value,
+  });
+}
+
+/**
  * LEDGER_CORRECTION that reverses a specific object.
  * The use case automatically chains previousHash from the repository, so
  * LEDGER_CORRECTION's requiresPreviousHash constraint is always satisfied
@@ -131,7 +187,7 @@ describe("Reversal — position tracking (PositionProjectionService)", () => {
     const { ledgerRepo, run } = setup();
     const svc = new PositionProjectionService(ledgerRepo);
 
-    await run(fraudulentReceipt(ref, "r-001", PROPOSAL, 1));
+    await runFraudulentReceipt(run, ref, "r-001", PROPOSAL, 1);
     await run(ledgerReversal(ref, "r-001", "receivable:r-001", ObjectType.COMMISSION_RECEIVABLE, "500.00"));
 
     const position = await svc.summarize("receivable:r-001");
@@ -146,9 +202,9 @@ describe("Reversal — position tracking (PositionProjectionService)", () => {
     const { ledgerRepo, run } = setup();
     const svc = new PositionProjectionService(ledgerRepo);
 
-    await run(fraudulentReceipt(ref, "r-001", PROPOSAL, 1));
-    await run(fraudulentReceipt(ref, "r-002", PROPOSAL, 2));
-    await run(fraudulentReceipt(ref, "r-003", PROPOSAL, 3));
+    await runFraudulentReceipt(run, ref, "r-001", PROPOSAL, 1);
+    await runFraudulentReceipt(run, ref, "r-002", PROPOSAL, 2);
+    await runFraudulentReceipt(run, ref, "r-003", PROPOSAL, 3);
 
     await run(ledgerReversal(ref, "r-001", "receivable:r-001", ObjectType.COMMISSION_RECEIVABLE, "500.00"));
     await run(ledgerReversal(ref, "r-002", "receivable:r-002", ObjectType.COMMISSION_RECEIVABLE, "500.00"));
@@ -174,9 +230,9 @@ describe("Reversal — position tracking (PositionProjectionService)", () => {
     const { ledgerRepo, run } = setup();
     const svc = new PositionProjectionService(ledgerRepo);
 
-    await run(fraudulentReceipt(ref, "r-001", PROPOSAL, 1));
-    await run(fraudulentReceipt(ref, "r-002", PROPOSAL, 2));
-    await run(fraudulentReceipt(ref, "r-003", PROPOSAL, 3));
+    await runFraudulentReceipt(run, ref, "r-001", PROPOSAL, 1);
+    await runFraudulentReceipt(run, ref, "r-002", PROPOSAL, 2);
+    await runFraudulentReceipt(run, ref, "r-003", PROPOSAL, 3);
 
     await run(ledgerReversal(ref, "r-001", "receivable:r-001", ObjectType.COMMISSION_RECEIVABLE, "500.00"));
     await run(ledgerReversal(ref, "r-002", "receivable:r-002", ObjectType.COMMISSION_RECEIVABLE, "500.00"));
@@ -195,8 +251,8 @@ describe("Reversal — position tracking (PositionProjectionService)", () => {
     const ref = makeRef();
     const { ledgerRepo, run } = setup();
 
-    await run(fraudulentReceipt(ref, "r-001", PROPOSAL, 1));
-    await run(fraudulentReceipt(ref, "r-002", PROPOSAL, 2));
+    await runFraudulentReceipt(run, ref, "r-001", PROPOSAL, 1);
+    await runFraudulentReceipt(run, ref, "r-002", PROPOSAL, 2);
 
     await run(ledgerReversal(ref, "r-001", "receivable:r-001", ObjectType.COMMISSION_RECEIVABLE, "500.00"));
     await run(ledgerReversal(ref, "r-002", "receivable:r-002", ObjectType.COMMISSION_RECEIVABLE, "500.00"));
@@ -223,9 +279,9 @@ describe("Reversal — cash flow totals (CashPositionService)", () => {
     const cashSvc = new CashPositionService(ledgerRepo);
     const posSvc  = new PositionProjectionService(ledgerRepo);
 
-    await run(fraudulentReceipt(ref, "r-001", PROPOSAL, 1, "500.00"));
-    await run(fraudulentReceipt(ref, "r-002", PROPOSAL, 2, "500.00"));
-    await run(fraudulentReceipt(ref, "r-003", PROPOSAL, 3, "500.00"));
+    await runFraudulentReceipt(run, ref, "r-001", PROPOSAL, 1, "500.00");
+    await runFraudulentReceipt(run, ref, "r-002", PROPOSAL, 2, "500.00");
+    await runFraudulentReceipt(run, ref, "r-003", PROPOSAL, 3, "500.00");
 
     await run(ledgerReversal(ref, "r-001", "receivable:r-001", ObjectType.COMMISSION_RECEIVABLE, "500.00"));
     await run(ledgerReversal(ref, "r-002", "receivable:r-002", ObjectType.COMMISSION_RECEIVABLE, "500.00"));

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { assertChain, lifecycleOf } from "./helpers/assertions";
 import { makeRef } from "./helpers/ref";
 import { setup } from "./helpers/setup";
-import { commissionReceived } from "./helpers/commands/commission-commands";
+import { receivedFor } from "./helpers/commands/commission-commands";
 import { ledgerCorrection } from "./helpers/commands/correction-commands";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
@@ -16,7 +16,7 @@ describe("Ledger corrections", () => {
   it("S11 — correction reverses a wrong event, chain remains valid", async () => {
     const { ledgerRepo, run } = setup();
 
-    const wrong = await run(commissionReceived(ref, "com-recv-s11"));
+    const wrong = await receivedFor(run, ref, "com-recv-s11");
     const correction = await run(
       ledgerCorrection(ref, "com-recv-s11", ObjectType.COMMISSION_RECEIVABLE, Relation.REVERSES, ReasonType.MANUAL_CORRECTION),
     );
@@ -27,6 +27,7 @@ describe("Ledger corrections", () => {
     expect(correction.economicEffect).toBe(EconomicEffect.NON_CASH);
 
     expect(await lifecycleOf(ledgerRepo, "com-recv-s11")).toEqual([
+      EventType.COMMISSION_EXPECTED,
       EventType.COMMISSION_RECEIVED,
       EventType.LEDGER_CORRECTION,
     ]);
@@ -35,13 +36,14 @@ describe("Ledger corrections", () => {
   it("S11b — partial correction adjusts without fully reversing the original", async () => {
     const { ledgerRepo, run } = setup();
 
-    await run(commissionReceived(ref, "com-recv-s11b"));
+    await receivedFor(run, ref, "com-recv-s11b");
     const correction = await run(
       ledgerCorrection(ref, "com-recv-s11b", ObjectType.COMMISSION_RECEIVABLE, Relation.ADJUSTS, ReasonType.DATA_RECONCILIATION),
     );
 
     expect(correction.getReason()?.type).toBe(ReasonType.DATA_RECONCILIATION);
-    expect(await lifecycleOf(ledgerRepo, "com-recv-s11b")).toHaveLength(2);
+    // expected (ignition) + received + correction
+    expect(await lifecycleOf(ledgerRepo, "com-recv-s11b")).toHaveLength(3);
     await assertChain(ledgerRepo);
   });
 });

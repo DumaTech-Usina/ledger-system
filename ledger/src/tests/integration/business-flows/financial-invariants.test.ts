@@ -182,10 +182,10 @@ describe("Financial invariants", () => {
       const { ledgerRepo, run } = setup();
       const svc = new PositionProjectionService(ledgerRepo);
 
-      // Record the expected commission amount as an accrual entry
-      await run(commissionExpected(ref, "com-recv-f10", "1000.00"));
+      // Record the expected commission amount as an accrual entry (the ignition point)
+      const expected = await run(commissionExpected(ref, "com-recv-f10", "1000.00"));
       // Only R$700 actually arrives — R$300 shortfall
-      await run(commissionReceived(ref, "com-recv-f10", "700.00"));
+      await run(commissionReceived(ref, "com-recv-f10", expected.id.value, "700.00"));
 
       const summary = await svc.summarize("com-recv-f10");
       expect(summary!.totalOriginated.toString()).toBe("1000.00");
@@ -198,8 +198,8 @@ describe("Financial invariants", () => {
       const { ledgerRepo, run } = setup();
       const svc = new PositionProjectionService(ledgerRepo);
 
-      // Expected: R$1000
-      await run(commissionExpected(ref, "com-recv-f11", "1000.00"));
+      // Expected: R$1000 (the ignition point)
+      const expected = await run(commissionExpected(ref, "com-recv-f11", "1000.00"));
       // Operator paid broker directly (NON_CASH) — settles R$800
       await run(
         directPaymentAcknowledged(
@@ -209,7 +209,7 @@ describe("Financial invariants", () => {
         ),
       );
       // Cash receipt also arrives for R$300 — total settled R$1100 > expected R$1000
-      await run(commissionReceived(ref, "com-recv-f11", "300.00"));
+      await run(commissionReceived(ref, "com-recv-f11", expected.id.value, "300.00"));
 
       const summary = await svc.summarize("com-recv-f11");
       expect(summary!.totalSettled.toString()).toBe("1100.00");
@@ -223,8 +223,9 @@ describe("Financial invariants", () => {
       const svc = new PositionProjectionService(ledgerRepo);
 
       const BATCH = "batch-f12";
+      const expected = await run(commissionExpected(ref, "com-recv-f12", "1000.00"));
       await run({
-        ...commissionReceived(ref, "com-recv-f12", "1000.00"),
+        ...commissionReceived(ref, "com-recv-f12", expected.id.value, "1000.00"),
         objects: [
           { objectId: "com-recv-f12", objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES },
           { objectId: BATCH, objectType: ObjectType.SETTLEMENT_BATCH, relation: Relation.REFERENCES },
@@ -240,8 +241,9 @@ describe("Financial invariants", () => {
       const svc = new PositionProjectionService(ledgerRepo);
 
       const BATCH = "batch-f13";
+      const expected = await run(commissionExpected(ref, "com-recv-f13", "1000.00"));
       await run({
-        ...commissionReceived(ref, "com-recv-f13", "1000.00"),
+        ...commissionReceived(ref, "com-recv-f13", expected.id.value, "1000.00"),
         objects: [
           { objectId: "com-recv-f13", objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES },
           { objectId: BATCH, objectType: ObjectType.SETTLEMENT_BATCH, relation: Relation.REFERENCES },
@@ -272,11 +274,12 @@ describe("Financial invariants", () => {
     it("F14 — the same sourceReference cannot create multiple ledger events outside the staging flow", async () => {
       const { run } = setup();
 
-      const first = commissionReceived(ref, "dup-f14", "1000.00");
+      const expected = await run(commissionExpected(ref, "dup-f14", "1000.00"));
+      const first = commissionReceived(ref, "dup-f14", expected.id.value, "1000.00");
       await run({ ...first, sourceReference: "dup-f14" });
 
       await expect(
-        run({ ...commissionReceived(ref, "dup-f14", "1000.00"), sourceReference: "dup-f14" }),
+        run({ ...commissionReceived(ref, "dup-f14", expected.id.value, "1000.00"), sourceReference: "dup-f14" }),
       ).rejects.toThrow("Duplicate source reference");
     });
   });
@@ -290,11 +293,14 @@ describe("Financial invariants", () => {
       const ledgerRepo = new RaceyLedgerEventRepository();
       const useCase = new CreateLedgerEventUseCase(ledgerRepo, new NoOpAuditLogger());
 
-      await useCase.execute(commissionReceived(ref, "fork-seed", "1000.00"));
+      // The event type is incidental here — this exercises the hash chain under concurrency.
+      // Use a self-originating event (no related origin to seed) so the racey repo, which
+      // deadlocks on lone sequential writes after the first, keeps its fork choreography.
+      await useCase.execute(loanOrigination(ref, "fork-seed", "1000.00"));
 
       const [a, b] = await Promise.all([
-        useCase.execute(commissionReceived(ref, "fork-a", "300.00")),
-        useCase.execute(commissionReceived(ref, "fork-b", "400.00")),
+        useCase.execute(loanOrigination(ref, "fork-a", "300.00")),
+        useCase.execute(loanOrigination(ref, "fork-b", "400.00")),
       ]);
 
       // Both concurrent appends read the same tail hash → both reference it as previousHash.
@@ -330,8 +336,9 @@ describe("Financial invariants", () => {
       const svc = new PositionProjectionService(ledgerRepo);
 
       const BATCH = "batch-f17";
+      const expected = await run(commissionExpected(ref, "com-recv-f17", "1000.00"));
       await run({
-        ...commissionReceived(ref, "com-recv-f17", "1000.00"),
+        ...commissionReceived(ref, "com-recv-f17", expected.id.value, "1000.00"),
         objects: [
           { objectId: "com-recv-f17", objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES },
           { objectId: BATCH, objectType: ObjectType.SETTLEMENT_BATCH, relation: Relation.REFERENCES },

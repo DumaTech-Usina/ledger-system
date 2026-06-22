@@ -4,7 +4,7 @@ import { ReasonType } from "../../../core/domain/enums/ReasonType";
 import { Relation } from "../../../core/domain/enums/Relation";
 import { PositionProjectionService } from "../../../core/application/services/PositionProjectionService";
 import { advancePayment, advanceSettlement } from "./helpers/commands/advance-commands";
-import { commissionReceived } from "./helpers/commands/commission-commands";
+import { receivedFor } from "./helpers/commands/commission-commands";
 import { loanOrigination, loanRepayment } from "./helpers/commands/loan-commands";
 import { makeRef } from "./helpers/ref";
 import { setup } from "./helpers/setup";
@@ -128,7 +128,7 @@ describe("PositionProjectionService", () => {
       // A commission entitlement waived (REVERSES relation) is cancelled
       const { ledgerRepo, run } = setup();
 
-      await run(commissionReceived(ref, "com-pp7", "700.00"));
+      await receivedFor(run, ref, "com-pp7", "700.00");
 
       // Inject a REVERSES via reconstitute to simulate a LEDGER_CORRECTION reversing the object
       const { LedgerEvent } = await import("../../../core/domain/entities/LedgerEvent");
@@ -194,7 +194,7 @@ describe("PositionProjectionService", () => {
 
       await run(loanOrigination(ref, "loan-pp8-a", "1000.00"));
       await run(loanOrigination(ref, "loan-pp8-b", "500.00"));
-      await run(commissionReceived(ref, "com-pp8-c", "700.00"));
+      await receivedFor(run, ref, "com-pp8-c", "700.00");
 
       const svc = makeService(ledgerRepo);
       const summaries = await svc.summarizeAll();

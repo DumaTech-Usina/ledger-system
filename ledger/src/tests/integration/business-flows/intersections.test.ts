@@ -3,7 +3,7 @@ import { assertChain, lifecycleOf } from "./helpers/assertions";
 import { BROKER, reporter } from "./helpers/parties";
 import { makeRef } from "./helpers/ref";
 import { setup } from "./helpers/setup";
-import { commissionReceived, directPaymentAcknowledged } from "./helpers/commands/commission-commands";
+import { receivedFor, directPaymentAcknowledged } from "./helpers/commands/commission-commands";
 import { commissionSplit } from "./helpers/commands/commission-commands";
 import { advancePayment, advanceSettlement } from "./helpers/commands/advance-commands";
 import { ledgerCorrection } from "./helpers/commands/correction-commands";
@@ -23,13 +23,14 @@ describe("Intersections — cross-track scenarios", () => {
     const { ledgerRepo, run } = setup();
 
     const adv = await run(advancePayment(ref, "adv-i1", "500.00"));
-    await run(commissionReceived(ref, "com-recv-i1", "500.00"));
+    await receivedFor(run, ref, "com-recv-i1", "500.00");
     const settlement = await run(
       advanceSettlement(ref, "adv-i1", adv.id.value, Relation.SETTLES, EconomicEffect.NON_CASH, "500.00", ReasonType.ADVANCE_PAYMENT),
     );
 
     await assertChain(ledgerRepo);
-    expect(await ledgerRepo.findAll()).toHaveLength(3);
+    // adv + commission ignition (expected) + received + settlement
+    expect(await ledgerRepo.findAll()).toHaveLength(4);
 
     expect(settlement.economicEffect).toBe(EconomicEffect.NON_CASH);
     expect(settlement.relatedEventId).toBe(adv.id.value);
@@ -102,14 +103,15 @@ describe("Intersections — cross-track scenarios", () => {
   it("I4 — correction on wrong split: erroneous commission split is reversed, chain stays valid", async () => {
     const { ledgerRepo, run } = setup();
 
-    await run(commissionReceived(ref, "com-recv-i4"));
+    await receivedFor(run, ref, "com-recv-i4");
     const wrongSplit = await run(commissionSplit(ref, "com-pay-i4"));
     const correction = await run(
       ledgerCorrection(ref, "com-pay-i4", ObjectType.COMMISSION_PAYABLE, Relation.REVERSES, ReasonType.MANUAL_CORRECTION),
     );
 
     await assertChain(ledgerRepo);
-    expect(await ledgerRepo.findAll()).toHaveLength(3);
+    // commission ignition (expected) + received + wrong split + correction
+    expect(await ledgerRepo.findAll()).toHaveLength(4);
 
     expect(correction.previousHash?.value).toBe(wrongSplit.hash.value);
 
@@ -117,13 +119,16 @@ describe("Intersections — cross-track scenarios", () => {
       EventType.COMMISSION_SPLIT,
       EventType.LEDGER_CORRECTION,
     ]);
-    expect(await lifecycleOf(ledgerRepo, "com-recv-i4")).toEqual([EventType.COMMISSION_RECEIVED]);
+    expect(await lifecycleOf(ledgerRepo, "com-recv-i4")).toEqual([
+      EventType.COMMISSION_EXPECTED,
+      EventType.COMMISSION_RECEIVED,
+    ]);
   });
 
   it("I5 — direct payment discovered after commission was already recorded: correction + acknowledgement", async () => {
     const { ledgerRepo, run } = setup();
 
-    const wrong = await run(commissionReceived(ref, "com-recv-i5"));
+    const wrong = await receivedFor(run, ref, "com-recv-i5");
     const correction = await run(
       ledgerCorrection(ref, "com-recv-i5", ObjectType.COMMISSION_RECEIVABLE, Relation.REVERSES, ReasonType.DATA_RECONCILIATION),
     );
@@ -139,12 +144,14 @@ describe("Intersections — cross-track scenarios", () => {
     );
 
     await assertChain(ledgerRepo);
-    expect(await ledgerRepo.findAll()).toHaveLength(3);
+    // commission ignition (expected) + received + correction + acknowledgement
+    expect(await ledgerRepo.findAll()).toHaveLength(4);
 
     expect(correction.previousHash?.value).toBe(wrong.hash.value);
     expect(ack.previousHash?.value).toBe(correction.hash.value);
 
     expect(await lifecycleOf(ledgerRepo, "com-recv-i5")).toEqual([
+      EventType.COMMISSION_EXPECTED,
       EventType.COMMISSION_RECEIVED,
       EventType.LEDGER_CORRECTION,
       EventType.DIRECT_PAYMENT_ACKNOWLEDGED,

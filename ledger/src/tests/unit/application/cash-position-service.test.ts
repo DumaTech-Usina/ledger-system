@@ -3,7 +3,7 @@ import { CashPositionService } from "../../../core/application/services/CashPosi
 import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
-import { makeValidCommand } from "../../fixtures";
+import { makeExpectedCommand, makeValidCommand } from "../../fixtures";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
@@ -138,11 +138,19 @@ async function createCommissionReceived(
   amount: string,
 ) {
   const uc = new CreateLedgerEventUseCase(repo, new NoOpAuditLogger());
+  // Ignition point originates the same receivable the received settles, so the position
+  // nets to fully-settled (openReceivables stays 0) and causality holds.
+  const expected = await uc.execute(makeExpectedCommand({
+    sourceReference: ref(),
+    amount,
+    objects: [{ objectId, objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.ORIGINATES }],
+  }));
   return uc.execute(makeValidCommand({
     sourceReference: ref(),
     eventType: EventType.COMMISSION_RECEIVED,
     economicEffect: EconomicEffect.CASH_IN,
     amount,
+    relatedEventId: expected.id.value,
     objects: [{ objectId, objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES }],
     parties: [
       { partyId: "usina", role: PartyRole.PAYEE, direction: Direction.IN, amount },

@@ -23,9 +23,11 @@ import { PartyId } from "../../../core/domain/value-objects/PartyId";
 import { BROKER, TAX_AUTH, USINA } from "./helpers/parties";
 import { advancePayment, advanceSettlement } from "./helpers/commands/advance-commands";
 import {
+  commissionExpected,
   commissionReceived,
   commissionSplit,
   directPaymentAcknowledged,
+  receivedFor,
 } from "./helpers/commands/commission-commands";
 import { loanOrigination, loanRepayment } from "./helpers/commands/loan-commands";
 import { makeRef } from "./helpers/ref";
@@ -114,16 +116,16 @@ describe("State explainability", () => {
     expect(remaining).toBe(200);
   });
 
-  it("E3 — received commission amount is exactly what is stored; expected-vs-outstanding gap requires a separate expected-amount fact", async () => {
-    // What IS derivable today: the exact amount received against a commission object.
-    // What is NOT derivable: a contractual "expected" amount (e.g. 1000) when only 700
-    // was recorded — because the data model has no separate expected-amount event.
-    // Detecting shortfalls requires a first-class "COMMISSION_EXPECTED" event or equivalent.
-    // This is documented in CLAUDE.md Fix Roadmap (no position balance enforcement).
+  it("E3 — received commission amount is recorded exactly against the installment it pays", async () => {
+    // Every commission now carries an ignition point (COMMISSION_EXPECTED) and the received
+    // amount is recorded exactly against the installment it pays. Expected-vs-received
+    // reconciliation on the receivable position is covered in financial-invariants F10;
+    // here we assert the installment trace reflects precisely what arrived.
     const { ledgerRepo, run } = setup();
 
+    const e3Expected = await run(commissionExpected(ref, "com-e3", "700.00"));
     await run({
-      ...commissionReceived(ref, "com-e3", "700.00"),
+      ...commissionReceived(ref, "com-e3", e3Expected.id.value, "700.00"),
       objects: [
         { objectId: "com-e3", objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES },
         { objectId: "inst-e3", objectType: ObjectType.INSTALLMENT, relation: Relation.REFERENCES },
@@ -145,8 +147,9 @@ describe("State explainability", () => {
   it("E4 — settlement batch balance exposes pending allocation", async () => {
     const { ledgerRepo, run } = setup();
 
+    const e4Expected = await run(commissionExpected(ref, "com-e4-recv", "1000.00"));
     await run({
-      ...commissionReceived(ref, "com-e4-recv", "1000.00"),
+      ...commissionReceived(ref, "com-e4-recv", e4Expected.id.value, "1000.00"),
       objects: [
         { objectId: "com-e4-recv", objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES },
         { objectId: "batch-e4", objectType: ObjectType.SETTLEMENT_BATCH, relation: Relation.REFERENCES },
@@ -203,6 +206,7 @@ describe("State explainability", () => {
   it("E7 — mixed payment channels can be reconciled without duplication", async () => {
     const { ledgerRepo, run } = setup();
 
+    const e7Expected = await run(commissionExpected(ref, "com-e7", "1000.00"));
     await run(
       directPaymentAcknowledged(
         ref,
@@ -214,7 +218,7 @@ describe("State explainability", () => {
         "300.00",
       ),
     );
-    await run(commissionReceived(ref, "com-e7", "700.00"));
+    await run(commissionReceived(ref, "com-e7", e7Expected.id.value, "700.00"));
 
     const lifecycle = await ledgerRepo.findByObjectId("com-e7");
     const settled = sumAmounts(
@@ -226,18 +230,19 @@ describe("State explainability", () => {
     );
 
     expect(lifecycle.map((event) => event.eventType)).toEqual([
+      EventType.COMMISSION_EXPECTED,
       EventType.DIRECT_PAYMENT_ACKNOWLEDGED,
       EventType.COMMISSION_RECEIVED,
     ]);
     expect(settled).toBe(1000);
-    expect(new Set(lifecycle.map((event) => event.id.value)).size).toBe(2);
+    expect(new Set(lifecycle.map((event) => event.id.value)).size).toBe(3);
   });
 
   it("E8 — a full lifecycle can reconstruct originated, repaid, and remaining debt", async () => {
     const { ledgerRepo, run } = setup();
 
     const loan = await run(loanOrigination(ref, "loan-e8", "1000.00"));
-    await run(commissionReceived(ref, "com-e8", "700.00"));
+    await receivedFor(run, ref, "com-e8", "700.00");
     await run(
       loanRepayment(ref, "loan-e8", loan.id.value, EconomicEffect.CASH_IN, Relation.SETTLES, ReasonType.LOAN_REPAYMENT, "300.00"),
     );
@@ -308,8 +313,9 @@ describe("State explainability", () => {
   it("E10 — audit trace completeness is retrievable and ordered for a settlement batch", async () => {
     const { ledgerRepo, run } = setup();
 
+    const e10Expected = await run(commissionExpected(ref, "com-e10-recv", "1000.00"));
     await run({
-      ...commissionReceived(ref, "com-e10-recv", "1000.00"),
+      ...commissionReceived(ref, "com-e10-recv", e10Expected.id.value, "1000.00"),
       objects: [
         { objectId: "com-e10-recv", objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES },
         { objectId: "batch-e10", objectType: ObjectType.SETTLEMENT_BATCH, relation: Relation.REFERENCES },

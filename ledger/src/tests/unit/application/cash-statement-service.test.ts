@@ -3,7 +3,7 @@ import { CashStatementService } from "../../../core/application/services/CashSta
 import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
-import { makeValidCommand } from "../../fixtures";
+import { makeExpectedCommand, makeValidCommand } from "../../fixtures";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
@@ -29,12 +29,18 @@ async function createCashIn(
   objectId = `obj-cs-${++_seq}`,
 ) {
   const uc = new CreateLedgerEventUseCase(repo, new NoOpAuditLogger());
+  const expected = await uc.execute(makeExpectedCommand({
+    sourceReference: ref(),
+    amount,
+    objects: [{ objectId, objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.ORIGINATES }],
+  }));
   return uc.execute(makeValidCommand({
     sourceReference: ref(),
     occurredAt,
     eventType: EventType.COMMISSION_RECEIVED,
     economicEffect: EconomicEffect.CASH_IN,
     amount,
+    relatedEventId: expected.id.value,
     objects: [{ objectId, objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES }],
     parties: [
       { partyId: USINA, role: PartyRole.PAYEE, direction: Direction.IN, amount },

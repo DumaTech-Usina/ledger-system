@@ -211,6 +211,25 @@ describe("InvariantPolicy.validateSemantic", () => {
   });
 
   // ============================
+  // Step 10 — relatedEventId required for contract-mandated links
+  // ============================
+  describe("relatedEventId linkage", () => {
+    it("throws when COMMISSION_RECEIVED carries no relatedEventId (orphan settlement)", () => {
+      // A received must SETTLE a receivable that a COMMISSION_EXPECTED originated; without
+      // an ignition link it is a phantom settlement and must never reach the ledger.
+      const props = makeValidProps({ relatedEventId: null });
+      expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
+        "requires relatedEventId",
+      );
+    });
+
+    it("passes when the contract-required relatedEventId is present", () => {
+      // makeValidProps supplies the ignition link by default.
+      expect(() => InvariantPolicy.validateSemantic(makeValidProps())).not.toThrow();
+    });
+  });
+
+  // ============================
   // LEDGER_CORRECTION contract
   // ============================
   describe("LEDGER_CORRECTION", () => {

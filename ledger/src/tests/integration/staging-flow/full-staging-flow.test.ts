@@ -14,6 +14,32 @@ import { makeValidStagingRecord } from "../../fixtures";
 // Helpers
 // ============================
 
+/**
+ * A self-contained valid record for pipeline mechanics. These tests assert counts, dedup,
+ * rejection routing and status transitions — the event type is incidental — so we use a
+ * COMMISSION_EXPECTED (originates, no parent required) to keep "N records → N events" intact
+ * without seeding an ignition point per record.
+ */
+function validRecord(overrides: Partial<StagingRecord> = {}): StagingRecord {
+  return makeValidStagingRecord({
+    eventType: "commission_expected",
+    economicEffect: "non_cash",
+    objects: [
+      { objectId: "obj-1", objectType: "commission_receivable", relation: "originates" },
+    ],
+    parties: [
+      { partyId: "party-1", role: "beneficiary", direction: "neutral" },
+    ],
+    reason: {
+      type: "late_identified_commission",
+      description: "ignition point",
+      confidence: "medium",
+      requiresFollowup: false,
+    },
+    ...overrides,
+  });
+}
+
 function buildPipeline(records: StagingRecord[]) {
   const stagingRepo = new InMemoryStagingRepository(records);
   const ledgerRepo = new InMemoryLedgerEventRepository();
@@ -38,7 +64,7 @@ describe("Full Staging Flow — Integration", () => {
   describe("valid events reach the ledger repository", () => {
     it("one valid record → one event in ledger, zero rejections", async () => {
       const { job, ledgerRepo, rejectedRepo } = buildPipeline([
-        makeValidStagingRecord({ id: "stg-1", sourceReference: "ref-1" }),
+        validRecord({ id: "stg-1", sourceReference: "ref-1" }),
       ]);
       await job.run();
       expect(await ledgerRepo.findAll()).toHaveLength(1);
@@ -47,9 +73,9 @@ describe("Full Staging Flow — Integration", () => {
 
     it("multiple valid records → all saved to ledger", async () => {
       const records = [
-        makeValidStagingRecord({ id: "stg-1", sourceReference: "ref-1" }),
-        makeValidStagingRecord({ id: "stg-2", sourceReference: "ref-2" }),
-        makeValidStagingRecord({ id: "stg-3", sourceReference: "ref-3" }),
+        validRecord({ id: "stg-1", sourceReference: "ref-1" }),
+        validRecord({ id: "stg-2", sourceReference: "ref-2" }),
+        validRecord({ id: "stg-3", sourceReference: "ref-3" }),
       ];
       const { job, ledgerRepo } = buildPipeline(records);
       await job.run();
@@ -63,7 +89,7 @@ describe("Full Staging Flow — Integration", () => {
   describe("invalid events reach the rejected repository", () => {
     it("record with invalid amount format → rejected, not in ledger", async () => {
       const { job, ledgerRepo, rejectedRepo } = buildPipeline([
-        makeValidStagingRecord({ id: "stg-bad", amount: "not-a-number" }),
+        validRecord({ id: "stg-bad", amount: "not-a-number" }),
       ]);
       await job.run();
       expect(await ledgerRepo.findAll()).toHaveLength(0);
@@ -72,7 +98,7 @@ describe("Full Staging Flow — Integration", () => {
 
     it("record missing eventType → rejected", async () => {
       const { job, rejectedRepo, ledgerRepo } = buildPipeline([
-        makeValidStagingRecord({ id: "stg-no-type", eventType: undefined }),
+        validRecord({ id: "stg-no-type", eventType: undefined }),
       ]);
       await job.run();
       expect(await rejectedRepo.findAll()).toHaveLength(1);
@@ -81,7 +107,7 @@ describe("Full Staging Flow — Integration", () => {
 
     it("record missing sourceSystem → rejected", async () => {
       const { job, rejectedRepo, ledgerRepo } = buildPipeline([
-        makeValidStagingRecord({ id: "stg-no-src", sourceSystem: undefined }),
+        validRecord({ id: "stg-no-src", sourceSystem: undefined }),
       ]);
       await job.run();
       expect(await rejectedRepo.findAll()).toHaveLength(1);
@@ -90,7 +116,7 @@ describe("Full Staging Flow — Integration", () => {
 
     it("record with unknown sourceSystem → rejected", async () => {
       const { job, rejectedRepo, ledgerRepo } = buildPipeline([
-        makeValidStagingRecord({
+        validRecord({
           id: "stg-bad-src",
           sourceSystem: "ghost-system",
         }),
@@ -102,7 +128,7 @@ describe("Full Staging Flow — Integration", () => {
 
     it("record with empty parties → rejected", async () => {
       const { job, rejectedRepo, ledgerRepo } = buildPipeline([
-        makeValidStagingRecord({ id: "stg-no-parties", parties: [] }),
+        validRecord({ id: "stg-no-parties", parties: [] }),
       ]);
       await job.run();
       expect(await rejectedRepo.findAll()).toHaveLength(1);
@@ -116,8 +142,8 @@ describe("Full Staging Flow — Integration", () => {
   describe("event deduplication via sourceReference", () => {
     it("duplicate sourceReference in the same batch → second record is rejected", async () => {
       const records = [
-        makeValidStagingRecord({ id: "stg-1", sourceReference: "ref-dup" }),
-        makeValidStagingRecord({ id: "stg-2", sourceReference: "ref-dup" }),
+        validRecord({ id: "stg-1", sourceReference: "ref-dup" }),
+        validRecord({ id: "stg-2", sourceReference: "ref-dup" }),
       ];
       const { job, ledgerRepo, rejectedRepo } = buildPipeline(records);
       await job.run();
@@ -133,8 +159,8 @@ describe("Full Staging Flow — Integration", () => {
   describe("status transitions after job run", () => {
     it("no pending records remain after job.run()", async () => {
       const records = [
-        makeValidStagingRecord({ id: "stg-1", sourceReference: "ref-1" }),
-        makeValidStagingRecord({ id: "stg-2", amount: "bad!" }),
+        validRecord({ id: "stg-1", sourceReference: "ref-1" }),
+        validRecord({ id: "stg-2", amount: "bad!" }),
       ];
       const { job, stagingRepo } = buildPipeline(records);
       await job.run();
@@ -146,7 +172,7 @@ describe("Full Staging Flow — Integration", () => {
 
     it("valid record → status=accepted", async () => {
       const { job, stagingRepo } = buildPipeline([
-        makeValidStagingRecord({ id: "stg-ok", sourceReference: "ref-ok" }),
+        validRecord({ id: "stg-ok", sourceReference: "ref-ok" }),
       ]);
       await job.run();
       const record = (await stagingRepo.findAll()).find(
@@ -157,7 +183,7 @@ describe("Full Staging Flow — Integration", () => {
 
     it("invalid record → status=rejected", async () => {
       const { job, stagingRepo } = buildPipeline([
-        makeValidStagingRecord({ id: "stg-bad", parties: [] }),
+        validRecord({ id: "stg-bad", parties: [] }),
       ]);
       await job.run();
       const record = (await stagingRepo.findAll()).find(
@@ -168,8 +194,8 @@ describe("Full Staging Flow — Integration", () => {
 
     it("mixed batch → each record gets the correct terminal status", async () => {
       const records = [
-        makeValidStagingRecord({ id: "stg-ok", sourceReference: "ref-ok" }),
-        makeValidStagingRecord({ id: "stg-bad", parties: [] }),
+        validRecord({ id: "stg-ok", sourceReference: "ref-ok" }),
+        validRecord({ id: "stg-bad", parties: [] }),
       ];
       const { job, stagingRepo } = buildPipeline(records);
       await job.run();
@@ -186,10 +212,10 @@ describe("Full Staging Flow — Integration", () => {
   describe("mixed batch of valid and invalid records", () => {
     it("correctly routes each record to ledger or rejected repo", async () => {
       const records = [
-        makeValidStagingRecord({ id: "stg-v1", sourceReference: "ref-v1" }),
-        makeValidStagingRecord({ id: "stg-bad1", amount: "x" }),
-        makeValidStagingRecord({ id: "stg-v2", sourceReference: "ref-v2" }),
-        makeValidStagingRecord({ id: "stg-bad2", parties: [] }),
+        validRecord({ id: "stg-v1", sourceReference: "ref-v1" }),
+        validRecord({ id: "stg-bad1", amount: "x" }),
+        validRecord({ id: "stg-v2", sourceReference: "ref-v2" }),
+        validRecord({ id: "stg-bad2", parties: [] }),
       ];
       const { job, ledgerRepo, rejectedRepo } = buildPipeline(records);
       await job.run();

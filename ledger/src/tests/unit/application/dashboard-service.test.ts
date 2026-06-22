@@ -5,7 +5,7 @@ import { BookHealthService } from "../../../core/application/services/BookHealth
 import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
-import { makeValidCommand } from "../../fixtures";
+import { makeExpectedCommand, makeValidCommand } from "../../fixtures";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
@@ -26,23 +26,34 @@ function makeSvc(repo: InMemoryLedgerEventRepository) {
   return new DashboardService(repo, posSvc, bookHealthSvc);
 }
 
+/** Seeds a COMMISSION_EXPECTED ignition point so a received can link to it, returning its id. */
+async function seedIgnition(uc: CreateLedgerEventUseCase, amount: string): Promise<string> {
+  const expected = await uc.execute(makeExpectedCommand({ sourceReference: ref(), amount }));
+  return expected.id.value;
+}
+
 async function runCmd(
   repo: InMemoryLedgerEventRepository,
   overrides: Parameters<typeof makeValidCommand>[0] = {},
 ) {
   const uc = new CreateLedgerEventUseCase(repo, new NoOpAuditLogger());
   const cmd = makeValidCommand({ sourceReference: ref(), ...overrides });
+  if (cmd.eventType === EventType.COMMISSION_RECEIVED && overrides.relatedEventId === undefined) {
+    cmd.relatedEventId = await seedIgnition(uc, cmd.amount);
+  }
   return uc.execute(cmd);
 }
 
 /** COMMISSION_RECEIVED (CASH_IN) event with parties and amount kept in sync. */
 async function runCashIn(repo: InMemoryLedgerEventRepository, amount: string, occurredAt: Date) {
   const uc = new CreateLedgerEventUseCase(repo, new NoOpAuditLogger());
+  const relatedEventId = await seedIgnition(uc, amount);
   return uc.execute(makeValidCommand({
     sourceReference: ref(),
     occurredAt,
     economicEffect: EconomicEffect.CASH_IN,
     amount,
+    relatedEventId,
     parties: [{ partyId: "party-1", role: PartyRole.PAYEE, direction: Direction.IN, amount }],
   }));
 }
@@ -368,8 +379,8 @@ describe("DashboardService.compute()", () => {
         reason: { type: ReasonType.ADVANCE_PAYMENT, description: "adv", confidence: ConfidenceLevel.HIGH, requiresFollowup: false },
       }));
 
-      // Fully settled commission — should NOT appear
-      const origComm = await uc.execute(makeValidCommand({
+      // Fully settled commission (expected ignition → received) — should NOT appear
+      const origComm = await uc.execute(makeExpectedCommand({
         sourceReference: ref(),
         occurredAt:      JAN_01,
       }));
@@ -377,6 +388,7 @@ describe("DashboardService.compute()", () => {
         sourceReference:  ref(),
         occurredAt:       JAN_15,
         amount:           "1000.00",
+        relatedEventId:   origComm.id.value,
       }));
 
       const d = await makeSvc(repo).compute(PERIOD_JAN.from, PERIOD_JAN.to);

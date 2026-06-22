@@ -8,7 +8,7 @@ import { ObjectType } from "../../../core/domain/enums/ObjectType";
 import { ReasonType } from "../../../core/domain/enums/ReasonType";
 import { Relation } from "../../../core/domain/enums/Relation";
 import { advancePayment, advanceSettlement } from "./helpers/commands/advance-commands";
-import { commissionReceived, commissionSplit } from "./helpers/commands/commission-commands";
+import { commissionSplit, receivedFor } from "./helpers/commands/commission-commands";
 import { ledgerCorrection } from "./helpers/commands/correction-commands";
 import { loanOrigination, loanRepayment } from "./helpers/commands/loan-commands";
 import { makeRef } from "./helpers/ref";
@@ -31,7 +31,7 @@ describe("Dashboard integration", () => {
 
   it("DB01 — commission received appears in cashIn breakdown", async () => {
     const { ledgerRepo, run } = setup();
-    await run(commissionReceived(ref, "com-db01", "1500.00"));
+    await receivedFor(run, ref, "com-db01", "1500.00");
 
     const d = await makeSvc(ledgerRepo).compute(ALL_TIME.from, ALL_TIME.to);
 
@@ -52,7 +52,7 @@ describe("Dashboard integration", () => {
 
   it("DB03 — net cash is positive when commissions exceed splits", async () => {
     const { ledgerRepo, run } = setup();
-    await run(commissionReceived(ref, "com-db03", "2000.00"));
+    await receivedFor(run, ref, "com-db03", "2000.00");
     await run(commissionSplit(ref, "pool-db03", "700.00"));
 
     const d = await makeSvc(ledgerRepo).compute(ALL_TIME.from, ALL_TIME.to);
@@ -104,7 +104,7 @@ describe("Dashboard integration", () => {
     // loan origination is 2025-02-01 — inside Q1
     // loan repayment is 2025-05-01 — OUTSIDE Q1
     await run(loanOrigination(ref, "loan-db07", "2000.00"));
-    await run(commissionReceived(ref, "com-db07", "500.00")); // 2025-03-01 inside Q1
+    await receivedFor(run, ref, "com-db07", "500.00"); // received 2025-03-01 inside Q1
 
     const d = await makeSvc(ledgerRepo).compute(PERIOD_Q1_2025.from, PERIOD_Q1_2025.to);
 

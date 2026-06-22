@@ -1,4 +1,5 @@
 import { CreateLedgerEventCommand } from "../../../../../core/application/dtos/CreateLedgerEventInput";
+import { LedgerEvent } from "../../../../../core/domain/entities/LedgerEvent";
 import { ConfidenceLevel } from "../../../../../core/domain/enums/ConfidenceLevel";
 import { Direction } from "../../../../../core/domain/enums/Direction";
 import { EconomicEffect } from "../../../../../core/domain/enums/EconomicEffect";
@@ -37,6 +38,7 @@ export const commissionExpected = (
 export const commissionReceived = (
   ref: (label: string) => string,
   objectId: string,
+  relatedEventId: string,
   amount = "1000.00",
 ): CreateLedgerEventCommand => ({
   eventType: EventType.COMMISSION_RECEIVED,
@@ -48,6 +50,7 @@ export const commissionReceived = (
   sourceReference: ref("com-recv"),
   normalizationVersion: "1.0",
   normalizationWorkerId: "worker-test",
+  relatedEventId,
   parties: [
     { partyId: USINA,  role: PartyRole.PAYEE,        direction: Direction.IN,      amount },
     { partyId: BROKER, role: PartyRole.BENEFICIARY,  direction: Direction.NEUTRAL, amount },
@@ -61,6 +64,22 @@ export const commissionReceived = (
   },
   reporter: reporter(),
 });
+
+/**
+ * Posts a commission's "ignition point" (COMMISSION_EXPECTED, which ORIGINATES the
+ * receivable) and then the linked COMMISSION_RECEIVED that SETTLES it. Use this whenever
+ * a test just needs a valid cash-in commission: causality now requires every received
+ * to reference an originating expected. Returns the received event.
+ */
+export const receivedFor = async (
+  run: (cmd: CreateLedgerEventCommand) => Promise<LedgerEvent>,
+  ref: (label: string) => string,
+  objectId: string,
+  amount = "1000.00",
+): Promise<LedgerEvent> => {
+  const expected = await run(commissionExpected(ref, objectId, amount));
+  return run(commissionReceived(ref, objectId, expected.id.value, amount));
+};
 
 export const commissionSplit = (
   ref: (label: string) => string,

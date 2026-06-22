@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { setup } from "./helpers/setup";
 import { makeRef } from "./helpers/ref";
 import { loanOrigination, loanRepayment } from "./helpers/commands/loan-commands";
-import { commissionReceived, commissionSplit, commissionWaiver } from "./helpers/commands/commission-commands";
+import { commissionExpected, commissionReceived, commissionSplit, commissionWaiver, receivedFor } from "./helpers/commands/commission-commands";
 import { USINA } from "./helpers/parties";
 import { CashEventListingService } from "../../../core/application/services/CashEventListingService";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
@@ -35,7 +35,7 @@ describe("CashEventListingService — integration", () => {
     const svc = new CashEventListingService(ledgerRepo);
 
     // commissionReceived at 2025-03-01, commissionSplit at 2025-03-02
-    await run(commissionReceived(ref, "cli2-com", "1000.00"));
+    await receivedFor(run, ref, "cli2-com", "1000.00");
     await run(commissionSplit(ref, "cli2-split-pool", "700.00"));
 
     const page = await svc.list({ partyId: USINA, limit: 50 });
@@ -59,8 +59,10 @@ describe("CashEventListingService — integration", () => {
     for (let i = 0; i < 7; i++) {
       const day = 1 + i;
       const dateStr = `2025-03-${String(day).padStart(2, "0")}T12:00:00Z`;
+      // ignition point (NON_CASH) is excluded from cash listings; only the received shows
+      const expected = await run(commissionExpected(ref, `cli3-com-${i}`, "100.00"));
       await run({
-        ...commissionReceived(ref, `cli3-com-${i}`, "100.00"),
+        ...commissionReceived(ref, `cli3-com-${i}`, expected.id.value, "100.00"),
         occurredAt: new Date(dateStr),
       });
     }
@@ -100,8 +102,9 @@ describe("CashEventListingService — integration", () => {
     // Create 10 cash events across wide date range
     for (let i = 0; i < 10; i++) {
       const year = 2020 + i;
+      const expected = await run(commissionExpected(ref, `cli4-com-${i}`, "200.00"));
       await run({
-        ...commissionReceived(ref, `cli4-com-${i}`, "200.00"),
+        ...commissionReceived(ref, `cli4-com-${i}`, expected.id.value, "200.00"),
         occurredAt: new Date(`${year}-06-01T00:00:00Z`),
       });
     }

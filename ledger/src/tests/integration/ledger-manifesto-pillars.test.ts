@@ -19,7 +19,20 @@ import { InMemoryRejectedEventRepository } from "../../infra/persistence/rejecte
 import { InMemoryStagingRepository } from "../../infra/persistence/staging/InMemoryStagingRepository";
 import { StagingRecordValidator } from "../../core/application/services/StagingRecordValidator";
 import { StagingPostingJob } from "../../infra/jobs/StagingPostingJob";
-import { makeValidCommand, makeValidProps, makeValidStagingRecord } from "../fixtures";
+import { makeExpectedCommand, makeValidCommand, makeValidProps, makeValidStagingRecord } from "../fixtures";
+
+/** Self-contained valid staging record (COMMISSION_EXPECTED — no ignition origin needed) for
+ *  pillar mechanics that assert exact ledger counts. */
+function validRecord(overrides: Parameters<typeof makeValidStagingRecord>[0] = {}) {
+  return makeValidStagingRecord({
+    eventType: "commission_expected",
+    economicEffect: "non_cash",
+    objects: [{ objectId: "obj-1", objectType: "commission_receivable", relation: "originates" }],
+    parties: [{ partyId: "party-1", role: "beneficiary", direction: "neutral" }],
+    reason: { type: "late_identified_commission", description: "ignition point", confidence: "medium", requiresFollowup: false },
+    ...overrides,
+  });
+}
 
 // ============================
 // Pillar 1 — Conservation of Value
@@ -175,9 +188,9 @@ describe("Pillar 4 — Determinism", () => {
     const ledgerRepo = new InMemoryLedgerEventRepository();
     const useCase = new CreateLedgerEventUseCase(ledgerRepo, new NoOpAuditLogger());
 
-    await useCase.execute(makeValidCommand({ sourceReference: "det-1" }));
-    await useCase.execute(makeValidCommand({ sourceReference: "det-2" }));
-    await useCase.execute(makeValidCommand({ sourceReference: "det-3" }));
+    await useCase.execute(makeExpectedCommand({ sourceReference: "det-1" }));
+    await useCase.execute(makeExpectedCommand({ sourceReference: "det-2" }));
+    await useCase.execute(makeExpectedCommand({ sourceReference: "det-3" }));
 
     const events = await ledgerRepo.findAll();
 
@@ -212,7 +225,7 @@ describe("Pillar 8 — Idempotency", () => {
     const ledgerRepo = new InMemoryLedgerEventRepository();
     const useCase = new CreateLedgerEventUseCase(ledgerRepo, new NoOpAuditLogger());
 
-    const cmd = makeValidCommand({ commandId: "idem-p8a", sourceReference: "src-p8a" });
+    const cmd = makeExpectedCommand({ commandId: "idem-p8a", sourceReference: "src-p8a" });
 
     const first = await useCase.execute(cmd);
     const second = await useCase.execute(cmd);
@@ -225,10 +238,10 @@ describe("Pillar 8 — Idempotency", () => {
     const ledgerRepo = new InMemoryLedgerEventRepository();
     const useCase = new CreateLedgerEventUseCase(ledgerRepo, new NoOpAuditLogger());
 
-    await useCase.execute(makeValidCommand({ sourceReference: "dup-src-p8b" }));
+    await useCase.execute(makeExpectedCommand({ sourceReference: "dup-src-p8b" }));
 
     await expect(
-      useCase.execute(makeValidCommand({ sourceReference: "dup-src-p8b" })),
+      useCase.execute(makeExpectedCommand({ sourceReference: "dup-src-p8b" })),
     ).rejects.toThrow("Duplicate source reference");
 
     expect((await ledgerRepo.findAll()).length).toBe(1);
@@ -236,8 +249,8 @@ describe("Pillar 8 — Idempotency", () => {
 
   it("P8c — staging job run twice on the same batch produces no duplicate ledger events", async () => {
     const records = [
-      makeValidStagingRecord({ id: "stg-p8c-1", sourceReference: "src-p8c-1" }),
-      makeValidStagingRecord({ id: "stg-p8c-2", sourceReference: "src-p8c-2" }),
+      validRecord({ id: "stg-p8c-1", sourceReference: "src-p8c-1" }),
+      validRecord({ id: "stg-p8c-2", sourceReference: "src-p8c-2" }),
     ];
 
     const stagingRepo = new InMemoryStagingRepository(records);
@@ -280,9 +293,9 @@ describe("Pillar 9 — Atomicity", () => {
     }
 
     const records = [
-      makeValidStagingRecord({ id: "stg-p9-1", sourceReference: "src-p9-1" }),
-      makeValidStagingRecord({ id: "stg-p9-2", sourceReference: "src-p9-2" }),
-      makeValidStagingRecord({ id: "stg-p9-3", sourceReference: "src-p9-3" }),
+      validRecord({ id: "stg-p9-1", sourceReference: "src-p9-1" }),
+      validRecord({ id: "stg-p9-2", sourceReference: "src-p9-2" }),
+      validRecord({ id: "stg-p9-3", sourceReference: "src-p9-3" }),
     ];
 
     const stagingRepo = new InMemoryStagingRepository(records);
@@ -320,7 +333,7 @@ describe("Pillar 3 — Auditability", () => {
     const useCase = new CreateLedgerEventUseCase(ledgerRepo, new NoOpAuditLogger());
 
     for (let i = 1; i <= 5; i++) {
-      await useCase.execute(makeValidCommand({ sourceReference: `audit-src-${i}` }));
+      await useCase.execute(makeExpectedCommand({ sourceReference: `audit-src-${i}` }));
     }
 
     const chain = await ledgerRepo.findAll();
