@@ -4,3 +4,4 @@ read_file.sh
 .env
 logs
 dist
+coverage/
