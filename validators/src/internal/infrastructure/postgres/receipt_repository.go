@@ -76,6 +76,8 @@ func (r *ReceiptRepository) FetchAllByProposalIDs(ctx context.Context, proposalI
 		       COALESCE(TRIM(TO_CHAR(r.downloaded_value, 'FM999999999990.00')), '') AS downloaded_value,
 		       r.discharge_date,
 		       COALESCE(r.receipt_status, '') AS receipt_status,
+		       COALESCE(r.installment_percentage, 0)::numeric,
+		       COALESCE(r.amount_to_pay, 0)::numeric,
 		       p.created_at
 		FROM receipts r
 		JOIN proposals p ON p.id = r.proposal_id
@@ -93,13 +95,38 @@ func (r *ReceiptRepository) FetchAllByProposalIDs(ctx context.Context, proposalI
 			&rec.ID, &rec.ProposalID, &rec.ProposalNumber,
 			&rec.InstallmentNumber, &rec.PaymentStatus,
 			&rec.DownloadedValue, &rec.DischargeDate,
-			&rec.ReceiptStatus, &rec.CreatedAt,
+			&rec.ReceiptStatus,
+			&rec.InstallmentPercentage, &rec.AmountToPay,
+			&rec.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
 		receipts = append(receipts, rec)
 	}
 	return receipts, rows.Err()
+}
+
+func (r *ReceiptRepository) FetchActiveReceiptLinksByReceiptIDs(ctx context.Context, receiptIDs []string) ([]domain.AdvanceReportReceipt, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT advance_report_id::text, receipt_id::text, is_active
+		FROM advance_report_receipts
+		WHERE receipt_id::text = ANY($1)
+		  AND is_active = true
+	`, pq.Array(receiptIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var links []domain.AdvanceReportReceipt
+	for rows.Next() {
+		var l domain.AdvanceReportReceipt
+		if err := rows.Scan(&l.AdvanceReportID, &l.ReceiptID, &l.IsActive); err != nil {
+			return nil, err
+		}
+		links = append(links, l)
+	}
+	return links, rows.Err()
 }
 
 // Help the Rule-003

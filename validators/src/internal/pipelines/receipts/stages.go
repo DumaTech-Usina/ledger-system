@@ -52,6 +52,16 @@ func (s *EnrichmentStage) Execute(ctx context.Context, pctx *pipeline.Context[*D
 		return err
 	}
 	pctx.Data.ValidationCtx.CanonicalReceipts = receipts
+
+	receiptIDs := make([]string, len(receipts))
+	for i, r := range receipts {
+		receiptIDs[i] = r.ID
+	}
+	links, err := s.receiptRepo.FetchActiveReceiptLinksByReceiptIDs(ctx, receiptIDs)
+	if err != nil {
+		return err
+	}
+	pctx.Data.ValidationCtx.AdvanceReportReceipts = links
 	return nil
 }
 

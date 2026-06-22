@@ -80,6 +80,14 @@ func WithReceiptStatus(s string) func(*domain.Receipt) {
 	return func(r *domain.Receipt) { r.ReceiptStatus = s }
 }
 
+func WithReceiptAmountToPay(v float64) func(*domain.Receipt) {
+	return func(r *domain.Receipt) { r.AmountToPay = v }
+}
+
+func WithReceiptInstallmentPercentage(p float64) func(*domain.Receipt) {
+	return func(r *domain.Receipt) { r.InstallmentPercentage = p }
+}
+
 // NewCanonicalProposal returns a CLEAN canonical proposal with sensible defaults.
 func NewCanonicalProposal(opts ...func(*domain.CanonicalProposal)) domain.CanonicalProposal {
 	p := domain.CanonicalProposal{
@@ -211,6 +219,10 @@ func WithLinkAdvanceID(id string) func(*domain.AdvanceReportReceipt) {
 
 func WithLinkReceiptID(id string) func(*domain.AdvanceReportReceipt) {
 	return func(l *domain.AdvanceReportReceipt) { l.ReceiptID = id }
+}
+
+func WithLinkIsActive(v bool) func(*domain.AdvanceReportReceipt) {
+	return func(l *domain.AdvanceReportReceipt) { l.IsActive = v }
 }
 
 // NewAdvanceReceipt returns a receipt projection with sensible defaults.

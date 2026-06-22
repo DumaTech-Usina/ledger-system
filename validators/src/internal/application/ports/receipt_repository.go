@@ -16,4 +16,7 @@ type ReceiptRepository interface {
 	// FetchAllByProposalIDs returns all receipts for the given proposal IDs
 	// regardless of payment status, including full monetary fields.
 	FetchAllByProposalIDs(ctx context.Context, proposalIDs []string) ([]domain.Receipt, error)
+	// FetchActiveReceiptLinksByReceiptIDs returns active advance_report_receipts
+	// entries keyed by receipt ID, used by RULE-REC-002.
+	FetchActiveReceiptLinksByReceiptIDs(ctx context.Context, receiptIDs []string) ([]domain.AdvanceReportReceipt, error)
 }

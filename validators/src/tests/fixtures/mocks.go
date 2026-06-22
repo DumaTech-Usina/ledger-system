@@ -82,9 +82,12 @@ func (m *MockProposalRepository) FetchByBlockingKey(_ context.Context, key strin
 // MockReceiptRepository satisfies ports.ReceiptRepository.
 type MockReceiptRepository struct {
 	Receipts             []domain.Receipt
+	ActiveLinks          []domain.AdvanceReportReceipt
 	DistinctPaidCount    int
 	FalseDelinquentCount int
 	Err                  error
+	// ErrLinks overrides Err for FetchActiveReceiptLinksByReceiptIDs only.
+	ErrLinks error
 }
 
 func (m *MockReceiptRepository) FetchPaidByProposalIDs(_ context.Context, _ []string) ([]domain.Receipt, error) {
@@ -109,6 +112,13 @@ func (m *MockReceiptRepository) FetchFalseDelinquentProposalIDs(_ context.Contex
 
 func (m *MockReceiptRepository) FetchAllByProposalIDs(_ context.Context, _ []string) ([]domain.Receipt, error) {
 	return m.Receipts, m.Err
+}
+
+func (m *MockReceiptRepository) FetchActiveReceiptLinksByReceiptIDs(_ context.Context, _ []string) ([]domain.AdvanceReportReceipt, error) {
+	if m.ErrLinks != nil {
+		return nil, m.ErrLinks
+	}
+	return m.ActiveLinks, nil
 }
 
 // MockCanonicalProposalReader satisfies ports.CanonicalProposalReader.

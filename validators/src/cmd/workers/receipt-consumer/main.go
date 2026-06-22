@@ -41,6 +41,7 @@ func main() {
 
 	ruleRegistry := engine.NewRegistry()
 	ruleRegistry.MustRegister(receiptRules.NewRule001())
+	ruleRegistry.MustRegister(receiptRules.NewRule002())
 	eng := engine.NewValidationEngine(ruleRegistry, engine.Parallel)
 
 	handler := jobs.NewReceiptCanonicalHandler(receiptRepo, canonicalRepo, eng)

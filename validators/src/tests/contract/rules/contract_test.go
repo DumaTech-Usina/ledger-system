@@ -90,6 +90,7 @@ func TestRule002_Contract(t *testing.T)        { verifyRuleContract(t, proposals
 func TestRule003_Contract(t *testing.T)        { verifyRuleContract(t, proposals.NewRule003()) }
 func TestRule004_Contract(t *testing.T)        { verifyRuleContract(t, proposals.NewRule004()) }
 func TestReceiptRule001_Contract(t *testing.T) { verifyRuleContract(t, receiptRules.NewRule001()) }
+func TestReceiptRule002_Contract(t *testing.T) { verifyRuleContract(t, receiptRules.NewRule002()) }
 
 func TestRuleAdv001_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv001()) }
 func TestRuleAdv002_Contract(t *testing.T) { verifyRuleContract(t, advanceRules.NewRuleAdv002()) }

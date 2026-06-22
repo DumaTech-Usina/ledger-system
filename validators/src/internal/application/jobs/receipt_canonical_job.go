@@ -67,6 +67,7 @@ func (j *ReceiptCanonicalJob) Run(ctx context.Context, startAnchor string, onBat
 		anchor        string
 		proposalCount int
 		receipts      []domain.Receipt
+		links         []domain.AdvanceReportReceipt
 	}
 
 	proposalCh := make(chan proposalBatch, 1)
@@ -107,8 +108,16 @@ func (j *ReceiptCanonicalJob) Run(ctx context.Context, startAnchor string, onBat
 			if err != nil {
 				return fmt.Errorf("receipt fetch failed (anchor=%q): %w", batch.anchor, err)
 			}
+			receiptIDs := make([]string, len(receipts))
+			for i, r := range receipts {
+				receiptIDs[i] = r.ID
+			}
+			links, err := j.receiptRepo.FetchActiveReceiptLinksByReceiptIDs(gctx, receiptIDs)
+			if err != nil {
+				return fmt.Errorf("advance receipt links fetch failed (anchor=%q): %w", batch.anchor, err)
+			}
 			select {
-			case receiptCh <- enrichedBatch{anchor: batch.anchor, proposalCount: batch.count, receipts: receipts}:
+			case receiptCh <- enrichedBatch{anchor: batch.anchor, proposalCount: batch.count, receipts: receipts, links: links}:
 			case <-gctx.Done():
 				return gctx.Err()
 			}
@@ -123,6 +132,7 @@ func (j *ReceiptCanonicalJob) Run(ctx context.Context, startAnchor string, onBat
 		for batch := range receiptCh {
 			vctx := rules.NewValidationContext()
 			vctx.CanonicalReceipts = batch.receipts
+			vctx.AdvanceReportReceipts = batch.links
 			results := j.engine.Run(gctx, vctx)
 			canonicals := buildReceiptCanonicals(batch.receipts, results)
 			if err := j.canonicalRepo.SaveAll(gctx, canonicals); err != nil {

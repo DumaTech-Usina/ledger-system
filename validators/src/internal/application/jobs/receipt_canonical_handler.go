@@ -46,8 +46,18 @@ func (h *ReceiptCanonicalHandler) Handle(ctx context.Context, body []byte) error
 		return fmt.Errorf("batch_id=%s receipt fetch: %w", batch.BatchID, err)
 	}
 
+	receiptIDs := make([]string, len(receipts))
+	for i, r := range receipts {
+		receiptIDs[i] = r.ID
+	}
+	links, err := h.receiptRepo.FetchActiveReceiptLinksByReceiptIDs(ctx, receiptIDs)
+	if err != nil {
+		return fmt.Errorf("batch_id=%s advance receipt links fetch: %w", batch.BatchID, err)
+	}
+
 	vctx := rules.NewValidationContext()
 	vctx.CanonicalReceipts = receipts
+	vctx.AdvanceReportReceipts = links
 	results := h.eng.Run(ctx, vctx)
 	canonicals := buildReceiptCanonicals(receipts, results)
 
