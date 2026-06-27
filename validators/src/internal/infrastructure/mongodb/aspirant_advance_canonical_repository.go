@@ -45,6 +45,7 @@ func (r *AspiantAdvanceCanonicalRepository) SaveAll(ctx context.Context, records
 				"broker_id":         rec.BrokerID,
 				"is_paid":           rec.IsPaid,
 				"is_cancelled":      rec.IsCancelled,
+				"created_at":        rec.CreatedAt,
 				"updated_at":        now,
 			}}).
 			SetUpsert(true)

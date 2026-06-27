@@ -175,6 +175,10 @@ func WithAdvanceID(id string) func(*domain.AdvanceReport) {
 	return func(ar *domain.AdvanceReport) { ar.ID = id }
 }
 
+func WithAdvanceCreatedAt(t time.Time) func(*domain.AdvanceReport) {
+	return func(ar *domain.AdvanceReport) { ar.CreatedAt = t }
+}
+
 func WithIsPaid(v bool) func(*domain.AdvanceReport) {
 	return func(ar *domain.AdvanceReport) { ar.IsPaid = v }
 }

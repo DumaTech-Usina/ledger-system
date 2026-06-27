@@ -39,7 +39,8 @@ func (r *AdvanceReportRepository) FetchBatch(ctx context.Context, afterID string
 			       COALESCE(is_canceled, false),
 			       COALESCE(amount_to_pay, 0)::numeric,
 			       COALESCE(advance_fee, 0)::numeric,
-			       COALESCE(broker_id::text, '')
+			       COALESCE(broker_id::text, ''),
+			       COALESCE(created_at, updated_at)
 			FROM advance_reports
 			WHERE tenant_id = 1
 			ORDER BY id
@@ -52,7 +53,8 @@ func (r *AdvanceReportRepository) FetchBatch(ctx context.Context, afterID string
 			       COALESCE(is_canceled, false),
 			       COALESCE(amount_to_pay, 0)::numeric,
 			       COALESCE(advance_fee, 0)::numeric,
-			       COALESCE(broker_id::text, '')
+			       COALESCE(broker_id::text, ''),
+			       COALESCE(created_at, updated_at)
 			FROM advance_reports
 			WHERE tenant_id = 1
 			  AND id::text > $1
@@ -74,7 +76,8 @@ func (r *AdvanceReportRepository) FetchByIDs(ctx context.Context, ids []string) 
 		       COALESCE(is_canceled, false),
 		       COALESCE(amount_to_pay, 0)::numeric,
 		       COALESCE(advance_fee, 0)::numeric,
-		       COALESCE(broker_id::text, '')
+		       COALESCE(broker_id::text, ''),
+		       COALESCE(created_at, updated_at)
 		FROM advance_reports
 		WHERE id::text = ANY($1)
 	`, pq.Array(ids))
@@ -137,13 +140,18 @@ func scanAdvanceReports(rows *sql.Rows) ([]domain.AdvanceReport, error) {
 	var reports []domain.AdvanceReport
 	for rows.Next() {
 		var ar domain.AdvanceReport
+		var createdAt sql.NullTime
 		if err := rows.Scan(
 			&ar.ID, &ar.TenantID,
 			&ar.IsPaid, &ar.IsCancelled,
 			&ar.AmountToPay, &ar.AdvanceFee,
 			&ar.BrokerID,
+			&createdAt,
 		); err != nil {
 			return nil, err
+		}
+		if createdAt.Valid {
+			ar.CreatedAt = createdAt.Time
 		}
 		reports = append(reports, ar)
 	}

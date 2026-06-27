@@ -31,6 +31,7 @@ export class MongoAdvanceReportReader implements AdvanceReportReader {
           broker_id: 1,
           is_paid: 1,
           is_cancelled: 1,
+          created_at: 1,
           updated_at: 1,
         },
       },
@@ -43,7 +44,7 @@ export class MongoAdvanceReportReader implements AdvanceReportReader {
         brokerId: doc.broker_id as string,
         isPaid: doc.is_paid as boolean,
         isCancelled: doc.is_cancelled as boolean,
-        createdAt: doc.updated_at instanceof Date ? doc.updated_at : new Date(),
+        createdAt: doc.created_at,
       };
     }
   }

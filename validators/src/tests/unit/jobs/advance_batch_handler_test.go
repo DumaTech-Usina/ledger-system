@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"validators/src/internal/application/jobs"
 	"validators/src/internal/domain"
@@ -62,6 +63,30 @@ func TestAdvanceBatchHandler_Handle_ValidBatch_SavesOneCanonicalPerAdvance(t *te
 	}
 	if len(cRepo.Saved) != 3 {
 		t.Errorf("expected 3 canonical records, got %d", len(cRepo.Saved))
+	}
+}
+
+// TestAdvanceBatchHandler_Handle_PropagatesSourceCreatedAt verifies that the advance's
+// factual source registration time flows into the canonical record, rather than the
+// canonicalization run time — so the Ledger dates the event when the fact occurred.
+func TestAdvanceBatchHandler_Handle_PropagatesSourceCreatedAt(t *testing.T) {
+	createdAt := time.Date(2026, 1, 5, 9, 30, 0, 0, time.UTC)
+	repo := &fixtures.MockAdvanceReportRepository{
+		Advances: []domain.AdvanceReport{
+			fixtures.NewAdvanceReport(fixtures.WithAdvanceCreatedAt(createdAt)),
+		},
+	}
+	cRepo := &fixtures.MockAspiantAdvanceCanonicalRepository{}
+
+	handler := newAdvanceHandler(repo, cRepo, &fixtures.MockCanonicalProposalStatusChecker{}, &fixtures.MockAuditRepository{})
+	if err := handler.Handle(context.Background(), validAdvanceBatchMsg([]string{"advance-1"})); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cRepo.Saved) != 1 {
+		t.Fatalf("expected 1 canonical record, got %d", len(cRepo.Saved))
+	}
+	if !cRepo.Saved[0].CreatedAt.Equal(createdAt) {
+		t.Errorf("expected canonical CreatedAt %v, got %v", createdAt, cRepo.Saved[0].CreatedAt)
 	}
 }
 

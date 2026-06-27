@@ -11,6 +11,7 @@ type AdvanceReport struct {
 	AmountToPay float64 // advance_reports.amount_to_pay (ADV-001, ADV-006)
 	AdvanceFee  float64 // advance_reports.advance_fee   (ADV-008)
 	BrokerID    string  // advance_reports.broker_id      (ADV-009)
+	CreatedAt time.Time
 }
 
 // AdvanceReportReceipt represents an active link in advance_report_receipts.

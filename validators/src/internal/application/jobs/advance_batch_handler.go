@@ -177,7 +177,6 @@ func buildAdvanceCanonicals(vctx *rules.ValidationContext, results []rules.RuleR
 		}
 	}
 
-	now := time.Now()
 	out := make([]domain.CanonicalAdvanceReport, len(vctx.AdvanceReports))
 	for i, ar := range vctx.AdvanceReports {
 		rec := domain.CanonicalAdvanceReport{
@@ -189,7 +188,7 @@ func buildAdvanceCanonicals(vctx *rules.ValidationContext, results []rules.RuleR
 			BrokerID:        ar.BrokerID,
 			IsPaid:          ar.IsPaid,
 			IsCancelled:     ar.IsCancelled,
-			CreatedAt:       now,
+			CreatedAt: ar.CreatedAt,
 		}
 		if violations, found := violationIndex[ar.ID]; found {
 			rec.Status = domain.AdvanceReportStatusSuspicious
