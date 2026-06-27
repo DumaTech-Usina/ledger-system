@@ -8,6 +8,7 @@ import { MongoRejectedEventRepository } from '../../persistence/mongodb/MongoRej
 import { MongoStagingRepository } from '../../persistence/mongodb/MongoStagingRepository';
 import { FileAuditLogger } from '../../audit/FileAuditLogger';
 import { StagingRecordValidator } from '../../../core/application/services/StagingRecordValidator';
+import { ReceiptLineageResolver } from '../../../core/application/services/ReceiptLineageResolver';
 import { CreateLedgerEventUseCase } from '../../../core/application/use-cases/CreateLedgerEventUseCase';
 import { RejectLedgerEventUseCase } from '../../../core/application/use-cases/RejectLedgerEventUseCase';
 import { StagingPostingJob } from '../../jobs/StagingPostingJob';
@@ -25,8 +26,9 @@ async function main(): Promise<void> {
   const validator    = new StagingRecordValidator(ledgerRepo);
   const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit);
   const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit);
+  const lineageResolver = new ReceiptLineageResolver(ledgerRepo);
 
-  const job    = new StagingPostingJob(stagingRepo, validator, createUseCase, rejectUseCase);
+  const job    = new StagingPostingJob(stagingRepo, validator, createUseCase, rejectUseCase, lineageResolver);
   const worker = new StagingWorker(env.RABBITMQ_URL, job, ['staging.receipt', 'staging.advance']);
 
   const shutdown = async (signal: string) => {

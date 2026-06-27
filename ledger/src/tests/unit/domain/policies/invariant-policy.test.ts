@@ -214,9 +214,9 @@ describe("InvariantPolicy.validateSemantic", () => {
   // Step 10 — relatedEventId required for contract-mandated links
   // ============================
   describe("relatedEventId linkage", () => {
-    it("throws when COMMISSION_RECEIVED carries no relatedEventId (orphan settlement)", () => {
-      // A received must SETTLE a receivable that a COMMISSION_EXPECTED originated; without
-      // an ignition link it is a phantom settlement and must never reach the ledger.
+    it("throws when COMMISSION_RECEIVED has no relatedEventId and does not declare unresolved origin", () => {
+      // A normal received must link to its originating COMMISSION_EXPECTED. Omitting the link
+      // without explicitly declaring the lineage unresolved is a phantom settlement and is rejected.
       const props = makeValidProps({ relatedEventId: null });
       expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
         "requires relatedEventId",
@@ -226,6 +226,27 @@ describe("InvariantPolicy.validateSemantic", () => {
     it("passes when the contract-required relatedEventId is present", () => {
       // makeValidProps supplies the ignition link by default.
       expect(() => InvariantPolicy.validateSemantic(makeValidProps())).not.toThrow();
+    });
+
+    it("passes an orphan COMMISSION_RECEIVED: null relatedEventId + UNKNOWN_ORIGIN + requiresFollowup", () => {
+      // An orphan is a first-class fact whose lineage is currently unknown. It is admitted only
+      // when it explicitly declares that: reason UNKNOWN_ORIGIN with requiresFollowup = true.
+      const props = makeValidProps({
+        relatedEventId: null,
+        reason: reason(ReasonType.UNKNOWN_ORIGIN, ConfidenceLevel.MEDIUM, true),
+      });
+      expect(() => InvariantPolicy.validateSemantic(props)).not.toThrow();
+    });
+
+    it("throws for null relatedEventId with UNKNOWN_ORIGIN but requiresFollowup = false", () => {
+      // The unresolved declaration is incomplete without the follow-up flag.
+      const props = makeValidProps({
+        relatedEventId: null,
+        reason: reason(ReasonType.UNKNOWN_ORIGIN, ConfidenceLevel.MEDIUM, false),
+      });
+      expect(() => InvariantPolicy.validateSemantic(props)).toThrow(
+        "requires relatedEventId",
+      );
     });
   });
 

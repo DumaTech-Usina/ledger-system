@@ -64,6 +64,10 @@ func WithProposalID(pid string) func(*domain.Receipt) {
 	return func(r *domain.Receipt) { r.ProposalID = pid }
 }
 
+func WithReceiptCreatedAt(t time.Time) func(*domain.Receipt) {
+	return func(r *domain.Receipt) { r.CreatedAt = t }
+}
+
 func WithInstallmentNumber(n int) func(*domain.Receipt) {
 	return func(r *domain.Receipt) { r.InstallmentNumber = n }
 }

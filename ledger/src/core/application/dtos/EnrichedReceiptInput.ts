@@ -11,4 +11,6 @@ export interface EnrichedReceiptInput {
   operatorId: string;
   brokerId: string | null;
   registeredAt: string;
+  /** Receipt creation date (source ABERTA-start). Dates the commission accrual. */
+  createdAt: string;
 }

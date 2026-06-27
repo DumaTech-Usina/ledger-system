@@ -2,6 +2,7 @@ import { EVENT_CONTRACTS } from "../contracts/EventContract";
 import { CreateLedgerEventProps } from "../entities/LedgerEvent";
 import { ConfidenceLevel } from "../enums/ConfidenceLevel";
 import { ObjectNature } from "../enums/ObjectNature";
+import { ReasonType } from "../enums/ReasonType";
 import { Relation } from "../enums/Relation";
 import {
   ECONOMIC_EFFECT_RELATION_MATRIX,
@@ -182,11 +183,22 @@ export class InvariantPolicy {
     // ===============================
     // 🔟 Enforce relatedEventId for events that must link to an origin
     // ===============================
+    //
+    // An origin-linked event may omit its link only when it explicitly declares the lineage
+    // unresolved: reason UNKNOWN_ORIGIN with requiresFollowup = true. This records an orphan
+    // (e.g. a commission received with no known originating expected) as a first-class fact,
+    // to be linked later by a new fact — never fabricating an origin or rejecting the fact.
 
     if (contract.requiresRelatedEventId && !props.relatedEventId) {
-      throw new Error(
-        `Event type ${props.eventType} requires relatedEventId pointing to its originating event`,
-      );
+      const declaresUnresolvedOrigin =
+        props.reason?.type === ReasonType.UNKNOWN_ORIGIN &&
+        props.reason.requiresFollowup === true;
+
+      if (!declaresUnresolvedOrigin) {
+        throw new Error(
+          `Event type ${props.eventType} requires relatedEventId pointing to its originating event`,
+        );
+      }
     }
 
     // ===============================

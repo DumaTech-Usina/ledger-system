@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"validators/src/internal/application/jobs"
+	"validators/src/internal/domain"
 	"validators/src/internal/engine"
 	receiptRules "validators/src/internal/rules/receipts"
 	"validators/src/tests/fixtures"
@@ -64,6 +65,32 @@ func TestReceiptCanonicalJob_Run_SingleBatch(t *testing.T) {
 	}
 	if len(cRepo.Saved) != 3 {
 		t.Errorf("expected 3 saved canonicals, got %d", len(cRepo.Saved))
+	}
+}
+
+func TestReceiptCanonicalJob_Run_PropagatesReceiptCreatedAt(t *testing.T) {
+	// The receipt's CreatedAt (true ABERTA-start) must flow into the canonical record
+	// so the ledger can date the commission accrual by it.
+	createdAt := time.Date(2026, 1, 5, 12, 0, 0, 0, time.UTC)
+	cRepo := &fixtures.MockAspiantReceiptCanonicalRepository{}
+	job := newReceiptJob(
+		&fixtures.MockCanonicalProposalReader{Proposals: fixtures.CanonicalProposalList(1)},
+		&fixtures.MockReceiptRepository{
+			Receipts: []domain.Receipt{
+				fixtures.NewReceipt(fixtures.WithReceiptCreatedAt(createdAt)),
+			},
+		},
+		cRepo, 10,
+	)
+
+	if _, err := job.Run(context.Background(), "", nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(cRepo.Saved) != 1 {
+		t.Fatalf("expected 1 saved canonical, got %d", len(cRepo.Saved))
+	}
+	if !cRepo.Saved[0].CreatedAt.Equal(createdAt) {
+		t.Errorf("expected canonical CreatedAt %v, got %v", createdAt, cRepo.Saved[0].CreatedAt)
 	}
 }
 

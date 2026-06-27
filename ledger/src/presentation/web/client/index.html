@@ -4,15 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
     <title>Ledger · Usina</title>
+    <!-- Pinned CDN versions. Do NOT use unpinned tags (e.g. @babel/standalone with
+         no version): it resolves to "latest", which jumped to Babel 8 and breaks the
+         in-browser text/babel runner with "Cannot use import statement outside a module". -->
     <script
       crossorigin
-      src="https://unpkg.com/react@18/umd/react.development.js"
+      src="https://unpkg.com/react@18.3.1/umd/react.development.js"
     ></script>
     <script
       crossorigin
-      src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"
+      src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
     ></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
     <style>
       *,
       *::before,

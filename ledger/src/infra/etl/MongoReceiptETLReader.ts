@@ -52,6 +52,7 @@ export class MongoReceiptETLReader implements ReceiptETLReader {
           downloaded_value: 1,
           discharge_date: 1,
           receipt_status: 1,
+          created_at: 1,
           "proposal.number": 1,
           "proposal.client_id": 1,
           "proposal.effective_date": 1,
@@ -62,6 +63,21 @@ export class MongoReceiptETLReader implements ReceiptETLReader {
 
     for await (const doc of cursor) {
       const p = doc.proposal as Record<string, unknown>;
+      const registeredAt = isNonEmptyString(p.effective_date)
+        ? (p.effective_date as string)
+        : p.updated_at instanceof Date
+          ? (p.updated_at as Date).toISOString()
+          : new Date().toISOString();
+      // Receipt creation date == true ABERTA-start == commission accrual date.
+      // TODO(confirm): canonical field name assumed `created_at`. Falls back to
+      // registeredAt when absent so the pipeline degrades gracefully instead of the
+      // builder rejecting every receipt on an invalid date.
+      const createdAt =
+        doc.created_at instanceof Date
+          ? doc.created_at.toISOString()
+          : isNonEmptyString(doc.created_at)
+            ? (doc.created_at as string)
+            : registeredAt;
       yield {
         receiptId: doc.receipt_id as string,
         proposalId: doc.proposal_id as string,
@@ -75,11 +91,8 @@ export class MongoReceiptETLReader implements ReceiptETLReader {
         proposalNumber: p.number as string,
         operatorId: p.client_id as string,
         brokerId: null,
-        registeredAt: isNonEmptyString(p.effective_date)
-          ? (p.effective_date as string)
-          : p.updated_at instanceof Date
-            ? (p.updated_at as Date).toISOString()
-            : new Date().toISOString(),
+        registeredAt,
+        createdAt,
       };
     }
   }

@@ -17,7 +17,7 @@ import (
 
 const (
 	amqpURL      = "amqp://guest:guest@localhost:5672/"
-	pollInterval = 30 * time.Minute
+	pollInterval = 1 * time.Minute
 )
 
 func main() {

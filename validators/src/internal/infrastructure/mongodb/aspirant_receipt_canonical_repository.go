@@ -38,6 +38,7 @@ func (r *AspiantReceiptCanonicalRepository) SaveAll(ctx context.Context, records
 				"downloaded_value":   rec.DownloadedValue,
 				"discharge_date":     rec.DischargeDate,
 				"receipt_status":     rec.ReceiptStatus,
+				"created_at":         rec.CreatedAt,
 				"metadata":           rec.Metadata,
 				"updated_at":         now,
 			}}).

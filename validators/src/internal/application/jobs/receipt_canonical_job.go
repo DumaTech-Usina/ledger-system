@@ -187,6 +187,7 @@ func buildReceiptCanonicals(receipts []domain.Receipt, results []rules.RuleResul
 			DownloadedValue:   receiptRules.NormalizeDownloadedValue(rec.DownloadedValue),
 			DischargeDate:     rec.DischargeDate,
 			ReceiptStatus:     rec.ReceiptStatus,
+			CreatedAt:         rec.CreatedAt,
 			Metadata:          map[string]string{"receiptValidationStatus": status},
 		})
 	}

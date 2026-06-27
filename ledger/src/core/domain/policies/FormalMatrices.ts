@@ -120,6 +120,8 @@ export const REASON_EFFECT_MATRIX: Partial<
   // CASH_INTERNAL: pool reallocation between Usina accounts; CASH_OUT: actual distribution to broker
   [ReasonType.COMMISSION_SPLIT]: [EconomicEffect.CASH_INTERNAL, EconomicEffect.CASH_OUT],
   [ReasonType.LATE_IDENTIFIED_COMMISSION]: [EconomicEffect.NON_CASH],
+  // Accrual of an expected commission receivable — a bookkeeping entry, no cash movement.
+  [ReasonType.COMMISSION_ACCRUAL]: [EconomicEffect.NON_CASH],
   [ReasonType.COMMISSION_WAIVER]: [EconomicEffect.NON_CASH],
 
   // Crédito
@@ -165,6 +167,8 @@ export const REASON_RELATION_MATRIX: Partial<
   // ADJUSTS for pool redistribution; SETTLES/ORIGINATES when paying out commission payables
   [ReasonType.COMMISSION_SPLIT]: [Relation.ADJUSTS, Relation.SETTLES, Relation.ORIGINATES],
   [ReasonType.LATE_IDENTIFIED_COMMISSION]: [Relation.ORIGINATES, Relation.ADJUSTS],
+  // An accrual only ever originates a receivable.
+  [ReasonType.COMMISSION_ACCRUAL]: [Relation.ORIGINATES],
   [ReasonType.COMMISSION_WAIVER]: [Relation.SETTLES, Relation.REVERSES],
 
   // Crédito

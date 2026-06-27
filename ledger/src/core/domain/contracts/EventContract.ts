@@ -40,11 +40,16 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
   },
 
   /**
-   * Cash (or directly-acknowledged) settlement of a commission receivable. A received
-   * can never exist on its own: it must SETTLE a receivable that a COMMISSION_EXPECTED
-   * originated. relatedEventId must therefore point to that originating COMMISSION_EXPECTED —
-   * the commission's "ignition point" — preserving causality and CFO-level traceability
-   * even though the accrual carries no cash effect.
+   * Cash (or directly-acknowledged) settlement of a commission receivable. Normally a received
+   * SETTLES a receivable that a COMMISSION_EXPECTED originated, and relatedEventId points to that
+   * originating COMMISSION_EXPECTED — the commission's "ignition point" — preserving causality
+   * and CFO-level traceability.
+   *
+   * Orphan exception: a received whose origin the ledger has no evidence for (e.g. a receipt first
+   * seen already discharged, with no ABERTA leg ever emitted) is still a valid fact. It may be
+   * recorded with relatedEventId = null only when it explicitly declares its lineage unresolved —
+   * reason UNKNOWN_ORIGIN with requiresFollowup = true (enforced in InvariantPolicy step 10). Its
+   * lineage is established later by a new fact, never by fabricating an origin here.
    */
   [EventType.COMMISSION_RECEIVED]: {
     economicEffects: [EconomicEffect.CASH_IN],
@@ -59,6 +64,7 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     reasons: [
       ReasonType.COMMISSION_PAYMENT,
       ReasonType.DIRECT_COMMISSION_PAYMENT_AUTHORIZED,
+      ReasonType.UNKNOWN_ORIGIN, // orphan: lineage unresolved, requiresFollowup (see InvariantPolicy step 10)
     ],
     minConfidence: ConfidenceLevel.MEDIUM,
     requiresRelatedEventId: true,
@@ -330,8 +336,9 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     ],
 
     reasons: [
+      ReasonType.COMMISSION_ACCRUAL, // default for a normal/synthesized accrual
       ReasonType.COMMISSION_PAYMENT,
-      ReasonType.LATE_IDENTIFIED_COMMISSION,
+      ReasonType.LATE_IDENTIFIED_COMMISSION, // reserved for genuinely late-identified cases
     ],
     minConfidence: ConfidenceLevel.MEDIUM,
   },

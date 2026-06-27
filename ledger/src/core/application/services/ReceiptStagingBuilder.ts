@@ -56,6 +56,13 @@ export class ReceiptStagingBuilder {
       );
       return null;
     }
+    const createdAt = new Date(input.createdAt);
+    if (isNaN(createdAt.getTime())) {
+      this.warn(
+        `Rejected receipt ${input.receiptId}: createdAt is not a valid date`,
+      );
+      return null;
+    }
 
     const DISCHARGED = "BAIXADO";
     const NOT_DISCHARGED = new Set(["NÃO BAIXADO", "ABERTA"]);
@@ -122,7 +129,7 @@ export class ReceiptStagingBuilder {
       economicEffect: isBaixado
         ? EconomicEffect.CASH_IN
         : EconomicEffect.NON_CASH,
-      occurredAt: isBaixado ? input.dischargeDate! : registeredAt.toISOString(),
+      occurredAt: isBaixado ? input.dischargeDate! : createdAt.toISOString(),
       sourceAt: input.dischargeDate,
       amount:
         isFinite(downloadedValue) && downloadedValue > 0
@@ -130,7 +137,7 @@ export class ReceiptStagingBuilder {
           : "0",
       currency: "BRL",
       sourceSystem: "integration",
-      sourceReference: `receipt:${input.receiptId}:receivable`,
+      sourceReference: `receipt:${input.receiptId}:${isBaixado ? "received" : "expected"}`,
       normalizationVersion: "1.0",
       normalizationWorkerId: this.workerId,
       parties: isBaixado
@@ -149,7 +156,7 @@ export class ReceiptStagingBuilder {
       reason: {
         type: isBaixado
           ? ReasonType.COMMISSION_PAYMENT
-          : ReasonType.LATE_IDENTIFIED_COMMISSION,
+          : ReasonType.COMMISSION_ACCRUAL,
         description: "Receipt receivable recognition",
         confidence: ConfidenceLevel.MEDIUM,
         requiresFollowup: false,

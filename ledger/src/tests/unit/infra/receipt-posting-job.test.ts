@@ -7,6 +7,7 @@ import { EventType } from "../../../core/domain/enums/EventType";
 import { Direction } from "../../../core/domain/enums/Direction";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
 import { Relation } from "../../../core/domain/enums/Relation";
+import { ReasonType } from "../../../core/domain/enums/ReasonType";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ function baixado(overrides: Partial<EnrichedReceiptInput> = {}): EnrichedReceipt
     operatorId: "op-001",
     brokerId: null,
     registeredAt: "2024-05-01T08:00:00Z",
+    createdAt: "2024-04-15T08:00:00Z",
     ...overrides,
   };
 }
@@ -41,6 +43,7 @@ function naoBaixado(overrides: Partial<EnrichedReceiptInput> = {}): EnrichedRece
     operatorId: "op-001",
     brokerId: null,
     registeredAt: "2024-05-01T08:00:00Z",
+    createdAt: "2024-04-15T08:00:00Z",
     ...overrides,
   };
 }
@@ -66,13 +69,13 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
       expect(record.economicEffect).toBe(EconomicEffect.CASH_IN);
     });
 
-    it("the source reference encodes the receipt identity so the same receipt can never be posted twice — deduplication depends on this exact format", async () => {
+    it("the received leg's source reference is suffixed ':received' so it never collides with the expected leg — the split is what lets an ABERTA→BAIXADO receipt post both legs", async () => {
       const { job, stagingRepo } = buildJob();
 
       await job.run([baixado({ receiptId: "rcpt-unique" })]);
 
       const [record] = await stagingRepo.findAll();
-      expect(record.sourceReference).toBe("receipt:rcpt-unique:receivable");
+      expect(record.sourceReference).toBe("receipt:rcpt-unique:received");
     });
 
     it("the BAIXADO record's parties show money flowing: the operator pays out and Usina receives the exact commission amount", async () => {
@@ -167,10 +170,28 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
       expect(receivable?.relation).toBe(Relation.ORIGINATES);
     });
 
-    it("a NÃO BAIXADO record is timestamped to the proposal registration date — since no discharge occurred, the obligation is anchored to when the proposal was first registered", async () => {
+    it("the expected leg's source reference is suffixed ':expected' — deterministic and distinct from the received leg's ':received'", async () => {
       const { job, stagingRepo } = buildJob();
 
-      await job.run([naoBaixado({ registeredAt: "2024-04-20T09:00:00Z" })]);
+      await job.run([naoBaixado({ receiptId: "rcpt-exp" })]);
+
+      const [record] = await stagingRepo.findAll();
+      expect(record.sourceReference).toBe("receipt:rcpt-exp:expected");
+    });
+
+    it("the expected leg carries the COMMISSION_ACCRUAL reason — a normal accrual is not 'late identified'", async () => {
+      const { job, stagingRepo } = buildJob();
+
+      await job.run([naoBaixado()]);
+
+      const [record] = await stagingRepo.findAll();
+      expect(record.reason?.type).toBe(ReasonType.COMMISSION_ACCRUAL);
+    });
+
+    it("a NÃO BAIXADO record is timestamped to the receipt's creation date (ABERTA-start) — the accrual is anchored to when the receivable economically arose", async () => {
+      const { job, stagingRepo } = buildJob();
+
+      await job.run([naoBaixado({ createdAt: "2024-04-20T09:00:00Z" })]);
 
       const [record] = await stagingRepo.findAll();
       expect(record.occurredAt).toBe("2024-04-20T09:00:00.000Z");
@@ -195,6 +216,12 @@ describe("ReceiptPostingJob — converting raw receipts into ledger staging reco
     it("a receipt whose proposal carries an invalid registeredAt is dropped — an unparseable date on the proposal cannot anchor the obligation in the ledger timeline", async () => {
       const { job, stagingRepo } = buildJob();
       await job.run([naoBaixado({ registeredAt: "not-a-date" })]);
+      expect(await stagingRepo.findAll()).toHaveLength(0);
+    });
+
+    it("a receipt with an invalid createdAt is dropped — the accrual date cannot be anchored, so the receivable would land in a nonsense period", async () => {
+      const { job, stagingRepo } = buildJob();
+      await job.run([naoBaixado({ createdAt: "not-a-date" })]);
       expect(await stagingRepo.findAll()).toHaveLength(0);
     });
 

@@ -1,6 +1,7 @@
 export enum ReasonType {
   // Comissão
   COMMISSION_PAYMENT = "commission_payment",
+  COMMISSION_ACCRUAL = "commission_accrual",
   DIRECT_COMMISSION_PAYMENT_AUTHORIZED = "direct_commission_payment_authorized",
   COMMISSION_SPLIT = "commission_split",
   LATE_IDENTIFIED_COMMISSION = "late_identified_commission",

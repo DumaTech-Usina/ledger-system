@@ -31,6 +31,7 @@ function makeEnriched(
     operatorId: "op-001",
     brokerId: null,
     registeredAt: "2024-05-01T08:00:00Z",
+    createdAt: "2024-04-15T08:00:00Z",
   };
 }
 

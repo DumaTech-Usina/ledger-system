@@ -1,6 +1,7 @@
 import { CreateLedgerEventUseCase } from "../../core/application/use-cases/CreateLedgerEventUseCase";
 import { RejectLedgerEventUseCase } from "../../core/application/use-cases/RejectLedgerEventUseCase";
 import { StagingRecordValidator } from "../../core/application/services/StagingRecordValidator";
+import { ReceiptLineageResolver } from "../../core/application/services/ReceiptLineageResolver";
 import { StagingRepository } from "../../core/application/repositories/StagingRepository";
 import { StagingRecord, ValidatedStagingRecord } from "../../core/application/dtos/StagingRecord";
 import { StagingMessageHandler } from "../../core/application/ports/StagingMessageHandler";
@@ -22,6 +23,9 @@ export class StagingPostingJob implements StagingMessageHandler {
     private readonly validator: StagingRecordValidator,
     private readonly createUseCase: CreateLedgerEventUseCase,
     private readonly rejectUseCase: RejectLedgerEventUseCase,
+    /** Resolves commission_received → commission_expected lineage at the posting boundary.
+     *  Optional: when absent the job posts records as-is (Step-1 behavior — orphans rejected). */
+    private readonly resolver?: ReceiptLineageResolver,
   ) {}
 
   async handle(record: StagingRecord): Promise<void> {
@@ -37,8 +41,13 @@ export class StagingPostingJob implements StagingMessageHandler {
         });
         await this.stagingRepo.markAsRejected(record.id);
       } else {
-        const command = StagingPostingJob.toCreateCommand(record as ValidatedStagingRecord);
-        await this.createUseCase.execute(command);
+        const validated = record as ValidatedStagingRecord;
+        const command = StagingPostingJob.toCreateCommand(validated);
+        const relatedEventId = this.resolver
+          ? await this.resolver.resolve(validated)
+          : (command.relatedEventId ?? null);
+        const finalCommand = StagingPostingJob.markOrphanIfUnlinked(command, relatedEventId);
+        await this.createUseCase.execute({ ...finalCommand, relatedEventId });
         await this.stagingRepo.markAsAccepted(record.id);
       }
     } catch (err) {
@@ -62,6 +71,31 @@ export class StagingPostingJob implements StagingMessageHandler {
     for (const record of records) {
       await this.handle(record);
     }
+  }
+
+  /**
+   * When a commission_received has no resolvable originating expected, record it as a
+   * first-class orphan: lineage currently unknown, to be linked later by a new fact. We never
+   * fabricate an origin. The unresolved state is declared with reason UNKNOWN_ORIGIN and
+   * requiresFollowup (the only way InvariantPolicy admits a received with a null link).
+   * Confidence is preserved (the payment fact itself is not in doubt — only its lineage).
+   */
+  private static markOrphanIfUnlinked(
+    command: CreateLedgerEventCommand,
+    relatedEventId: string | null,
+  ): CreateLedgerEventCommand {
+    if (command.eventType !== EventType.COMMISSION_RECEIVED || relatedEventId !== null) {
+      return command;
+    }
+    return {
+      ...command,
+      reason: {
+        type: ReasonType.UNKNOWN_ORIGIN,
+        description: "Commission received with unresolved origin",
+        confidence: command.reason?.confidence ?? ConfidenceLevel.MEDIUM,
+        requiresFollowup: true,
+      },
+    };
   }
 
   private static toCreateCommand(record: ValidatedStagingRecord): CreateLedgerEventCommand {

@@ -22,14 +22,50 @@ function d(iso: string): string {
   return new Date(iso).toISOString();
 }
 
-// ─── Position A — Comissão originada e depois recebida da operadora ──
+// ─── Position A — Comissão originada (accrual) e depois recebida da operadora ──
+// Valid expected → received pair. The received's relatedEventId is wired at runtime
+// in main() (the expected's ledger id is only known after it posts).
 
-const a1: StagingRecord = {
+const expectedA: StagingRecord = {
+  id: "stg-a0",
+  status: "pending",
+  eventType: "commission_expected",
+  economicEffect: "non_cash",
+  occurredAt: d("2026-06-05T09:00:00Z"),
+  amount: "4500.00",
+  currency: "BRL",
+  sourceSystem: "normalizer",
+  sourceReference: "COM-A-EXPECT",
+  normalizationVersion: NORM_VERSION,
+  normalizationWorkerId: WORKER,
+  parties: [
+    { partyId: "party-operadora-a", role: "payer", direction: "neutral" },
+    { partyId: "party-usina", role: "payee", direction: "neutral" },
+  ],
+  objects: [
+    {
+      objectId: "obj-com-rec-a",
+      objectType: "commission_receivable",
+      relation: "originates",
+    },
+  ],
+  reason: {
+    // becomes COMMISSION_ACCRUAL after Step 2; late_identified_commission is the
+    // only currently-valid NON_CASH × ORIGINATES commission reason.
+    type: "late_identified_commission",
+    description: "Comissão esperada (accrual) reconhecida",
+    confidence: "medium",
+    requiresFollowup: false,
+  },
+  reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
+};
+
+const receivedA: StagingRecord = {
   id: "stg-a1",
   status: "pending",
   eventType: "commission_received",
   economicEffect: "cash_in",
-  occurredAt: d("2026-02-20T14:00:00Z"),
+  occurredAt: d("2026-06-15T14:00:00Z"),
   amount: "4500.00",
   currency: "BRL",
   sourceSystem: "normalizer",
@@ -44,42 +80,6 @@ const a1: StagingRecord = {
     },
     {
       partyId: "party-usina",
-      role: "payee",
-      direction: "in",
-      amount: "4500.00",
-    },
-  ],
-  objects: [
-    {
-      objectId: "obj-com-rec-a",
-      objectType: "commission_receivable",
-      relation: "settles",
-    },
-  ],
-  reason: {
-    type: "commission_payment",
-    description: "Pagamento de comissão recebido da operadora",
-    confidence: "high",
-    requiresFollowup: false,
-  },
-  reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
-};
-
-const a2: StagingRecord = {
-  id: "stg-a2",
-  status: "pending",
-  eventType: "commission_received",
-  economicEffect: "cash_in",
-  occurredAt: d("2026-02-20T14:00:00Z"),
-  amount: "4500.00",
-  currency: "BRL",
-  sourceSystem: "normalizer",
-  sourceReference: "COM-A-SETTLE",
-  normalizationVersion: NORM_VERSION,
-  normalizationWorkerId: WORKER,
-  parties: [
-    {
-      partyId: "party-partner-xyz",
       role: "payee",
       direction: "in",
       amount: "4500.00",
@@ -186,55 +186,46 @@ const b2: StagingRecord = {
   },
 };
 
-// ─── Position C — Comissão aguardando pagamento ──
+// ─── Position C — Comissão esperada e posteriormente paga ──
 
-const c1: StagingRecord = {
-  id: "stg-c1",
+const expectedC: StagingRecord = {
+  id: "stg-c0",
   status: "pending",
-  eventType: "commission_received",
-  economicEffect: "cash_in",
-  occurredAt: d("2026-03-01T08:30:00Z"),
+  eventType: "commission_expected",
+  economicEffect: "non_cash",
+  occurredAt: d("2026-06-08T08:30:00Z"),
   amount: "2750.00",
   currency: "BRL",
   sourceSystem: "normalizer",
-  sourceReference: "COM-C-ORIG",
+  sourceReference: "COM-C-EXPECT",
   normalizationVersion: NORM_VERSION,
   normalizationWorkerId: WORKER,
   parties: [
-    {
-      partyId: "party-operadora-c",
-      role: "payer",
-      direction: "neutral",
-    },
-    {
-      partyId: "party-usina",
-      role: "payee",
-      direction: "in",
-      amount: "2750.00",
-    },
+    { partyId: "party-operadora-c", role: "payer", direction: "neutral" },
+    { partyId: "party-usina", role: "payee", direction: "neutral" },
   ],
   objects: [
     {
       objectId: "obj-com-rec-c",
       objectType: "commission_receivable",
-      relation: "settles",
+      relation: "originates",
     },
   ],
   reason: {
-    type: "commission_payment",
-    description: "Pagamento de comissão identificado",
+    type: "late_identified_commission",
+    description: "Comissão esperada (accrual) reconhecida",
     confidence: "medium",
-    requiresFollowup: true,
+    requiresFollowup: false,
   },
   reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
 };
 
-const c2: StagingRecord = {
+const receivedC: StagingRecord = {
   id: "stg-c2",
   status: "pending",
   eventType: "commission_received",
   economicEffect: "cash_in",
-  occurredAt: d("2026-03-11T10:00:00Z"),
+  occurredAt: d("2026-06-18T10:00:00Z"),
   amount: "2750.00",
   currency: "BRL",
   sourceSystem: "normalizer",
@@ -390,15 +381,47 @@ const e2: StagingRecord = {
 };
 
 // ─────────────────────────────────────────────────────────────
-// Comissão recebida da operadora
+// Comissão recebida da operadora (par esperado → recebido)
 // ─────────────────────────────────────────────────────────────
+
+const expected001: StagingRecord = {
+  id: "stg-000",
+  status: "pending",
+  eventType: "commission_expected",
+  economicEffect: "non_cash",
+  occurredAt: d("2026-06-10T10:00:00Z"),
+  amount: "5000.00",
+  currency: "BRL",
+  sourceSystem: "normalizer",
+  sourceReference: "COM-001-EXPECT",
+  normalizationVersion: NORM_VERSION,
+  normalizationWorkerId: WORKER,
+  parties: [
+    { partyId: "party-operadora", role: "payer", direction: "neutral" },
+    { partyId: "party-usina", role: "payee", direction: "neutral" },
+  ],
+  objects: [
+    {
+      objectId: "obj-commission-001",
+      objectType: "commission_receivable",
+      relation: "originates",
+    },
+  ],
+  reason: {
+    type: "late_identified_commission",
+    description: "Comissão esperada (accrual) reconhecida",
+    confidence: "medium",
+    requiresFollowup: false,
+  },
+  reporter: { reporterType: "system", reporterId: WORKER, channel: "batch" },
+};
 
 const commissionReceived: StagingRecord = {
   id: "stg-001",
   status: "pending",
   eventType: "commission_received",
   economicEffect: "cash_in",
-  occurredAt: d("2026-03-01T10:00:00Z"),
+  occurredAt: d("2026-06-20T10:00:00Z"),
   amount: "5000.00",
   currency: "BRL",
   sourceSystem: "normalizer",
@@ -651,16 +674,19 @@ async function main(): Promise<void> {
   const ledgerRepo = new InMemoryLedgerEventRepository();
   const rejectedRepo = new InMemoryRejectedEventRepository();
 
+  // Order matters: each commission_expected must precede the commission_received
+  // that settles its receivable, so the lineage lookup below finds it.
   const allSeeds = [
-    a1,
-    a2,
+    expectedA,
+    receivedA,
     b1,
     b2,
-    c1,
-    c2,
+    expectedC,
+    receivedC,
     d1,
     e1,
     e2,
+    expected001,
     commissionReceived,
     advancePayment,
   ];
@@ -682,7 +708,25 @@ async function main(): Promise<void> {
   console.log("=".repeat(64));
   console.log(`  ${allSeeds.length} registros de staging carregados\n`);
 
-  await job.run();
+  // Dev-harness lineage resolution — a preview of the Step 2 ReceiptLineageResolver.
+  // A commission_received must link to the commission_expected that originated its
+  // receivable; the expected's ledger id only exists after it posts, so we resolve it
+  // here (in array order) instead of hardcoding a relatedEventId on the seed.
+  for (const record of allSeeds) {
+    if (record.eventType === "commission_received" && !record.relatedEventId) {
+      const receivable = record.objects?.find(
+        (o) => o.objectType === "commission_receivable",
+      );
+      if (receivable?.objectId) {
+        const onObject = await ledgerRepo.findByObjectId(receivable.objectId);
+        const expected = onObject.find(
+          (e) => e.eventType === "commission_expected",
+        );
+        if (expected) record.relatedEventId = expected.id.value;
+      }
+    }
+    await job.handle(record);
+  }
 
   const allEvents = await ledgerRepo.findAll();
   const allRejected = await rejectedRepo.findAll();

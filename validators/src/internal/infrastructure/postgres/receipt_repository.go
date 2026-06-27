@@ -78,7 +78,7 @@ func (r *ReceiptRepository) FetchAllByProposalIDs(ctx context.Context, proposalI
 		       COALESCE(r.receipt_status, '') AS receipt_status,
 		       COALESCE(r.installment_percentage, 0)::numeric,
 		       COALESCE(r.amount_to_pay, 0)::numeric,
-		       p.created_at
+		       COALESCE(r.created_at, p.created_at) AS created_at
 		FROM receipts r
 		JOIN proposals p ON p.id = r.proposal_id
 		WHERE r.proposal_id = ANY($1::integer[])

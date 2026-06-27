@@ -5,6 +5,7 @@ import { TypeOrmLedgerEventRepository } from "./infra/persistence/typeorm/TypeOr
 import { MongoRejectedEventRepository } from "./infra/persistence/mongodb/MongoRejectedEventRepository";
 import { MongoStagingRepository } from "./infra/persistence/mongodb/MongoStagingRepository";
 import { StagingRecordValidator } from "./core/application/services/StagingRecordValidator";
+import { ReceiptLineageResolver } from "./core/application/services/ReceiptLineageResolver";
 import { CashEventListingService } from "./core/application/services/CashEventListingService";
 import { CashPositionService } from "./core/application/services/CashPositionService";
 import { CashStatementService } from "./core/application/services/CashStatementService";
@@ -38,11 +39,13 @@ async function bootstrap(): Promise<void> {
   const validator = new StagingRecordValidator(ledgerRepo);
   const createUseCase = new CreateLedgerEventUseCase(ledgerRepo, audit);
   const rejectUseCase = new RejectLedgerEventUseCase(rejectedRepo, audit);
+  const lineageResolver = new ReceiptLineageResolver(ledgerRepo);
   const job = new StagingPostingJob(
     stagingRepo,
     validator,
     createUseCase,
     rejectUseCase,
+    lineageResolver,
   );
 
   // ── Staging job (runs once on boot, extend to interval/cron as needed) ─────
