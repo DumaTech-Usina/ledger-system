@@ -1,0 +1,19 @@
+# Reinstalled inside the image; never ship the host copy
+node_modules
+dist
+coverage
+
+# Secrets & local runtime artifacts — must never enter the build context
+.env
+.env.*
+!.env.example
+logs
+*.log
+
+# Not needed to build/run the service
+src/tests
+.git
+.gitignore
+Dockerfile
+.dockerignore
+README.md
