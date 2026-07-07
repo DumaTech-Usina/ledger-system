@@ -1,0 +1,11 @@
+# Environment / secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Build output
+/bin/
+*.exe
+
+# OS junk
+.DS_Store

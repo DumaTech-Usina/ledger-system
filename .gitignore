@@ -1,0 +1,18 @@
+# OS / editor junk
+.DS_Store
+
+# Environment / secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Database dumps & backups — real financial data, keep out of git
+*.sql
+*.dump
+*.sql.gz
+*.bak
+
+# Dependencies / build output (safety net; each service also has its own ignore)
+node_modules/
+dist/
+coverage/
