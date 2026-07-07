@@ -17,6 +17,7 @@ import { cashStatementRoutes } from "./routes/cashStatementRoutes";
 import { cashMovementsRoutes } from "./routes/cashMovementsRoutes";
 import { DashboardService } from "../../../core/application/services/DashboardService";
 import { BookHealthService } from "../../../core/application/services/BookHealthService";
+import { healthRoutes, ReadinessProbe } from "./routes/healthRoutes";
 
 interface ServerDeps {
   ledgerRepo: LedgerEventRepository;
@@ -27,10 +28,14 @@ interface ServerDeps {
   cashPositionService: CashPositionService;
   cashStatementService: CashStatementService;
   cashListingService: CashEventListingService;
+  readiness: ReadinessProbe;
 }
 
 export function createServer(deps: ServerDeps) {
   const app = express();
+
+  // Liveness/readiness first, so probes stay cheap and never depend on route setup below.
+  app.use(healthRoutes(deps.readiness));
 
   app.use(express.static(path.join(__dirname, "..", "client")));
 

@@ -51,6 +51,17 @@ async function bootstrap(): Promise<void> {
   // ── Staging job (runs once on boot, extend to interval/cron as needed) ─────
   await job.run();
 
+  // ── Readiness probe ────────────────────────────────────────────────────────
+  // Pings both datastores; a failure is reported as `false`, never thrown, so /ready
+  // can return 503 (route traffic away) without crashing the process.
+  const readiness = async () => {
+    const [postgres, mongo] = await Promise.all([
+      AppDataSource.query("SELECT 1").then(() => true).catch(() => false),
+      mongoDb.command({ ping: 1 }).then(() => true).catch(() => false),
+    ]);
+    return { postgres, mongo };
+  };
+
   // ── HTTP server ────────────────────────────────────────────────────────────
   const app = createServer({
     ledgerRepo,
@@ -61,6 +72,7 @@ async function bootstrap(): Promise<void> {
     cashPositionService,
     cashStatementService,
     cashListingService,
+    readiness,
   });
 
   const server = app.listen(env.SERVER_PORT, () => {

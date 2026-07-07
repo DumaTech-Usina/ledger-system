@@ -762,7 +762,7 @@ async function main(): Promise<void> {
   const cashPositionService  = new CashPositionService(ledgerRepo);
   const cashStatementService = new CashStatementService(ledgerRepo, "party-usina");
   const cashListingService   = new CashEventListingService(ledgerRepo);
-  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo, positionService, usinaPartyId: "party-usina", cashPositionService, cashStatementService, cashListingService });
+  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo, positionService, usinaPartyId: "party-usina", cashPositionService, cashStatementService, cashListingService, readiness: async () => ({ postgres: true, mongo: true }) });
 
   app.listen(PORT, () => {
     console.log(
