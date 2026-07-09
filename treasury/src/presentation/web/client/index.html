@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Treasury</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #ffffff; --ink: #1c2430; --muted: #6b7683;
+    --line: #e5e8ec; --accent: #3b5bdb; --accent-weak: #eef1fd;
+    --ok: #1f9d55; --ok-weak: #e9f7ef; --bad: #d4351c; --bad-weak: #fdecea;
+    --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+         color: var(--ink); background: var(--bg); }
+  .app { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .side { background: #0f1626; color: #c8d0dd; padding: 22px 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; color: #fff; font-size: 17px; margin-bottom: 28px; }
+  .brand .dot { width: 22px; height: 22px; border-radius: 6px; background: var(--accent); }
+  .nav a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px;
+           color: #c8d0dd; text-decoration: none; font-weight: 500; cursor: pointer; margin-bottom: 4px; }
+  .nav a:hover { background: #1b2740; color: #fff; }
+  .nav a.active { background: var(--accent); color: #fff; }
+  .nav .ic { width: 16px; text-align: center; opacity: .85; }
+  .side .foot { position: sticky; top: 100vh; color: #6b7683; font-size: 12px; }
+
+  /* Main */
+  .main { display: flex; flex-direction: column; }
+  .topbar { display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 28px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .topbar h1 { font-size: 18px; margin: 0; }
+  .who { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  .who .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent-weak);
+                 color: var(--accent); display: grid; place-items: center; font-weight: 700; }
+  .content { padding: 28px; max-width: 1080px; width: 100%; margin: 0 auto; }
+
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .muted { color: var(--muted); }
+  .page { display: none; } .page.active { display: block; }
+
+  /* Scenario picker */
+  .lead { margin: 0 0 4px; font-size: 22px; }
+  .sub { margin: 0 0 22px; color: var(--muted); }
+  .scenarios { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .scenario { padding: 20px; cursor: pointer; transition: border-color .15s, transform .05s; }
+  .scenario:hover { border-color: var(--accent); }
+  .scenario:active { transform: translateY(1px); }
+  .scenario h3 { margin: 0 0 6px; font-size: 16px; }
+  .scenario p { margin: 0; color: var(--muted); font-size: 14px; }
+  .scenario .go { margin-top: 14px; color: var(--accent); font-weight: 600; font-size: 14px; }
+
+  /* Conversation */
+  .convo { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+  @media (max-width: 900px) { .convo { grid-template-columns: 1fr; } }
+  .chat { padding: 0; overflow: hidden; display: flex; flex-direction: column; min-height: 480px; }
+  .chat-head { padding: 16px 20px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; }
+  .chat-head b { font-size: 15px; } .chat-head a { color: var(--muted); font-size: 13px; cursor: pointer; }
+  .stream { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 78%; padding: 11px 14px; border-radius: 12px; font-size: 14.5px; }
+  .msg.bot { background: #f1f3f6; border-bottom-left-radius: 4px; align-self: flex-start; }
+  .msg.me { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; align-self: flex-end; }
+  .msg.err { background: var(--bad-weak); color: var(--bad); align-self: flex-start; border: 1px solid #f6ccc4; }
+  .composer { border-top: 1px solid var(--line); padding: 14px 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .composer input { flex: 1; min-width: 160px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+  .composer input:focus { outline: 2px solid var(--accent-weak); border-color: var(--accent); }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn { padding: 10px 16px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+  .btn.ghost { background: #eef0f3; color: var(--ink); }
+  .btn:active { transform: translateY(1px); }
+
+  /* Preview / confirm */
+  .confirm { padding: 18px; }
+  .confirm h4 { margin: 0 0 4px; } .confirm .hint { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  .kv { display: grid; grid-template-columns: 130px 1fr; gap: 8px 12px; font-size: 14px; margin-bottom: 16px; }
+  .kv .k { color: var(--muted); } .kv .v { font-weight: 600; }
+  .effect { background: var(--accent-weak); color: #24337a; border-radius: 8px; padding: 10px 12px; font-size: 13.5px; margin-bottom: 16px; }
+  .confirm .actions { display: flex; gap: 10px; }
+
+  /* Lifecycle side panel */
+  .side-panel { padding: 18px; height: fit-content; }
+  .side-panel h4 { margin: 0 0 14px; font-size: 14px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .status { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+  .status .d { width: 8px; height: 8px; border-radius: 50%; }
+  .st-gathering, .st-awaiting_confirmation, .st-submitted { background: #fff7e6; color: #a9701a; } .st-gathering .d { background: #d9a441; }
+  .st-awaiting_confirmation .d, .st-submitted .d { background: #d9a441; }
+  .st-accepted { background: var(--ok-weak); color: var(--ok); } .st-accepted .d { background: var(--ok); }
+  .st-rejected { background: var(--bad-weak); color: var(--bad); } .st-rejected .d { background: var(--bad); }
+  .timeline { list-style: none; margin: 16px 0 0; padding: 0; }
+  .timeline li { position: relative; padding: 0 0 14px 20px; font-size: 13px; }
+  .timeline li::before { content: ""; position: absolute; left: 4px; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .timeline li::after { content: ""; position: absolute; left: 7.5px; top: 12px; bottom: -2px; width: 1px; background: var(--line); }
+  .timeline li:last-child::after { display: none; }
+  .timeline .t { font-weight: 600; } .timeline .d { color: var(--muted); }
+  .banner { padding: 12px 14px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+  .banner.ok { background: var(--ok-weak); color: var(--ok); }
+  .banner.bad { background: var(--bad-weak); color: var(--bad); }
+  .ref { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; }
+  .placeholder { padding: 40px; text-align: center; color: var(--muted); }
+
+  /* Dashboards */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 8px; }
+  .stat { padding: 18px 20px; }
+  .stat .label { color: var(--muted); font-size: 13px; font-weight: 600; }
+  .stat .value { font-size: 24px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .stat .value.pos { color: var(--ok); } .stat .value.neg { color: var(--bad); }
+  .asof { color: var(--muted); font-size: 13px; margin: 12px 0 22px; }
+  .section-title { font-size: 15px; font-weight: 700; margin: 22px 0 12px; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .tbl th { text-align: left; color: var(--muted); font-weight: 600; font-size: 12.5px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .tbl td { padding: 11px 16px; border-bottom: 1px solid var(--line); }
+  .tbl tr:last-child td { border-bottom: 0; }
+  .num { font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pill.in { background: var(--ok-weak); color: var(--ok); } .pill.out { background: var(--bad-weak); color: var(--bad); }
+  .pill.neutral { background: #eef0f3; color: var(--muted); }
+
+  /* Login */
+  .login-screen { display: none; min-height: 100vh; place-items: center; background: #0f1626; padding: 24px; }
+  .login-screen.show { display: grid; }
+  .login-card { width: 360px; max-width: 100%; padding: 32px; }
+  .login-card .brand { justify-content: center; color: var(--ink); margin-bottom: 8px; }
+  .login-card h2 { margin: 0 0 4px; text-align: center; font-size: 20px; }
+  .login-card .sub { text-align: center; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .field input { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+  .field input:focus { outline: 2px solid var(--accent-weak); border-color: var(--accent); }
+  .login-card .btn { width: 100%; justify-content: center; }
+  .login-error { color: var(--bad); background: var(--bad-weak); border-radius: 8px; padding: 9px 12px; font-size: 13.5px; margin-bottom: 12px; display: none; }
+  .login-error.show { display: block; }
+  .who .logout { color: var(--muted); cursor: pointer; margin-left: 4px; font-size: 13px; }
+  .who .logout:hover { color: var(--ink); text-decoration: underline; }
+  .app { display: none; }
+  .app.show { display: grid; }
+</style>
+</head>
+<body>
+<!-- Login -->
+<div id="login" class="login-screen">
+  <div class="login-card card">
+    <div class="brand"><span class="dot"></span> Treasury</div>
+    <h2 data-i18n="ui.login_title">Sign in</h2>
+    <p class="sub" data-i18n="ui.login_subtitle">Sign in to continue.</p>
+    <div id="loginError" class="login-error" data-i18n="ui.login_error">Invalid username or password.</div>
+    <form id="loginForm">
+      <div class="field">
+        <label data-i18n="ui.login_user" for="loginUser">Username</label>
+        <input id="loginUser" autocomplete="username" autofocus />
+      </div>
+      <div class="field">
+        <label data-i18n="ui.login_pass" for="loginPass">Password</label>
+        <input id="loginPass" type="password" autocomplete="current-password" />
+      </div>
+      <button class="btn" type="submit" data-i18n="ui.login_submit">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand"><span class="dot"></span> Treasury</div>
+    <nav class="nav">
+      <a data-page="operations" class="active"><span class="ic">◆</span> <span data-i18n="ui.nav_operations">Operations</span></a>
+      <a data-page="dashboards"><span class="ic">▚</span> <span data-i18n="ui.nav_dashboards">Dashboards</span></a>
+    </nav>
+    <div class="foot" data-i18n="ui.foot">User App · Ledger ecosystem</div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h1 id="pageTitle">Operations</h1>
+      <div class="who">
+        <span class="avatar" id="userInitial">–</span>
+        <span><b id="userName">…</b> · <span id="userRole" class="muted"></span></span>
+        <a id="logout" class="logout" data-i18n="ui.logout">Sign out</a>
+      </div>
+    </div>
+
+    <div class="content">
+      <!-- Operations -->
+      <section id="operations" class="page active">
+        <div id="picker">
+          <h2 class="lead" data-i18n="ui.ops_lead">What would you like to do?</h2>
+          <p class="sub" data-i18n="ui.ops_sub">Tell us the business action — we'll guide you through the rest.</p>
+          <div class="scenarios" id="scenarios"></div>
+        </div>
+
+        <div id="workspace" class="convo" style="display:none">
+          <div class="chat card">
+            <div class="chat-head"><b id="chatTitle"></b><a id="restart" data-i18n="ui.restart">Start over</a></div>
+            <div class="stream" id="stream"></div>
+            <div class="composer" id="composer"></div>
+          </div>
+          <div class="side-panel card">
+            <h4 data-i18n="ui.lifecycle">Lifecycle</h4>
+            <div id="lifecycle"><span class="muted" data-i18n="ui.no_activity">No activity yet.</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dashboards -->
+      <section id="dashboards" class="page">
+        <h2 class="lead" data-i18n="ui.dash_lead">Financial truth</h2>
+        <p class="sub" data-i18n="ui.dash_sub">Read-only views sourced from the Ledger.</p>
+        <div id="dashContent"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script src="./i18n/i18n.js"></script>
+<script src="./i18n/pt-BR.js"></script>
+<script>
+const api = {
+  me: () => fetch("/api/auth/me").then(r => r.ok ? r.json() : null),
+  login: (username, password) => post("/api/auth/login", { username, password }),
+  logout: () => post("/api/auth/logout", {}),
+  scenarios: () => fetch("/api/conversation/scenarios").then(r => r.json()),
+  start: (scenarioId) => post("/api/conversation/start", { scenarioId }),
+  answer: (id, key, value) => post(`/api/conversation/${id}/answer`, { key, value }),
+  preview: (id) => fetch(`/api/conversation/${id}/preview`).then(r => r.json()),
+  submit: (id) => post(`/api/conversation/${id}/submit`, {}),
+  intent: (id) => fetch(`/api/intents/${id}`).then(r => r.json()),
+};
+function post(url, body) {
+  return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+    .then(async r => ({ ok: r.ok, status: r.status, data: await r.json() }));
+}
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const esc = (s) => String(s ?? "").replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+const T = window.I18N;
+
+// ── Navigation ──────────────────────────────────────────────────────────────
+document.querySelectorAll(".nav a").forEach(a => a.onclick = () => {
+  const page = a.dataset.page;
+  document.querySelectorAll(".nav a").forEach(x => x.classList.toggle("active", x === a));
+  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === page));
+  $("#pageTitle").textContent = T.t("ui.page_title_" + page);
+  if (page === "dashboards") renderDashboard();
+});
+
+// ── Dashboards (read-only Ledger truth) ──────────────────────────────────────
+const tableHtml = (cols, rows) =>
+  `<table class="tbl"><thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>`;
+const emptyRow = (n) => `<tr><td colspan="${n}" class="muted">${esc(T.t("ui.dash_empty"))}</td></tr>`;
+
+async function renderDashboard() {
+  const host = $("#dashContent");
+  host.innerHTML = `<div class="card placeholder">${esc(T.t("ui.starting"))}</div>`;
+  let d;
+  try { d = await fetch("/api/dashboard/overview").then(r => r.ok ? r.json() : null); }
+  catch { d = null; }
+  if (!d || !d.available) {
+    host.innerHTML = `<div class="card placeholder">${esc(T.t("ui.dash_unavailable"))}</div>`;
+    return;
+  }
+
+  const cp = d.cashPosition, cur = cp.currency;
+  const netPositive = !String(cp.netCashFlow).startsWith("-");
+  const stat = (label, val, cls = "") =>
+    `<div class="stat card"><div class="label">${esc(label)}</div><div class="value ${cls}">${esc(val)}</div></div>`;
+  const cards =
+    `<div class="stats">
+      ${stat(T.t("ui.dash_cash_in"), T.money(cp.totalCashIn, cur))}
+      ${stat(T.t("ui.dash_cash_out"), T.money(cp.totalCashOut, cur))}
+      ${stat(T.t("ui.dash_net"), T.money(cp.netCashFlow, cur), netPositive ? "pos" : "neg")}
+      ${stat(T.t("ui.dash_receivables"), T.money(cp.openReceivables, cur))}
+    </div>
+    <div class="asof">${esc(T.t("ui.dash_asof", { date: T.date(cp.asOf) }))}</div>`;
+
+  const movRows = (d.movements || []).map(m => {
+    const cls = m.effect === "cash_in" ? "in" : m.effect === "cash_out" ? "out" : "neutral";
+    return `<tr>
+      <td class="num">${esc(T.date(m.occurredAt))}</td>
+      <td><span class="pill ${cls}">${esc(T.cashEffect(m.effect))}</span></td>
+      <td class="num">${esc(T.money(m.amount, cur))}</td>
+      <td>${esc(m.description ?? "—")}</td></tr>`;
+  }).join("") || emptyRow(4);
+  const movements = tableHtml(
+    [T.t("ui.col_date"), T.t("ui.col_type"), T.t("ui.col_amount"), T.t("ui.col_description")], movRows);
+
+  const posRows = (d.positions || []).map(p =>
+    `<tr>
+      <td>${esc(p.objectId)}</td>
+      <td><span class="pill neutral">${esc(T.positionStatus(p.status))}</span></td>
+      <td class="num">${esc(T.money(p.openBalance, p.currency || cur))}</td></tr>`).join("") || emptyRow(3);
+  const positions = tableHtml([T.t("ui.col_object"), T.t("ui.col_status"), T.t("ui.col_open")], posRows);
+
+  host.innerHTML =
+    cards +
+    `<div class="section-title">${esc(T.t("ui.dash_movements"))}</div><div class="card">${movements}</div>` +
+    `<div class="section-title">${esc(T.t("ui.dash_positions"))}</div><div class="card">${positions}</div>`;
+}
+
+// ── Conversation state ──────────────────────────────────────────────────────
+let intentId = null;
+let scenarioId = null;
+
+async function loadScenarios() {
+  const { scenarios } = await api.scenarios();
+  const wrap = $("#scenarios"); wrap.innerHTML = "";
+  scenarios.forEach(s => {
+    const c = el("div", "scenario card");
+    c.innerHTML = `<h3>${esc(T.scenarioTitle(s.id, s.title))}</h3>` +
+                  `<p>${esc(T.scenarioDesc(s.id, s.description))}</p>` +
+                  `<div class="go">${esc(T.t("ui.start"))}</div>`;
+    c.onclick = () => startScenario(s);
+    wrap.appendChild(c);
+  });
+}
+
+function say(kind, text) {
+  const m = el("div", `msg ${kind}`, esc(text));
+  $("#stream").appendChild(m); $("#stream").scrollTop = $("#stream").scrollHeight;
+}
+
+async function startScenario(s) {
+  scenarioId = s.id;
+  $("#picker").style.display = "none";
+  $("#workspace").style.display = "grid";
+  $("#chatTitle").textContent = T.scenarioTitle(s.id, s.title);
+  $("#stream").innerHTML = ""; $("#lifecycle").innerHTML = `<span class="muted">${esc(T.t("ui.starting"))}</span>`;
+  const { data } = await api.start(s.id);
+  intentId = data.intentId;
+  say("bot", T.t("ui.intro", { description: T.scenarioDesc(s.id, s.description) }));
+  renderState(data.state);
+  refreshLifecycle();
+}
+
+function renderState(state) {
+  if (state.kind === "ready") return goPreview();
+  const slot = state.slot;
+  say("bot", T.slotPrompt(scenarioId, slot.key, slot.prompt));
+  const composer = $("#composer"); composer.innerHTML = "";
+
+  if (slot.type === "choice" && slot.choices) {
+    const chips = el("div", "chips");
+    slot.choices.forEach(ch => {
+      const b = el("button", "btn ghost", esc(ch));
+      b.onclick = () => answer(slot.key, ch);
+      chips.appendChild(b);
+    });
+    composer.appendChild(chips);
+  } else {
+    const input = el("input");
+    input.type = slot.type === "money" ? "number" : slot.type === "date" ? "date" : "text";
+    if (slot.type === "money") { input.step = "0.01"; input.placeholder = "0.00"; }
+    input.onkeydown = (e) => { if (e.key === "Enter") send(); };
+    const btn = el("button", "btn", esc(T.t("ui.send")));
+    const send = () => input.value.trim() !== "" || !slot.required ? answer(slot.key, input.value) : input.focus();
+    btn.onclick = send;
+    composer.appendChild(input); composer.appendChild(btn);
+    input.focus();
+  }
+}
+
+async function answer(key, value) {
+  say("me", value === "" ? T.t("ui.skipped") : value);
+  const { data } = await api.answer(intentId, key, value);
+  refreshLifecycle();
+  if (data.error) { say("err", T.message(data.error.message)); renderState(data.state); return; }
+  renderState(data.state);
+}
+
+async function goPreview() {
+  $("#composer").innerHTML = "";
+  const p = await api.preview(intentId);
+  const c = p.candidate;
+  const effectPhrase = c.economicEffect === "cash_in" ? T.t("ui.effect_cash_in") : T.t("ui.effect_cash_out");
+  const card = el("div", "confirm");
+  card.innerHTML = `
+    <h4>${esc(T.t("ui.confirm_title"))}</h4>
+    <div class="hint">${esc(T.t("ui.confirm_hint"))}</div>
+    <div class="kv">
+      <div class="k">${esc(T.t("ui.f_operation"))}</div><div class="v">${esc(T.scenarioTitle(scenarioId, p.scenarioTitle))}</div>
+      <div class="k">${esc(T.t("ui.f_amount"))}</div><div class="v">${esc(T.money(c.amount, c.currency))}</div>
+      <div class="k">${esc(T.t("ui.f_counterparty"))}</div><div class="v">${esc(c.parties[1]?.partyId ?? "—")}</div>
+      <div class="k">${esc(T.t("ui.f_date"))}</div><div class="v">${esc(T.date(c.occurredAt))}</div>
+      ${c.description ? `<div class="k">${esc(T.t("ui.f_description"))}</div><div class="v">${esc(c.description)}</div>` : ""}
+    </div>
+    <div class="effect"><b>${esc(T.t("ui.effect_label"))}</b> ${esc(effectPhrase)}
+      ${esc(T.t("ui.effect_suffix", { amount: T.money(c.amount, c.currency) }))}</div>
+    <div class="actions">
+      <button class="btn" id="confirmBtn">${esc(T.t("ui.confirm_submit"))}</button>
+      <button class="btn ghost" id="cancelBtn">${esc(T.t("ui.back_to_start"))}</button>
+    </div>`;
+  const stream = $("#stream"); stream.appendChild(card); stream.scrollTop = stream.scrollHeight;
+  $("#confirmBtn").onclick = submit;
+  $("#cancelBtn").onclick = restart;
+}
+
+async function submit() {
+  $("#confirmBtn").disabled = true; $("#confirmBtn").textContent = T.t("ui.submitting");
+  const { data } = await api.submit(intentId);
+  const banner = el("div", `banner ${data.status === "accepted" ? "ok" : "bad"}`);
+  banner.innerHTML = data.status === "accepted"
+    ? T.t("ui.accepted", { ref: `<span class="ref">${esc(data.ledgerReference)}</span>` })
+    : T.t("ui.rejected", { reason: esc(T.message(data.reason)) });
+  $("#stream").appendChild(banner); $("#stream").scrollTop = $("#stream").scrollHeight;
+  refreshLifecycle();
+}
+
+async function refreshLifecycle() {
+  if (!intentId) return;
+  const d = await api.intent(intentId);
+  const st = d.intent.status;
+  const items = d.history.map(h => `<li><div class="t">${esc(T.event(h.type))}</div></li>`).join("");
+  $("#lifecycle").innerHTML =
+    `<div class="status st-${st}"><span class="d"></span>${esc(T.status(st))}</div>` +
+    (d.intent.ledgerReference ? `<div style="margin-top:10px" class="ref">${esc(d.intent.ledgerReference)}</div>` : "") +
+    `<ul class="timeline">${items}</ul>`;
+}
+
+function restart() { intentId = null; scenarioId = null; $("#workspace").style.display = "none"; $("#picker").style.display = "block"; }
+$("#restart").onclick = restart;
+
+// ── Auth / session ───────────────────────────────────────────────────────────
+let currentUser = null;
+
+function showLogin() {
+  document.querySelector(".app").classList.remove("show");
+  $("#login").classList.add("show");
+  $("#loginPass").value = "";
+  $("#loginUser").focus();
+}
+
+function showApp(user) {
+  currentUser = user;
+  $("#login").classList.remove("show");
+  document.querySelector(".app").classList.add("show");
+  $("#userName").textContent = user.displayName;
+  $("#userInitial").textContent = (user.displayName || "?").charAt(0).toUpperCase();
+  $("#userRole").textContent = T.role(user.role);
+
+  // Basic RBAC in the UI: only intent creators see the operations picker.
+  if (user.permissions.includes("intent:create")) {
+    loadScenarios();
+  } else {
+    $("#scenarios").innerHTML = `<div class="card placeholder">${esc(T.t("ui.viewer_notice"))}</div>`;
+  }
+}
+
+$("#loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#loginError").classList.remove("show");
+  const { ok, data } = await api.login($("#loginUser").value.trim(), $("#loginPass").value);
+  if (ok && data.user) showApp(data.user);
+  else $("#loginError").classList.add("show");
+});
+
+$("#logout").onclick = async () => { await api.logout(); currentUser = null; restart(); showLogin(); };
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+  T.applyStatic();
+  $("#pageTitle").textContent = T.t("ui.page_title_operations");
+  const me = await api.me();
+  if (me && me.user) showApp(me.user);
+  else showLogin();
+}
+init();
+</script>
+</body>
+</html>

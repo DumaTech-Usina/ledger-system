@@ -1,0 +1,132 @@
+import { randomUUID } from "crypto";
+import type { Candidate } from "../../core/domain/value-objects/Candidate";
+import type { CandidateSubmissionPort, SubmissionOutcome } from "../../core/application/ports/CandidateSubmissionPort";
+import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
+import type { CashPosition, CashMovementsPage, PositionsPage, CashMovement, PositionItem } from "../../core/application/dtos/LedgerReadModels";
+
+/**
+ * DEMO-ONLY in-memory stand-in for the whole Ledger. Implements BOTH the submission boundary and
+ * the read boundary against one store, so an accepted intent shows up in the dashboards
+ * immediately — letting you validate the full create → submit → see-in-dashboard loop without a
+ * running Ledger.
+ *
+ * This is NOT the real Ledger: no invariant matrices, no hash chain, no economic validation beyond
+ * the same stub rules used by StubCandidateSubmissionAdapter. When the integration contract lands,
+ * the real submission adapter + real Ledger reads replace it. Enable with LEDGER_MODE=simulate.
+ */
+
+/** Parses a decimal money string ("1500.00", "+419500.00") into integer cents. */
+function toCents(s: string): bigint {
+  const negative = s.trim().startsWith("-");
+  const [intPart, decPart = ""] = s.trim().replace(/^[+-]/, "").split(".");
+  const cents = BigInt(intPart || "0") * 100n + BigInt((decPart + "00").slice(0, 2) || "0");
+  return negative ? -cents : cents;
+}
+
+function fromCents(cents: bigint): string {
+  const negative = cents < 0n;
+  const abs = negative ? -cents : cents;
+  return `${negative ? "-" : ""}${abs / 100n}.${(abs % 100n).toString().padStart(2, "0")}`;
+}
+
+const isoDay = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d)).toISOString();
+
+interface RecordInput {
+  effect: string;
+  amount: string;
+  currency: string;
+  occurredAt: string;
+  objectType: string;
+  sourceReference: string;
+  description: string | null;
+}
+
+export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerReadPort {
+  private readonly movementStore: CashMovement[] = [];
+  private readonly positionStore: PositionItem[] = [];
+  private readonly seen = new Set<string>();
+  private currency = "BRL";
+  private seq = 0;
+
+  constructor() {
+    // A little seeded history so the dashboard isn't empty before the first intent.
+    this.record({ effect: "cash_in", amount: "88000.00", currency: "BRL", occurredAt: isoDay(2026, 6, 5), objectType: "charge", sourceReference: "charge:seed-1", description: "Cobrança — Grão Verde" });
+    this.record({ effect: "cash_out", amount: "15750.00", currency: "BRL", occurredAt: isoDay(2026, 6, 6), objectType: "purchase", sourceReference: "purchase:seed-2", description: "Compra — Fornecedor Sul" });
+  }
+
+  // ── Submission boundary ────────────────────────────────────────────────────
+  async submit(candidate: Candidate): Promise<SubmissionOutcome> {
+    if (this.seen.has(candidate.sourceReference)) {
+      return { status: "rejected", reason: "Duplicate: this intent was already submitted to the Ledger." };
+    }
+    if ((candidate.description ?? "").toLowerCase().includes("test")) {
+      return { status: "rejected", reason: "Flagged for manual review (description contains 'test')." };
+    }
+    this.seen.add(candidate.sourceReference);
+    const ledgerReference = this.record({
+      effect: candidate.economicEffect,
+      amount: candidate.amount,
+      currency: candidate.currency,
+      occurredAt: candidate.occurredAt,
+      objectType: candidate.objects[0]?.objectType ?? "unknown",
+      sourceReference: candidate.sourceReference,
+      description: candidate.description ?? null,
+    });
+    return { status: "accepted", ledgerReference };
+  }
+
+  private record(input: RecordInput): string {
+    this.currency = input.currency || this.currency;
+    const ledgerReference = `evt_${(++this.seq).toString().padStart(4, "0")}_${randomUUID().slice(0, 4)}`;
+    this.movementStore.unshift({
+      eventId: ledgerReference,
+      occurredAt: input.occurredAt,
+      effect: input.effect,
+      amount: input.amount,
+      sourceReference: input.sourceReference,
+      description: input.description,
+    });
+    this.positionStore.unshift({
+      objectId: input.sourceReference,
+      objectType: input.objectType,
+      status: "open",
+      outcome: "pending",
+      currency: input.currency,
+      totalOriginated: input.amount,
+      openBalance: input.amount,
+      eventCount: 1,
+      lastEventAt: input.occurredAt,
+    });
+    return ledgerReference;
+  }
+
+  // ── Read boundary ──────────────────────────────────────────────────────────
+  async cashPosition(): Promise<CashPosition> {
+    let cashIn = 0n;
+    let cashOut = 0n;
+    for (const m of this.movementStore) {
+      const cents = toCents(m.amount);
+      if (m.effect === "cash_in") cashIn += cents;
+      else if (m.effect === "cash_out") cashOut += cents;
+    }
+    const net = cashIn - cashOut;
+    const sign = net >= 0n ? "+" : "-";
+    return {
+      totalCashIn: fromCents(cashIn),
+      totalCashOut: fromCents(cashOut),
+      netCashFlow: `${sign}${fromCents(net >= 0n ? net : -net)}`,
+      openReceivables: fromCents(cashIn), // demo simplification: charges recorded as receivables
+      contingentExposure: "0.00",
+      currency: this.currency,
+      asOf: new Date().toISOString(),
+    };
+  }
+
+  async cashMovements(params: { partyId: string; limit?: number }): Promise<CashMovementsPage> {
+    return { items: this.movementStore.slice(0, params.limit ?? 50), nextCursor: null, hasMore: false };
+  }
+
+  async positions(params?: { limit?: number }): Promise<PositionsPage> {
+    return { data: this.positionStore.slice(0, params?.limit ?? 50), total: this.positionStore.length };
+  }
+}
