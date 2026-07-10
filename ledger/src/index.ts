@@ -5,6 +5,7 @@ import { TypeOrmLedgerEventRepository } from "./infra/persistence/typeorm/TypeOr
 import { MongoRejectedEventRepository } from "./infra/persistence/mongodb/MongoRejectedEventRepository";
 import { MongoStagingRepository } from "./infra/persistence/mongodb/MongoStagingRepository";
 import { StagingRecordValidator } from "./core/application/services/StagingRecordValidator";
+import { SubmitCandidateUseCase } from "./core/application/use-cases/SubmitCandidateUseCase";
 import { ReceiptLineageResolver } from "./core/application/services/ReceiptLineageResolver";
 import { CashEventListingService } from "./core/application/services/CashEventListingService";
 import { CashPositionService } from "./core/application/services/CashPositionService";
@@ -62,6 +63,9 @@ async function bootstrap(): Promise<void> {
     return { postgres, mongo };
   };
 
+  // ── User App submission ──────────────────────────────────────────────────────
+  const submitCandidate = new SubmitCandidateUseCase(validator, createUseCase, ledgerRepo);
+
   // ── HTTP server ────────────────────────────────────────────────────────────
   const app = createServer({
     ledgerRepo,
@@ -73,6 +77,8 @@ async function bootstrap(): Promise<void> {
     cashStatementService,
     cashListingService,
     readiness,
+    submitCandidate,
+    submitServiceToken: env.LEDGER_SUBMIT_TOKEN,
   });
 
   const server = app.listen(env.SERVER_PORT, () => {

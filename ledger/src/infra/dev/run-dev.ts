@@ -2,6 +2,7 @@ import { CreateLedgerEventUseCase } from "../../core/application/use-cases/Creat
 import { RejectLedgerEventUseCase } from "../../core/application/use-cases/RejectLedgerEventUseCase";
 import { FileAuditLogger } from "../audit/FileAuditLogger";
 import { StagingRecordValidator } from "../../core/application/services/StagingRecordValidator";
+import { SubmitCandidateUseCase } from "../../core/application/use-cases/SubmitCandidateUseCase";
 import { CashEventListingService } from "../../core/application/services/CashEventListingService";
 import { CashPositionService } from "../../core/application/services/CashPositionService";
 import { CashStatementService } from "../../core/application/services/CashStatementService";
@@ -762,7 +763,8 @@ async function main(): Promise<void> {
   const cashPositionService  = new CashPositionService(ledgerRepo);
   const cashStatementService = new CashStatementService(ledgerRepo, "party-usina");
   const cashListingService   = new CashEventListingService(ledgerRepo);
-  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo, positionService, usinaPartyId: "party-usina", cashPositionService, cashStatementService, cashListingService, readiness: async () => ({ postgres: true, mongo: true }) });
+  const submitCandidate = new SubmitCandidateUseCase(validator, createUseCase, ledgerRepo);
+  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo, positionService, usinaPartyId: "party-usina", cashPositionService, cashStatementService, cashListingService, readiness: async () => ({ postgres: true, mongo: true }), submitCandidate, submitServiceToken: process.env.LEDGER_SUBMIT_TOKEN ?? "" });
 
   app.listen(PORT, () => {
     console.log(

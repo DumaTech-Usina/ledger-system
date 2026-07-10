@@ -31,6 +31,9 @@ const envSchema = z.object({
   AUDIT_LOG_DIR: z.string().default("./logs/audit"),
 
   USINA_PARTY_ID: z.string().default("party-usina"),
+
+  /** Service token required on the User App submit endpoint. Empty = endpoint fails closed. */
+  LEDGER_SUBMIT_TOKEN: z.string().default(""),
 });
 
 const result = envSchema.safeParse(process.env);

@@ -18,6 +18,9 @@ import { cashMovementsRoutes } from "./routes/cashMovementsRoutes";
 import { DashboardService } from "../../../core/application/services/DashboardService";
 import { BookHealthService } from "../../../core/application/services/BookHealthService";
 import { healthRoutes, ReadinessProbe } from "./routes/healthRoutes";
+import { submitRoutes } from "./routes/submitRoutes";
+import { requireServiceToken } from "./middleware/serviceAuth";
+import { SubmitCandidateUseCase } from "../../../core/application/use-cases/SubmitCandidateUseCase";
 
 interface ServerDeps {
   ledgerRepo: LedgerEventRepository;
@@ -29,10 +32,13 @@ interface ServerDeps {
   cashStatementService: CashStatementService;
   cashListingService: CashEventListingService;
   readiness: ReadinessProbe;
+  submitCandidate: SubmitCandidateUseCase;
+  submitServiceToken: string;
 }
 
 export function createServer(deps: ServerDeps) {
   const app = express();
+  app.use(express.json());
 
   // Liveness/readiness first, so probes stay cheap and never depend on route setup below.
   app.use(healthRoutes(deps.readiness));
@@ -40,19 +46,30 @@ export function createServer(deps: ServerDeps) {
   app.use(express.static(path.join(__dirname, "..", "client")));
 
   const bookHealthService = new BookHealthService(deps.ledgerRepo);
-  const dashboardService  = new DashboardService(deps.ledgerRepo, deps.positionService, bookHealthService);
-  const cashPositionService  = deps.cashPositionService;
+  const dashboardService = new DashboardService(
+    deps.ledgerRepo,
+    deps.positionService,
+    bookHealthService,
+  );
+  const cashPositionService = deps.cashPositionService;
   const cashStatementService = deps.cashStatementService;
-  const cashListingService   = deps.cashListingService;
+  const cashListingService = deps.cashListingService;
 
-  app.use("/api/dashboard",        dashboardRoutes(dashboardService));
-  app.use("/api/staging",          stagingRoutes(deps.stagingRepo));
-  app.use("/api/events/rejected",  rejectedRoutes(deps.rejectedRepo));
-  app.use("/api/events",           eventRoutes(deps.ledgerRepo));
-  app.use("/api/positions",        positionRoutes(deps.positionService));
-  app.use("/api/cash-position",    cashPositionRoutes(cashPositionService));
-  app.use("/api/cash-statement",   cashStatementRoutes(cashStatementService));
-  app.use("/api/cash-movements",   cashMovementsRoutes(cashListingService));
+  app.use("/api/dashboard", dashboardRoutes(dashboardService));
+  app.use("/api/staging", stagingRoutes(deps.stagingRepo));
+  app.use("/api/events/rejected", rejectedRoutes(deps.rejectedRepo));
+  app.use("/api/events", eventRoutes(deps.ledgerRepo));
+  app.use("/api/positions", positionRoutes(deps.positionService));
+  app.use("/api/cash-position", cashPositionRoutes(cashPositionService));
+  app.use("/api/cash-statement", cashStatementRoutes(cashStatementService));
+  app.use("/api/cash-movements", cashMovementsRoutes(cashListingService));
+
+  // User App ↔ Ledger submission (service-token protected, fails closed).
+  app.use(
+    "/api/intents",
+    requireServiceToken(deps.submitServiceToken),
+    submitRoutes(deps.submitCandidate),
+  );
 
   return app;
 }
