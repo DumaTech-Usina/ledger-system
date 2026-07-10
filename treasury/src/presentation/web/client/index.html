@@ -395,14 +395,24 @@ async function goPreview() {
 }
 
 async function submit() {
-  $("#confirmBtn").disabled = true; $("#confirmBtn").textContent = T.t("ui.submitting");
-  const { data } = await api.submit(intentId);
+  const btn = $("#confirmBtn");
+  btn.disabled = true; btn.textContent = T.t("ui.submitting");
+  const { ok, data } = await api.submit(intentId);
+  refreshLifecycle();
+
+  // Transport/auth error (not a business outcome) → neutral message, keep it retryable.
+  if (!ok || !data.status) {
+    $("#stream").appendChild(el("div", "banner bad", esc(T.t("ui.submit_error"))));
+    $("#stream").scrollTop = $("#stream").scrollHeight;
+    btn.disabled = false; btn.textContent = T.t("ui.confirm_submit");
+    return;
+  }
+
   const banner = el("div", `banner ${data.status === "accepted" ? "ok" : "bad"}`);
   banner.innerHTML = data.status === "accepted"
     ? T.t("ui.accepted", { ref: `<span class="ref">${esc(data.ledgerReference)}</span>` })
     : T.t("ui.rejected", { reason: esc(T.message(data.reason)) });
   $("#stream").appendChild(banner); $("#stream").scrollTop = $("#stream").scrollHeight;
-  refreshLifecycle();
 }
 
 async function refreshLifecycle() {

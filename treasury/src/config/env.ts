@@ -13,9 +13,12 @@ const envSchema = z.object({
    *  - "simulate": one in-memory fake Ledger for BOTH submit + reads → the full create→dashboard
    *                loop works end-to-end without a real Ledger (demo).
    *  - "stub":     stubbed submit + static stub dashboard data (disconnected mock).
-   *  - "live":     real Ledger read API (HTTP); submit still stubbed until the integration contract.
+   *  - "live":     real Ledger over HTTP for BOTH submit and reads (LEDGER_API_URL).
    */
   LEDGER_MODE: z.enum(["simulate", "stub", "live"]).default("simulate"),
+
+  /** Service token sent as a Bearer credential on live submissions to the Ledger. */
+  LEDGER_SUBMIT_TOKEN: z.string().default(""),
 
   /** The usina's party id, used when mapping an intent to a Ledger candidate. */
   USINA_PARTY_ID: z.string().default("party-usina"),

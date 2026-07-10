@@ -48,6 +48,7 @@ I18N.register("pt-BR", {
     submitting: "Enviando…",
     accepted: "✓ Aceito pelo Ledger — referência {ref}",
     rejected: "✕ Rejeitado — {reason}",
+    submit_error: "Não foi possível enviar ao Ledger. Tente novamente.",
 
     required: "Este campo é obrigatório.",
     choose_one: "Escolha uma das opções: {options}.",

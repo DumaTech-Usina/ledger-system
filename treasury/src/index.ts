@@ -4,6 +4,7 @@ import { InMemoryIntentRepository } from "./infra/persistence/InMemoryIntentRepo
 import { InMemoryUserRepository } from "./infra/persistence/InMemoryUserRepository";
 import { InMemoryAuditLog } from "./infra/audit/InMemoryAuditLog";
 import { StubCandidateSubmissionAdapter } from "./infra/submission/StubCandidateSubmissionAdapter";
+import { HttpCandidateSubmissionAdapter } from "./infra/submission/HttpCandidateSubmissionAdapter";
 import { HttpLedgerReadAdapter } from "./infra/ledger-read/HttpLedgerReadAdapter";
 import { StubLedgerReadAdapter } from "./infra/ledger-read/StubLedgerReadAdapter";
 import { InMemoryLedgerSimulator } from "./infra/ledger-sim/InMemoryLedgerSimulator";
@@ -57,7 +58,8 @@ function bootstrap(): void {
     submission = new StubCandidateSubmissionAdapter();
     ledgerRead = new StubLedgerReadAdapter();
   } else {
-    submission = new StubCandidateSubmissionAdapter();
+    // live: real Ledger over HTTP for both submit and reads.
+    submission = new HttpCandidateSubmissionAdapter(env.LEDGER_API_URL, env.LEDGER_SUBMIT_TOKEN);
     ledgerRead = new HttpLedgerReadAdapter(env.LEDGER_API_URL);
   }
   const getDashboard = new GetTreasuryDashboardUseCase(ledgerRead, env.USINA_PARTY_ID);
