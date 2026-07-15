@@ -764,7 +764,7 @@ async function main(): Promise<void> {
   const cashStatementService = new CashStatementService(ledgerRepo, "party-usina");
   const cashListingService   = new CashEventListingService(ledgerRepo);
   const submitCandidate = new SubmitCandidateUseCase(validator, createUseCase, ledgerRepo);
-  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo, positionService, usinaPartyId: "party-usina", cashPositionService, cashStatementService, cashListingService, readiness: async () => ({ postgres: true, mongo: true }), submitCandidate, submitServiceToken: process.env.LEDGER_SUBMIT_TOKEN ?? "" });
+  const app = createServer({ ledgerRepo, rejectedRepo, stagingRepo, positionService, usinaPartyId: "party-usina", cashPositionService, cashStatementService, cashListingService, readiness: async () => ({ postgres: true, mongo: true }), submitCandidate, serviceToken: process.env.LEDGER_SUBMIT_TOKEN ?? "" });
 
   app.listen(PORT, () => {
     console.log(

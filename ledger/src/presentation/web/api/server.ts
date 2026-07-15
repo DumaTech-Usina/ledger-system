@@ -33,15 +33,20 @@ interface ServerDeps {
   cashListingService: CashEventListingService;
   readiness: ReadinessProbe;
   submitCandidate: SubmitCandidateUseCase;
-  submitServiceToken: string;
+  /** Service token guarding the entire Ledger API (reads + writes). Empty = API fails closed. */
+  serviceToken: string;
 }
 
 export function createServer(deps: ServerDeps) {
   const app = express();
   app.use(express.json());
 
-  // Liveness/readiness first, so probes stay cheap and never depend on route setup below.
+  // Liveness/readiness first — unauthenticated probes for the orchestrator/proxy (no data exposed).
   app.use(healthRoutes(deps.readiness));
+
+  // Everything below requires the service token: the Ledger's ENTIRE API surface is protected
+  // (reads included), and fails closed if no token is configured.
+  app.use(requireServiceToken(deps.serviceToken));
 
   app.use(express.static(path.join(__dirname, "..", "client")));
 
@@ -64,12 +69,8 @@ export function createServer(deps: ServerDeps) {
   app.use("/api/cash-statement", cashStatementRoutes(cashStatementService));
   app.use("/api/cash-movements", cashMovementsRoutes(cashListingService));
 
-  // User App ↔ Ledger submission (service-token protected, fails closed).
-  app.use(
-    "/api/intents",
-    requireServiceToken(deps.submitServiceToken),
-    submitRoutes(deps.submitCandidate),
-  );
+  // User App ↔ Ledger submission (protected by the global gate above).
+  app.use("/api/intents", submitRoutes(deps.submitCandidate));
 
   return app;
 }

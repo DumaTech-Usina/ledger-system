@@ -78,7 +78,7 @@ async function bootstrap(): Promise<void> {
     cashListingService,
     readiness,
     submitCandidate,
-    submitServiceToken: env.LEDGER_SUBMIT_TOKEN,
+    serviceToken: env.LEDGER_SUBMIT_TOKEN,
   });
 
   const server = app.listen(env.SERVER_PORT, () => {
