@@ -16,9 +16,11 @@ export interface CashPosition {
 export interface CashMovement {
   eventId: string;
   occurredAt: string;
+  recordedAt: string;
   effect: string; // cash_in | cash_out | cash_internal | non_cash | contingent
   amount: string;
   sourceReference: string;
+  counterparty: string | null;
   description: string | null;
 }
 

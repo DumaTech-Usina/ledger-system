@@ -22,14 +22,14 @@ function wire() {
   };
 }
 
-describe("conversation flow (add_charge)", () => {
+describe("conversation flow (register_payment)", () => {
   it("walks the guided dialog to ready and marks the intent awaiting confirmation", async () => {
     const { repo, start, advance } = wire();
 
-    const { intentId, state } = await start.execute({ scenarioId: "add_charge", userId: "cfo" });
+    const { intentId, state } = await start.execute({ scenarioId: "register_payment", userId: "cfo" });
     expect(state.kind).toBe("question");
 
-    await advance.execute({ intentId, key: "counterparty", value: "ACME" });
+    await advance.execute({ intentId, key: "payee", value: "ACME" });
     await advance.execute({ intentId, key: "amount", value: "1500.00" });
     await advance.execute({ intentId, key: "currency", value: "BRL" });
     const last = await advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });
@@ -41,7 +41,7 @@ describe("conversation flow (add_charge)", () => {
 
   it("rejects an invalid amount without recording it", async () => {
     const { repo, start, advance } = wire();
-    const { intentId } = await start.execute({ scenarioId: "add_charge", userId: "cfo" });
+    const { intentId } = await start.execute({ scenarioId: "register_payment", userId: "cfo" });
 
     const res = await advance.execute({ intentId, key: "amount", value: "abc" });
     expect(res.error).toBeTruthy();

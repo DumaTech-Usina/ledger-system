@@ -1,19 +1,19 @@
 import { describe, it, expect } from "vitest";
 import { DialogEngine } from "../../../core/domain/services/DialogEngine";
-import { addCharge } from "../../../core/domain/scenarios/addCharge";
+import { registerPayment } from "../../../core/domain/scenarios/registerPayment";
 
-const slot = (key: string) => addCharge.slots.find((s) => s.key === key)!;
+const slot = (key: string) => registerPayment.slots.find((s) => s.key === key)!;
 
 describe("DialogEngine.nextState", () => {
   it("asks for the first required slot when nothing is answered", () => {
-    const state = DialogEngine.nextState(addCharge, {});
+    const state = DialogEngine.nextState(registerPayment, {});
     expect(state.kind).toBe("question");
-    if (state.kind === "question") expect(state.slot.key).toBe("counterparty");
+    if (state.kind === "question") expect(state.slot.key).toBe("payee");
   });
 
   it("skips to the next unfilled required slot as answers arrive", () => {
-    const state = DialogEngine.nextState(addCharge, {
-      counterparty: "ACME",
+    const state = DialogEngine.nextState(registerPayment, {
+      payee: "ACME",
       amount: "1500.00",
       currency: "BRL",
     });
@@ -22,8 +22,8 @@ describe("DialogEngine.nextState", () => {
   });
 
   it("is ready when all required slots are filled (optional ones may be blank)", () => {
-    const state = DialogEngine.nextState(addCharge, {
-      counterparty: "ACME",
+    const state = DialogEngine.nextState(registerPayment, {
+      payee: "ACME",
       amount: "1500.00",
       currency: "BRL",
       occurredAt: "2026-07-09",
@@ -50,7 +50,7 @@ describe("DialogEngine.validateAnswer", () => {
   });
 
   it("rejects a required slot left blank", () => {
-    expect(DialogEngine.validateAnswer(slot("counterparty"), "")).not.toBeNull();
+    expect(DialogEngine.validateAnswer(slot("payee"), "")).not.toBeNull();
   });
 
   it("accepts an optional slot left blank", () => {

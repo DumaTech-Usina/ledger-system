@@ -23,10 +23,10 @@ export class StubLedgerReadAdapter implements LedgerReadPort {
     const day = (d: number) => new Date(Date.UTC(2026, 6, d)).toISOString();
     return {
       items: [
-        { eventId: "e1", occurredAt: day(9), effect: "cash_in", amount: "42000.00", sourceReference: "charge:1001", description: "Cobrança — ACME Foods" },
-        { eventId: "e2", occurredAt: day(8), effect: "cash_out", amount: "15750.00", sourceReference: "purchase:2002", description: "Compra — Fornecedor Sul" },
-        { eventId: "e3", occurredAt: day(7), effect: "cash_in", amount: "88000.00", sourceReference: "charge:1000", description: "Cobrança — Grão Verde" },
-        { eventId: "e4", occurredAt: day(6), effect: "cash_out", amount: "9300.00", sourceReference: "advance:3003", description: "Adiantamento — corretor" },
+        { eventId: "e1", occurredAt: day(9), recordedAt: day(9), effect: "cash_in", amount: "42000.00", sourceReference: "charge:1001", counterparty: "ACME Foods", description: "Cobrança — ACME Foods" },
+        { eventId: "e2", occurredAt: day(8), recordedAt: day(8), effect: "cash_out", amount: "15750.00", sourceReference: "purchase:2002", counterparty: "Fornecedor Sul", description: "Compra — Fornecedor Sul" },
+        { eventId: "e3", occurredAt: day(7), recordedAt: day(7), effect: "cash_in", amount: "88000.00", sourceReference: "charge:1000", counterparty: "Grão Verde", description: "Cobrança — Grão Verde" },
+        { eventId: "e4", occurredAt: day(6), recordedAt: day(6), effect: "cash_out", amount: "9300.00", sourceReference: "advance:3003", counterparty: "corretor", description: "Adiantamento — corretor" },
       ],
       nextCursor: null,
       hasMore: false,
@@ -34,12 +34,17 @@ export class StubLedgerReadAdapter implements LedgerReadPort {
   }
 
   async positions(): Promise<PositionsPage> {
+    const at = (mo: number, d: number) => new Date(Date.UTC(2026, mo, d)).toISOString();
     return {
-      total: 3,
+      total: 5,
       data: [
-        { objectId: "charge:1001", objectType: "charge", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "42000.00", openBalance: "42000.00", eventCount: 1, lastEventAt: new Date(Date.UTC(2026, 6, 9)).toISOString() },
-        { objectId: "charge:1000", objectType: "charge", status: "partially_settled", outcome: "pending", currency: "BRL", totalOriginated: "120000.00", openBalance: "32000.00", eventCount: 3, lastEventAt: new Date(Date.UTC(2026, 6, 7)).toISOString() },
-        { objectId: "advance:3003", objectType: "advance", status: "fully_settled", outcome: "gain", currency: "BRL", totalOriginated: "9300.00", openBalance: "0.00", eventCount: 2, lastEventAt: new Date(Date.UTC(2026, 6, 6)).toISOString() },
+        { objectId: "charge:1001", objectType: "charge", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "42000.00", openBalance: "42000.00", eventCount: 1, lastEventAt: at(6, 9) },
+        { objectId: "charge:1000", objectType: "charge", status: "partially_settled", outcome: "pending", currency: "BRL", totalOriginated: "120000.00", openBalance: "32000.00", eventCount: 3, lastEventAt: at(6, 7) },
+        { objectId: "advance:3003", objectType: "advance", status: "fully_settled", outcome: "gain", currency: "BRL", totalOriginated: "9300.00", openBalance: "0.00", eventCount: 2, lastEventAt: at(6, 6) },
+        // Two generic/uncategorized payments (objectType "payable") — one recent, one stale — so the
+        // classification-health panel shows a representative backlog in demo mode.
+        { objectId: "intent:p-88", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(6, 5) },
+        { objectId: "intent:p-42", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(2, 2) },
       ],
     };
   }

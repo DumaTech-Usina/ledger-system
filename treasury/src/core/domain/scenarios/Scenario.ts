@@ -1,6 +1,9 @@
 import { SlotDefinition } from "../value-objects/Slot";
-import { addCharge } from "./addCharge";
-import { recordPurchase } from "./recordPurchase";
+import { registerPayment } from "./registerPayment";
+import { registerPayroll } from "./registerPayroll";
+import { registerInfrastructure } from "./registerInfrastructure";
+import { registerPenalty } from "./registerPenalty";
+import { registerIncentive } from "./registerIncentive";
 
 /**
  * A business intention, defined declaratively as an ordered set of slots. Adding a scenario
@@ -16,8 +19,11 @@ export interface Scenario {
 }
 
 const REGISTRY: Record<string, Scenario> = {
-  [addCharge.id]: addCharge,
-  [recordPurchase.id]: recordPurchase,
+  [registerPayment.id]: registerPayment,
+  [registerPayroll.id]: registerPayroll,
+  [registerInfrastructure.id]: registerInfrastructure,
+  [registerPenalty.id]: registerPenalty,
+  [registerIncentive.id]: registerIncentive,
 };
 
 export function getScenario(id: string): Scenario | undefined {

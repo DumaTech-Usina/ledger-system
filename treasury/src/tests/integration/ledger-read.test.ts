@@ -9,9 +9,11 @@ import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort
 // A fake Ledger returning its real read-API shapes.
 let server: Server;
 let baseUrl: string;
+let lastAuth: string | undefined;
 
 beforeAll(async () => {
   server = createServer((req, res) => {
+    lastAuth = req.headers["authorization"] as string | undefined;
     res.setHeader("content-type", "application/json");
     const path = (req.url || "").split("?")[0];
     if (path === "/api/cash-position") {
@@ -52,6 +54,12 @@ describe("HttpLedgerReadAdapter", () => {
     expect(pos.data[0]).toHaveProperty("openBalance", "1000.00");
     expect(pos.data[0]).not.toHaveProperty("allocationGap"); // trimmed to displayed fields
   });
+
+  it("sends the service token as a Bearer credential when configured", async () => {
+    const adapter = new HttpLedgerReadAdapter(baseUrl, "read-tkn");
+    await adapter.cashPosition();
+    expect(lastAuth).toBe("Bearer read-tkn");
+  });
 });
 
 describe("GetTreasuryDashboardUseCase", () => {
@@ -71,7 +79,7 @@ describe("GetTreasuryDashboardUseCase", () => {
       positions: () => Promise.reject(new Error("down")),
     };
     const d = await new GetTreasuryDashboardUseCase(failing, "party-usina").execute();
-    expect(d).toEqual({ available: false, cashPosition: null, movements: null, positions: null });
+    expect(d).toEqual({ available: false, cashPosition: null, movements: null, positions: null, classificationHealth: null });
   });
 
   it("stub adapter returns representative data", async () => {

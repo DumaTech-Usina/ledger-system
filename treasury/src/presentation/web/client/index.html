@@ -273,16 +273,36 @@ async function renderDashboard() {
     </div>
     <div class="asof">${esc(T.t("ui.dash_asof", { date: T.date(cp.asOf) }))}</div>`;
 
+  const h = d.classificationHealth;
+  let health = "";
+  if (h) {
+    const oldest = h.oldestDays === null ? "—" : T.t("ui.dash_days", { n: h.oldestDays });
+    const agingPills =
+      `<span class="pill neutral">${esc(T.t("ui.dash_aging_fresh"))}: ${h.aging.fresh}</span> ` +
+      `<span class="pill neutral">${esc(T.t("ui.dash_aging_recent"))}: ${h.aging.recent}</span> ` +
+      `<span class="pill ${h.aging.stale > 0 ? "out" : "neutral"}">${esc(T.t("ui.dash_aging_stale"))}: ${h.aging.stale}</span>`;
+    health =
+      `<div class="section-title">${esc(T.t("ui.dash_classification"))}</div>` +
+      `<div class="stats">
+        ${stat(T.t("ui.dash_uncategorized"), String(h.uncategorizedCount))}
+        ${stat(T.t("ui.dash_share"), h.sharePercent + "%")}
+        ${stat(T.t("ui.dash_oldest"), oldest)}
+      </div>
+      <div class="card"><div class="aging">${agingPills}</div>
+      <div class="asof">${esc(T.t("ui.dash_classification_hint"))}</div></div>`;
+  }
+
   const movRows = (d.movements || []).map(m => {
     const cls = m.effect === "cash_in" ? "in" : m.effect === "cash_out" ? "out" : "neutral";
     return `<tr>
       <td class="num">${esc(T.date(m.occurredAt))}</td>
+      <td class="num">${esc(T.date(m.recordedAt))}</td>
       <td><span class="pill ${cls}">${esc(T.cashEffect(m.effect))}</span></td>
       <td class="num">${esc(T.money(m.amount, cur))}</td>
-      <td>${esc(m.description ?? "—")}</td></tr>`;
-  }).join("") || emptyRow(4);
+      <td>${esc(m.counterparty ?? "—")}</td></tr>`;
+  }).join("") || emptyRow(5);
   const movements = tableHtml(
-    [T.t("ui.col_date"), T.t("ui.col_type"), T.t("ui.col_amount"), T.t("ui.col_description")], movRows);
+    [T.t("ui.col_date"), T.t("ui.col_recorded"), T.t("ui.col_type"), T.t("ui.col_amount"), T.t("ui.col_counterparty")], movRows);
 
   const posRows = (d.positions || []).map(p =>
     `<tr>
@@ -293,6 +313,7 @@ async function renderDashboard() {
 
   host.innerHTML =
     cards +
+    health +
     `<div class="section-title">${esc(T.t("ui.dash_movements"))}</div><div class="card">${movements}</div>` +
     `<div class="section-title">${esc(T.t("ui.dash_positions"))}</div><div class="card">${positions}</div>`;
 }

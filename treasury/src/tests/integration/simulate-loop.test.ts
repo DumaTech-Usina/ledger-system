@@ -26,11 +26,11 @@ describe("simulate mode — full create → dashboard loop", () => {
     const submit = new SubmitIntentUseCase(repo, mapper, simulator, audit, clock);
     const dashboard = new GetTreasuryDashboardUseCase(simulator, "party-usina");
 
-    const before = Number((await dashboard.execute()).cashPosition!.totalCashIn);
+    const before = Number((await dashboard.execute()).cashPosition!.totalCashOut);
 
-    // Create an "Add a charge" (cash_in) intent end-to-end.
-    const { intentId } = await start.execute({ scenarioId: "add_charge", userId: "u1" });
-    await advance.execute({ intentId, key: "counterparty", value: "ACME Foods" });
+    // Create a register_payment (cash_out) intent end-to-end.
+    const { intentId } = await start.execute({ scenarioId: "register_payment", userId: "u1" });
+    await advance.execute({ intentId, key: "payee", value: "ACME Foods" });
     await advance.execute({ intentId, key: "amount", value: "5000.00" });
     await advance.execute({ intentId, key: "currency", value: "BRL" });
     await advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });
@@ -38,8 +38,8 @@ describe("simulate mode — full create → dashboard loop", () => {
     expect(result.status).toBe("accepted");
 
     const after = await dashboard.execute();
-    // Cash-in grew by exactly the charge amount…
-    expect(Number(after.cashPosition!.totalCashIn) - before).toBe(5000);
+    // Cash-out grew by exactly the payment amount…
+    expect(Number(after.cashPosition!.totalCashOut) - before).toBe(5000);
     // …and the movement is visible, linked back to the intent.
     expect(after.movements!.some((m) => m.sourceReference === `intent:${intentId}`)).toBe(true);
     expect(after.positions!.some((p) => p.objectId === `intent:${intentId}`)).toBe(true);

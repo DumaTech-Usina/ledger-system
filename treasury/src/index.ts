@@ -58,9 +58,9 @@ function bootstrap(): void {
     submission = new StubCandidateSubmissionAdapter();
     ledgerRead = new StubLedgerReadAdapter();
   } else {
-    // live: real Ledger over HTTP for both submit and reads.
+    // live: real Ledger over HTTP for both submit and reads (both send the service token).
     submission = new HttpCandidateSubmissionAdapter(env.LEDGER_API_URL, env.LEDGER_SUBMIT_TOKEN);
-    ledgerRead = new HttpLedgerReadAdapter(env.LEDGER_API_URL);
+    ledgerRead = new HttpLedgerReadAdapter(env.LEDGER_API_URL, env.LEDGER_SUBMIT_TOKEN);
   }
   const getDashboard = new GetTreasuryDashboardUseCase(ledgerRead, env.USINA_PARTY_ID);
 

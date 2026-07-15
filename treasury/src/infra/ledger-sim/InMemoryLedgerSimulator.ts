@@ -38,6 +38,7 @@ interface RecordInput {
   occurredAt: string;
   objectType: string;
   sourceReference: string;
+  counterparty: string | null;
   description: string | null;
 }
 
@@ -50,8 +51,8 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
 
   constructor() {
     // A little seeded history so the dashboard isn't empty before the first intent.
-    this.record({ effect: "cash_in", amount: "88000.00", currency: "BRL", occurredAt: isoDay(2026, 6, 5), objectType: "charge", sourceReference: "charge:seed-1", description: "Cobrança — Grão Verde" });
-    this.record({ effect: "cash_out", amount: "15750.00", currency: "BRL", occurredAt: isoDay(2026, 6, 6), objectType: "purchase", sourceReference: "purchase:seed-2", description: "Compra — Fornecedor Sul" });
+    this.record({ effect: "cash_in", amount: "88000.00", currency: "BRL", occurredAt: isoDay(2026, 6, 5), objectType: "charge", sourceReference: "charge:seed-1", counterparty: "Grão Verde", description: "Cobrança — Grão Verde" });
+    this.record({ effect: "cash_out", amount: "15750.00", currency: "BRL", occurredAt: isoDay(2026, 6, 6), objectType: "purchase", sourceReference: "purchase:seed-2", counterparty: "Fornecedor Sul", description: "Compra — Fornecedor Sul" });
   }
 
   // ── Submission boundary ────────────────────────────────────────────────────
@@ -70,6 +71,7 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
       occurredAt: candidate.occurredAt,
       objectType: candidate.objects[0]?.objectType ?? "unknown",
       sourceReference: candidate.sourceReference,
+      counterparty: candidate.parties.find((p) => p.direction === "neutral")?.partyId ?? null,
       description: candidate.description ?? null,
     });
     return { status: "accepted", ledgerReference };
@@ -81,9 +83,11 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
     this.movementStore.unshift({
       eventId: ledgerReference,
       occurredAt: input.occurredAt,
+      recordedAt: new Date().toISOString(),
       effect: input.effect,
       amount: input.amount,
       sourceReference: input.sourceReference,
+      counterparty: input.counterparty,
       description: input.description,
     });
     this.positionStore.unshift({

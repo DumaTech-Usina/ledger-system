@@ -13,6 +13,7 @@ import type {
 export class HttpLedgerReadAdapter implements LedgerReadPort {
   constructor(
     private readonly baseUrl: string,
+    private readonly serviceToken = "",
     private readonly timeoutMs = 4000,
   ) {}
 
@@ -20,7 +21,9 @@ export class HttpLedgerReadAdapter implements LedgerReadPort {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
-      const res = await fetch(this.baseUrl + path, { signal: controller.signal });
+      const headers: Record<string, string> = {};
+      if (this.serviceToken) headers["authorization"] = `Bearer ${this.serviceToken}`;
+      const res = await fetch(this.baseUrl + path, { headers, signal: controller.signal });
       if (!res.ok) throw new Error(`Ledger read failed (${res.status}) for ${path}`);
       return (await res.json()) as T;
     } finally {

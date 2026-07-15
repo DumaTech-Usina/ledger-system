@@ -33,8 +33,8 @@ function wire() {
 }
 
 async function fillAddCharge(w: ReturnType<typeof wire>, description = "") {
-  const { intentId } = await w.start.execute({ scenarioId: "add_charge", userId: "cfo" });
-  await w.advance.execute({ intentId, key: "counterparty", value: "ACME" });
+  const { intentId } = await w.start.execute({ scenarioId: "register_payment", userId: "cfo" });
+  await w.advance.execute({ intentId, key: "payee", value: "ACME" });
   await w.advance.execute({ intentId, key: "amount", value: "1500.00" });
   await w.advance.execute({ intentId, key: "currency", value: "BRL" });
   await w.advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });
@@ -86,7 +86,7 @@ describe("submit flow", () => {
 
   it("refuses to submit an intent that is not ready", async () => {
     const w = wire();
-    const { intentId } = await w.start.execute({ scenarioId: "add_charge", userId: "cfo" });
+    const { intentId } = await w.start.execute({ scenarioId: "register_payment", userId: "cfo" });
     await expect(w.submit.execute(intentId)).rejects.toThrow(/not ready to submit/i);
   });
 });
