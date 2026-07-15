@@ -42,4 +42,11 @@ export enum EventType {
    * reconciled against a known expected amount.
    */
   COMMISSION_EXPECTED = "commission_expected",
+
+  /**
+   * Generic cash-basis outbound payment: the usina pays a counterparty, SETTLING a PAYABLE.
+   * The business intent (supplier, reimbursement, tax, …) is carried by the counterparty (Party)
+   * and the Reason — not by new event types, unless the economics actually differ.
+   */
+  OUTBOUND_PAYMENT = "outbound_payment",
 }

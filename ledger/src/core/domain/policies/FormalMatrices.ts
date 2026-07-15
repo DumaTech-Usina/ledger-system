@@ -113,6 +113,9 @@ export const OBJECT_RELATION_MATRIX: Partial<
 export const REASON_EFFECT_MATRIX: Partial<
   Record<ReasonType, readonly EconomicEffect[]>
 > = {
+  // Operação
+  [ReasonType.ORDINARY_SETTLEMENT]: [EconomicEffect.CASH_OUT],
+
   // Comissão
   [ReasonType.COMMISSION_PAYMENT]: [EconomicEffect.CASH_IN],
   // CASH_IN when Usina records the receipt; NON_CASH when acknowledging operator paid broker directly
@@ -161,6 +164,9 @@ export const REASON_EFFECT_MATRIX: Partial<
 export const REASON_RELATION_MATRIX: Partial<
   Record<ReasonType, readonly Relation[]>
 > = {
+  // Operação
+  [ReasonType.ORDINARY_SETTLEMENT]: [Relation.SETTLES],
+
   // Comissão
   [ReasonType.COMMISSION_PAYMENT]: [Relation.SETTLES],
   [ReasonType.DIRECT_COMMISSION_PAYMENT_AUTHORIZED]: [Relation.SETTLES],

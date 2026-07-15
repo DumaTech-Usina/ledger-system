@@ -125,6 +125,24 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
   },
 
   /**
+   * Generic cash-basis outbound payment. SETTLES a PAYABLE (an amount owed); the counterparty is a
+   * Party and the business intent is the Reason. Reusable for types unhandled by the algebra.
+   */
+  [EventType.OUTBOUND_PAYMENT]: {
+    economicEffects: [EconomicEffect.CASH_OUT],
+
+    objects: [
+      {
+        objectType: ObjectType.PAYABLE,
+        relations: [Relation.SETTLES],
+      },
+    ],
+
+    reasons: [ReasonType.ORDINARY_SETTLEMENT],
+    minConfidence: ConfidenceLevel.MEDIUM,
+  },
+
+  /**
    * Settles, partially recovers, recognizes loss on, or renegotiates an advance.
    * relatedEventId must point to the originating ADVANCE_PAYMENT event.
    */

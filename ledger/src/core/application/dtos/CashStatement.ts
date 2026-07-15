@@ -15,9 +15,13 @@ export interface CashStatement {
 export interface CashMovement {
   eventId: string;
   occurredAt: Date;
+  /** When the Ledger registered the fact (immutable) — distinct from occurredAt (business date). */
+  recordedAt: Date;
   effect: "cash_in" | "cash_out";
   amount: Money;
   sourceReference: string | null;
+  /** The other side of the movement (the non-usina party) — for cash movements, the NEUTRAL party. */
+  counterparty: string | null;
   description: string | null;
 }
 
