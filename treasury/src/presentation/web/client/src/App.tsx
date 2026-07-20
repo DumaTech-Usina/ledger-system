@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useAuth } from "@/features/auth/useAuth";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { AppShell } from "@/components/layout/AppShell";
-import { Card } from "@/components/Card";
 import { OperationsPage } from "@/features/operations/OperationsPage";
+import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import type { Role } from "@/types/auth";
 
 const navItems = [
@@ -53,10 +53,7 @@ export function App() {
         // that one-render gap was what let the heading/chat lock in as "already visible" earlier.
         <OperationsPage user={user} showIntro={justLoggedIn} onIntroDone={clearJustLoggedIn} />
       ) : (
-        <Card>
-          <h2 className="font-display text-lg font-semibold text-ink">Dashboards — em construção</h2>
-          <p className="mt-1.5 text-sm text-muted">Esta página ainda não foi implementada; entra na próxima etapa.</p>
-        </Card>
+        <DashboardPage />
       )}
     </AppShell>
   );
