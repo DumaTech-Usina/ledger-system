@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+@import "@fontsource/space-grotesk/500.css";
+@import "@fontsource/space-grotesk/600.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+/*
+ * Manual theme toggle: `dark:` utilities apply whenever an ancestor carries
+ * the `.dark` class (set by useTheme), not just via prefers-color-scheme.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Light — "daylight ledger": cool paper, not stark white. Overridden by .dark below. */
+  --color-canvas: #eef1f7;
+  --color-panel: rgba(255, 255, 255, 0.66);
+  --color-panel-solid: #ffffff;
+  --color-ink: #10131c;
+  --color-muted: #5b6478;
+  --color-line: rgba(16, 20, 30, 0.09);
+  --color-accent: #4c5fef;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: rgba(76, 95, 239, 0.1);
+  --color-ok: #17875a;
+  --color-ok-soft: rgba(23, 135, 90, 0.12);
+  --color-bad: #c8372a;
+  --color-bad-soft: rgba(200, 55, 42, 0.1);
+  --color-warn: #97620f;
+  --color-warn-soft: rgba(151, 98, 15, 0.12);
+
+  --shadow-glass: 0 1px 1px rgba(16, 20, 30, 0.04), 0 12px 32px -12px rgba(16, 20, 30, 0.18);
+  --shadow-glow: 0 0 0 1px rgba(76, 95, 239, 0.16), 0 0 48px -8px rgba(76, 95, 239, 0.35);
+}
+
+.dark {
+  --color-canvas: #090b12;
+  --color-panel: rgba(255, 255, 255, 0.055);
+  --color-panel-solid: #12141d;
+  --color-ink: #e9ecf5;
+  --color-muted: #8991a8;
+  --color-line: rgba(255, 255, 255, 0.09);
+  --color-accent: #7c8cff;
+  --color-accent-ink: #0a0c14;
+  --color-accent-soft: rgba(124, 140, 255, 0.14);
+  --color-ok: #3ed694;
+  --color-ok-soft: rgba(62, 214, 148, 0.14);
+  --color-bad: #ff6b62;
+  --color-bad-soft: rgba(255, 107, 98, 0.14);
+  --color-warn: #f0b74e;
+  --color-warn-soft: rgba(240, 183, 78, 0.14);
+
+  --shadow-glass: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 16px 40px -16px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 0 1px rgba(124, 140, 255, 0.22), 0 0 56px -6px rgba(124, 140, 255, 0.45);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* The frosted-glass panel: the app's core surface, floating on the canvas. */
+  .glass {
+    @apply relative rounded-2xl border border-line bg-panel shadow-glass;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Signature: a soft accent glow, reserved for the ledger lifecycle/confirmation moments. */
+  .glow-accent {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+}
+
+/* The Operations page's one-time greeting → question → "docks as heading" choreography. */
+@keyframes intro-reveal-slow {
+  0% {
+    opacity: 0;
+    filter: blur(14px);
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes intro-hide-slow {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(14px);
+    transform: translateY(-8px);
+  }
+}
+
+/* Shrinks and rises to roughly where the docked heading sits; --question-travel is set per breakpoint. */
+@keyframes question-dock {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(0);
+    transform: translateY(var(--question-travel, -17rem)) scale(0.65);
+  }
+}
