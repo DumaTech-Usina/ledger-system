@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Badge } from "@/components/Badge";
+import { Card } from "@/components/Card";
 import { eventLabels, statusLabels } from "@/features/operations/copy";
 import { formatDateTime } from "@/utils/format";
 import type { AuditEntry, IntentStatus } from "@/types/operations";
@@ -47,7 +48,10 @@ export function LifecycleMenu({ status, history, ledgerReference, onRestart }: L
             className="fixed inset-0 z-30 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div className="glass absolute right-0 top-10 z-40 w-72 p-4">
+          <Card
+            padding="none"
+            className="absolute right-0 top-10 z-40 w-72 border-white/15 bg-panel-solid p-4 shadow-xl dark:border-white/10"
+          >
             {status ? (
               <div className="mb-3">
                 <Badge variant={badgeVariant(status)} dot={isSettled(status) ? true : "pulse"}>
@@ -80,7 +84,7 @@ export function LifecycleMenu({ status, history, ledgerReference, onRestart }: L
             >
               Recomeçar
             </button>
-          </div>
+          </Card>
         </>
       )}
     </div>

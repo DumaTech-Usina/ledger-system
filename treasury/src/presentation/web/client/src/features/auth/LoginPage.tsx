@@ -28,16 +28,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
-      {/* Environmental stacking: two soft ambient orbs let the glass card breathe against the canvas. */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed -left-32 -top-32 -z-10 h-[28rem] w-[28rem] rounded-full bg-accent/20 blur-[120px]"
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed -bottom-32 -right-32 -z-10 h-[26rem] w-[26rem] rounded-full bg-ok/14 blur-[120px]"
-      />
-
       <ThemeToggle className="glass fixed right-4 top-4 size-10" />
 
       <Card className="w-full max-w-sm" padding="lg">
@@ -47,7 +37,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             aria-hidden
           >
             <svg viewBox="0 0 20 20" fill="none" className="size-6 text-accent-ink">
-              <path d="M10 2 18 10 10 18 2 10 10 2Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+              <path d="M2 8 10 2.5 18 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 8h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <path d="M4.5 8v7M8 8v7M12 8v7M15.5 8v7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <path d="M2.5 17.5h15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </span>
           <h1 className="font-display text-2xl font-bold text-ink">Entrar no Treasury</h1>

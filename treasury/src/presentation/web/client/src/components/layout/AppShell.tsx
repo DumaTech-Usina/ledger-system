@@ -35,12 +35,6 @@ export function AppShell({
 
   return (
     <div className="relative min-h-screen">
-      {/* Ambient canvas glow — quiet everywhere except where a Card opts into `glow`. */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed left-1/2 top-[-10%] -z-10 h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-accent/10 blur-[120px]"
-      />
-
       <Sidebar
         items={navItems}
         activeId={activeNavId}

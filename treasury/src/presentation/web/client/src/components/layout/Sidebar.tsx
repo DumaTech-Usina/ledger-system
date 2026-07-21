@@ -20,7 +20,12 @@ export interface SidebarProps {
 const icons: Record<NavItem["icon"], ReactElement> = {
   operations: (
     <svg viewBox="0 0 20 20" fill="none" className="size-4">
-      <path d="M10 2 18 10 10 18 2 10 10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path
+        d="M4 4.5h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3.5 3v-3H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
     </svg>
   ),
   dashboards: (
@@ -58,7 +63,10 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
             aria-hidden
           >
             <svg viewBox="0 0 20 20" fill="none" className="size-5 text-accent-ink">
-              <path d="M10 2 18 10 10 18 2 10 10 2Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+              <path d="M2 8 10 2.5 18 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M3 8h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <path d="M4.5 8v7M8 8v7M12 8v7M15.5 8v7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <path d="M2.5 17.5h15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </span>
           <div className={cn(collapsed && "md:hidden")}>

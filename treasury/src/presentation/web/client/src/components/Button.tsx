@@ -1,7 +1,7 @@
 import { type ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "@/utils/cn";
 
-type Variant = "primary" | "ghost" | "danger";
+type Variant = "primary" | "ghost" | "danger" | "warn";
 type Size = "md" | "sm";
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -16,6 +16,8 @@ const variantClasses: Record<Variant, string> = {
   ghost:
     "bg-ink/5 text-ink hover:bg-ink/10 dark:bg-white/8 dark:hover:bg-white/12",
   danger: "bg-bad text-white hover:brightness-110 active:brightness-95",
+  /** Soft amber/orange accent — for secondary actions that change something, like "Editar". */
+  warn: "bg-warn-soft text-warn hover:brightness-105 active:brightness-95",
 };
 
 const sizeClasses: Record<Size, string> = {

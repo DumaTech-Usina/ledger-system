@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { operationsApi } from "@/features/operations/operationsApi";
 import { scenarioCopy, scenarioSlotPrompts, translateMessage } from "@/features/operations/copy";
+import { typingDurationMs } from "@/features/operations/typing";
 import type {
   AuditEntry,
   IntentStatus,
@@ -43,13 +44,59 @@ export function useConversation() {
   const intentIdRef = useRef<string | null>(null);
   intentIdRef.current = intentId;
 
+  // Every slot the guided dialog has ever asked, keyed by slot key — captured as it's asked so
+  // "Editar" can later rebuild a proper input (type, choices, prompt) for each answered field
+  // without a dedicated endpoint: the answer route already accepts any known slot key.
+  const answeredSlotsRef = useRef<Record<string, SlotDefinition>>({});
+  const recordSlot = (slot: SlotDefinition, label: string) => {
+    answeredSlotsRef.current = { ...answeredSlotsRef.current, [slot.key]: { ...slot, prompt: label } };
+  };
+
   useEffect(() => {
     operationsApi.scenarios().then(({ ok, data }) => {
       if (ok) setScenarios(data.scenarios);
     });
   }, []);
 
-  const push = useCallback((item: StreamItem) => setStream((s) => [...s, item]), []);
+  // Items reveal one at a time — never two at once — so replies read as a fluid conversation
+  // instead of dumping several bubbles on screen in the same instant.
+  const queueRef = useRef<StreamItem[]>([]);
+  const revealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revealingRef = useRef(false);
+
+  const revealNext = useCallback(() => {
+    if (revealingRef.current) return;
+    const next = queueRef.current.shift();
+    if (!next) return;
+    revealingRef.current = true;
+    setStream((s) => [...s, next]);
+    const delay = next.kind === "bot" || next.kind === "error" ? typingDurationMs(next.text) : 150;
+    revealTimerRef.current = setTimeout(() => {
+      revealingRef.current = false;
+      revealNext();
+    }, delay);
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    },
+    [],
+  );
+
+  const clearQueue = useCallback(() => {
+    if (revealTimerRef.current) clearTimeout(revealTimerRef.current);
+    queueRef.current = [];
+    revealingRef.current = false;
+  }, []);
+
+  const push = useCallback(
+    (item: StreamItem) => {
+      queueRef.current.push(item);
+      revealNext();
+    },
+    [revealNext],
+  );
 
   const refreshLifecycle = useCallback(async (id: string) => {
     const { ok, data } = await operationsApi.getIntent(id);
@@ -69,6 +116,7 @@ export function useConversation() {
       const copy = scenarioCopy[scenario.id];
       setScenarioId(scenario.id);
       setScenarioTitle(copy?.title ?? scenario.title);
+      clearQueue();
       setStream([]);
       setLifecycle(null);
       setPhase("conversation");
@@ -80,16 +128,18 @@ export function useConversation() {
         return;
       }
       setIntentId(data.intentId);
+      answeredSlotsRef.current = {};
       push({ id: uid(), kind: "bot", text: `Vamos lá! ${copy?.description ?? scenario.description}` });
       refreshLifecycle(data.intentId);
       if (data.state.kind === "ready") {
         goPreview(data.intentId);
       } else {
         setCurrentSlot(data.state.slot);
+        recordSlot(data.state.slot, slotPrompt(scenario.id, data.state.slot));
         push({ id: uid(), kind: "bot", text: slotPrompt(scenario.id, data.state.slot) });
       }
     },
-    [goPreview, push, refreshLifecycle],
+    [clearQueue, goPreview, push, refreshLifecycle],
   );
 
   const answer = useCallback(
@@ -118,10 +168,48 @@ export function useConversation() {
         goPreview(id);
       } else {
         setCurrentSlot(data.state.slot);
+        recordSlot(data.state.slot, slotPrompt(scenarioId ?? "", data.state.slot));
         push({ id: uid(), kind: "bot", text: slotPrompt(scenarioId ?? "", data.state.slot) });
       }
     },
     [currentSlot, goPreview, push, refreshLifecycle, scenarioId],
+  );
+
+  /**
+   * Applies edits to already-answered slots (any key the scenario knows, not just the "next"
+   * one — the same `/answer` route the guided dialog uses already allows this) and refreshes the
+   * confirm card in place, without restarting the conversation or re-asking anything.
+   */
+  const saveEdits = useCallback(
+    async (edits: Record<string, string>) => {
+      const id = intentIdRef.current;
+      if (!id) return { ok: false as const };
+      setBusy(true);
+      for (const [key, value] of Object.entries(edits)) {
+        const { data } = await operationsApi.answer(id, key, value);
+        if (!data?.state) {
+          setBusy(false);
+          return { ok: false as const };
+        }
+        if (data.error) {
+          setBusy(false);
+          return { ok: false as const, error: { key, message: translateMessage(data.error.message) } };
+        }
+      }
+      const { ok, data: preview } = await operationsApi.preview(id);
+      setBusy(false);
+      if (!ok) return { ok: false as const };
+      refreshLifecycle(id);
+      setStream((s) => {
+        const lastConfirmIdx = s.map((it) => it.kind).lastIndexOf("confirm");
+        if (lastConfirmIdx === -1) return s;
+        const next = [...s];
+        next[lastConfirmIdx] = { ...next[lastConfirmIdx], preview } as StreamItem;
+        return next;
+      });
+      return { ok: true as const };
+    },
+    [refreshLifecycle],
   );
 
   const confirmSubmit = useCallback(async () => {
@@ -140,14 +228,16 @@ export function useConversation() {
   }, [push, refreshLifecycle]);
 
   const restart = useCallback(() => {
+    clearQueue();
     setScenarioId(null);
     setScenarioTitle("");
     setIntentId(null);
+    answeredSlotsRef.current = {};
     setStream([]);
     setCurrentSlot(null);
     setLifecycle(null);
     setPhase("picking");
-  }, []);
+  }, [clearQueue]);
 
   return {
     scenarios,
@@ -163,5 +253,7 @@ export function useConversation() {
     answer,
     confirmSubmit,
     restart,
+    answeredSlots: answeredSlotsRef.current,
+    saveEdits,
   };
 }

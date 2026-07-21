@@ -12,18 +12,6 @@ export interface ComposerProps {
 export function Composer({ slot, onAnswer, busy }: ComposerProps) {
   const [value, setValue] = useState("");
 
-  if (slot.type === "choice" && slot.choices) {
-    return (
-      <div className="flex flex-wrap gap-2">
-        {slot.choices.map((choice) => (
-          <Button key={choice} variant="ghost" size="sm" disabled={busy} onClick={() => onAnswer(choice)}>
-            {choice}
-          </Button>
-        ))}
-      </div>
-    );
-  }
-
   const inputType = slot.type === "money" ? "number" : slot.type === "date" ? "date" : "text";
 
   const submit = () => {

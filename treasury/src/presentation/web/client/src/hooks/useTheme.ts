@@ -7,8 +7,11 @@ const STORAGE_KEY = "treasury.theme";
 function readInitialTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
-  // Dark is the system default, regardless of OS preference; light is an opt-in the user picks explicitly.
-  return "dark";
+  // Follow the OS/browser preference; if it can't be read at all, light is the fallback.
+  if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  return "light";
 }
 
 /** Drives the `.dark` class on <html>; persists the user's explicit choice. */

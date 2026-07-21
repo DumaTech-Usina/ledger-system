@@ -47,6 +47,8 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
     answer,
     confirmSubmit,
     restart,
+    answeredSlots,
+    saveEdits,
   } = useConversation();
 
   useEffect(() => {
@@ -123,7 +125,8 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
           onRestart={restart}
           ready={chatReady}
           footer={
-            phase === "conversation" && currentSlot ? (
+            // Choice slots (e.g. BRL/USD) answer inline in the chat instead — see ChatStream.
+            phase === "conversation" && currentSlot && currentSlot.type !== "choice" ? (
               <Composer key={currentSlot.key} slot={currentSlot} onAnswer={answer} busy={busy} />
             ) : undefined
           }
@@ -141,6 +144,10 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
               onConfirm={confirmSubmit}
               onCancel={restart}
               busy={busy}
+              currentSlot={currentSlot}
+              onAnswer={answer}
+              answeredSlots={answeredSlots}
+              onSaveEdits={saveEdits}
             />
           )}
         </OperationsShell>
