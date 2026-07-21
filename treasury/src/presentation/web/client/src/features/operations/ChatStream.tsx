@@ -31,7 +31,12 @@ export function ChatStream({ stream, scenarioTitle, onConfirm, onCancel, busy }:
           case "bot":
             return (
               <div key={item.id} className="flex justify-start">
-                <div className={cn(bubbleBase, "rounded-2xl rounded-bl-md bg-ink/[0.05] text-ink dark:bg-white/[0.06]")}>
+                <div
+                  className={cn(
+                    bubbleBase,
+                    "rounded-2xl rounded-bl-md border border-white/40 bg-panel-solid/85 text-ink shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-panel-solid/80",
+                  )}
+                >
                   {item.text}
                 </div>
               </div>

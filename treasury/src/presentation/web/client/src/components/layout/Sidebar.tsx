@@ -45,21 +45,31 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
       )}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-line bg-panel backdrop-blur-xl",
+          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-white/8 bg-canvas/70 p-4 backdrop-blur-2xl dark:border-white/5 dark:bg-canvas/60",
           "transition-[transform,width] duration-300 ease-out",
           collapsed ? "md:w-[76px]" : "md:w-64",
           "md:translate-x-0",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className={cn("flex items-center gap-2.5 px-5 py-5", collapsed && "md:justify-center md:px-0")}>
-          <span className="size-5 flex-shrink-0 rounded-[6px] bg-accent" aria-hidden />
-          <span className={cn("font-display text-[17px] font-semibold text-ink", collapsed && "md:hidden")}>
-            Treasury
+        <div className={cn("mb-4 flex items-center gap-3 px-2 py-3", collapsed && "md:justify-center md:px-0")}>
+          <span
+            className="grid size-10 flex-shrink-0 place-items-center rounded-xl bg-accent shadow-[0_6px_16px_-4px_var(--color-accent)]"
+            aria-hidden
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="size-5 text-accent-ink">
+              <path d="M10 2 18 10 10 18 2 10 10 2Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            </svg>
           </span>
+          <div className={cn(collapsed && "md:hidden")}>
+            <div className="font-display text-lg font-bold leading-tight text-accent">Treasury</div>
+            <div className="font-display text-[10px] font-bold uppercase tracking-widest text-muted">
+              Ledger ecosystem
+            </div>
+          </div>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 px-3">
+        <nav className="flex flex-1 flex-col gap-2">
           {items.map((item) => {
             const active = item.id === activeId;
             return (
@@ -71,11 +81,11 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
                 }}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition",
+                  "flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition-all duration-300",
                   collapsed && "md:justify-center md:px-0",
                   active
-                    ? "bg-accent text-accent-ink shadow-[0_1px_0_rgba(255,255,255,0.15)_inset]"
-                    : "text-muted hover:bg-ink/6 hover:text-ink dark:hover:bg-white/8",
+                    ? "bg-accent text-accent-ink shadow-lg shadow-accent/30"
+                    : "text-muted hover:translate-x-1 hover:bg-accent-soft hover:text-accent",
                 )}
               >
                 <span className={cn("flex-shrink-0", !active && "opacity-80")}>{icons[item.icon]}</span>
@@ -85,14 +95,14 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
           })}
         </nav>
 
-        <div className="border-t border-line px-3 py-3">
+        <div className="mt-auto flex flex-col gap-2 border-t border-line pt-4">
           <button
             type="button"
             onClick={onToggleCollapse}
             aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
             className={cn(
-              "hidden w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-medium text-muted transition md:flex",
-              "hover:bg-ink/6 hover:text-ink dark:hover:bg-white/8",
+              "hidden w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-xs font-medium text-muted transition-all duration-300 md:flex",
+              "hover:bg-accent-soft hover:text-accent",
               collapsed && "md:justify-center md:px-0",
             )}
           >
@@ -105,9 +115,6 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
             </svg>
             <span className={cn(collapsed && "md:hidden")}>Recolher</span>
           </button>
-          <div className={cn("px-3 pt-2 text-xs text-muted/80", collapsed && "md:hidden")}>
-            User App · Ledger ecosystem
-          </div>
         </div>
       </aside>
     </>

@@ -26,6 +26,9 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
   const [greetingPhase, setGreetingPhase] = useState<GreetingPhase>(showIntro ? "in" : "hidden");
   const [questionPhase, setQuestionPhase] = useState<QuestionPhase>(showIntro ? "hidden" : "docked");
   const [shellVisible, setShellVisible] = useState(!showIntro);
+  // Flips once the fade-in transition actually finishes (not when it starts) — the ambient
+  // chat video should only begin once the chat is fully, 100% on screen.
+  const [chatReady, setChatReady] = useState(!showIntro);
 
   // A ref, not a dependency — an unstable `onIntroDone` identity must never restart these timers.
   const onIntroDoneRef = useRef(onIntroDone);
@@ -106,7 +109,10 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
           shellVisible ? "opacity-100 blur-none" : "opacity-0 blur-md",
         )}
         onTransitionEnd={(e) => {
-          if (e.propertyName === "opacity" && shellVisible) onIntroDoneRef.current();
+          if (e.propertyName === "opacity" && shellVisible) {
+            onIntroDoneRef.current();
+            setChatReady(true);
+          }
         }}
       >
         <OperationsShell
@@ -115,6 +121,7 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
           history={lifecycle?.history ?? []}
           ledgerReference={lifecycle?.ledgerReference}
           onRestart={restart}
+          ready={chatReady}
           footer={
             phase === "conversation" && currentSlot ? (
               <Composer key={currentSlot.key} slot={currentSlot} onAnswer={answer} busy={busy} />

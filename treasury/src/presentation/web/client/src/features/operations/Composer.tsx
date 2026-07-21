@@ -33,7 +33,7 @@ export function Composer({ slot, onAnswer, busy }: ComposerProps) {
   };
 
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-line bg-ink/[0.02] p-2 dark:bg-white/[0.03]">
+    <div className="flex items-center gap-2 rounded-2xl border border-white/40 bg-panel-solid/85 p-2 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-panel-solid/80">
       <input
         type={inputType}
         step={slot.type === "money" ? "0.01" : undefined}

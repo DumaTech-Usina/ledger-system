@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
+import { Banner } from "@/components/Banner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const LOGIN_ERROR = "Usuário ou senha inválidos.";
@@ -26,24 +27,37 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center p-6">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden p-6">
+      {/* Environmental stacking: two soft ambient orbs let the glass card breathe against the canvas. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed left-1/2 top-1/3 -z-10 h-[30rem] w-[30rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent/12 blur-[120px]"
+        className="pointer-events-none fixed -left-32 -top-32 -z-10 h-[28rem] w-[28rem] rounded-full bg-accent/20 blur-[120px]"
       />
-      <ThemeToggle className="fixed right-4 top-4" />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed -bottom-32 -right-32 -z-10 h-[26rem] w-[26rem] rounded-full bg-ok/14 blur-[120px]"
+      />
+
+      <ThemeToggle className="glass fixed right-4 top-4 size-10" />
 
       <Card className="w-full max-w-sm" padding="lg">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <span className="mb-3 size-8 rounded-[8px] bg-accent" aria-hidden />
-          <h1 className="font-display text-xl font-semibold text-ink">Entrar no Treasury</h1>
-          <p className="mt-1 text-sm text-muted">Acesse com sua conta para continuar.</p>
+        <div className="mb-7 flex flex-col items-center text-center">
+          <span
+            className="mb-4 grid size-12 place-items-center rounded-2xl bg-accent shadow-[0_10px_24px_-8px_var(--color-accent)]"
+            aria-hidden
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="size-6 text-accent-ink">
+              <path d="M10 2 18 10 10 18 2 10 10 2Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            </svg>
+          </span>
+          <h1 className="font-display text-2xl font-bold text-ink">Entrar no Treasury</h1>
+          <p className="mt-1.5 text-sm text-muted">Acesse com sua conta para continuar.</p>
         </div>
 
         {error && (
-          <div role="alert" className="mb-4 rounded-lg bg-bad-soft px-3 py-2.5 text-[13.5px] font-medium text-bad">
+          <Banner variant="bad" role="alert" className="mb-4">
             {error}
-          </div>
+          </Banner>
         )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

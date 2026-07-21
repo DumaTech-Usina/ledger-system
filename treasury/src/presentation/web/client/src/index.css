@@ -1,10 +1,12 @@
 @import "tailwindcss";
 
-@import "@fontsource/space-grotesk/500.css";
-@import "@fontsource/space-grotesk/600.css";
-@import "@fontsource/inter/400.css";
-@import "@fontsource/inter/500.css";
-@import "@fontsource/inter/600.css";
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+@import "@fontsource/plus-jakarta-sans/800.css";
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/600.css";
+@import "@fontsource/manrope/700.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 
@@ -15,50 +17,52 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* Light — "daylight ledger": cool paper, not stark white. Overridden by .dark below. */
-  --color-canvas: #eef1f7;
-  --color-panel: rgba(255, 255, 255, 0.66);
+  /* Light — "Liquid Glass & Solid": Deep Sea & Slate primary over a cool, airy surface. Overridden by .dark below. */
+  --color-canvas: #f8f9ff;
+  --color-panel: rgba(255, 255, 255, 0.6);
   --color-panel-solid: #ffffff;
-  --color-ink: #10131c;
-  --color-muted: #5b6478;
-  --color-line: rgba(16, 20, 30, 0.09);
-  --color-accent: #4c5fef;
+  --color-ink: #0b1c30;
+  --color-muted: #545a70;
+  --color-line: rgba(11, 28, 48, 0.1);
+  --color-accent: #0050cb;
   --color-accent-ink: #ffffff;
-  --color-accent-soft: rgba(76, 95, 239, 0.1);
-  --color-ok: #17875a;
-  --color-ok-soft: rgba(23, 135, 90, 0.12);
-  --color-bad: #c8372a;
-  --color-bad-soft: rgba(200, 55, 42, 0.1);
-  --color-warn: #97620f;
-  --color-warn-soft: rgba(151, 98, 15, 0.12);
+  --color-accent-soft: rgba(0, 102, 255, 0.12);
+  --color-secondary: #4648d4;
+  --color-ok: #007a54;
+  --color-ok-soft: rgba(0, 130, 89, 0.12);
+  --color-bad: #ba1a1a;
+  --color-bad-soft: rgba(186, 26, 26, 0.1);
+  --color-warn: #94660a;
+  --color-warn-soft: rgba(148, 102, 10, 0.12);
 
-  --shadow-glass: 0 1px 1px rgba(16, 20, 30, 0.04), 0 12px 32px -12px rgba(16, 20, 30, 0.18);
-  --shadow-glow: 0 0 0 1px rgba(76, 95, 239, 0.16), 0 0 48px -8px rgba(76, 95, 239, 0.35);
+  --shadow-glass: 0 8px 32px -8px rgba(0, 80, 203, 0.12);
+  --shadow-glow: 0 0 0 1px rgba(0, 80, 203, 0.16), 0 0 48px -8px rgba(0, 80, 203, 0.35);
 }
 
 .dark {
-  --color-canvas: #090b12;
-  --color-panel: rgba(255, 255, 255, 0.055);
-  --color-panel-solid: #12141d;
-  --color-ink: #e9ecf5;
-  --color-muted: #8991a8;
-  --color-line: rgba(255, 255, 255, 0.09);
-  --color-accent: #7c8cff;
-  --color-accent-ink: #0a0c14;
-  --color-accent-soft: rgba(124, 140, 255, 0.14);
-  --color-ok: #3ed694;
-  --color-ok-soft: rgba(62, 214, 148, 0.14);
-  --color-bad: #ff6b62;
-  --color-bad-soft: rgba(255, 107, 98, 0.14);
+  --color-canvas: #060a14;
+  --color-panel: rgba(255, 255, 255, 0.06);
+  --color-panel-solid: #0e1420;
+  --color-ink: #eaf1ff;
+  --color-muted: #9aa4c0;
+  --color-line: rgba(255, 255, 255, 0.1);
+  --color-accent: #0050cb;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: rgba(0, 102, 255, 0.22);
+  --color-secondary: #8385ff;
+  --color-ok: #4edea3;
+  --color-ok-soft: rgba(78, 222, 163, 0.14);
+  --color-bad: #ff6f66;
+  --color-bad-soft: rgba(255, 111, 102, 0.14);
   --color-warn: #f0b74e;
   --color-warn-soft: rgba(240, 183, 78, 0.14);
 
-  --shadow-glass: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 16px 40px -16px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 0 1px rgba(124, 140, 255, 0.22), 0 0 56px -6px rgba(124, 140, 255, 0.45);
+  --shadow-glass: 0 16px 40px -16px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 0 1px rgba(0, 102, 255, 0.3), 0 0 56px -6px rgba(0, 102, 255, 0.5);
 }
 
 @layer base {
@@ -83,9 +87,10 @@
 }
 
 @layer components {
-  /* The frosted-glass panel: the app's core surface, floating on the canvas. */
+  /* The frosted-glass panel: the app's core surface, floating on the canvas.
+     A thin, even border traces the whole edge — subtle on every side, not a bright corner highlight. */
   .glass {
-    @apply relative rounded-2xl border border-line bg-panel shadow-glass;
+    @apply relative rounded-3xl border border-white/10 bg-panel shadow-glass dark:border-white/5;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
   }
@@ -137,6 +142,38 @@
     opacity: 0;
     filter: blur(14px);
     transform: translateY(-8px);
+  }
+}
+
+/* Chat aurora: the light-theme's signature inside the Operations chat — three blurred bands
+   rippling like aurora-borealis curtains. Unrelated periods so the waves never visibly sync. */
+@keyframes aurora-wave-1 {
+  0%,
+  100% {
+    transform: translate(-4%, 0%) skewY(-3deg) scaleY(1);
+  }
+  50% {
+    transform: translate(4%, -8%) skewY(3deg) scaleY(1.35);
+  }
+}
+
+@keyframes aurora-wave-2 {
+  0%,
+  100% {
+    transform: translate(3%, 4%) skewY(2deg) scaleY(1.1);
+  }
+  50% {
+    transform: translate(-6%, -6%) skewY(-4deg) scaleY(0.85);
+  }
+}
+
+@keyframes aurora-wave-3 {
+  0%,
+  100% {
+    transform: translate(-3%, -4%) skewY(4deg) scaleY(1);
+  }
+  50% {
+    transform: translate(6%, 7%) skewY(-3deg) scaleY(1.25);
   }
 }
 

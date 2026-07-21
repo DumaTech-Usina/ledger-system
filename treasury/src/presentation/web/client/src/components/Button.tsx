@@ -12,7 +12,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-accent text-accent-ink hover:brightness-110 active:brightness-95 shadow-[0_1px_0_rgba(255,255,255,0.15)_inset]",
+    "bg-[linear-gradient(to_bottom,color-mix(in_srgb,var(--color-accent)_100%,white_10%),var(--color-accent))] text-accent-ink shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_8px_20px_-8px_var(--color-accent)] hover:brightness-110 active:brightness-95",
   ghost:
     "bg-ink/5 text-ink hover:bg-ink/10 dark:bg-white/8 dark:hover:bg-white/12",
   danger: "bg-bad text-white hover:brightness-110 active:brightness-95",
@@ -30,7 +30,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         disabled={disabled || loading}
         className={cn(
-          "inline-flex items-center justify-center gap-2 rounded-2xl font-medium",
+          "inline-flex items-center justify-center gap-2 rounded-full font-medium",
           "transition active:translate-y-px disabled:opacity-50 disabled:pointer-events-none",
           variantClasses[variant],
           sizeClasses[size],

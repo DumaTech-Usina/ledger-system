@@ -1,7 +1,9 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { LifecycleMenu } from "@/features/operations/LifecycleMenu";
+import { ChatAurora } from "@/features/operations/ChatAurora";
 import { statusLabels } from "@/features/operations/copy";
 import { cn } from "@/utils/cn";
+import chatAnimation from "@/assets/chat animation.mp4";
 import type { AuditEntry, IntentStatus } from "@/types/operations";
 
 const dotClass = (status: IntentStatus | null): string => {
@@ -21,6 +23,8 @@ export interface OperationsShellProps {
   onRestart: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** The shell has fully faded in — only then does the ambient video start playing. */
+  ready?: boolean;
 }
 
 export function OperationsShell({
@@ -31,10 +35,39 @@ export function OperationsShell({
   onRestart,
   children,
   footer,
+  ready = true,
 }: OperationsShellProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (ready) video.play().catch(() => {});
+    else video.pause();
+  }, [ready]);
+
   return (
-    <div className="glass mx-auto flex h-[32rem] max-w-3xl flex-col overflow-hidden md:h-[36rem]">
-      <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+    <div className="glass relative mx-auto flex h-[calc(100vh-14rem)] min-h-[30rem] max-w-3xl flex-col overflow-hidden">
+      <ChatAurora />
+      {/* Dark theme (default): the mp4 loop, full strength, anchored to the panel's own bottom edge —
+          behind the composer too, not just the message list — so it stays put for the whole session,
+          starting only once `ready` (the shell has fully faded in). Light theme: the aurora waves instead. */}
+      <video
+        ref={videoRef}
+        aria-hidden
+        loop
+        muted
+        playsInline
+        className="pointer-events-none absolute bottom-0 left-0 hidden h-64 w-full object-cover [mask-image:linear-gradient(to_top,black_70%,transparent)] dark:block md:h-72"
+      >
+        <source src={chatAnimation} type="video/mp4" />
+      </video>
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-10 left-1/4 h-72 w-72 rounded-full bg-accent/10 blur-[100px]"
+      />
+
+      <header className="relative flex items-center justify-between gap-3 border-b border-line px-5 py-4">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid size-9 flex-shrink-0 place-items-center rounded-full bg-accent" aria-hidden>
             <svg viewBox="0 0 20 20" fill="none" className="size-[18px] text-accent-ink">
@@ -64,19 +97,11 @@ export function OperationsShell({
         <LifecycleMenu status={status} history={history} ledgerReference={ledgerReference} onRestart={onRestart} />
       </header>
 
-      <div className="relative flex-1 overflow-y-auto">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-10 left-1/4 h-72 w-72 rounded-full bg-accent/10 blur-[100px]"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -bottom-10 right-1/4 h-72 w-72 rounded-full bg-ok/10 blur-[100px]"
-        />
-        <div className="relative h-full p-5">{children}</div>
-      </div>
+      <div className="relative flex-1 overflow-y-auto p-5">{children}</div>
 
-      {footer && <div className="border-t border-line p-4">{footer}</div>}
+      {footer && (
+        <div className="relative border-t border-line bg-canvas/25 p-4 backdrop-blur-md dark:bg-canvas/35">{footer}</div>
+      )}
     </div>
   );
 }

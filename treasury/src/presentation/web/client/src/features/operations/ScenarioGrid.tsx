@@ -22,8 +22,8 @@ export function ScenarioGrid({ scenarios, onSelect }: ScenarioGridProps) {
               key={scenario.id}
               onClick={() => onSelect(scenario)}
               className={cn(
-                "group flex flex-col gap-2 rounded-2xl border border-line bg-ink/[0.02] p-4 text-left transition",
-                "hover:border-accent/50 hover:bg-accent-soft dark:bg-white/[0.03]",
+                "group flex flex-col gap-2 rounded-2xl border border-white/40 bg-panel-solid/85 p-4 text-left shadow-sm backdrop-blur-md transition-all duration-300",
+                "hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-glow dark:border-white/10 dark:bg-panel-solid/80",
                 isLastOdd && "sm:col-span-2",
               )}
             >
