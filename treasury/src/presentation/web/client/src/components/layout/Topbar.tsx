@@ -1,5 +1,7 @@
-import { Avatar } from "@/components/Avatar";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UserMenu } from "@/components/layout/UserMenu";
+import { useLanguage } from "@/i18n/i18n";
 
 export interface TopbarProps {
   title: string;
@@ -10,12 +12,14 @@ export interface TopbarProps {
 }
 
 export function Topbar({ title, userName, userRole, onMenuClick, onSignOut }: TopbarProps) {
+  const { t } = useLanguage();
+
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-4 px-4 py-5 backdrop-blur-xl md:px-8">
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
-          aria-label="Abrir menu"
+          aria-label={t.topbar.openMenu}
           className="glass -ml-1 inline-flex size-10 items-center justify-center text-ink transition hover:bg-white/70 dark:hover:bg-white/10 md:hidden"
         >
           <svg viewBox="0 0 20 20" fill="none" className="size-[18px]">
@@ -26,20 +30,9 @@ export function Topbar({ title, userName, userRole, onMenuClick, onSignOut }: To
       </div>
 
       <div className="flex items-center gap-3">
+        <LanguageSwitcher className="glass size-10" />
         <ThemeToggle className="glass size-10" />
-        <div className="hidden items-center gap-2.5 rounded-full sm:flex">
-          <Avatar name={userName} size="sm" className="border-2 border-accent-soft" />
-          <div className="text-[13px] leading-tight">
-            <span className="font-semibold text-ink">{userName}</span>
-            <span className="text-muted"> · {userRole}</span>
-          </div>
-        </div>
-        <button
-          onClick={onSignOut}
-          className="text-[13px] font-medium text-muted transition hover:text-accent"
-        >
-          Sair
-        </button>
+        <UserMenu userName={userName} userRole={userRole} onSignOut={onSignOut} />
       </div>
     </header>
   );

@@ -1,4 +1,5 @@
 import { type ReactElement } from "react";
+import { useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
 
 export interface NavItem {
@@ -39,11 +40,13 @@ const icons: Record<NavItem["icon"], ReactElement> = {
 };
 
 export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, onToggleCollapse }: SidebarProps) {
+  const { t } = useLanguage();
+
   return (
     <>
       {open && (
         <button
-          aria-label="Fechar menu"
+          aria-label={t.sidebar.closeMenu}
           onClick={onClose}
           className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm md:hidden"
         />
@@ -107,7 +110,7 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
           <button
             type="button"
             onClick={onToggleCollapse}
-            aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+            aria-label={collapsed ? t.sidebar.expandMenu : t.sidebar.collapseMenu}
             className={cn(
               "hidden w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-xs font-medium text-muted transition-all duration-300 md:flex",
               "hover:bg-accent-soft hover:text-accent",
@@ -121,7 +124,7 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
             >
               <path d="M12.5 4.5 6.5 10l6 5.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className={cn(collapsed && "md:hidden")}>Recolher</span>
+            <span className={cn(collapsed && "md:hidden")}>{t.sidebar.collapse}</span>
           </button>
         </div>
       </aside>
