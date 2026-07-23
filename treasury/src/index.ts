@@ -21,6 +21,7 @@ import { CandidateMapper } from "./core/application/services/CandidateMapper";
 import { GetTreasuryDashboardUseCase } from "./core/application/use-cases/GetTreasuryDashboard";
 import { StartIntentUseCase } from "./core/application/use-cases/StartIntent";
 import { AdvanceDialogUseCase } from "./core/application/use-cases/AdvanceDialog";
+import { ApplyAnswersUseCase } from "./core/application/use-cases/ApplyAnswers";
 import { PreviewIntentUseCase } from "./core/application/use-cases/PreviewIntent";
 import { SubmitIntentUseCase } from "./core/application/use-cases/SubmitIntent";
 import { GetIntentUseCase } from "./core/application/use-cases/GetIntent";
@@ -71,6 +72,7 @@ function bootstrap(): void {
     getDashboard,
     startIntent: new StartIntentUseCase(intentRepo, clock, ids, audit),
     advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit),
+    applyAnswers: new ApplyAnswersUseCase(intentRepo, clock, audit),
     previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper),
     submitIntent: new SubmitIntentUseCase(intentRepo, candidateMapper, submission, audit, clock),
     getIntent: new GetIntentUseCase(intentRepo, audit),
