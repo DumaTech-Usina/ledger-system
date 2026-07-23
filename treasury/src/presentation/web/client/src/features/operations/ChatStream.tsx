@@ -30,7 +30,7 @@ export interface ChatStreamProps {
   onSaveEdits?: (edits: Record<string, string>) => Promise<SaveEditsResult>;
 }
 
-const bubbleBase = "max-w-[80%] px-4 py-2.5 text-[14.5px] leading-relaxed";
+const bubbleBase = "max-w-[80%] lg:max-w-2xl px-4 py-2.5 text-[14.5px] leading-relaxed";
 
 /** Reveals `text` one character at a time — faster per character the longer it is — over `typingDurationMs(text)`. */
 function TypedText({ text, onTick }: { text: string; onTick?: () => void }) {

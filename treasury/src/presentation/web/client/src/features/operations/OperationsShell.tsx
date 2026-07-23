@@ -88,7 +88,7 @@ export function OperationsShell({
   }, [isDark, ready, animationHidden]);
 
   return (
-    <div className="glass relative mx-auto flex h-[calc(100vh-14rem)] min-h-[30rem] max-w-3xl flex-col overflow-hidden dark:bg-transparent">
+    <div className="glass relative mx-auto flex h-[calc(100vh-11.5rem)] min-h-[32rem] max-w-6xl flex-col overflow-hidden dark:bg-transparent">
       <ChatAurora />
       {/* Dark theme: fades the transparent chat panel down to black well before the video's own
           top edge, so the (uncropped) video's already-dark top meets it as black-on-black instead

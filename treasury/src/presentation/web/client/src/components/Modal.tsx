@@ -10,9 +10,11 @@ export interface ModalProps {
   closeLabel: string;
   children: ReactNode;
   className?: string;
+  /** Optional bar rendered below the header, above the scrollable content — e.g. category tabs. */
+  tabs?: ReactNode;
 }
 
-export function Modal({ open, onClose, title, closeLabel, children, className }: ModalProps) {
+export function Modal({ open, onClose, title, closeLabel, children, className, tabs }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -53,6 +55,7 @@ export function Modal({ open, onClose, title, closeLabel, children, className }:
             </svg>
           </button>
         </div>
+        {tabs && <div className="border-b border-line px-5 py-3">{tabs}</div>}
         <div className="overflow-y-auto">{children}</div>
       </Card>
     </div>,

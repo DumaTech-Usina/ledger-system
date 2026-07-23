@@ -14,7 +14,7 @@ export const languageOptions: LanguageOption[] = [
 ];
 
 export interface Translations {
-  common: { loading: string; noRecords: string; close: string };
+  common: { loading: string; noRecords: string; close: string; previous: string; next: string; pageOf: string; viewDetails: string };
   nav: { operations: string; dashboards: string };
   roles: { finance_manager: string; viewer: string };
   topbar: { openMenu: string; account: string; signOut: string; language: string };
@@ -26,7 +26,6 @@ export interface Translations {
     cashIn: string;
     cashOut: string;
     netFlow: string;
-    openReceivables: string;
     positionAsOf: string;
     recentMovements: string;
     openPositions: string;
@@ -49,6 +48,13 @@ export interface Translations {
       counterparty: string;
       status: string;
       openBalance: string;
+      description: string;
+      document: string;
+      cashInColumn: string;
+      cashOutColumn: string;
+      balance: string;
+      openingBalance: string;
+      proposalInstallment: string;
     };
     hero: {
       badge: string;
@@ -58,6 +64,57 @@ export interface Translations {
       balanceLabel: string;
       viewAll: string;
       allMovementsTitle: string;
+    };
+    filters: {
+      dateRange: string;
+      from: string;
+      to: string;
+      apply: string;
+      clear: string;
+      placeholder: string;
+    };
+    categories: {
+      all: string;
+      health: string;
+      consortium: string;
+      insurance: string;
+      others: string;
+      comingSoon: string;
+    };
+    breakdown: {
+      title: string;
+      empty: string;
+      client: string;
+      broker: string;
+      viewDetails: string;
+      lives: string;
+      installmentNumber: string;
+      date: string;
+      originalValue: string;
+      commissionPercent: string;
+      proposalValue: string;
+      repasseLabel: string;
+      multaLabel: string;
+      operator: string;
+      plan: string;
+      proposalNumber: string;
+      reason: string;
+      statusCaption: string;
+      consolidated: string;
+      pendingStatus: string;
+      receivedSubtitle: string;
+      receivableSubtitle: string;
+      repassedSubtitle: string;
+      payableSubtitle: string;
+      netSubtitle: string;
+      projectedSubtitle: string;
+      receivedCaption: string;
+      receivableCaption: string;
+      repassedCaption: string;
+      payableCaption: string;
+      netCaption: string;
+      projectedCaption: string;
+      party: { name: string; phone: string; email: string; document: string };
     };
   };
   /** Keyed by the domain enum's raw string value (e.g. CashEffect, ObjectType). */
@@ -72,6 +129,10 @@ const ptBR: Translations = {
     loading: "Carregando…",
     noRecords: "Nenhum registro.",
     close: "Fechar",
+    previous: "Anterior",
+    next: "Próxima",
+    pageOf: "Página {page} de {total}",
+    viewDetails: "Ver detalhes",
   },
   nav: {
     operations: "Operações",
@@ -100,7 +161,6 @@ const ptBR: Translations = {
     cashIn: "Entradas de caixa",
     cashOut: "Saídas de caixa",
     netFlow: "Fluxo líquido",
-    openReceivables: "A receber em aberto",
     positionAsOf: "Posição em {date}",
     recentMovements: "Movimentações recentes",
     openPositions: "Posições em aberto",
@@ -123,6 +183,13 @@ const ptBR: Translations = {
       counterparty: "Contraparte",
       status: "Situação",
       openBalance: "Saldo em aberto",
+      description: "Descrição",
+      document: "Número do documento",
+      cashInColumn: "Entradas",
+      cashOutColumn: "Saídas",
+      balance: "Saldo",
+      openingBalance: "Saldo anterior",
+      proposalInstallment: "Proposta #{proposal} · Parcela {installment}/{total}",
     },
     hero: {
       badge: "Fluxo financeiro",
@@ -132,6 +199,62 @@ const ptBR: Translations = {
       balanceLabel: "Saldo do dia",
       viewAll: "Ver fluxo completo",
       allMovementsTitle: "Fluxo completo",
+    },
+    filters: {
+      dateRange: "Período",
+      from: "De",
+      to: "Até",
+      apply: "Aplicar",
+      clear: "Limpar",
+      placeholder: "Selecione um período",
+    },
+    categories: {
+      all: "Todos",
+      health: "Saúde",
+      consortium: "Consórcio",
+      insurance: "Seguro",
+      others: "Outros",
+      comingSoon: "Função em desenvolvimento",
+    },
+    breakdown: {
+      title: "Composição",
+      empty: "Nenhuma composição para exibir.",
+      client: "Cliente",
+      broker: "Corretor",
+      viewDetails: "Ver dados",
+      lives: "Vidas",
+      installmentNumber: "Nº Parcela",
+      date: "Data",
+      originalValue: "Valor original",
+      commissionPercent: "Comissão (%)",
+      proposalValue: "Valor da proposta",
+      repasseLabel: "Repasse",
+      multaLabel: "Multa",
+      operator: "Operadora",
+      plan: "Plano",
+      proposalNumber: "Proposta",
+      reason: "Motivo",
+      statusCaption: "Status",
+      consolidated: "Consolidado",
+      pendingStatus: "Em aberto",
+      receivedSubtitle: "Comissões recebidas",
+      receivableSubtitle: "Comissões a receber",
+      repassedSubtitle: "Repasses de comissão",
+      payableSubtitle: "Repasses a pagar",
+      netSubtitle: "Comissões",
+      projectedSubtitle: "Posições previstas",
+      receivedCaption: "Recebido",
+      receivableCaption: "A receber",
+      repassedCaption: "Repassado",
+      payableCaption: "A pagar",
+      netCaption: "Líquido",
+      projectedCaption: "Previsto",
+      party: {
+        name: "Nome",
+        phone: "Telefone",
+        email: "E-mail",
+        document: "CPF/CNPJ",
+      },
     },
   },
   cashEffect: {
@@ -176,6 +299,7 @@ const ptBR: Translations = {
     // renders as a raw, untranslated string.
     charge: "Cobrança",
     purchase: "Compra",
+    commission: "Comissão",
     unknown: "Não classificado",
   },
   eventType: {
@@ -202,6 +326,10 @@ const en: Translations = {
     loading: "Loading…",
     noRecords: "No records.",
     close: "Close",
+    previous: "Previous",
+    next: "Next",
+    pageOf: "Page {page} of {total}",
+    viewDetails: "View details",
   },
   nav: {
     operations: "Operations",
@@ -230,7 +358,6 @@ const en: Translations = {
     cashIn: "Cash in",
     cashOut: "Cash out",
     netFlow: "Net flow",
-    openReceivables: "Open receivables",
     positionAsOf: "Position as of {date}",
     recentMovements: "Recent movements",
     openPositions: "Open positions",
@@ -253,6 +380,13 @@ const en: Translations = {
       counterparty: "Counterparty",
       status: "Status",
       openBalance: "Open balance",
+      description: "Description",
+      document: "Document number",
+      cashInColumn: "Cash in",
+      cashOutColumn: "Cash out",
+      balance: "Balance",
+      openingBalance: "Opening balance",
+      proposalInstallment: "Proposal #{proposal} · Installment {installment}/{total}",
     },
     hero: {
       badge: "Financial flow",
@@ -262,6 +396,62 @@ const en: Translations = {
       balanceLabel: "Daily balance",
       viewAll: "View full flow",
       allMovementsTitle: "Full flow",
+    },
+    filters: {
+      dateRange: "Period",
+      from: "From",
+      to: "To",
+      apply: "Apply",
+      clear: "Clear",
+      placeholder: "Select a period",
+    },
+    categories: {
+      all: "All",
+      health: "Health",
+      consortium: "Consortium",
+      insurance: "Insurance",
+      others: "Others",
+      comingSoon: "Coming soon",
+    },
+    breakdown: {
+      title: "Breakdown",
+      empty: "Nothing to show.",
+      client: "Client",
+      broker: "Broker",
+      viewDetails: "View details",
+      lives: "Lives",
+      installmentNumber: "Installment #",
+      date: "Date",
+      originalValue: "Original value",
+      commissionPercent: "Commission (%)",
+      proposalValue: "Proposal value",
+      repasseLabel: "Payout",
+      multaLabel: "Penalty",
+      operator: "Operator",
+      plan: "Plan",
+      proposalNumber: "Proposal",
+      reason: "Reason",
+      statusCaption: "Status",
+      consolidated: "Consolidated",
+      pendingStatus: "Open",
+      receivedSubtitle: "Received commissions",
+      receivableSubtitle: "Receivable commissions",
+      repassedSubtitle: "Commission payouts",
+      payableSubtitle: "Payouts due",
+      netSubtitle: "Commissions",
+      projectedSubtitle: "Projected positions",
+      receivedCaption: "Received",
+      receivableCaption: "Receivable",
+      repassedCaption: "Paid out",
+      payableCaption: "Due",
+      netCaption: "Net",
+      projectedCaption: "Projected",
+      party: {
+        name: "Name",
+        phone: "Phone",
+        email: "Email",
+        document: "Tax ID",
+      },
     },
   },
   cashEffect: {
@@ -303,6 +493,7 @@ const en: Translations = {
     tax: "Tax",
     charge: "Charge",
     purchase: "Purchase",
+    commission: "Commission",
     unknown: "Uncategorized",
   },
   eventType: {

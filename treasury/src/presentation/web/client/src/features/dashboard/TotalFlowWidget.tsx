@@ -10,8 +10,7 @@ import type { CashPosition, CashMovement } from "@/types/dashboard";
 
 const VIEW_W = 480;
 const BAR_AREA_H = 64;
-const LABEL_BAND_H = 16;
-const VIEW_H = BAR_AREA_H + LABEL_BAND_H;
+const VIEW_H = BAR_AREA_H;
 const BAR_RADIUS = 3;
 
 /** Cumulative closing balance per day (running cash_in − cash_out), relative to the start of `movements`. */
@@ -144,9 +143,6 @@ export function TotalFlowWidget({
                     className="transition-opacity"
                     opacity={hovered === null || hovered === i ? 1 : 0.55}
                   />
-                  <text x={b.centerX} y={BAR_AREA_H + 12} textAnchor="middle" fill="var(--color-muted)" className="text-[8px]">
-                    {formatDayLabel(b.date, locale)}
-                  </text>
                 </g>
               ))}
             </svg>
