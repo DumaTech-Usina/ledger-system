@@ -11,11 +11,27 @@ export interface SlotProposal {
   confidence: number;
 }
 
+/** A scenario the extractor may classify an utterance into, with the slots it would then fill. */
+export interface ScenarioCatalogEntry {
+  id: string;
+  title: string;
+  description: string;
+  slots: SlotDefinition[];
+}
+
 export interface SlotExtractionRequest {
   /** The user's free-text message. */
   utterance: string;
-  /** The slots of the scenario currently in play — bounds what may be proposed. */
-  slots: SlotDefinition[];
+  /**
+   * Bound mode: the slots of the scenario already in play — bounds what may be proposed. Provide
+   * this OR `scenarios` (classify mode), not both.
+   */
+  slots?: SlotDefinition[];
+  /**
+   * Classify mode: the scenario catalog to choose from when the scenario is not yet known. The
+   * extractor picks one (or asks to clarify) and proposes values for its slots in the same call.
+   */
+  scenarios?: ScenarioCatalogEntry[];
   /** Answers already recorded on the intent (context; a proposer may use them or ignore them). */
   priorAnswers?: Record<string, SlotValue>;
   /** Known parties for grounding PARTY mentions to a real id. Absent = no grounding available. */
@@ -23,7 +39,14 @@ export interface SlotExtractionRequest {
 }
 
 export interface SlotExtractionResult {
-  /** Proposed values, each with a confidence. May be empty. Only keys present in `slots` are valid. */
+  /**
+   * Classify mode only: the best-guess scenario id. Absent when the guess is ambiguous/none (see
+   * `clarification`) or in bound mode. Only ids present in the supplied catalog are valid.
+   */
+  scenarioId?: string;
+  /** Classify mode only: a question to ask when no scenario could be confidently chosen. */
+  clarification?: string;
+  /** Proposed values, each with a confidence. May be empty. Only keys of the in-play scenario are valid. */
   slots: SlotProposal[];
 }
 

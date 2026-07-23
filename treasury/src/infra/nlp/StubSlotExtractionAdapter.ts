@@ -1,6 +1,7 @@
 import { SlotType } from "../../core/domain/enums/SlotType";
 import type { SlotDefinition } from "../../core/domain/value-objects/Slot";
 import type {
+  ScenarioCatalogEntry,
   SlotExtractionPort,
   SlotExtractionRequest,
   SlotExtractionResult,
@@ -24,14 +25,63 @@ export class StubSlotExtractionAdapter implements SlotExtractionPort {
 
   async extract(request: SlotExtractionRequest): Promise<SlotExtractionResult> {
     const text = request.utterance ?? "";
-    const slots: SlotProposal[] = [];
 
-    for (const slot of request.slots) {
-      const proposal = this.proposeForSlot(slot, text, request.knownParties ?? []);
-      if (proposal) slots.push(proposal);
+    // Classify mode: pick a scenario from the catalog, then extract for its slots. If no scenario
+    // can be confidently chosen, ask to clarify and propose nothing.
+    if (request.scenarios) {
+      const chosen = this.classify(text, request.scenarios);
+      if (!chosen) {
+        return { clarification: this.clarificationFor(request.scenarios), slots: [] };
+      }
+      return { scenarioId: chosen.id, slots: this.extractSlots(chosen.slots, text, request.knownParties ?? []) };
     }
 
-    return { slots };
+    // Bound mode: extract for the supplied slots of the scenario already in play.
+    return { slots: this.extractSlots(request.slots ?? [], text, request.knownParties ?? []) };
+  }
+
+  private extractSlots(
+    slots: SlotDefinition[],
+    text: string,
+    knownParties: { partyId: string; name: string }[],
+  ): SlotProposal[] {
+    const out: SlotProposal[] = [];
+    for (const slot of slots) {
+      const proposal = this.proposeForSlot(slot, text, knownParties);
+      if (proposal) out.push(proposal);
+    }
+    return out;
+  }
+
+  /**
+   * Deterministic keyword classification: score each scenario by how many *distinctive* words of the
+   * utterance belong only to it. Distinctiveness is derived from the catalog (a word appearing in one
+   * scenario's title+description), so nothing hardcodes scenario ids. Returns the unique top scorer,
+   * or null when the top is zero or tied (ambiguous) — the caller then asks to clarify.
+   */
+  private classify(text: string, scenarios: ScenarioCatalogEntry[]): ScenarioCatalogEntry | null {
+    const df = new Map<string, Set<string>>(); // token → scenario ids that contain it
+    for (const s of scenarios) {
+      for (const tok of new Set(tokenize(`${s.title} ${s.description}`))) {
+        (df.get(tok) ?? df.set(tok, new Set()).get(tok)!).add(s.id);
+      }
+    }
+
+    const utter = new Set(tokenize(text));
+    const scores = scenarios.map((s) => ({
+      s,
+      score: [...utter].filter((t) => df.get(t)?.size === 1 && df.get(t)!.has(s.id)).length,
+    }));
+    scores.sort((a, b) => b.score - a.score);
+
+    const [top, runnerUp] = scores;
+    if (!top || top.score === 0) return null;
+    if (runnerUp && runnerUp.score === top.score) return null; // ambiguous tie
+    return top.s;
+  }
+
+  private clarificationFor(scenarios: ScenarioCatalogEntry[]): string {
+    return `Which operation do you mean? ${scenarios.map((s) => s.title).join(" · ")}`;
   }
 
   private proposeForSlot(
@@ -95,4 +145,9 @@ export class StubSlotExtractionAdapter implements SlotExtractionPort {
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Lowercase alphanumeric words of length ≥ 3 — short glue words never discriminate a scenario. */
+function tokenize(s: string): string[] {
+  return (s.toLowerCase().match(/[a-z0-9]{3,}/g) ?? []);
 }

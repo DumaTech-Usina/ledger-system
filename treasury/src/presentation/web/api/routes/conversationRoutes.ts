@@ -59,10 +59,26 @@ export function conversationRoutes(
     }
   });
 
+  // First utterance, no scenario chosen yet: classify → create the intent → merge (or clarify).
+  router.post("/interpret", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { utterance } = req.body ?? {};
+      const result = await interpretUtterance.execute({ utterance: utterance ?? "", userId: currentUser(req).id });
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Continue an existing intent from free text (scenario already bound).
   router.post("/:intentId/interpret", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { utterance } = req.body ?? {};
-      const result = await interpretUtterance.execute({ intentId: req.params.intentId, utterance: utterance ?? "" });
+      const result = await interpretUtterance.execute({
+        intentId: req.params.intentId,
+        utterance: utterance ?? "",
+        userId: currentUser(req).id,
+      });
       res.json(result);
     } catch (err) {
       next(err);

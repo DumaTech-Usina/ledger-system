@@ -86,7 +86,7 @@ function bootstrap(): void {
     startIntent: new StartIntentUseCase(intentRepo, clock, ids, audit),
     advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit),
     applyAnswers,
-    interpretUtterance: new InterpretUtteranceUseCase(intentRepo, extractor, applyAnswers, audit, clock),
+    interpretUtterance: new InterpretUtteranceUseCase(intentRepo, extractor, applyAnswers, audit, clock, ids),
     previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper),
     submitIntent: new SubmitIntentUseCase(intentRepo, candidateMapper, submission, audit, clock),
     getIntent: new GetIntentUseCase(intentRepo, audit),

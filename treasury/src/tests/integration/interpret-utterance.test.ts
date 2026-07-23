@@ -23,7 +23,7 @@ async function wire(extractor: SlotExtractionPort, options?: InterpretOptions) {
   const ids: IdGenerator = { next: () => `intent-${++n}` };
   const apply = new ApplyAnswersUseCase(repo, clock, audit);
   const start = new StartIntentUseCase(repo, clock, ids, audit);
-  const interpret = new InterpretUtteranceUseCase(repo, extractor, apply, audit, clock, options);
+  const interpret = new InterpretUtteranceUseCase(repo, extractor, apply, audit, clock, ids, options);
   const { intentId } = await start.execute({ scenarioId: "register_payment", userId: "cfo" });
   return { repo, audit, interpret, intentId };
 }
@@ -35,7 +35,7 @@ describe("InterpretUtterance", () => {
     const res = await interpret.execute({ intentId, utterance: "Paguei 1500.00 em BRL no dia 2026-07-23" });
 
     expect(res.accepted.sort()).toEqual(["amount", "currency", "occurredAt"]);
-    expect(res.state.kind).toBe("question"); // payee still missing
+    expect(res.state?.kind).toBe("question"); // payee still missing
     const intent = await repo.findById(intentId);
     expect(intent?.answers.amount).toBe("1500.00");
     expect(intent?.answers.payee).toBeUndefined();
@@ -54,7 +54,7 @@ describe("InterpretUtterance", () => {
     );
 
     const res = await interpret.execute({ intentId, utterance: "..." });
-    expect(res.state.kind).toBe("ready");
+    expect(res.state?.kind).toBe("ready");
   });
 
   it("rejects an invalid proposed value without recording it — it becomes the next question", async () => {
@@ -116,7 +116,7 @@ describe("InterpretUtterance", () => {
     const res = await interpret.execute({ intentId, utterance: "1500.00 BRL" });
 
     expect(res.accepted).toHaveLength(0);
-    expect(res.state.kind).toBe("question"); // never crashes; still guiding the user
+    expect(res.state?.kind).toBe("question"); // never crashes; still guiding the user
     const trail = await audit.listByIntent(intentId);
     expect(trail.some((e) => e.type === "extraction.failed")).toBe(true);
     const intent = await repo.findById(intentId);
@@ -133,5 +133,68 @@ describe("InterpretUtterance", () => {
   it("throws on an unknown intent", async () => {
     const { interpret } = await wire(new StubSlotExtractionAdapter());
     await expect(interpret.execute({ intentId: "nope", utterance: "x" })).rejects.toThrow(/Unknown intent/);
+  });
+
+  describe("first-utterance classification (no intentId)", () => {
+    it("classifies the scenario, creates the intent and merges slots in one turn", async () => {
+      const { repo, interpret } = await wire(new StubSlotExtractionAdapter());
+
+      const res = await interpret.execute({
+        utterance: "pay my employees 1500.00 in BRL on 2026-07-23",
+        userId: "cfo",
+      });
+
+      expect(res.scenarioId).toBe("register_payroll");
+      expect(res.intentId).toBeDefined();
+      expect(res.accepted).toEqual(expect.arrayContaining(["amount", "currency", "occurredAt"]));
+      const intent = await repo.findById(res.intentId!);
+      expect(intent?.scenarioId).toBe("register_payroll");
+      expect(intent?.answers.amount).toBe("1500.00");
+    });
+
+    it("asks to clarify and creates nothing when the operation is ambiguous", async () => {
+      const { repo, interpret } = await wire(new StubSlotExtractionAdapter());
+      const before = (await repo.listByUser("cfo")).length;
+
+      const res = await interpret.execute({ utterance: "I want to record a payment", userId: "cfo" });
+
+      expect(res.clarification).toBeTruthy();
+      expect(res.intentId).toBeUndefined();
+      expect(res.scenarioId).toBeUndefined();
+      expect(await repo.listByUser("cfo")).toHaveLength(before); // no new intent
+    });
+
+    it("rejects a guessed scenario id that is not a real scenario (never trusts it)", async () => {
+      const { repo, interpret } = await wire(
+        fakePort({ scenarioId: "not_a_scenario", slots: [{ key: "amount", value: "1500.00", confidence: 0.9 }] }),
+      );
+      const before = (await repo.listByUser("cfo")).length;
+
+      const res = await interpret.execute({ utterance: "whatever", userId: "cfo" });
+
+      expect(res.clarification).toBeTruthy();
+      expect(res.intentId).toBeUndefined();
+      expect(await repo.listByUser("cfo")).toHaveLength(before);
+    });
+
+    it("clarifies (creates nothing) when the extractor throws during classification", async () => {
+      const { repo, interpret } = await wire(
+        fakePort(() => {
+          throw new Error("model unavailable");
+        }),
+      );
+      const before = (await repo.listByUser("cfo")).length;
+
+      const res = await interpret.execute({ utterance: "register payroll", userId: "cfo" });
+
+      expect(res.clarification).toBeTruthy();
+      expect(res.intentId).toBeUndefined();
+      expect(await repo.listByUser("cfo")).toHaveLength(before);
+    });
+
+    it("requires a userId to start from an utterance", async () => {
+      const { interpret } = await wire(new StubSlotExtractionAdapter());
+      await expect(interpret.execute({ utterance: "register payroll" })).rejects.toThrow(/userId is required/);
+    });
   });
 });
