@@ -8,8 +8,10 @@ import { HttpCandidateSubmissionAdapter } from "./infra/submission/HttpCandidate
 import { HttpLedgerReadAdapter } from "./infra/ledger-read/HttpLedgerReadAdapter";
 import { StubLedgerReadAdapter } from "./infra/ledger-read/StubLedgerReadAdapter";
 import { InMemoryLedgerSimulator } from "./infra/ledger-sim/InMemoryLedgerSimulator";
+import { StubSlotExtractionAdapter } from "./infra/nlp/StubSlotExtractionAdapter";
 import type { CandidateSubmissionPort } from "./core/application/ports/CandidateSubmissionPort";
 import type { LedgerReadPort } from "./core/application/ports/LedgerReadPort";
+import type { SlotExtractionPort } from "./core/application/ports/SlotExtractionPort";
 import { ScryptPasswordHasher } from "./infra/auth/ScryptPasswordHasher";
 import { InMemorySessionStore } from "./infra/auth/InMemorySessionStore";
 import { seedUsers } from "./infra/auth/seedUsers";
@@ -22,6 +24,7 @@ import { GetTreasuryDashboardUseCase } from "./core/application/use-cases/GetTre
 import { StartIntentUseCase } from "./core/application/use-cases/StartIntent";
 import { AdvanceDialogUseCase } from "./core/application/use-cases/AdvanceDialog";
 import { ApplyAnswersUseCase } from "./core/application/use-cases/ApplyAnswers";
+import { InterpretUtteranceUseCase } from "./core/application/use-cases/InterpretUtterance";
 import { PreviewIntentUseCase } from "./core/application/use-cases/PreviewIntent";
 import { SubmitIntentUseCase } from "./core/application/use-cases/SubmitIntent";
 import { GetIntentUseCase } from "./core/application/use-cases/GetIntent";
@@ -34,6 +37,16 @@ function bootstrap(): void {
   const clock = new SystemClock();
   const ids = new UuidGenerator();
   const candidateMapper = new CandidateMapper(env.USINA_PARTY_ID);
+  const applyAnswers = new ApplyAnswersUseCase(intentRepo, clock, audit);
+
+  // Slot extraction (the LLM boundary), selected by env.EXTRACTION_MODE. Only the deterministic stub
+  // exists today; a real-model adapter becomes another case here with no change to core.
+  let extractor: SlotExtractionPort;
+  switch (env.EXTRACTION_MODE) {
+    case "stub":
+    default:
+      extractor = new StubSlotExtractionAdapter();
+  }
 
   // ── Identity / auth ──────────────────────────────────────────────────────────
   const hasher = new ScryptPasswordHasher();
@@ -72,7 +85,8 @@ function bootstrap(): void {
     getDashboard,
     startIntent: new StartIntentUseCase(intentRepo, clock, ids, audit),
     advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit),
-    applyAnswers: new ApplyAnswersUseCase(intentRepo, clock, audit),
+    applyAnswers,
+    interpretUtterance: new InterpretUtteranceUseCase(intentRepo, extractor, applyAnswers, audit, clock),
     previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper),
     submitIntent: new SubmitIntentUseCase(intentRepo, candidateMapper, submission, audit, clock),
     getIntent: new GetIntentUseCase(intentRepo, audit),

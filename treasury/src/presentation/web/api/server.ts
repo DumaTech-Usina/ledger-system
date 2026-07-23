@@ -12,6 +12,7 @@ import type { GetTreasuryDashboardUseCase } from "../../../core/application/use-
 import type { StartIntentUseCase } from "../../../core/application/use-cases/StartIntent";
 import type { AdvanceDialogUseCase } from "../../../core/application/use-cases/AdvanceDialog";
 import type { ApplyAnswersUseCase } from "../../../core/application/use-cases/ApplyAnswers";
+import type { InterpretUtteranceUseCase } from "../../../core/application/use-cases/InterpretUtterance";
 import type { PreviewIntentUseCase } from "../../../core/application/use-cases/PreviewIntent";
 import type { SubmitIntentUseCase } from "../../../core/application/use-cases/SubmitIntent";
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
@@ -24,6 +25,7 @@ export interface ServerDeps {
   startIntent: StartIntentUseCase;
   advanceDialog: AdvanceDialogUseCase;
   applyAnswers: ApplyAnswersUseCase;
+  interpretUtterance: InterpretUtteranceUseCase;
   previewIntent: PreviewIntentUseCase;
   submitIntent: SubmitIntentUseCase;
   getIntent: GetIntentUseCase;
@@ -49,7 +51,14 @@ export function createServer(deps: ServerDeps) {
     "/api/conversation",
     requireAuth,
     requirePermission(Permission.INTENT_CREATE),
-    conversationRoutes(deps.startIntent, deps.advanceDialog, deps.applyAnswers, deps.previewIntent, deps.submitIntent),
+    conversationRoutes(
+      deps.startIntent,
+      deps.advanceDialog,
+      deps.applyAnswers,
+      deps.interpretUtterance,
+      deps.previewIntent,
+      deps.submitIntent,
+    ),
   );
   app.use(
     "/api/intents",

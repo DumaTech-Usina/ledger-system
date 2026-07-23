@@ -20,6 +20,14 @@ const envSchema = z.object({
   /** Service token sent as a Bearer credential on live submissions to the Ledger. */
   LEDGER_SUBMIT_TOKEN: z.string().default(""),
 
+  /**
+   * How treasury extracts slot values from natural language:
+   *  - "stub": deterministic regex/keyword extractor (no external model). The default until the
+   *            conversational workflow is complete.
+   * A real-model adapter will be added as a new value here, selected without any change to core.
+   */
+  EXTRACTION_MODE: z.enum(["stub"]).default("stub"),
+
   /** The usina's party id, used when mapping an intent to a Ledger candidate. */
   USINA_PARTY_ID: z.string().default("party-usina"),
 

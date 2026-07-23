@@ -3,6 +3,7 @@ import { listScenarios } from "../../../../core/domain/scenarios/Scenario";
 import type { StartIntentUseCase } from "../../../../core/application/use-cases/StartIntent";
 import type { AdvanceDialogUseCase } from "../../../../core/application/use-cases/AdvanceDialog";
 import type { ApplyAnswersUseCase } from "../../../../core/application/use-cases/ApplyAnswers";
+import type { InterpretUtteranceUseCase } from "../../../../core/application/use-cases/InterpretUtterance";
 import type { PreviewIntentUseCase } from "../../../../core/application/use-cases/PreviewIntent";
 import type { SubmitIntentUseCase } from "../../../../core/application/use-cases/SubmitIntent";
 import { Permission } from "../../../../core/domain/enums/Permission";
@@ -16,6 +17,7 @@ export function conversationRoutes(
   startIntent: StartIntentUseCase,
   advanceDialog: AdvanceDialogUseCase,
   applyAnswers: ApplyAnswersUseCase,
+  interpretUtterance: InterpretUtteranceUseCase,
   previewIntent: PreviewIntentUseCase,
   submitIntent: SubmitIntentUseCase,
 ): Router {
@@ -52,6 +54,16 @@ export function conversationRoutes(
       const { answers, mode } = req.body ?? {};
       const result = await applyAnswers.execute({ intentId: req.params.intentId, answers: answers ?? [], mode });
       res.status(result.rejected.length ? 422 : 200).json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post("/:intentId/interpret", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { utterance } = req.body ?? {};
+      const result = await interpretUtterance.execute({ intentId: req.params.intentId, utterance: utterance ?? "" });
+      res.json(result);
     } catch (err) {
       next(err);
     }
