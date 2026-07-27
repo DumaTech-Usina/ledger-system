@@ -57,7 +57,32 @@ describe("SubmitCandidateUseCase (User App submit endpoint)", () => {
     const { submit } = build();
     const outcome = await submit.execute(validCandidate({ eventType: "charge_created", sourceReference: "intent:bad" }), "intent:bad");
     expect(outcome.status).toBe("rejected");
-    if (outcome.status === "rejected") expect(outcome.reason).toMatch(/eventType|invalid/i);
+    if (outcome.status === "rejected") {
+      expect(outcome.reason).toMatch(/eventType|invalid/i);
+      // A malformed tuple is not the user's fault → internal, never exposed as an input question.
+      expect(outcome.rejections[0]).toMatchObject({ code: "TUPLE_INVALID", category: "internal" });
+    }
+  });
+
+  it("surfaces a duplicate as a structured, terminal rejection", async () => {
+    const { submit } = build();
+    // First submit records the source reference; a second with the SAME reference but a different
+    // idempotency key is caught by the validator as a duplicate (not the idempotent retry path).
+    await submit.execute(validCandidate({ sourceReference: "intent:dup" }), "key-1");
+    const outcome = await submit.execute(validCandidate({ sourceReference: "intent:dup" }), "key-2");
+    expect(outcome.status).toBe("rejected");
+    if (outcome.status === "rejected") {
+      expect(outcome.rejections[0]).toMatchObject({ code: "DUPLICATE", category: "duplicate" });
+    }
+  });
+
+  it("surfaces a zero amount as a structured input rejection pointing at the amount", async () => {
+    const { submit } = build();
+    const outcome = await submit.execute(validCandidate({ amount: "0.00", sourceReference: "intent:zero" }), "intent:zero");
+    expect(outcome.status).toBe("rejected");
+    if (outcome.status === "rejected") {
+      expect(outcome.rejections[0]).toMatchObject({ code: "AMOUNT_INVALID", category: "input", field: "amount" });
+    }
   });
 
   it("is idempotent: a retry returns the same acceptance, not a duplicate", async () => {

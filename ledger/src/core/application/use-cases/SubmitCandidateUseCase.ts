@@ -14,10 +14,13 @@ import { Relation } from "../../domain/enums/Relation";
 import { ReasonType } from "../../domain/enums/ReasonType";
 import { ConfidenceLevel } from "../../domain/enums/ConfidenceLevel";
 import { ReporterType } from "../../domain/enums/ReporterType";
+import { classifyStagingFailure, classifyError, type RejectionDetail } from "../services/RejectionCatalog";
 
 export type SubmitOutcome =
   | { status: "accepted"; ledgerReference: string }
-  | { status: "rejected"; reason: string };
+  // `reason` (the joined legible string) is retained for back-compat; `rejections` is the
+  // domain-oriented contract a client branches on. See services/RejectionCatalog.
+  | { status: "rejected"; reason: string; rejections: RejectionDetail[] };
 
 // The User App is not a normalizer; the Ledger stamps its own ingestion metadata on submit.
 const SOURCE_SYSTEM = "integration";
@@ -46,15 +49,21 @@ export class SubmitCandidateUseCase {
 
     const failures = await this.validator.validate(this.toStagingRecord(input));
     if (failures.length > 0) {
-      return { status: "rejected", reason: failures.map((f) => f.description).join("; ") };
+      return {
+        status: "rejected",
+        reason: failures.map((f) => f.description).join("; "),
+        rejections: failures.map(classifyStagingFailure),
+      };
     }
 
     try {
       const event = await this.createUseCase.execute(this.toCommand(input, idempotencyKey));
       return { status: "accepted", ledgerReference: event.id.value };
     } catch (err) {
-      // Invariant / conservation / lineage violations surface as a legible rejection.
-      return { status: "rejected", reason: err instanceof Error ? err.message : String(err) };
+      // Invariant / conservation / lineage violations surface as a legible reason PLUS a
+      // structured rejection the client can branch on (the throw sites are untouched).
+      const message = err instanceof Error ? err.message : String(err);
+      return { status: "rejected", reason: message, rejections: [classifyError(message)] };
     }
   }
 
