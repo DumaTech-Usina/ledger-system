@@ -15,6 +15,7 @@ import type { PreviewIntentUseCase } from "../../../core/application/use-cases/P
 import type { SubmitIntentUseCase } from "../../../core/application/use-cases/SubmitIntent";
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
+import type { ExtractAndApplyDocumentUseCase } from "../../../core/application/use-cases/ExtractAndApplyDocument";
 
 export interface ServerDeps {
   auth: AuthService;
@@ -24,6 +25,7 @@ export interface ServerDeps {
   advanceDialog: AdvanceDialogUseCase;
   previewIntent: PreviewIntentUseCase;
   submitIntent: SubmitIntentUseCase;
+  extractAndApplyDocument: ExtractAndApplyDocumentUseCase;
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
@@ -47,7 +49,7 @@ export function createServer(deps: ServerDeps) {
     "/api/conversation",
     requireAuth,
     requirePermission(Permission.INTENT_CREATE),
-    conversationRoutes(deps.startIntent, deps.advanceDialog, deps.previewIntent, deps.submitIntent),
+    conversationRoutes(deps.startIntent, deps.advanceDialog, deps.previewIntent, deps.submitIntent, deps.extractAndApplyDocument),
   );
   app.use(
     "/api/intents",

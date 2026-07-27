@@ -45,6 +45,7 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
     lifecycle,
     selectScenario,
     answer,
+    extractFromFile,
     confirmSubmit,
     restart,
     answeredSlots,
@@ -127,7 +128,13 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
           footer={
             // Choice slots (e.g. BRL/USD) answer inline in the chat instead — see ChatStream.
             phase === "conversation" && currentSlot && currentSlot.type !== "choice" ? (
-              <Composer key={currentSlot.key} slot={currentSlot} onAnswer={answer} busy={busy} />
+              <Composer
+                key={currentSlot.key}
+                slot={currentSlot}
+                onAnswer={answer}
+                onAttach={extractFromFile}
+                busy={busy}
+              />
             ) : undefined
           }
         >
@@ -141,6 +148,7 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
             <ChatStream
               stream={stream}
               scenarioTitle={scenarioTitle}
+              scenarioId={scenarioId ?? ""}
               onConfirm={confirmSubmit}
               onCancel={restart}
               busy={busy}

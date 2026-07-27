@@ -47,3 +47,40 @@ export const defaultScenarioIcon = (
     <path d="M10 2 18 10 10 18 2 10 10 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
   </svg>
 );
+
+export const paperclipIcon = (
+  <svg viewBox="0 0 20 20" fill="none" className="size-5">
+    <path
+      d="M13.5 6.5 8 12a2 2 0 1 0 2.8 2.8l5.6-5.6a4 4 0 1 0-5.7-5.7L5.1 9.1a5.7 5.7 0 0 0 8 8l4.9-4.9"
+      {...stroke}
+    />
+  </svg>
+);
+
+export const fileTypeIcons: Record<"pdf" | "image" | "csv" | "xml", ReactElement> = {
+  pdf: (
+    <svg viewBox="0 0 20 20" fill="none" className="size-4">
+      <path d="M6 2.5h5.5L15 6v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z" {...stroke} />
+      <path d="M11.5 2.5V6H15" {...stroke} />
+    </svg>
+  ),
+  image: (
+    <svg viewBox="0 0 20 20" fill="none" className="size-4">
+      <rect x="2.5" y="4" width="15" height="12" rx="1.5" {...stroke} />
+      <circle cx="7" cy="8.2" r="1.3" {...stroke} />
+      <path d="M3 14.5 7.5 11l3 2.5 2.5-2 4 3" {...stroke} />
+    </svg>
+  ),
+  csv: (
+    <svg viewBox="0 0 20 20" fill="none" className="size-4">
+      <path d="M6 2.5h5.5L15 6v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z" {...stroke} />
+      <path d="M6.3 15.2v-4h2.4M6.3 13.2h2M10.1 15.2v-4l1.4 4 1.4-4v4" {...stroke} />
+    </svg>
+  ),
+  xml: (
+    <svg viewBox="0 0 20 20" fill="none" className="size-4">
+      <path d="M6 2.5h5.5L15 6v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z" {...stroke} />
+      <path d="m5.8 12 1.8 1.8-1.8 1.8M9 12l-1 3.6M11.2 12l1.8 1.8-1.8 1.8" {...stroke} />
+    </svg>
+  ),
+};

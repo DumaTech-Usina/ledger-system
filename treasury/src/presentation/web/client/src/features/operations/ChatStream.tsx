@@ -7,8 +7,9 @@ import { Input } from "@/components/Input";
 import { formatDate, formatMoney } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { typingDurationMs } from "@/features/operations/typing";
+import { documentTypeLabels, scenarioSlotPrompts } from "@/features/operations/copy";
 import type { StreamItem } from "@/features/operations/useConversation";
-import type { PreviewIntentResult, SlotDefinition } from "@/types/operations";
+import type { ExtractAndApplyDocumentResult, PreviewIntentResult, SlotDefinition } from "@/types/operations";
 
 export interface SaveEditsResult {
   ok: boolean;
@@ -18,6 +19,7 @@ export interface SaveEditsResult {
 export interface ChatStreamProps {
   stream: StreamItem[];
   scenarioTitle: string;
+  scenarioId: string;
   onConfirm: () => void;
   onCancel: () => void;
   busy: boolean;
@@ -57,6 +59,7 @@ function TypedText({ text, onTick }: { text: string; onTick?: () => void }) {
 export function ChatStream({
   stream,
   scenarioTitle,
+  scenarioId,
   onConfirm,
   onCancel,
   busy,
@@ -123,6 +126,8 @@ export function ChatStream({
                 onSaveEdits={onSaveEdits ?? (async () => ({ ok: false }))}
               />
             );
+          case "extraction":
+            return <ExtractionSummaryCard key={item.id} result={item.result} scenarioId={scenarioId} />;
           case "result":
             return item.status === "accepted" ? (
               <Banner key={item.id} variant="ok" className="flex flex-wrap items-center justify-between gap-3">
@@ -171,6 +176,87 @@ export function ChatStream({
       )}
 
       <div ref={bottomRef} />
+    </div>
+  );
+}
+
+function fieldLabel(scenarioId: string, slotKey: string): string {
+  return scenarioSlotPrompts[scenarioId]?.[slotKey] ?? slotKey;
+}
+
+const HIGH_CONFIDENCE_THRESHOLD = 0.8;
+
+/**
+ * Only the date field currently carries graduated confidence (a payment-date label vs. a fallback
+ * like "emissão" vs. an unlabeled guess) — counterparty/amount still use one fixed confidence each,
+ * so this intentionally only affects the date row rather than recoloring every applied field.
+ */
+function needsReview(extraction: ExtractAndApplyDocumentResult["extraction"], slot: SlotDefinition): boolean {
+  if (slot.type !== "date") return false;
+  const confidence = extraction.confidence?.date;
+  return confidence !== undefined && confidence < HIGH_CONFIDENCE_THRESHOLD;
+}
+
+function ExtractionSummaryCard({
+  result,
+  scenarioId,
+}: {
+  result: ExtractAndApplyDocumentResult;
+  scenarioId: string;
+}) {
+  const { extraction, applied, skipped } = result;
+
+  return (
+    <div className="flex justify-start">
+      <Card padding="md" className="max-w-md border-white/40 bg-panel-solid/85 backdrop-blur-md dark:border-white/10">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[13.5px] font-semibold text-ink">
+            {extraction.documentType ? documentTypeLabels[extraction.documentType] : "Documento"} analisado
+          </p>
+          {!extraction.success && <Badge variant="bad">Falhou</Badge>}
+        </div>
+
+        {!extraction.success && (
+          <p className="mt-2 text-[13px] text-bad">
+            {extraction.errors?.[0] ?? "Não foi possível ler os dados deste documento."}
+          </p>
+        )}
+
+        {(applied.length > 0 || skipped.length > 0) && (
+          <div className="mt-3 flex flex-col gap-2">
+            {applied.map((slot) => {
+              const review = needsReview(extraction, slot);
+              return (
+                <div
+                  key={slot.key}
+                  className={cn(
+                    "flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-[13px]",
+                    review ? "bg-warn-soft" : "bg-ok-soft",
+                  )}
+                >
+                  <span className={cn("font-medium", review ? "text-warn" : "text-ok")}>
+                    {fieldLabel(scenarioId, slot.key)}
+                  </span>
+                  <Badge variant={review ? "warn" : "ok"}>{review ? "Confira" : "Preenchido"}</Badge>
+                </div>
+              );
+            })}
+            {skipped.map(({ slotKey, reason }) => (
+              <div key={slotKey} className="rounded-xl bg-warn-soft px-3 py-2 text-[13px]">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-warn">{fieldLabel(scenarioId, slotKey)}</span>
+                  <Badge variant="warn">Preencha manualmente</Badge>
+                </div>
+                <p className="mt-1 text-xs text-warn/90">{reason}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {extraction.warnings && extraction.warnings.length > 0 && (
+          <p className="mt-3 text-xs text-muted">{extraction.warnings.join(" ")}</p>
+        )}
+      </Card>
     </div>
   );
 }

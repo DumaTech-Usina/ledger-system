@@ -4,6 +4,7 @@ import { scenarioCopy, scenarioSlotPrompts, translateMessage } from "@/features/
 import { typingDurationMs } from "@/features/operations/typing";
 import type {
   AuditEntry,
+  ExtractAndApplyDocumentResult,
   IntentStatus,
   PreviewIntentResult,
   ScenarioSummary,
@@ -17,6 +18,7 @@ export type StreamItem =
   | { id: string; kind: "error"; text: string }
   | { id: string; kind: "confirm"; preview: PreviewIntentResult }
   | { id: string; kind: "result"; status: SubmissionStatus; ledgerReference?: string; reason?: string }
+  | { id: string; kind: "extraction"; result: ExtractAndApplyDocumentResult }
   | { id: string; kind: "transport-error" };
 
 export type Phase = "picking" | "conversation" | "confirming" | "done";
@@ -176,6 +178,42 @@ export function useConversation() {
   );
 
   /**
+   * Sends an attached file to the extraction endpoint and applies whatever fields it could read
+   * straight into the current scenario's unanswered slots — the same `/answer` path `answer()`
+   * already uses under the hood, so it advances `currentSlot`/`phase` (or jumps straight to the
+   * confirm card) exactly the same way a typed answer would.
+   */
+  const extractFromFile = useCallback(
+    async (file: File) => {
+      const id = intentIdRef.current;
+      if (!id) return;
+      setBusy(true);
+      const { data } = await operationsApi.extract(id, file);
+      setBusy(false);
+      if (!data?.extraction) {
+        push({ id: uid(), kind: "transport-error" });
+        return;
+      }
+      refreshLifecycle(id);
+      // Slots extraction filled directly never became `currentSlot` — record them now so "Editar"
+      // can rebuild a proper field for each, exactly like a slot the guided dialog actually asked.
+      for (const slot of data.applied) {
+        recordSlot(slot, slotPrompt(scenarioId ?? "", slot));
+      }
+      push({ id: uid(), kind: "extraction", result: data });
+      if (data.state.kind === "ready") {
+        setCurrentSlot(null);
+        goPreview(id);
+      } else {
+        setCurrentSlot(data.state.slot);
+        recordSlot(data.state.slot, slotPrompt(scenarioId ?? "", data.state.slot));
+        push({ id: uid(), kind: "bot", text: slotPrompt(scenarioId ?? "", data.state.slot) });
+      }
+    },
+    [goPreview, push, refreshLifecycle, scenarioId],
+  );
+
+  /**
    * Applies edits to already-answered slots (any key the scenario knows, not just the "next"
    * one — the same `/answer` route the guided dialog uses already allows this) and refreshes the
    * confirm card in place, without restarting the conversation or re-asking anything.
@@ -251,6 +289,7 @@ export function useConversation() {
     lifecycle,
     selectScenario,
     answer,
+    extractFromFile,
     confirmSubmit,
     restart,
     answeredSlots: answeredSlotsRef.current,

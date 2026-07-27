@@ -1,4 +1,4 @@
-import type { IntentStatus } from "@/types/operations";
+import type { DocumentType, IntentStatus } from "@/types/operations";
 
 export const scenarioCopy: Record<string, { title: string; description: string }> = {
   register_payment: {
@@ -60,6 +60,17 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     occurredAt: "Em que data foi pago?",
     description: "Uma breve descrição (opcional).",
   },
+};
+
+export const documentTypeLabels: Record<DocumentType, string> = {
+  pix_receipt: "Comprovante de PIX",
+  ted_receipt: "Comprovante de TED",
+  doc_receipt: "Comprovante de DOC",
+  boleto: "Boleto",
+  invoice: "Nota fiscal",
+  bank_statement: "Extrato bancário",
+  receipt: "Recibo",
+  generic: "Documento",
 };
 
 export const statusLabels: Record<IntentStatus, string> = {

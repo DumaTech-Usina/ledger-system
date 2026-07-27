@@ -114,3 +114,39 @@ export interface GetIntentResult {
   scenarioTitle: string;
   history: AuditEntry[];
 }
+
+export type DocumentType =
+  | "pix_receipt"
+  | "ted_receipt"
+  | "doc_receipt"
+  | "boleto"
+  | "invoice"
+  | "bank_statement"
+  | "receipt"
+  | "generic";
+
+export interface ExtractedFieldData {
+  counterparty?: string;
+  amount?: string;
+  date?: string;
+  currency?: string;
+  description?: string;
+}
+
+export interface ExtractionResult {
+  success: boolean;
+  documentType?: DocumentType;
+  data: ExtractedFieldData;
+  confidence?: { counterparty?: number; amount?: number; date?: number; currency?: number; description?: number };
+  warnings?: string[];
+  errors?: string[];
+  rawText?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ExtractAndApplyDocumentResult {
+  extraction: ExtractionResult;
+  state: DialogState;
+  applied: SlotDefinition[];
+  skipped: { slotKey: string; reason: string }[];
+}

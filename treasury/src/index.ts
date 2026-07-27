@@ -25,6 +25,15 @@ import { PreviewIntentUseCase } from "./core/application/use-cases/PreviewIntent
 import { SubmitIntentUseCase } from "./core/application/use-cases/SubmitIntent";
 import { GetIntentUseCase } from "./core/application/use-cases/GetIntent";
 import { ListIntentsUseCase } from "./core/application/use-cases/ListIntents";
+import { ExtractAndApplyDocumentUseCase } from "./core/application/use-cases/ExtractAndApplyDocument";
+import { DocumentExtractionService } from "./core/application/services/DocumentExtractionService";
+import { CsvFormatAdapter } from "./infra/file-extraction/adapters/CsvFormatAdapter";
+import { XmlFormatAdapter } from "./infra/file-extraction/adapters/XmlFormatAdapter";
+import { PdfFormatAdapter } from "./infra/file-extraction/adapters/PdfFormatAdapter";
+import { ImageFormatAdapter } from "./infra/file-extraction/adapters/ImageFormatAdapter";
+import { StubOcrEngine } from "./infra/file-extraction/ocr/StubOcrEngine";
+import { HeuristicDocumentClassifier } from "./infra/file-extraction/classification/HeuristicDocumentClassifier";
+import { HeuristicFieldExtractor } from "./infra/file-extraction/fields/HeuristicFieldExtractor";
 
 function bootstrap(): void {
   // ── Composition root ─────────────────────────────────────────────────────────
@@ -64,15 +73,27 @@ function bootstrap(): void {
   }
   const getDashboard = new GetTreasuryDashboardUseCase(ledgerRead, env.USINA_PARTY_ID);
 
+  // ── Document extraction (file → prefilled slot answers) ─────────────────────
+  const ocrEngine = new StubOcrEngine();
+  const documentClassifier = new HeuristicDocumentClassifier();
+  const fieldExtractor = new HeuristicFieldExtractor();
+  const extractionService = new DocumentExtractionService(
+    [new PdfFormatAdapter(), new ImageFormatAdapter(ocrEngine), new CsvFormatAdapter(), new XmlFormatAdapter()],
+    documentClassifier,
+    fieldExtractor,
+  );
+  const advanceDialog = new AdvanceDialogUseCase(intentRepo, clock, audit);
+
   const app = createServer({
     auth,
     secureCookies: env.NODE_ENV === "production",
     sessionTtlSeconds,
     getDashboard,
     startIntent: new StartIntentUseCase(intentRepo, clock, ids, audit),
-    advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit),
+    advanceDialog,
     previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper),
     submitIntent: new SubmitIntentUseCase(intentRepo, candidateMapper, submission, audit, clock),
+    extractAndApplyDocument: new ExtractAndApplyDocumentUseCase(extractionService, advanceDialog, intentRepo),
     getIntent: new GetIntentUseCase(intentRepo, audit),
     listIntents: new ListIntentsUseCase(intentRepo),
   });
