@@ -146,6 +146,18 @@ I18N.register("pt-BR", {
       title: "Registrar concessão de empréstimo",
       description: "Registrar um empréstimo concedido pela usina a um corretor (saída de caixa; origina um empréstimo a receber, a ser pago depois).",
     },
+    register_waiver: {
+      title: "Registrar renúncia de comissão",
+      description: "Registrar uma renúncia de comissão — a usina abre mão do direito de comissão de um corretor (sem movimento de caixa).",
+    },
+    register_commission_accrual: {
+      title: "Registrar comissão esperada",
+      description: "Registrar uma comissão que a usina espera receber antes de o caixa chegar (uma provisão; sem movimento de caixa).",
+    },
+    register_direct_payment: {
+      title: "Reconhecer pagamento direto a um corretor",
+      description: "Registrar que a operadora pagou um corretor diretamente — a comissão a receber da usina é liquidada sem movimento de caixa.",
+    },
   },
 
   slots: {
@@ -197,6 +209,27 @@ I18N.register("pt-BR", {
       amount: "Qual é o valor do empréstimo?",
       currency: "Qual é a moeda?",
       occurredAt: "Em que data o empréstimo foi concedido?",
+      description: "Uma breve descrição (opcional).",
+    },
+    register_waiver: {
+      payee: "De quem é a comissão que está sendo renunciada (corretor ou parceiro)?",
+      basis: "É uma renúncia padrão ou o estorno de um direito concedido incorretamente?",
+      amount: "Qual é o valor renunciado?",
+      currency: "Qual é a moeda?",
+      occurredAt: "Em que data foi renunciada?",
+      description: "Uma breve descrição (opcional).",
+    },
+    register_commission_accrual: {
+      amount: "Qual valor de comissão é esperado?",
+      currency: "Qual é a moeda?",
+      occurredAt: "Em que data é esperada?",
+      description: "Uma breve descrição (opcional).",
+    },
+    register_direct_payment: {
+      payee: "Qual corretor foi pago diretamente?",
+      amount: "Qual é o valor da comissão que foi liquidada?",
+      currency: "Qual é a moeda?",
+      occurredAt: "Em que data o corretor foi pago?",
       description: "Uma breve descrição (opcional).",
     },
   },

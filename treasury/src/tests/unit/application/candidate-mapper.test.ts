@@ -96,6 +96,55 @@ describe("CandidateMapper — per-instance tuple selection (Phase 4)", () => {
   });
 });
 
+describe("CandidateMapper — NON_CASH party/object mold (Phase 5)", () => {
+  function build(scenarioId: string, answers: Record<string, string>) {
+    const scenario = getScenario(scenarioId)!;
+    const intent = Intent.rehydrate({
+      id: "intent-1",
+      scenarioId,
+      userId: "cfo",
+      status: IntentStatus.AWAITING_CONFIRMATION,
+      answers,
+      createdAt: "2026-07-09T00:00:00.000Z",
+      updatedAt: "2026-07-09T00:00:00.000Z",
+    });
+    return new CandidateMapper(USINA).build(intent, scenario);
+  }
+  const nonCashCommon = { amount: "500.00", currency: "BRL", occurredAt: "2026-07-09" };
+
+  it("register_waiver (SETTLES) → NON_CASH, single BENEFICIARY party carrying NO amount", () => {
+    const c = build("register_waiver", { payee: "party-broker", basis: "waiver", ...nonCashCommon });
+    expect(c.eventType).toBe("commission_waiver");
+    expect(c.economicEffect).toBe("non_cash");
+    expect(c.parties).toEqual([{ partyId: "party-broker", role: "beneficiary", direction: "neutral" }]);
+    expect(c.objects).toEqual([{ objectId: "intent:intent-1", objectType: "commission_entitlement", relation: "settles" }]);
+    expect(c.parties.every((p) => !("amount" in p))).toBe(true); // no party carries cash on a NON_CASH event
+  });
+
+  it("register_waiver (REVERSES) → the variant selects the reversal relation", () => {
+    const c = build("register_waiver", { payee: "party-broker", basis: "reversal", ...nonCashCommon });
+    expect(c.objects[0].relation).toBe("reverses");
+  });
+
+  it("register_commission_accrual → NON_CASH, the USINA is the sole beneficiary party", () => {
+    const c = build("register_commission_accrual", nonCashCommon);
+    expect(c.eventType).toBe("commission_expected");
+    expect(c.economicEffect).toBe("non_cash");
+    expect(c.parties).toEqual([{ partyId: USINA, role: "beneficiary", direction: "neutral" }]);
+    expect(c.objects).toEqual([{ objectId: "intent:intent-1", objectType: "commission_receivable", relation: "originates" }]);
+  });
+
+  it("register_direct_payment → NON_CASH, TWO objects with distinct ids, both SETTLES", () => {
+    const c = build("register_direct_payment", { payee: "party-broker", ...nonCashCommon });
+    expect(c.economicEffect).toBe("non_cash");
+    expect(c.parties).toEqual([{ partyId: "party-broker", role: "beneficiary", direction: "neutral" }]);
+    expect(c.objects).toEqual([
+      { objectId: "intent:intent-1:commission_receivable", objectType: "commission_receivable", relation: "settles" },
+      { objectId: "intent:intent-1:commission_entitlement", objectType: "commission_entitlement", relation: "settles" },
+    ]);
+  });
+});
+
 describe("CandidateMapper.fieldToSlot — reverse map for correction (Phase 3)", () => {
   const mapper = new CandidateMapper(USINA);
 
