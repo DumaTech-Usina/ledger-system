@@ -86,13 +86,21 @@ export function TotalFlowWidget({
         )}
       </div>
 
-      <p className="mt-5 text-4xl font-semibold text-accent">{formatMoney(totalCashIn, cashPosition.currency)}</p>
-
-      <p className={`mt-1.5 flex items-center gap-1.5 text-[13px] font-medium ${netIsPositive ? "text-ok" : "text-bad"}`}>
-        <svg viewBox="0 0 12 12" fill="none" className={`size-3 ${netIsPositive ? "" : "rotate-180"}`} aria-hidden>
+      <p className={`mt-5 flex items-center gap-2 text-4xl font-semibold ${netIsPositive ? "text-ok" : "text-bad"}`}>
+        <svg viewBox="0 0 12 12" fill="none" className={`size-6 ${netIsPositive ? "" : "rotate-180"}`} aria-hidden>
           <path d="M6 10V2M6 2 2.5 5.5M6 2l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        <span className="text-muted">{h.netLabel}:</span> {formatMoney(cashPosition.netCashFlow, cashPosition.currency)}
+        {formatMoney(cashPosition.netCashFlow, cashPosition.currency)}
+      </p>
+      <p className="mt-0.5 text-[13px] font-medium text-muted">{h.netLabel}</p>
+
+      <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] font-medium">
+        <span className="text-ok">
+          {t.dashboard.cashIn}: {formatMoney(totalCashIn, cashPosition.currency)}
+        </span>
+        <span className="text-bad">
+          {t.dashboard.cashOut}: {formatMoney(cashPosition.totalCashOut, cashPosition.currency)}
+        </span>
       </p>
 
       {bars.length > 0 && (
