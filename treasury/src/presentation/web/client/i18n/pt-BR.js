@@ -179,7 +179,8 @@ I18N.register("pt-BR", {
     },
     register_incentive: {
       payee: "Quem está recebendo o incentivo (corretor ou parceiro)?",
-      amount: "Qual é o valor do incentivo?",
+      kind: "É um incentivo ou um bônus?",
+      amount: "Qual é o valor?",
       currency: "Qual é a moeda?",
       occurredAt: "Em que data foi pago?",
       description: "Uma breve descrição (opcional).",

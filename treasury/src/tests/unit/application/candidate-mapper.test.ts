@@ -60,6 +60,42 @@ describe("CandidateMapper — credit scenarios (Phase 1)", () => {
   });
 });
 
+describe("CandidateMapper — per-instance tuple selection (Phase 4)", () => {
+  function buildIncentive(kind: string) {
+    const scenario = getScenario("register_incentive")!;
+    const intent = Intent.rehydrate({
+      id: "intent-1",
+      scenarioId: "register_incentive",
+      userId: "cfo",
+      status: IntentStatus.AWAITING_CONFIRMATION,
+      answers: { payee: "party-broker", kind, amount: "1500.00", currency: "BRL", occurredAt: "2026-07-09" },
+      createdAt: "2026-07-09T00:00:00.000Z",
+      updatedAt: "2026-07-09T00:00:00.000Z",
+    });
+    return new CandidateMapper(USINA).build(intent, scenario);
+  }
+
+  it("kind=incentive → object INCENTIVE (base tuple)", () => {
+    const c = buildIncentive("incentive");
+    expect(c.eventType).toBe("incentive_payment");
+    expect(c.economicEffect).toBe("cash_out");
+    expect(c.objects[0]).toEqual({ objectId: "intent:intent-1", objectType: "incentive", relation: "settles" });
+  });
+
+  it("kind=bonus → object BONUS (selected override), same event/effect/reason", () => {
+    const c = buildIncentive("bonus");
+    expect(c.eventType).toBe("incentive_payment");
+    expect(c.economicEffect).toBe("cash_out");
+    expect(c.objects[0]).toEqual({ objectId: "intent:intent-1", objectType: "bonus", relation: "settles" });
+    expect(c.reason.type).toBe("incentive_payment");
+  });
+
+  it("scenarios without variants are unaffected (constant tuple)", () => {
+    const c = buildFor("register_penalty");
+    expect(c.objects[0].objectType).toBe("penalty");
+  });
+});
+
 describe("CandidateMapper.fieldToSlot — reverse map for correction (Phase 3)", () => {
   const mapper = new CandidateMapper(USINA);
 

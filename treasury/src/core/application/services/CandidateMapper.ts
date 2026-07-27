@@ -10,6 +10,21 @@ import type { Candidate } from "../../domain/value-objects/Candidate";
  * 'register_payment', the outflow whose category the model does not yet express. In every case the
  * counterparty is expressed exclusively as the payee Party (never folded into the object).
  */
+/**
+ * A per-instance override of the tuple, selected by a CHOICE slot's answer. Only the fields that a
+ * given operation legitimately varies are set; the rest fall back to the scenario's base tuple. This
+ * keeps the mapper the sole tuple authority — the user picks a branch, never a raw Ledger value. The
+ * party/object *mold* (directions, amounts, object count) is not varied here; that arrives in a
+ * later step for NON_CASH / multi-object operations.
+ */
+interface TupleOverride {
+  economicEffect?: string;
+  objectType?: string;
+  relation?: string;
+  reasonType?: string;
+  reasonText?: string;
+}
+
 interface ScenarioMapping {
   eventType: string;
   economicEffect: string;
@@ -21,6 +36,14 @@ interface ScenarioMapping {
   relation: string;
   reasonType: string;
   reasonText: string;
+  /**
+   * Optional per-instance tuple selection: a CHOICE slot (`selectorSlot`) picks one override from
+   * `byChoice`. A scenario without `variants` maps to a fully-constant tuple, exactly as before.
+   */
+  variants?: {
+    selectorSlot: string;
+    byChoice: Record<string, TupleOverride>;
+  };
 }
 
 const MAPPINGS: Record<string, ScenarioMapping> = {
@@ -83,6 +106,16 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     relation: "settles",
     reasonType: "incentive_payment",
     reasonText: "Incentive payment",
+    // The user picks whether this is an incentive or a bonus — both valid CASH_OUT objects under
+    // INCENTIVE_PAYMENT. Recording a bonus AS a bonus preserves more factual information than
+    // collapsing it to a generic incentive.
+    variants: {
+      selectorSlot: "kind",
+      byChoice: {
+        incentive: { objectType: "incentive" },
+        bonus: { objectType: "bonus" },
+      },
+    },
   },
   // Advance disbursement and loan origination are cash-out like the above, but they ORIGINATE a
   // credit object (an advance / a loan) to be settled or repaid later — never SETTLE a payable.
@@ -123,10 +156,19 @@ export class CandidateMapper {
     const amount = a.amount;
     const sourceReference = `intent:${intent.id}`;
 
+    // Apply the per-instance tuple override selected by the variant slot, if any. Absent variants
+    // (or an unrecognized choice) leaves the base tuple untouched.
+    const override: TupleOverride = m.variants ? m.variants.byChoice[a[m.variants.selectorSlot]] ?? {} : {};
+    const economicEffect = override.economicEffect ?? m.economicEffect;
+    const objectType = override.objectType ?? m.objectType;
+    const relation = override.relation ?? m.relation;
+    const reasonType = override.reasonType ?? m.reasonType;
+    const reasonText = override.reasonText ?? m.reasonText;
+
     return {
       sourceReference,
       eventType: m.eventType,
-      economicEffect: m.economicEffect,
+      economicEffect,
       occurredAt: new Date(a.occurredAt).toISOString(),
       amount,
       currency: a.currency,
@@ -135,8 +177,8 @@ export class CandidateMapper {
         { partyId: this.usinaPartyId, role: m.usinaRole, direction: m.usinaDirection, amount },
         { partyId: a[m.counterpartySlot], role: m.counterpartyRole, direction: "neutral" },
       ],
-      objects: [{ objectId: sourceReference, objectType: m.objectType, relation: m.relation }],
-      reason: { type: m.reasonType, description: m.reasonText, confidence: "high", requiresFollowup: false },
+      objects: [{ objectId: sourceReference, objectType, relation }],
+      reason: { type: reasonType, description: reasonText, confidence: "high", requiresFollowup: false },
       reporter: { reporterType: "user", reporterId: intent.userId, channel: "web" },
     };
   }
