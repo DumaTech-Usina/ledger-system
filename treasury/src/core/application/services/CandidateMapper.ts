@@ -84,6 +84,32 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     reasonType: "incentive_payment",
     reasonText: "Incentive payment",
   },
+  // Advance disbursement and loan origination are cash-out like the above, but they ORIGINATE a
+  // credit object (an advance / a loan) to be settled or repaid later — never SETTLE a payable.
+  register_advance: {
+    eventType: "advance_payment",
+    economicEffect: "cash_out",
+    usinaRole: "payer",
+    usinaDirection: "out",
+    counterpartyRole: "payee",
+    counterpartySlot: "payee",
+    objectType: "advance",
+    relation: "originates",
+    reasonType: "advance_payment",
+    reasonText: "Advance disbursement",
+  },
+  register_loan: {
+    eventType: "loan_origination",
+    economicEffect: "cash_out",
+    usinaRole: "payer",
+    usinaDirection: "out",
+    counterpartyRole: "payee",
+    counterpartySlot: "payee",
+    objectType: "loan",
+    relation: "originates",
+    reasonType: "loan_origination",
+    reasonText: "Loan origination",
+  },
 };
 
 export class CandidateMapper {

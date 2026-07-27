@@ -138,6 +138,14 @@ I18N.register("pt-BR", {
       title: "Registrar pagamento de incentivo",
       description: "Registrar um incentivo ou bônus pago pela usina a um corretor ou parceiro (saída de caixa).",
     },
+    register_advance: {
+      title: "Registrar adiantamento",
+      description: "Registrar um adiantamento concedido pela usina a um corretor ou parceiro (saída de caixa; origina um adiantamento a ser liquidado depois).",
+    },
+    register_loan: {
+      title: "Registrar concessão de empréstimo",
+      description: "Registrar um empréstimo concedido pela usina a um corretor (saída de caixa; origina um empréstimo a receber, a ser pago depois).",
+    },
   },
 
   slots: {
@@ -174,6 +182,20 @@ I18N.register("pt-BR", {
       amount: "Qual é o valor do incentivo?",
       currency: "Qual é a moeda?",
       occurredAt: "Em que data foi pago?",
+      description: "Uma breve descrição (opcional).",
+    },
+    register_advance: {
+      payee: "Quem está recebendo o adiantamento (corretor ou parceiro)?",
+      amount: "Qual é o valor do adiantamento?",
+      currency: "Qual é a moeda?",
+      occurredAt: "Em que data o adiantamento foi concedido?",
+      description: "Uma breve descrição (opcional).",
+    },
+    register_loan: {
+      payee: "Quem está recebendo o empréstimo (tomador)?",
+      amount: "Qual é o valor do empréstimo?",
+      currency: "Qual é a moeda?",
+      occurredAt: "Em que data o empréstimo foi concedido?",
       description: "Uma breve descrição (opcional).",
     },
   },
