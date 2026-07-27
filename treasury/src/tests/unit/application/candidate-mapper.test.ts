@@ -59,3 +59,23 @@ describe("CandidateMapper — credit scenarios (Phase 1)", () => {
     }
   });
 });
+
+describe("CandidateMapper.fieldToSlot — reverse map for correction (Phase 3)", () => {
+  const mapper = new CandidateMapper(USINA);
+
+  it("maps a 'parties' rejection to the scenario's counterparty slot", () => {
+    expect(mapper.fieldToSlot("register_penalty", "parties")).toBe("payee");
+  });
+
+  it("maps directly-named candidate fields to their slot", () => {
+    expect(mapper.fieldToSlot("register_penalty", "amount")).toBe("amount");
+    expect(mapper.fieldToSlot("register_penalty", "currency")).toBe("currency");
+    expect(mapper.fieldToSlot("register_penalty", "occurredAt")).toBe("occurredAt");
+  });
+
+  it("returns undefined for fields with no slot in shape-A (e.g. relatedEventId) or unknown scenario", () => {
+    expect(mapper.fieldToSlot("register_penalty", "relatedEventId")).toBeUndefined();
+    expect(mapper.fieldToSlot("register_penalty", "reason")).toBeUndefined();
+    expect(mapper.fieldToSlot("not_a_scenario", "amount")).toBeUndefined();
+  });
+});

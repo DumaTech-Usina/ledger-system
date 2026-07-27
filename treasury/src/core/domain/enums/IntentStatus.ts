@@ -9,6 +9,12 @@ export enum IntentStatus {
   AWAITING_CONFIRMATION = "awaiting_confirmation",
   CONFIRMED = "confirmed",
   SUBMITTED = "submitted",
+  /**
+   * The Ledger rejected the candidate with a *fixable* (input/lineage) reason. The intent is not
+   * terminal: the user edits the implicated slot(s) and resubmits. Distinct from REJECTED (terminal:
+   * duplicate/internal) so the conversation knows to re-ask rather than end.
+   */
+  AWAITING_CORRECTION = "awaiting_correction",
   ACCEPTED = "accepted",
   REJECTED = "rejected",
 }

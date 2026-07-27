@@ -140,4 +140,19 @@ export class CandidateMapper {
       reporter: { reporterType: "user", reporterId: intent.userId, channel: "web" },
     };
   }
+
+  /**
+   * Reverse of the party/object mapping: given a candidate field path the Ledger implicated in a
+   * rejection, return the scenario slot the user should re-answer — or undefined when the field is
+   * not user-editable (Treasury/Ledger-supplied) or has no slot yet. The forward map owns the
+   * counterparty slot, so a "parties" rejection resolves to it. `relatedEventId` has no slot in the
+   * current shape-A scenarios (a lineage slot arrives with the settlement scenarios).
+   */
+  fieldToSlot(scenarioId: string, field: string): string | undefined {
+    const m = MAPPINGS[scenarioId];
+    if (!m) return undefined;
+    if (field === "parties") return m.counterpartySlot;
+    if (field === "amount" || field === "currency" || field === "occurredAt" || field === "description") return field;
+    return undefined;
+  }
 }

@@ -68,6 +68,16 @@ export class Intent {
     this.props.updatedAt = now;
   }
 
+  /**
+   * The Ledger rejected the candidate for a fixable reason. Non-terminal: the user corrects the
+   * implicated slot(s) (via ApplyAnswers `edit`), which returns the intent to AWAITING_CONFIRMATION
+   * for resubmission. Editing is what advances state — this only records the pending-fix status.
+   */
+  markAwaitingCorrection(now: string): void {
+    this.props.status = IntentStatus.AWAITING_CORRECTION;
+    this.props.updatedAt = now;
+  }
+
   markAccepted(ledgerReference: string, now: string): void {
     this.props.status = IntentStatus.ACCEPTED;
     this.props.ledgerReference = ledgerReference;

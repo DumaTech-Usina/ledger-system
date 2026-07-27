@@ -203,6 +203,7 @@ I18N.register("pt-BR", {
   status: {
     gathering: "Coletando informações",
     awaiting_confirmation: "Aguardando confirmação",
+    awaiting_correction: "Aguardando correção",
     submitted: "Enviado",
     accepted: "Aceito",
     rejected: "Rejeitado",
@@ -213,6 +214,7 @@ I18N.register("pt-BR", {
     "slot.answered": "Respondido",
     "slot.rejected": "Resposta inválida detectada",
     "intent.submitted": "Enviado ao Ledger",
+    "intent.correction": "Correção necessária",
     "intent.accepted": "Aceito",
     "intent.rejected": "Rejeitado",
   },

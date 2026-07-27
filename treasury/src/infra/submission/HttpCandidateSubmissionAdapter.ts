@@ -48,9 +48,14 @@ export class HttpCandidateSubmissionAdapter implements CandidateSubmissionPort {
         throw new Error(`Ledger submit failed (HTTP ${res.status})`);
       }
 
-      const body = (await res.json()) as { status?: string; ledgerReference?: string; reason?: string };
+      const body = (await res.json()) as {
+        status?: string;
+        ledgerReference?: string;
+        reason?: string;
+        rejections?: SubmissionOutcome["rejections"];
+      };
       if (body.status === "accepted") return { status: "accepted", ledgerReference: body.ledgerReference };
-      if (body.status === "rejected") return { status: "rejected", reason: body.reason };
+      if (body.status === "rejected") return { status: "rejected", reason: body.reason, rejections: body.rejections };
       throw new Error("Ledger submit returned an unrecognized outcome");
     } finally {
       clearTimeout(timer);

@@ -58,10 +58,18 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
   // ── Submission boundary ────────────────────────────────────────────────────
   async submit(candidate: Candidate): Promise<SubmissionOutcome> {
     if (this.seen.has(candidate.sourceReference)) {
-      return { status: "rejected", reason: "Duplicate: this intent was already submitted to the Ledger." };
+      return {
+        status: "rejected",
+        reason: "Duplicate: this intent was already submitted to the Ledger.",
+        rejections: [{ code: "DUPLICATE", category: "duplicate", detail: "This entry was already recorded." }],
+      };
     }
     if ((candidate.description ?? "").toLowerCase().includes("test")) {
-      return { status: "rejected", reason: "Flagged for manual review (description contains 'test')." };
+      return {
+        status: "rejected",
+        reason: "Flagged for manual review (description contains 'test').",
+        rejections: [{ code: "TUPLE_INVALID", category: "internal", detail: "This operation could not be recorded automatically and was routed for review." }],
+      };
     }
     this.seen.add(candidate.sourceReference);
     const ledgerReference = this.record({
