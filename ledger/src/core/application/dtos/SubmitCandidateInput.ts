@@ -13,6 +13,12 @@ export interface SubmitCandidateInput {
   amount: string;
   currency: string;
   description?: string | null;
+  /**
+   * Causal origin link. When present, the Ledger validates it (existence + allowedOriginTypes +
+   * over-settlement). Absent/null is a valid orphan when the event declares its lineage unresolved
+   * (reason UNKNOWN_ORIGIN + requiresFollowup) — the Ledger never fabricates an origin.
+   */
+  relatedEventId?: string | null;
   parties: { partyId: string; role: string; direction: string; amount?: string }[];
   objects: { objectId: string; objectType: string; relation: string }[];
   reason?: { type: string; description: string; confidence: string; requiresFollowup: boolean } | null;

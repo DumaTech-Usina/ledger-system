@@ -1,3 +1,6 @@
+import "dotenv/config"; // load ledger/.env so LEDGER_SUBMIT_TOKEN (and other env) is available here,
+                        // matching src/index.ts. Without this, process.env.LEDGER_SUBMIT_TOKEN is
+                        // undefined and the submit endpoint fails closed with 503 "no service token set".
 import { CreateLedgerEventUseCase } from "../../core/application/use-cases/CreateLedgerEventUseCase";
 import { RejectLedgerEventUseCase } from "../../core/application/use-cases/RejectLedgerEventUseCase";
 import { FileAuditLogger } from "../audit/FileAuditLogger";

@@ -82,7 +82,7 @@ export class SubmitCandidateUseCase {
       sourceReference: input.sourceReference,
       normalizationVersion: NORMALIZATION_VERSION,
       normalizationWorkerId: NORMALIZATION_WORKER,
-      relatedEventId: null,
+      relatedEventId: input.relatedEventId ?? null,
       parties: input.parties,
       objects: input.objects,
       reason: input.reason ?? null,
@@ -104,7 +104,7 @@ export class SubmitCandidateUseCase {
       normalizationVersion: NORMALIZATION_VERSION,
       normalizationWorkerId: NORMALIZATION_WORKER,
       commandId: idempotencyKey,
-      relatedEventId: null,
+      relatedEventId: input.relatedEventId ?? null,
       parties: input.parties.map((p) => ({
         partyId: p.partyId,
         role: p.role as PartyRole,
