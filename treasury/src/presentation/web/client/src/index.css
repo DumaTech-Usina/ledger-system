@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+@import "@fontsource/plus-jakarta-sans/600.css";
+@import "@fontsource/plus-jakarta-sans/700.css";
+@import "@fontsource/plus-jakarta-sans/800.css";
+@import "@fontsource/manrope/400.css";
+@import "@fontsource/manrope/500.css";
+@import "@fontsource/manrope/600.css";
+@import "@fontsource/manrope/700.css";
+@import "@fontsource/ibm-plex-mono/400.css";
+@import "@fontsource/ibm-plex-mono/500.css";
+
+/*
+ * Manual theme toggle: `dark:` utilities apply whenever an ancestor carries
+ * the `.dark` class (set by useTheme), not just via prefers-color-scheme.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-display: "Plus Jakarta Sans", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Light — "Liquid Glass & Solid": Deep Sea & Slate primary over a cool, airy surface. Overridden by .dark below. */
+  --color-canvas: #f8f9ff;
+  --color-panel: rgba(255, 255, 255, 0.6);
+  --color-panel-solid: #ffffff;
+  --color-ink: #0b1c30;
+  --color-muted: #545a70;
+  --color-line: rgba(11, 28, 48, 0.1);
+  --color-accent: #0050cb;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: rgba(0, 102, 255, 0.12);
+  --color-secondary: #4648d4;
+  --color-ok: #007a54;
+  --color-ok-soft: rgba(0, 130, 89, 0.12);
+  --color-bad: #ba1a1a;
+  --color-bad-soft: rgba(186, 26, 26, 0.1);
+  --color-warn: #94660a;
+  --color-warn-soft: rgba(148, 102, 10, 0.12);
+
+  --shadow-glass: 0 8px 32px -8px rgba(0, 80, 203, 0.12);
+  --shadow-glow: 0 0 0 1px rgba(0, 80, 203, 0.16), 0 0 48px -8px rgba(0, 80, 203, 0.35);
+}
+
+.dark {
+  --color-canvas: #060a14;
+  --color-panel: rgba(255, 255, 255, 0.06);
+  --color-panel-solid: #0e1420;
+  --color-ink: #eaf1ff;
+  --color-muted: #9aa4c0;
+  --color-line: rgba(255, 255, 255, 0.1);
+  --color-accent: #0050cb;
+  --color-accent-ink: #ffffff;
+  --color-accent-soft: rgba(0, 102, 255, 0.22);
+  --color-secondary: #8385ff;
+  --color-ok: #4edea3;
+  --color-ok-soft: rgba(78, 222, 163, 0.14);
+  --color-bad: #ff6f66;
+  --color-bad-soft: rgba(255, 111, 102, 0.14);
+  --color-warn: #f0b74e;
+  --color-warn-soft: rgba(240, 183, 78, 0.14);
+
+  --shadow-glass: 0 16px 40px -16px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 0 1px rgba(0, 102, 255, 0.3), 0 0 56px -6px rgba(0, 102, 255, 0.5);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  button:not(:disabled),
+  [role="button"],
+  a,
+  summary,
+  select,
+  label[for] {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* The frosted-glass panel: the app's core surface, floating on the canvas.
+     A thin, even border traces the whole edge — subtle on every side, not a bright corner highlight. */
+  .glass {
+    @apply relative rounded-3xl border border-white/10 bg-panel shadow-glass dark:border-white/5;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Signature: a soft accent glow, reserved for the ledger lifecycle/confirmation moments. */
+  .glow-accent {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .tabular {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.82);
+  }
+}
+
+/* The Operations page's one-time greeting → question → "docks as heading" choreography. */
+@keyframes intro-reveal-slow {
+  0% {
+    opacity: 0;
+    filter: blur(14px);
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+@keyframes intro-hide-slow {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(14px);
+    transform: translateY(-8px);
+  }
+}
+
+/* Chat aurora: the light-theme's signature inside the Operations chat — three blurred bands
+   rippling like aurora-borealis curtains. Unrelated periods so the waves never visibly sync. */
+@keyframes aurora-wave-1 {
+  0%,
+  100% {
+    transform: translate(-4%, 0%) skewY(-3deg) scaleY(1);
+  }
+  50% {
+    transform: translate(4%, -8%) skewY(3deg) scaleY(1.35);
+  }
+}
+
+@keyframes aurora-wave-2 {
+  0%,
+  100% {
+    transform: translate(3%, 4%) skewY(2deg) scaleY(1.1);
+  }
+  50% {
+    transform: translate(-6%, -6%) skewY(-4deg) scaleY(0.85);
+  }
+}
+
+@keyframes aurora-wave-3 {
+  0%,
+  100% {
+    transform: translate(-3%, -4%) skewY(4deg) scaleY(1);
+  }
+  50% {
+    transform: translate(6%, 7%) skewY(-3deg) scaleY(1.25);
+  }
+}
+
+/* Shrinks and rises to roughly where the docked heading sits; --question-travel is set per breakpoint. */
+@keyframes question-dock {
+  0% {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    filter: blur(0);
+    transform: translateY(var(--question-travel, -17rem)) scale(0.65);
+  }
+}

@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LiquidCore Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed": "#6ffbbe",
+                    "secondary-container": "#6063ee",
+                    "surface": "#f8f9ff",
+                    "surface-bright": "#f8f9ff",
+                    "on-primary-fixed": "#001849",
+                    "inverse-primary": "#b3c5ff",
+                    "on-error-container": "#93000a",
+                    "inverse-on-surface": "#eaf1ff",
+                    "secondary-fixed-dim": "#c0c1ff",
+                    "surface-dim": "#cbdbf5",
+                    "error": "#ba1a1a",
+                    "on-tertiary-fixed": "#002113",
+                    "tertiary-container": "#008259",
+                    "on-secondary-container": "#fffbff",
+                    "primary-fixed-dim": "#b3c5ff",
+                    "surface-container": "#e5eeff",
+                    "on-secondary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "on-secondary-fixed": "#07006c",
+                    "secondary": "#4648d4",
+                    "tertiary-fixed-dim": "#4edea3",
+                    "on-tertiary": "#ffffff",
+                    "inverse-surface": "#213145",
+                    "surface-container-low": "#eff4ff",
+                    "on-tertiary-fixed-variant": "#005236",
+                    "primary": "#0050cb",
+                    "primary-container": "#0066ff",
+                    "on-primary": "#ffffff",
+                    "on-background": "#0b1c30",
+                    "on-surface": "#0b1c30",
+                    "surface-tint": "#0054d6",
+                    "surface-variant": "#d3e4fe",
+                    "on-primary-fixed-variant": "#003fa4",
+                    "on-surface-variant": "#424656",
+                    "error-container": "#ffdad6",
+                    "outline": "#727687",
+                    "surface-container-highest": "#d3e4fe",
+                    "on-primary-container": "#f8f7ff",
+                    "outline-variant": "#c2c6d8",
+                    "tertiary": "#006645",
+                    "secondary-fixed": "#e1e0ff",
+                    "on-tertiary-container": "#e1ffec",
+                    "background": "#f8f9ff",
+                    "surface-container-high": "#dce9ff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed-variant": "#2f2ebe",
+                    "primary-fixed": "#dae1ff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-sm": "12px",
+                    "stack-lg": "48px",
+                    "container-max": "1280px",
+                    "margin-desktop": "40px",
+                    "gutter": "24px",
+                    "stack-xs": "4px",
+                    "margin-mobile": "16px",
+                    "stack-md": "24px",
+                    "unit": "8px"
+            },
+            "fontFamily": {
+                    "body-md": ["Manrope"],
+                    "label-md": ["Manrope"],
+                    "display-lg": ["Plus Jakarta Sans"],
+                    "body-lg": ["Manrope"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "label-sm": ["Manrope"],
+                    "headline-lg": ["Plus Jakarta Sans"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "1.4", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                    "label-sm": ["12px", {"lineHeight": "1.2", "letterSpacing": "0.03em", "fontWeight": "700"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .glass-card {
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 32px 0 rgba(0, 80, 203, 0.05);
+      }
+      .specular-highlight {
+        border-top: 1px solid rgba(255, 255, 255, 0.4);
+        border-left: 1px solid rgba(255, 255, 255, 0.4);
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+    </style>
+</head>
+<body class="bg-background font-body-md text-on-background min-h-screen">
+<!-- SideNavBar (Shared Component JSON Mapping) -->
+<aside class="fixed left-0 top-0 h-full w-64 border-r border-white/20 bg-white/60 backdrop-blur-2xl flex flex-col p-4 gap-2 z-50">
+<div class="mb-stack-lg flex items-center gap-3 px-2">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-white" data-icon="liquid">fluid</span>
+</div>
+<div>
+<h2 class="font-headline-md text-lg text-blue-600 leading-tight">Workspace</h2>
+<p class="font-label-sm text-[10px] text-slate-500 uppercase tracking-widest">Liquid UI Engine</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-2">
+<!-- Active State Logic: Mapping to "Home" for Dashboard -->
+<a class="bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/30 flex items-center gap-3 px-4 py-3 transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+<span class="font-label-md">Home</span>
+</a>
+<a class="text-slate-500 hover:bg-blue-50 hover:text-blue-600 rounded-2xl px-4 py-3 transition-all duration-300 hover:translate-x-1 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined" data-icon="folder_open">folder_open</span>
+<span class="font-label-md">Projects</span>
+</a>
+<a class="text-slate-500 hover:bg-blue-50 hover:text-blue-600 rounded-2xl px-4 py-3 transition-all duration-300 hover:translate-x-1 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-label-md">Team</span>
+</a>
+<a class="text-slate-500 hover:bg-blue-50 hover:text-blue-600 rounded-2xl px-4 py-3 transition-all duration-300 hover:translate-x-1 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-label-md">Reports</span>
+</a>
+<a class="text-slate-500 hover:bg-blue-50 hover:text-blue-600 rounded-2xl px-4 py-3 transition-all duration-300 hover:translate-x-1 flex items-center gap-3" href="#">
+<span class="material-symbols-outlined" data-icon="tune">tune</span>
+<span class="font-label-md">Settings</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-2 pt-4 border-t border-slate-100">
+<a class="text-slate-500 hover:bg-blue-50 hover:text-blue-600 rounded-2xl px-4 py-3 transition-all flex items-center gap-3" href="#">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+<span class="font-label-md">Help</span>
+</a>
+<a class="text-slate-500 hover:bg-error-container hover:text-error rounded-2xl px-4 py-3 transition-all flex items-center gap-3" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-label-md">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 p-margin-desktop min-h-screen">
+<!-- Top Header Area -->
+<header class="flex justify-between items-center mb-stack-lg">
+<div class="space-y-1">
+<h1 class="font-display-lg text-primary">Good morning, Alex</h1>
+<p class="text-on-surface-variant font-body-md">Your workspace is looking fluid today. Here's what's happening.</p>
+</div>
+<div class="flex items-center gap-gutter">
+<div class="glass-card specular-highlight px-4 py-2 rounded-full flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-48 font-body-md" placeholder="Search resources..." type="text"/>
+</div>
+<div class="flex gap-2">
+<button class="w-10 h-10 rounded-full glass-card specular-highlight flex items-center justify-center hover:bg-white/80 transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<div class="w-10 h-10 rounded-full border-2 border-primary-fixed overflow-hidden">
+<img alt="User" class="w-full h-full object-cover" data-alt="Close up portrait of a young professional man with a friendly smile, clean studio lighting, modern minimalist aesthetic" src="https://lh3.googleusercontent.com/aida-public/AB6AXuArQ4cJZVnBO1kKpTbVLELzBZSGlJuMLO_QUJVDZWmDHjs6UHg7G-UAwsbdjv7Fs5KAwbj8QISLmWIP7vJu26xTXN812U8OVbSLstEVtd453iocfh8G70Ri2fsqrJdhkxrHVTXqGZqrnJ5zUgMn11S6RHX5ZT-WPxs_HrCAFerH-u8oDHXjfMEqAH_VDROTYsIDvNVUYnFkA3V-feMzyx9CAFqkZW_fptw0py5v8vpX0ziKr8GUPkT2eMZTy-r45qaw_tOSC7JFNsUB"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Hero Statistics Widget -->
+<section class="col-span-12 lg:col-span-8 grid grid-cols-3 gap-gutter">
+<div class="col-span-3 glass-card specular-highlight p-stack-md rounded-[2.5rem] relative overflow-hidden h-64 flex flex-col justify-between">
+<div class="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-primary-container/20 rounded-full blur-3xl"></div>
+<div class="flex justify-between items-start">
+<div>
+<span class="inline-block px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-wider mb-2">Total Ecosystem Flow</span>
+<h3 class="text-5xl font-display-lg text-primary">12,842</h3>
+<p class="text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-tertiary text-sm" data-icon="trending_up">trending_up</span>
+<span class="text-tertiary font-bold">+14.2%</span> from last cycle
+                            </p>
+</div>
+<button class="bg-primary text-white px-6 py-3 rounded-full font-label-md hover:shadow-xl hover:shadow-primary/30 transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                            New Integration
+                        </button>
+</div>
+<!-- Simplified Visual Chart Area -->
+<div class="mt-auto h-20 w-full flex items-end gap-1 px-2">
+<div class="flex-1 bg-primary/20 rounded-t-lg h-[40%]"></div>
+<div class="flex-1 bg-primary/30 rounded-t-lg h-[60%]"></div>
+<div class="flex-1 bg-primary/40 rounded-t-lg h-[45%]"></div>
+<div class="flex-1 bg-primary/50 rounded-t-lg h-[75%]"></div>
+<div class="flex-1 bg-primary/60 rounded-t-lg h-[90%]"></div>
+<div class="flex-1 bg-primary/70 rounded-t-lg h-[65%]"></div>
+<div class="flex-1 bg-primary rounded-t-lg h-[100%]"></div>
+<div class="flex-1 bg-primary/80 rounded-t-lg h-[80%]"></div>
+<div class="flex-1 bg-primary/60 rounded-t-lg h-[55%]"></div>
+<div class="flex-1 bg-primary/40 rounded-t-lg h-[30%]"></div>
+</div>
+</div>
+<!-- Secondary Stats -->
+<div class="col-span-1 glass-card specular-highlight p-stack-md rounded-[2rem] flex flex-col items-center justify-center text-center">
+<div class="w-12 h-12 rounded-2xl bg-secondary-fixed flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-secondary" data-icon="bolt">bolt</span>
+</div>
+<p class="font-label-sm text-on-surface-variant uppercase tracking-tighter">System Uptime</p>
+<p class="text-2xl font-headline-md">99.98%</p>
+</div>
+<div class="col-span-1 glass-card specular-highlight p-stack-md rounded-[2rem] flex flex-col items-center justify-center text-center">
+<div class="w-12 h-12 rounded-2xl bg-tertiary-fixed flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-on-tertiary-fixed-variant" data-icon="hub">hub</span>
+</div>
+<p class="font-label-sm text-on-surface-variant uppercase tracking-tighter">Nodes Active</p>
+<p class="text-2xl font-headline-md">248</p>
+</div>
+<div class="col-span-1 glass-card specular-highlight p-stack-md rounded-[2rem] flex flex-col items-center justify-center text-center">
+<div class="w-12 h-12 rounded-2xl bg-surface-variant flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="storage">storage</span>
+</div>
+<p class="font-label-sm text-on-surface-variant uppercase tracking-tighter">Cloud Usage</p>
+<p class="text-2xl font-headline-md">42%</p>
+</div>
+</section>
+<!-- Calendar / Schedule Widget -->
+<section class="col-span-12 lg:col-span-4 glass-card specular-highlight p-stack-md rounded-[2.5rem] flex flex-col">
+<div class="flex justify-between items-center mb-gutter">
+<h3 class="font-headline-md text-on-surface">Schedule</h3>
+<button class="text-primary font-label-md">View All</button>
+</div>
+<div class="flex justify-between mb-stack-md">
+<div class="text-center">
+<span class="text-xs font-bold text-slate-400 block">MON</span>
+<span class="w-9 h-9 flex items-center justify-center text-sm font-bold rounded-full mt-1">12</span>
+</div>
+<div class="text-center">
+<span class="text-xs font-bold text-slate-400 block">TUE</span>
+<span class="w-9 h-9 flex items-center justify-center text-sm font-bold rounded-full bg-primary text-white mt-1 shadow-lg shadow-primary/20">13</span>
+</div>
+<div class="text-center">
+<span class="text-xs font-bold text-slate-400 block">WED</span>
+<span class="w-9 h-9 flex items-center justify-center text-sm font-bold rounded-full mt-1">14</span>
+</div>
+<div class="text-center">
+<span class="text-xs font-bold text-slate-400 block">THU</span>
+<span class="w-9 h-9 flex items-center justify-center text-sm font-bold rounded-full mt-1">15</span>
+</div>
+<div class="text-center">
+<span class="text-xs font-bold text-slate-400 block">FRI</span>
+<span class="w-9 h-9 flex items-center justify-center text-sm font-bold rounded-full mt-1">16</span>
+</div>
+</div>
+<div class="space-y-stack-sm flex-1 overflow-y-auto pr-1">
+<div class="p-4 bg-white/40 rounded-3xl border border-white/50 hover:bg-white/60 transition-all flex items-center gap-4">
+<div class="w-2 h-10 bg-primary rounded-full"></div>
+<div>
+<p class="font-label-md text-on-surface">Main Engine Sync</p>
+<p class="text-xs text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="schedule">schedule</span> 10:00 AM - 11:30 AM
+                            </p>
+</div>
+</div>
+<div class="p-4 bg-white/40 rounded-3xl border border-white/50 hover:bg-white/60 transition-all flex items-center gap-4">
+<div class="w-2 h-10 bg-secondary rounded-full"></div>
+<div>
+<p class="font-label-md text-on-surface">Security Audit</p>
+<p class="text-xs text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="schedule">schedule</span> 01:00 PM - 02:00 PM
+                            </p>
+</div>
+</div>
+<div class="p-4 bg-white/40 rounded-3xl border border-white/50 hover:bg-white/60 transition-all flex items-center gap-4">
+<div class="w-2 h-10 bg-tertiary rounded-full"></div>
+<div>
+<p class="font-label-md text-on-surface">Design Review</p>
+<p class="text-xs text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]" data-icon="schedule">schedule</span> 04:30 PM - 05:30 PM
+                            </p>
+</div>
+</div>
+</div>
+<div class="mt-stack-md pt-4 border-t border-white/30">
+<div class="flex items-center justify-between p-4 bg-primary-fixed rounded-3xl">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="upcoming" data-weight="fill" style="font-variation-settings: 'FILL' 1;">upcoming</span>
+<div>
+<p class="text-xs font-bold text-on-primary-fixed-variant">NEXT EVENT</p>
+<p class="font-label-md text-on-primary-fixed">Team Standup</p>
+</div>
+</div>
+<span class="bg-white/60 px-2 py-1 rounded-full text-[10px] font-bold text-primary">IN 15 MIN</span>
+</div>
+</div>
+</section>
+<!-- Recent Activity List -->
+<section class="col-span-12 lg:col-span-8 glass-card specular-highlight p-stack-md rounded-[2.5rem]">
+<div class="flex justify-between items-center mb-gutter">
+<h3 class="font-headline-md text-on-surface">Recent Activity</h3>
+<div class="flex gap-2">
+<button class="px-4 py-2 rounded-full bg-white/40 text-xs font-bold hover:bg-white/60 transition-all">All</button>
+<button class="px-4 py-2 rounded-full text-xs font-bold text-slate-500 hover:bg-white/40 transition-all">Tasks</button>
+<button class="px-4 py-2 rounded-full text-xs font-bold text-slate-500 hover:bg-white/40 transition-all">Files</button>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex items-center justify-between p-4 rounded-3xl hover:bg-white/40 transition-all group">
+<div class="flex items-center gap-gutter">
+<div class="w-12 h-12 rounded-full overflow-hidden shrink-0 shadow-sm">
+<img alt="Sarah" class="w-full h-full object-cover" data-alt="Close up portrait of a smiling woman with glasses, soft natural light, warm professional tone" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLpmAfprKd_M-4o8eOUCUdN_3pBntyWO0XHx3kloBEoHFcA9YLMm52MVDXC8lc653DBU4Cpv88s8DlinEIAZAhVLtYAdh1yqYwUywO405duDTUSxA5i8fOmXsxyMiYf4iA1BUsL_JSVhX5UTlIKqVs8U0MjoT4G6IW4ekv_7-yRhblwB4Ro-bffEiLdbga7knPrdmyfcp-asxwR-ljko654EvgwT1O8YuH3iUZ9DMxwgnueL9By128ZHto_8DQHmtAdJZxcIAT5h0b"/>
+</div>
+<div>
+<p class="font-body-md text-on-surface"><span class="font-bold">Sarah Chen</span> uploaded <span class="text-primary font-bold">Marketing_V2.pdf</span></p>
+<p class="text-xs text-on-surface-variant">2 hours ago • Project Aurora</p>
+</div>
+</div>
+<button class="opacity-0 group-hover:opacity-100 transition-all w-10 h-10 rounded-full flex items-center justify-center bg-white/60 shadow-sm">
+<span class="material-symbols-outlined text-sm" data-icon="open_in_new">open_in_new</span>
+</button>
+</div>
+<div class="flex items-center justify-between p-4 rounded-3xl hover:bg-white/40 transition-all group">
+<div class="flex items-center gap-gutter">
+<div class="w-12 h-12 rounded-full overflow-hidden shrink-0 shadow-sm">
+<img alt="James" class="w-full h-full object-cover" data-alt="Portrait of a creative professional in a sunlit studio, shallow depth of field, vibrant colors" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD7M_mYvD1jWGwkKojfG_owDjOU5AsFiaMejb3J1fEixbkAxhMc6VNZA80_ccvwBdxezWVCldJ5PqTfqjaoySSK4W5HTms4FP1GCgul836NPeVhMP-e33Wuf13UJMzECJ-ZA19qKTVwvfEUCeFWeZXH4ka55pe15wxaOBz9hJPIp-HeL7czahP9cLGmdgm7HRyYTZfFx3aMiH5ZRf-G24LYpz4-l0fdwl_R8jZnbPFk4xYCcJgmlYt86p3ziZ4mBe5rTR-jxqBwDpmY"/>
+</div>
+<div>
+<p class="font-body-md text-on-surface"><span class="font-bold">James Wilson</span> completed the task <span class="text-tertiary font-bold">Core API Update</span></p>
+<p class="text-xs text-on-surface-variant">4 hours ago • Infrastructure</p>
+</div>
+</div>
+<button class="opacity-0 group-hover:opacity-100 transition-all w-10 h-10 rounded-full flex items-center justify-center bg-white/60 shadow-sm">
+<span class="material-symbols-outlined text-sm" data-icon="done_all">done_all</span>
+</button>
+</div>
+<div class="flex items-center justify-between p-4 rounded-3xl hover:bg-white/40 transition-all group">
+<div class="flex items-center gap-gutter">
+<div class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" data-icon="cloud_done">cloud_done</span>
+</div>
+<div>
+<p class="font-body-md text-on-surface"><span class="font-bold">System</span> automatically backed up workspace to <span class="italic text-slate-500 font-medium">Node_S3_Primary</span></p>
+<p class="text-xs text-on-surface-variant">6 hours ago • Maintenance</p>
+</div>
+</div>
+<button class="opacity-0 group-hover:opacity-100 transition-all w-10 h-10 rounded-full flex items-center justify-center bg-white/60 shadow-sm">
+<span class="material-symbols-outlined text-sm" data-icon="info">info</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Projects & Team Quickview (Asymmetric Card) -->
+<section class="col-span-12 lg:col-span-4 h-full flex flex-col gap-gutter">
+<div class="flex-1 glass-card specular-highlight p-stack-md rounded-[2.5rem] flex flex-col gap-4">
+<h3 class="font-headline-md text-on-surface">Active Projects</h3>
+<div class="space-y-stack-sm">
+<div class="p-4 rounded-3xl bg-secondary-fixed/30 border border-secondary/10">
+<div class="flex justify-between items-center mb-2">
+<span class="font-label-md text-secondary">Fluid Design System</span>
+<span class="text-xs font-bold text-secondary">85%</span>
+</div>
+<div class="h-2 w-full bg-secondary/10 rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[85%] rounded-full"></div>
+</div>
+</div>
+<div class="p-4 rounded-3xl bg-tertiary-fixed/30 border border-tertiary/10">
+<div class="flex justify-between items-center mb-2">
+<span class="font-label-md text-on-tertiary-fixed-variant">Project Aurora</span>
+<span class="text-xs font-bold text-on-tertiary-fixed-variant">42%</span>
+</div>
+<div class="h-2 w-full bg-tertiary/10 rounded-full overflow-hidden">
+<div class="h-full bg-tertiary-container w-[42%] rounded-full"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-stack-md glass-card specular-highlight rounded-[2.5rem]">
+<div class="flex justify-between items-center mb-stack-md">
+<h3 class="font-headline-md text-on-surface">Team</h3>
+<div class="flex -space-x-3">
+<img alt="Team 1" class="w-8 h-8 rounded-full border-2 border-white object-cover" data-alt="Portrait of a young woman with a calm expression, soft lighting, clean background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWwQB3cwW-9US7QeIYikuspXHWMsKK5WgCcV31Qi1uBAynx5DTrJVlFIYwdsEyHSJ8PgfT-ci7qc2mbzzADON0egtU-LikXzsVdPlcRjTWL0LLCNmESd8OUb2efczf_4E3BntOFpmeDNAwUJ1ZrZx6dEulsyqYsA79L58eD1C5j-h-6ldAn-3lS74BgnGlNfF3kEqUGcho0kMiB5jpWa0QLollxA4Qej2cod57ftQFjbtYIFd_xG-97a_4jyB7LlZjGEY_18UELQwn"/>
+<img alt="Team 2" class="w-8 h-8 rounded-full border-2 border-white object-cover" data-alt="Portrait of a professional man, high key lighting, modern look" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDw6Hi4H0ynOzMsbitBFxIGiYoo45g2JxgvccURjUGUoHVO2en47kcsRs9pVlS1gzVTt4fqFIKguAMf_2e0NsoRBoSLkzHLIYXNphgiUTxOfhRVhZJQezBxcZAPkE2pxPVqNFJuJD-5-3JNY5IdA0rjYiz3z7HdaErJ1g04nyB523_0qBtP7atnEdM3P2NI4UkqnM-DeE8LZ8e-YMLUyKA8jdOmwXlM_K3R4pGfxAB1QeLqPLktmiDxa4rrBmZBOZjg5uHL9Kpf1Q5H"/>
+<img alt="Team 3" class="w-8 h-8 rounded-full border-2 border-white object-cover" data-alt="Creative woman in studio environment, professional headshot style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqsHNEvB-o8slSoHzwgCU-xwj1yqMhnyMKNaVmcZr4nFjGT1WKSim8WTvljo7qzqFyF9pNOIjopdTWv5MgG53HxQDfq-1ZjTu1kXaMzrqZiJICHPW4VHX4Iv8tspA8a7BAf1H1arpSVSK4HeZrzjIZmPXafIhHaZQi8eDultd1dRFXf4zTyiFNu5hahPiEoHWN5gClxbWBz9QijZA8QVeZb3HgV6wMOl3gseLaUTBvX6wxKOqmour22RxdJwhKzOYtSmtAbwy3qz1V"/>
+<div class="w-8 h-8 rounded-full border-2 border-white bg-primary text-white text-[10px] flex items-center justify-center font-bold">+5</div>
+</div>
+</div>
+<p class="text-xs text-on-surface-variant font-medium">8 members are currently online and available for collaboration.</p>
+</div>
+</section>
+</div>
+</main>
+<!-- FAB (Contextual for Dashboard) -->
+<button class="fixed bottom-margin-desktop right-margin-desktop w-16 h-16 rounded-full bg-primary text-white shadow-2xl shadow-primary/40 flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined text-3xl" data-icon="add">add</span>
+</button>
+</body></html>

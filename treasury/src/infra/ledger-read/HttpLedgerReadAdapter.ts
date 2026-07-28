@@ -35,13 +35,16 @@ export class HttpLedgerReadAdapter implements LedgerReadPort {
     return this.get<CashPosition>("/api/cash-position");
   }
 
-  cashMovements(params: { partyId: string; limit?: number }): Promise<CashMovementsPage> {
+  cashMovements(params: { partyId: string; limit?: number; from?: string; to?: string }): Promise<CashMovementsPage> {
     const q = new URLSearchParams({ partyId: params.partyId, limit: String(params.limit ?? 50) });
+    if (params.from) q.set("from", params.from);
+    if (params.to) q.set("to", params.to);
     return this.get<CashMovementsPage>(`/api/cash-movements?${q.toString()}`);
   }
 
-  async positions(params?: { limit?: number }): Promise<PositionsPage> {
+  async positions(params?: { limit?: number; asOf?: string }): Promise<PositionsPage> {
     const q = new URLSearchParams({ limit: String(params?.limit ?? 50) });
+    if (params?.asOf) q.set("asOf", params.asOf);
     const raw = await this.get<{ data: PositionItem[]; total: number }>(`/api/positions?${q.toString()}`);
     // Keep only the fields treasury displays.
     return {

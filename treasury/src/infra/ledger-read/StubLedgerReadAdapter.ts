@@ -1,51 +1,62 @@
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
 import type { CashPosition, CashMovementsPage, PositionsPage } from "../../core/application/dtos/LedgerReadModels";
+import { buildDemoCommissions } from "../ledger-sim/demoCommissionData";
 
 /**
  * Offline/demo adapter returning representative figures in the Ledger's raw money format
  * ("1250000.00"), so display formatting behaves identically to the real HTTP adapter. Selected via
- * LEDGER_READS=stub when no Ledger is reachable.
+ * LEDGER_READS=stub when no Ledger is reachable. Shares the same fake commission catalog as
+ * InMemoryLedgerSimulator so both demo modes agree.
  */
 export class StubLedgerReadAdapter implements LedgerReadPort {
+  private readonly data = buildDemoCommissions();
+
   async cashPosition(): Promise<CashPosition> {
+    let cashIn = 0;
+    let cashOut = 0;
+    for (const m of this.data.movements) {
+      const n = Number(m.amount);
+      if (m.effect === "cash_in") cashIn += n;
+      else if (m.effect === "cash_out") cashOut += n;
+    }
+    let openReceivables = 0;
+    let openPayables = 0;
+    for (const p of this.data.positions) {
+      if (p.status !== "open" && p.status !== "partially_settled") continue;
+      if (p.objectType === "commission_payable") openPayables += Number(p.openBalance);
+      else openReceivables += Number(p.openBalance);
+    }
+    const net = cashIn - cashOut;
     return {
-      totalCashIn: "1250000.00",
-      totalCashOut: "830500.00",
-      netCashFlow: "+419500.00",
-      openReceivables: "215000.00",
-      contingentExposure: "48000.00",
+      totalCashIn: cashIn.toFixed(2),
+      totalCashOut: cashOut.toFixed(2),
+      netCashFlow: `${net >= 0 ? "+" : "-"}${Math.abs(net).toFixed(2)}`,
+      openReceivables: openReceivables.toFixed(2),
+      openPayables: openPayables.toFixed(2),
+      contingentExposure: "0.00",
       currency: "BRL",
       asOf: new Date().toISOString(),
     };
   }
 
-  async cashMovements(): Promise<CashMovementsPage> {
-    const day = (d: number) => new Date(Date.UTC(2026, 6, d)).toISOString();
-    return {
-      items: [
-        { eventId: "e1", occurredAt: day(9), recordedAt: day(9), effect: "cash_in", amount: "42000.00", sourceReference: "charge:1001", counterparty: "ACME Foods", description: "Cobrança — ACME Foods" },
-        { eventId: "e2", occurredAt: day(8), recordedAt: day(8), effect: "cash_out", amount: "15750.00", sourceReference: "purchase:2002", counterparty: "Fornecedor Sul", description: "Compra — Fornecedor Sul" },
-        { eventId: "e3", occurredAt: day(7), recordedAt: day(7), effect: "cash_in", amount: "88000.00", sourceReference: "charge:1000", counterparty: "Grão Verde", description: "Cobrança — Grão Verde" },
-        { eventId: "e4", occurredAt: day(6), recordedAt: day(6), effect: "cash_out", amount: "9300.00", sourceReference: "advance:3003", counterparty: "corretor", description: "Adiantamento — corretor" },
-      ],
-      nextCursor: null,
-      hasMore: false,
-    };
+  async cashMovements(params: { partyId: string; limit?: number; from?: string; to?: string }): Promise<CashMovementsPage> {
+    const items = this.data.movements
+      .filter((m) => inRange(m.occurredAt, params.from, params.to))
+      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+    return { items: items.slice(0, params.limit ?? 50), nextCursor: null, hasMore: false };
   }
 
-  async positions(): Promise<PositionsPage> {
-    const at = (mo: number, d: number) => new Date(Date.UTC(2026, mo, d)).toISOString();
-    return {
-      total: 5,
-      data: [
-        { objectId: "charge:1001", objectType: "charge", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "42000.00", openBalance: "42000.00", eventCount: 1, lastEventAt: at(6, 9) },
-        { objectId: "charge:1000", objectType: "charge", status: "partially_settled", outcome: "pending", currency: "BRL", totalOriginated: "120000.00", openBalance: "32000.00", eventCount: 3, lastEventAt: at(6, 7) },
-        { objectId: "advance:3003", objectType: "advance", status: "fully_settled", outcome: "gain", currency: "BRL", totalOriginated: "9300.00", openBalance: "0.00", eventCount: 2, lastEventAt: at(6, 6) },
-        // Two generic/uncategorized payments (objectType "payable") — one recent, one stale — so the
-        // classification-health panel shows a representative backlog in demo mode.
-        { objectId: "intent:p-88", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(6, 5) },
-        { objectId: "intent:p-42", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(2, 2) },
-      ],
-    };
+  async positions(params?: { limit?: number; asOf?: string }): Promise<PositionsPage> {
+    const data = this.data.positions
+      .filter((p) => !params?.asOf || !p.lastEventAt || p.lastEventAt.slice(0, 10) <= params.asOf)
+      .sort((a, b) => (b.lastEventAt ?? "").localeCompare(a.lastEventAt ?? ""));
+    return { total: data.length, data: data.slice(0, params?.limit ?? 50) };
   }
+}
+
+function inRange(iso: string, from?: string, to?: string): boolean {
+  const day = iso.slice(0, 10);
+  if (from && day < from) return false;
+  if (to && day > to) return false;
+  return true;
 }
