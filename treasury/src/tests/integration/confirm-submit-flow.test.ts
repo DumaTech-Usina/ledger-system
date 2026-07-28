@@ -23,15 +23,7 @@ function wire() {
   return {
     repo,
     apply,
-    interpret: new InterpretUtteranceUseCase(
-      repo,
-      new StubSlotExtractionAdapter(),
-      apply,
-      audit,
-      clock,
-      ids,
-      { list: async () => [] },
-    ),
+    interpret: new InterpretUtteranceUseCase(repo, new StubSlotExtractionAdapter(), apply, audit, clock, ids),
     preview: new PreviewIntentUseCase(repo, mapper),
     submit: new SubmitIntentUseCase(repo, mapper, new StubCandidateSubmissionAdapter(), audit, clock),
   };

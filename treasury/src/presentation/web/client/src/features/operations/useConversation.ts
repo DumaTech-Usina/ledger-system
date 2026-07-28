@@ -4,10 +4,13 @@ import { scenarioCopy, scenarioSlotPrompts, translateMessage } from "@/features/
 import { typingDurationMs } from "@/features/operations/typing";
 import type {
   AuditEntry,
+  DialogState,
+  InterpretResult,
   IntentStatus,
   PreviewIntentResult,
   ScenarioSummary,
   SlotDefinition,
+  SlotValidationError,
   SubmissionStatus,
 } from "@/types/operations";
 
@@ -15,6 +18,7 @@ export type StreamItem =
   | { id: string; kind: "bot"; text: string }
   | { id: string; kind: "user"; text: string }
   | { id: string; kind: "error"; text: string }
+  | { id: string; kind: "suggestion"; proposalKey: string; value: string; label: string }
   | { id: string; kind: "confirm"; preview: PreviewIntentResult }
   | { id: string; kind: "result"; status: SubmissionStatus; ledgerReference?: string; reason?: string }
   | { id: string; kind: "transport-error" };
@@ -23,8 +27,10 @@ export type Phase = "picking" | "conversation" | "confirming" | "done";
 
 const uid = () => crypto.randomUUID();
 
-const slotPrompt = (scenarioId: string, slot: SlotDefinition): string =>
+export const slotPrompt = (scenarioId: string, slot: SlotDefinition): string =>
   scenarioSlotPrompts[scenarioId]?.[slot.key] ?? slot.prompt;
+
+const labelFor = (scenarioId: string, key: string): string => scenarioSlotPrompts[scenarioId]?.[key] ?? key;
 
 export function useConversation() {
   const [scenarios, setScenarios] = useState<ScenarioSummary[] | null>(null);
@@ -111,6 +117,50 @@ export function useConversation() {
     if (ok) push({ id: uid(), kind: "confirm", preview: data });
   }, [push]);
 
+  /** Shared ready/question branching for any single-state outcome (a direct answer, a suggestion
+   * accepted, or a bound interpretation once its rejected/lowConfidence bubbles are already queued). */
+  const advance = useCallback(
+    (state: DialogState, error: SlotValidationError | undefined, scenarioIdForPrompt?: string) => {
+      if (error) {
+        push({ id: uid(), kind: "error", text: translateMessage(error.message) });
+        return; // stays on the same slot — state below is unchanged (still a question).
+      }
+      if (state.kind === "ready") {
+        setCurrentSlot(null);
+        const id = intentIdRef.current;
+        if (id) goPreview(id);
+        return;
+      }
+      const sid = scenarioIdForPrompt ?? scenarioId ?? "";
+      setCurrentSlot(state.slot);
+      recordSlot(state.slot, slotPrompt(sid, state.slot));
+      push({ id: uid(), kind: "bot", text: slotPrompt(sid, state.slot) });
+    },
+    [push, goPreview, scenarioId],
+  );
+
+  /** Surfaces what an /interpret call found (validation errors, low-confidence proposals), then —
+   * unless the caller is about to fall back to a direct answer — advances via the returned state. */
+  const applyInterpretation = useCallback(
+    (result: InterpretResult, scenarioIdForPrompt: string, opts?: { skipAdvance?: boolean }) => {
+      for (const err of result.rejected) {
+        push({ id: uid(), kind: "error", text: translateMessage(err.message) });
+      }
+      for (const proposal of result.lowConfidence) {
+        push({
+          id: uid(),
+          kind: "suggestion",
+          proposalKey: proposal.key,
+          value: proposal.value,
+          label: labelFor(scenarioIdForPrompt, proposal.key),
+        });
+      }
+      if (opts?.skipAdvance || !result.state) return;
+      advance(result.state, undefined, scenarioIdForPrompt);
+    },
+    [push, advance],
+  );
+
   const selectScenario = useCallback(
     async (scenario: ScenarioSummary) => {
       const copy = scenarioCopy[scenario.id];
@@ -159,20 +209,107 @@ export function useConversation() {
         return;
       }
       refreshLifecycle(id);
-      if (data.error) {
-        push({ id: uid(), kind: "error", text: translateMessage(data.error.message) });
-        return; // stays on the same slot — state below is unchanged (still a question).
-      }
-      if (data.state.kind === "ready") {
-        setCurrentSlot(null);
-        goPreview(id);
-      } else {
-        setCurrentSlot(data.state.slot);
-        recordSlot(data.state.slot, slotPrompt(scenarioId ?? "", data.state.slot));
-        push({ id: uid(), kind: "bot", text: slotPrompt(scenarioId ?? "", data.state.slot) });
-      }
+      advance(data.state, data.error);
     },
-    [currentSlot, goPreview, push, refreshLifecycle, scenarioId],
+    [currentSlot, push, refreshLifecycle, advance],
+  );
+
+  /**
+   * The chat's free-text entry point: interprets what the user typed instead of treating it as a
+   * literal answer to whichever slot happens to be open. Picking phase classifies a scenario (or
+   * asks to clarify); conversation phase extracts values for whatever slots aren't filled yet. When
+   * extraction genuinely finds nothing usable (a free-text/party field, a non-ISO date, plain
+   * gibberish) it falls back to the old guided behaviour — the raw text answers the open question
+   * directly — so nothing regresses for slot types the stub extractor can't parse.
+   */
+  const sendUtterance = useCallback(
+    async (text: string) => {
+      push({ id: uid(), kind: "user", text });
+
+      const id = intentIdRef.current;
+
+      if (!id) {
+        setBusy(true);
+        const { data } = await operationsApi.interpretNew(text);
+        setBusy(false);
+        if (!data) {
+          push({ id: uid(), kind: "transport-error" });
+          return;
+        }
+        if (!data.intentId || !data.scenarioId) {
+          push({
+            id: uid(),
+            kind: "bot",
+            text: data.clarification ?? "Não entendi qual operação você quer — escolha uma das opções abaixo.",
+          });
+          return;
+        }
+
+        const copy = scenarioCopy[data.scenarioId];
+        setScenarioId(data.scenarioId);
+        setScenarioTitle(copy?.title ?? data.scenarioId);
+        setIntentId(data.intentId);
+        answeredSlotsRef.current = {};
+        setPhase("conversation");
+        push({ id: uid(), kind: "bot", text: `Vamos lá! ${copy?.description ?? ""}`.trim() });
+        refreshLifecycle(data.intentId);
+        applyInterpretation(data, data.scenarioId);
+        return;
+      }
+
+      const askedSlotKey = currentSlot?.key ?? null;
+      setBusy(true);
+      const { data } = await operationsApi.interpretBound(id, text);
+      setBusy(false);
+      if (!data) {
+        push({ id: uid(), kind: "transport-error" });
+        return;
+      }
+      refreshLifecycle(id);
+
+      const stillQuestion = data.state?.kind === "question";
+      const extractedNothing = data.accepted.length === 0;
+
+      if (askedSlotKey && stillQuestion && extractedNothing) {
+        // Nothing usable was extracted from this message at all — treat it as the direct answer
+        // to the question on screen (matches the guided flow's old, still-supported behaviour).
+        applyInterpretation(data, scenarioId ?? "", { skipAdvance: true });
+        setBusy(true);
+        const fallback = await operationsApi.answer(id, askedSlotKey, text);
+        setBusy(false);
+        if (!fallback.data?.state) {
+          push({ id: uid(), kind: "transport-error" });
+          return;
+        }
+        refreshLifecycle(id);
+        advance(fallback.data.state, fallback.data.error);
+        return;
+      }
+
+      applyInterpretation(data, scenarioId ?? "");
+    },
+    [currentSlot, scenarioId, push, refreshLifecycle, applyInterpretation, advance],
+  );
+
+  /** Sim/Não on a low-confidence suggestion bubble — Sim applies it via the same edit path as
+   * saveEdits below; Não just dismisses the bubble, proposing nothing further. */
+  const resolveSuggestion = useCallback(
+    async (item: { id: string; proposalKey: string; value: string }, accept: boolean) => {
+      setStream((s) => s.filter((it) => it.id !== item.id));
+      if (!accept) return;
+      const id = intentIdRef.current;
+      if (!id) return;
+      setBusy(true);
+      const { data } = await operationsApi.answer(id, item.proposalKey, item.value);
+      setBusy(false);
+      if (!data?.state) {
+        push({ id: uid(), kind: "transport-error" });
+        return;
+      }
+      refreshLifecycle(id);
+      advance(data.state, data.error);
+    },
+    [push, refreshLifecycle, advance],
   );
 
   /**
@@ -251,6 +388,8 @@ export function useConversation() {
     lifecycle,
     selectScenario,
     answer,
+    sendUtterance,
+    resolveSuggestion,
     confirmSubmit,
     restart,
     answeredSlots: answeredSlotsRef.current,

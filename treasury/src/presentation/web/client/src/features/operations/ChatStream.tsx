@@ -28,6 +28,8 @@ export interface ChatStreamProps {
   /** Every slot answered so far, keyed by slot key — lets "Editar" rebuild a proper field per slot. */
   answeredSlots?: Record<string, SlotDefinition>;
   onSaveEdits?: (edits: Record<string, string>) => Promise<SaveEditsResult>;
+  /** Sim/Não on a low-confidence extraction suggestion bubble. */
+  onResolveSuggestion?: (item: { id: string; proposalKey: string; value: string }, accept: boolean) => void;
 }
 
 const bubbleBase = "max-w-[80%] lg:max-w-2xl px-4 py-2.5 text-[14.5px] leading-relaxed";
@@ -64,6 +66,7 @@ export function ChatStream({
   onAnswer,
   answeredSlots,
   onSaveEdits,
+  onResolveSuggestion,
 }: ChatStreamProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ block: "end" });
@@ -101,6 +104,37 @@ export function ChatStream({
               <div key={item.id} className="flex justify-start">
                 <div className={cn(bubbleBase, "rounded-2xl rounded-bl-md bg-bad-soft text-bad")}>
                   <TypedText text={item.text} onTick={scrollToBottom} />
+                </div>
+              </div>
+            );
+          case "suggestion":
+            return (
+              <div key={item.id} className="flex justify-start">
+                <div
+                  className={cn(
+                    bubbleBase,
+                    "flex flex-col gap-2 rounded-2xl rounded-bl-md border border-white/40 bg-panel-solid/85 text-ink shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-panel-solid/80",
+                  )}
+                >
+                  <span>
+                    Achei <strong>"{item.value}"</strong> para {item.label.toLowerCase()} — confirma?
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onResolveSuggestion?.(item, true)}
+                      className="rounded-full border border-accent/40 bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90"
+                    >
+                      Sim
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onResolveSuggestion?.(item, false)}
+                      className="rounded-full border border-line bg-panel-solid px-3 py-1.5 text-xs font-semibold text-ink transition hover:border-accent"
+                    >
+                      Não
+                    </button>
+                  </div>
                 </div>
               </div>
             );

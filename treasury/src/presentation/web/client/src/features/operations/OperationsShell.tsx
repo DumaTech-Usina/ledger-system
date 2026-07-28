@@ -90,25 +90,11 @@ export function OperationsShell({
   return (
     <div className="glass relative mx-auto flex h-[calc(100vh-11.5rem)] min-h-[32rem] max-w-6xl flex-col overflow-hidden dark:bg-transparent">
       <ChatAurora />
-      {/* Dark theme: fades the transparent chat panel down to black well before the video's own
-          top edge, so the (uncropped) video's already-dark top meets it as black-on-black instead
-          of a visible seam. Static — stays put regardless of the hide/show toggle below. */}
-      <div
-        aria-hidden
-        className={cn(
-          // Twice the video's own height (16rem/20rem), with black held through exactly the first
-          // half — so it's still solid black precisely where the video's top edge lands, then
-          // fades out over the second half, above the video, into the transparent chat panel.
-          "pointer-events-none absolute bottom-0 left-0 hidden h-[32rem] w-full md:h-[40rem]",
-          "[background:linear-gradient(to_top,black_0%,black_50%,transparent_100%)]",
-          isDark && "dark:block",
-        )}
-      />
-      {/* Dark theme (default): the mp4 loop, full strength, anchored to the panel's own bottom edge —
-          behind the composer too, not just the message list — so it stays put for the whole session,
-          starting only once `ready` (the shell has fully faded in). Light theme: the aurora waves instead.
-          Height matches the source's own 16:10 aspect closely enough at these widths that object-cover
-          no longer has to crop into the frame the way a shorter box did. */}
+      {/* Dark theme (default): the mp4 loop fills the panel's full height — behind the header and
+          composer too, not just a bottom strip — so it never gets capped short on tall viewports.
+          A top mask fades it to transparent over its upper third instead of cutting it off hard,
+          dissolving into the aurora/glass behind it for a soft, luxurious blend under the header.
+          Light theme: the aurora waves instead. Starts only once `ready` (shell fully faded in). */}
       <video
         ref={videoRef}
         aria-hidden
@@ -116,10 +102,14 @@ export function OperationsShell({
         muted
         playsInline
         className={cn(
-          "pointer-events-none absolute bottom-0 left-0 hidden h-64 w-full object-cover transition-opacity duration-700 ease-out md:h-80",
+          "pointer-events-none absolute inset-0 hidden h-full w-full object-cover transition-opacity duration-700 ease-out",
           isDark && "dark:block",
           animationHidden ? "opacity-0" : "opacity-100",
         )}
+        style={{
+          WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 32%)",
+          maskImage: "linear-gradient(to bottom, transparent 0%, black 32%)",
+        }}
       >
         <source src={chatAnimation} type="video/mp4" />
       </video>

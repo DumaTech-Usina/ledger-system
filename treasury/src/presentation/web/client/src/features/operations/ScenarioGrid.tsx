@@ -10,13 +10,12 @@ export interface ScenarioGridProps {
 
 export function ScenarioGrid({ scenarios, onSelect }: ScenarioGridProps) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6 text-center">
+    <div className="flex min-h-full flex-col items-center gap-6 py-2 text-center">
       <p className="text-sm text-muted">Cada operação guia você pelas informações necessárias, passo a passo.</p>
 
-      <div className="grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
-        {scenarios.map((scenario, i) => {
+      <div className="grid w-full max-w-4xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {scenarios.map((scenario) => {
           const copy = scenarioCopy[scenario.id];
-          const isLastOdd = i === scenarios.length - 1 && scenarios.length % 2 === 1;
           return (
             <button
               key={scenario.id}
@@ -24,7 +23,6 @@ export function ScenarioGrid({ scenarios, onSelect }: ScenarioGridProps) {
               className={cn(
                 "group flex flex-col gap-2 rounded-2xl border border-white/40 bg-panel-solid/85 p-4 text-left shadow-sm backdrop-blur-md transition-all duration-300",
                 "hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-glow dark:border-white/10 dark:bg-panel-solid/80",
-                isLastOdd && "sm:col-span-2",
               )}
             >
               <span className="text-accent">{scenarioIcons[scenario.id] ?? defaultScenarioIcon}</span>

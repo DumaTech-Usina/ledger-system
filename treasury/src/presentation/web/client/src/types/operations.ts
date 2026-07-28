@@ -36,6 +36,31 @@ export interface AdvanceDialogResult {
   error?: SlotValidationError;
 }
 
+export interface SlotProposal {
+  key: string;
+  value: string;
+  confidence: number;
+}
+
+export interface InterpretResult {
+  /** Present once an intent exists (continued, or created after classification). */
+  intentId?: string;
+  /** The scenario in play (bound, or the one classified from the utterance). */
+  scenarioId?: string;
+  /** The next dialog state — present whenever an intent exists. */
+  state?: DialogState;
+  /** A question to resolve which operation the user means — present when no scenario was resolved. */
+  clarification?: string;
+  /** Keys that were extracted with enough confidence and successfully recorded. */
+  accepted: string[];
+  /** Proposals that failed validation (or named an unknown slot) — never recorded. */
+  rejected: SlotValidationError[];
+  /** Keys skipped because the slot was already filled (fill-only overwrite policy). */
+  skipped: string[];
+  /** Proposals below the confidence threshold — not applied; surfaced for a later confirm step. */
+  lowConfidence: SlotProposal[];
+}
+
 export interface CandidateParty {
   partyId: string;
   role: string;

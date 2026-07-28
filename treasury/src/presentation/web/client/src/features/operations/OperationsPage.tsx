@@ -5,7 +5,7 @@ import { ScenarioGrid } from "@/features/operations/ScenarioGrid";
 import { ChatStream } from "@/features/operations/ChatStream";
 import { Composer } from "@/features/operations/Composer";
 import { OperationsShell } from "@/features/operations/OperationsShell";
-import { useConversation } from "@/features/operations/useConversation";
+import { slotPrompt, useConversation } from "@/features/operations/useConversation";
 import { cn } from "@/utils/cn";
 import type { User } from "@/types/auth";
 
@@ -45,6 +45,8 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
     lifecycle,
     selectScenario,
     answer,
+    sendUtterance,
+    resolveSuggestion,
     confirmSubmit,
     restart,
     answeredSlots,
@@ -125,9 +127,22 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
           onRestart={restart}
           ready={chatReady}
           footer={
-            // Choice slots (e.g. BRL/USD) answer inline in the chat instead — see ChatStream.
+            phase === "picking" ? (
+              <Composer
+                key="picking"
+                placeholder="Descreva o que você quer fazer…"
+                onSend={sendUtterance}
+                busy={busy}
+              />
+            ) : // Choice slots (e.g. BRL/USD) answer inline in the chat instead — see ChatStream.
             phase === "conversation" && currentSlot && currentSlot.type !== "choice" ? (
-              <Composer key={currentSlot.key} slot={currentSlot} onAnswer={answer} busy={busy} />
+              <Composer
+                key={currentSlot.key}
+                placeholder={slotPrompt(scenarioId ?? "", currentSlot)}
+                required={currentSlot.required}
+                onSend={sendUtterance}
+                busy={busy}
+              />
             ) : undefined
           }
         >
@@ -148,6 +163,7 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
               onAnswer={answer}
               answeredSlots={answeredSlots}
               onSaveEdits={saveEdits}
+              onResolveSuggestion={resolveSuggestion}
             />
           )}
         </OperationsShell>
