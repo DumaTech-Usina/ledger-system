@@ -1,0 +1,27 @@
+import type { Scenario } from "./Scenario";
+import { SlotType } from "../enums/SlotType";
+
+/**
+ * "Register commission received" — the usina receives a commission (cash in), SETTLING the receivable
+ * a COMMISSION_EXPECTED originated. Maps to the Ledger's ratified tuple COMMISSION_RECEIVED ·
+ * COMMISSION_RECEIVABLE · SETTLES · CASH_IN · COMMISSION_PAYMENT, linking back to the originating
+ * expected via `origin`.
+ *
+ * The origin is OPTIONAL: if unknown, the fact is still recorded as an explicit orphan (reason
+ * UNKNOWN_ORIGIN, follow-up required) — its lineage is established later by a new fact, never by
+ * fabricating an origin here. English is the fallback; pt-BR is in the i18n catalog.
+ */
+export const registerCommissionReceived: Scenario = {
+  id: "register_commission_received",
+  title: "Register commission received",
+  description: "Record a commission the usina received (cash in), settling an expected commission.",
+  slots: [
+    { key: "payer", type: SlotType.PARTY, prompt: "Who paid the commission (operator or counterparty)?", required: true, suggestionSource: "parties" },
+    { key: "amount", type: SlotType.MONEY, prompt: "What is the commission amount received?", required: true },
+    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it received?", required: true },
+    { key: "origin", type: SlotType.EVENT_REF, prompt: "Which expected commission does this settle? (leave empty if unknown)", required: false, suggestionSource: "origin_events" },
+    { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
+  ],
+  keywords: { "pt-BR": ["recebida", "recebimento"] },
+};

@@ -22,4 +22,5 @@ export const registerLoan: Scenario = {
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the loan disbursed?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
+  keywords: { "pt-BR": ["emprestimo", "emprestar"] },
 };

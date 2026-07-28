@@ -22,4 +22,5 @@ export const registerAdvance: Scenario = {
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the advance disbursed?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
+  keywords: { "pt-BR": ["adiantamento", "adiantar"] },
 };

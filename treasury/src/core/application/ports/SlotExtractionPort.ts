@@ -17,6 +17,11 @@ export interface ScenarioCatalogEntry {
   title: string;
   description: string;
   slots: SlotDefinition[];
+  /**
+   * Language-agnostic classification keywords (the union of the scenario's per-locale keywords).
+   * A classifier may fold these into its matching signal; it is additive context, never required.
+   */
+  keywords?: string[];
 }
 
 export interface SlotExtractionRequest {

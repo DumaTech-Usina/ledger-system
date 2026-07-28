@@ -19,4 +19,5 @@ export const registerPayroll: Scenario = {
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was payroll paid?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
+  keywords: { "pt-BR": ["folha", "salario", "salarios", "empregados", "funcionarios"] },
 };

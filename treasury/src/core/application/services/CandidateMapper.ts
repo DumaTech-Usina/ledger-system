@@ -60,7 +60,21 @@ interface ScenarioMapping {
     selectorSlot: string;
     byChoice: Record<string, TupleOverride>;
   };
+  /** EVENT_REF answer key holding the causal origin's event id (for settlements). */
+  relatedEventSlot?: string;
+  /**
+   * When the origin slot is left empty, record the fact as an explicit orphan instead of gating it:
+   * the reason declares the lineage unresolved (UNKNOWN_ORIGIN + follow-up). Only where the Ledger
+   * contract admits UNKNOWN_ORIGIN (COMMISSION_RECEIVED). Absent ⇒ the origin slot must be required.
+   */
+  orphan?: { reasonType: string; reasonText: string };
 }
+
+/** The CASH_IN settlement mold: the usina receives (amount on the payee), the counterparty is neutral. */
+const cashInParties: PartyTemplate[] = [
+  { who: "usina", role: "payee", direction: "in", carriesAmount: true },
+  { who: "counterparty", role: "beneficiary", direction: "neutral", carriesAmount: true },
+];
 
 /** The standard CASH_OUT expense mold: usina pays (amount on the payer), counterparty is a neutral payee. */
 const cashOutParties: PartyTemplate[] = [
@@ -188,6 +202,44 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     reasonType: "direct_commission_payment_authorized",
     reasonText: "Operator paid the broker directly",
   },
+
+  // ── CASH_IN settlements that link back to an originating event (lineage) ───────────────────────
+  // Commission received SETTLES the receivable a COMMISSION_EXPECTED originated. If the origin is
+  // unknown, it is recorded as an explicit orphan (never fabricating an origin).
+  register_commission_received: {
+    eventType: "commission_received",
+    economicEffect: "cash_in",
+    counterpartySlot: "payer",
+    parties: cashInParties,
+    objects: [{ objectType: "commission_receivable", relation: "settles" }],
+    reasonType: "commission_payment",
+    reasonText: "Commission received",
+    relatedEventSlot: "origin",
+    orphan: { reasonType: "unknown_origin", reasonText: "Commission received; originating expected unknown" },
+  },
+  // Advance recovery SETTLES the advance an ADVANCE_PAYMENT originated. Origin is required (the
+  // contract does not admit an orphan advance settlement).
+  register_advance_settlement: {
+    eventType: "advance_settlement",
+    economicEffect: "cash_in",
+    counterpartySlot: "payer",
+    parties: cashInParties,
+    objects: [{ objectType: "advance", relation: "settles" }],
+    reasonType: "advance_payment",
+    reasonText: "Advance recovery",
+    relatedEventSlot: "origin",
+  },
+  // Loan repayment SETTLES the loan a LOAN_ORIGINATION originated. Origin is required.
+  register_loan_repayment: {
+    eventType: "loan_repayment",
+    economicEffect: "cash_in",
+    counterpartySlot: "payer",
+    parties: cashInParties,
+    objects: [{ objectType: "loan", relation: "settles" }],
+    reasonType: "loan_repayment",
+    reasonText: "Loan repayment",
+    relatedEventSlot: "origin",
+  },
 };
 
 export class CandidateMapper {
@@ -205,8 +257,23 @@ export class CandidateMapper {
     // (or an unrecognized choice) leaves the base tuple untouched.
     const override: TupleOverride = m.variants ? m.variants.byChoice[a[m.variants.selectorSlot]] ?? {} : {};
     const economicEffect = override.economicEffect ?? m.economicEffect;
-    const reasonType = override.reasonType ?? m.reasonType;
-    const reasonText = override.reasonText ?? m.reasonText;
+    let reasonType = override.reasonType ?? m.reasonType;
+    let reasonText = override.reasonText ?? m.reasonText;
+
+    // Lineage: link to the origin the user referenced. If the origin slot is empty AND the scenario
+    // allows it, record an explicit orphan (unresolved lineage) rather than fabricating an origin.
+    let relatedEventId: string | undefined;
+    let requiresFollowup = false;
+    if (m.relatedEventSlot) {
+      const origin = a[m.relatedEventSlot]?.trim();
+      if (origin) {
+        relatedEventId = origin;
+      } else if (m.orphan) {
+        reasonType = m.orphan.reasonType;
+        reasonText = m.orphan.reasonText;
+        requiresFollowup = true;
+      }
+    }
 
     // The override targets the object being varied (variant scenarios are single-object). Multiple
     // objects each get a distinct id derived from the source reference; a single object keeps it bare.
@@ -233,9 +300,10 @@ export class CandidateMapper {
       amount,
       currency: a.currency,
       description: a.description || undefined,
+      ...(relatedEventId ? { relatedEventId } : {}),
       parties,
       objects,
-      reason: { type: reasonType, description: reasonText, confidence: "high", requiresFollowup: false },
+      reason: { type: reasonType, description: reasonText, confidence: "high", requiresFollowup },
       reporter: { reporterType: "user", reporterId: intent.userId, channel: "web" },
     };
   }
@@ -251,6 +319,7 @@ export class CandidateMapper {
     const m = MAPPINGS[scenarioId];
     if (!m) return undefined;
     if (field === "parties") return m.counterpartySlot;
+    if (field === "relatedEventId") return m.relatedEventSlot;
     if (field === "amount" || field === "currency" || field === "occurredAt" || field === "description") return field;
     return undefined;
   }

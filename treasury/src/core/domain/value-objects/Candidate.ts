@@ -29,6 +29,12 @@ export interface Candidate {
   amount: string;
   currency: string;
   description?: string;
+  /**
+   * Causal origin link for a settlement (e.g. a commission_received → its commission_expected).
+   * Absent when the operation has no lineage, or when it is an explicit orphan (unresolved lineage,
+   * carried by an UNKNOWN_ORIGIN reason). The Ledger validates it; Treasury never fabricates one.
+   */
+  relatedEventId?: string;
   parties: CandidateParty[];
   objects: CandidateObject[];
   reason: { type: string; description: string; confidence: string; requiresFollowup: boolean };

@@ -5,4 +5,10 @@ export enum SlotType {
   DATE = "date",
   CHOICE = "choice",
   PARTY = "party",
+  /**
+   * A reference to an existing Ledger event (a settlement's origin). Like PARTY, it grounds a
+   * mention to a real id; without a directory it is asked explicitly. Treasury does not verify the
+   * referenced event exists — the Ledger validates lineage and a bad reference drives a re-ask.
+   */
+  EVENT_REF = "event_ref",
 }

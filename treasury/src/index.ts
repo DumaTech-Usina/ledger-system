@@ -54,8 +54,20 @@ function bootstrap(): void {
   const sessions = new InMemorySessionStore(sessionTtlSeconds * 1000);
   const users = new InMemoryUserRepository(
     seedUsers(hasher, [
-      { id: "user-cfo", username: "cfo", displayName: "CFO", role: Role.FINANCE_MANAGER, password: env.AUTH_MANAGER_PASSWORD },
-      { id: "user-viewer", username: "viewer", displayName: "Analista", role: Role.VIEWER, password: env.AUTH_VIEWER_PASSWORD },
+      {
+        id: "user-cfo",
+        username: "cfo",
+        displayName: "CFO",
+        role: Role.FINANCE_MANAGER,
+        password: env.AUTH_MANAGER_PASSWORD,
+      },
+      {
+        id: "user-viewer",
+        username: "viewer",
+        displayName: "Analista",
+        role: Role.VIEWER,
+        password: env.AUTH_VIEWER_PASSWORD,
+      },
     ]),
   );
   const auth = new AuthService(users, hasher, sessions);
@@ -73,10 +85,19 @@ function bootstrap(): void {
     ledgerRead = new StubLedgerReadAdapter();
   } else {
     // live: real Ledger over HTTP for both submit and reads (both send the service token).
-    submission = new HttpCandidateSubmissionAdapter(env.LEDGER_API_URL, env.LEDGER_SUBMIT_TOKEN);
-    ledgerRead = new HttpLedgerReadAdapter(env.LEDGER_API_URL, env.LEDGER_SUBMIT_TOKEN);
+    submission = new HttpCandidateSubmissionAdapter(
+      env.LEDGER_API_URL,
+      env.LEDGER_SUBMIT_TOKEN,
+    );
+    ledgerRead = new HttpLedgerReadAdapter(
+      env.LEDGER_API_URL,
+      env.LEDGER_SUBMIT_TOKEN,
+    );
   }
-  const getDashboard = new GetTreasuryDashboardUseCase(ledgerRead, env.USINA_PARTY_ID);
+  const getDashboard = new GetTreasuryDashboardUseCase(
+    ledgerRead,
+    env.USINA_PARTY_ID,
+  );
 
   const app = createServer({
     auth,
@@ -86,15 +107,29 @@ function bootstrap(): void {
     startIntent: new StartIntentUseCase(intentRepo, clock, ids, audit),
     advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit),
     applyAnswers,
-    interpretUtterance: new InterpretUtteranceUseCase(intentRepo, extractor, applyAnswers, audit, clock, ids),
+    interpretUtterance: new InterpretUtteranceUseCase(
+      intentRepo,
+      extractor,
+      applyAnswers,
+      audit,
+      clock,
+      ids,
+    ),
     previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper),
-    submitIntent: new SubmitIntentUseCase(intentRepo, candidateMapper, submission, audit, clock),
+    submitIntent: new SubmitIntentUseCase(
+      intentRepo,
+      candidateMapper,
+      submission,
+      audit,
+      clock,
+    ),
     getIntent: new GetIntentUseCase(intentRepo, audit),
     listIntents: new ListIntentsUseCase(intentRepo),
   });
 
   const server = app.listen(env.PORT, () => {
     console.log(`Treasury User App running on port ${env.PORT}`);
+    console.log(`Environment: ${env.LEDGER_MODE}`);
   });
 
   const shutdown = (signal: string) => {

@@ -53,6 +53,13 @@
   .scenario p { margin: 0; color: var(--muted); font-size: 14px; }
   .scenario .go { margin-top: 14px; color: var(--accent); font-weight: 600; font-size: 14px; }
 
+  /* Free-text entry (calls /interpret; falls back to the picker when ambiguous) */
+  .freebar { display: flex; gap: 10px; padding: 14px; margin-bottom: 10px; }
+  .freeinput { flex: 1; padding: 11px 13px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+  .freeinput:focus { outline: 2px solid var(--accent-weak); border-color: var(--accent); }
+  .freehint { font-size: 13px; margin: 0 0 14px; min-height: 18px; }
+  .orline { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 12px; }
+
   /* Conversation */
   .convo { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
   @media (max-width: 900px) { .convo { grid-template-columns: 1fr; } }
@@ -186,6 +193,14 @@
         <div id="picker">
           <h2 class="lead" data-i18n="ui.ops_lead">What would you like to do?</h2>
           <p class="sub" data-i18n="ui.ops_sub">Tell us the business action — we'll guide you through the rest.</p>
+          <div id="freeentry">
+            <div class="freebar card">
+              <input id="freeInput" class="freeinput" autocomplete="off" />
+              <button class="btn" id="freeBtn" data-i18n="ui.interpret_send">Interpret</button>
+            </div>
+            <div id="freeHint" class="freehint muted"></div>
+            <div class="orline" data-i18n="ui.interpret_or">or pick an operation</div>
+          </div>
           <div class="scenarios" id="scenarios"></div>
         </div>
 
@@ -225,6 +240,10 @@ const api = {
   preview: (id) => fetch(`/api/conversation/${id}/preview`).then(r => r.json()),
   submit: (id) => post(`/api/conversation/${id}/submit`, {}),
   intent: (id) => fetch(`/api/intents/${id}`).then(r => r.json()),
+  // Natural-language entry: classify the utterance into a scenario and pre-fill what it can. The
+  // deterministic extractor is one adapter behind SlotExtractionPort — an LLM would slot in here
+  // with no change to this call. Bound-mode continuation would POST /:id/interpret.
+  interpret: (utterance) => post("/api/conversation/interpret", { utterance }),
 };
 function post(url, body) {
   return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
@@ -340,15 +359,44 @@ function say(kind, text) {
   $("#stream").appendChild(m); $("#stream").scrollTop = $("#stream").scrollHeight;
 }
 
-async function startScenario(s) {
-  scenarioId = s.id;
+// Shared: reveal the conversation workspace bound to a scenario (used by both the guided picker and
+// the free-text entry). The intent itself is created by the caller.
+function openWorkspace(sid) {
+  scenarioId = sid;
   $("#picker").style.display = "none";
   $("#workspace").style.display = "grid";
-  $("#chatTitle").textContent = T.scenarioTitle(s.id, s.title);
-  $("#stream").innerHTML = ""; $("#lifecycle").innerHTML = `<span class="muted">${esc(T.t("ui.starting"))}</span>`;
+  $("#chatTitle").textContent = T.scenarioTitle(sid);
+  $("#stream").innerHTML = "";
+  $("#lifecycle").innerHTML = `<span class="muted">${esc(T.t("ui.starting"))}</span>`;
+}
+
+async function startScenario(s) {
+  openWorkspace(s.id);
   const { data } = await api.start(s.id);
   intentId = data.intentId;
   say("bot", T.t("ui.intro", { description: T.scenarioDesc(s.id, s.description) }));
+  renderState(data.state);
+  refreshLifecycle();
+}
+
+// Free-text entry → /interpret classifies the utterance, creates the intent, and pre-fills the slots
+// it could extract. The same guided dialog then continues from whatever is still missing. An
+// ambiguous utterance creates nothing and keeps the operation menu as the fallback.
+async function interpretEntry(raw) {
+  const utterance = (raw || "").trim();
+  if (!utterance) return;
+  const hint = $("#freeHint");
+  hint.textContent = T.t("ui.interpreting");
+  const { ok, data } = await api.interpret(utterance);
+  if (!ok || !data || !data.scenarioId || !data.intentId) {
+    hint.textContent = T.t("ui.interpret_ambiguous"); // keep the picker menu visible
+    return;
+  }
+  hint.textContent = ""; $("#freeInput").value = "";
+  intentId = data.intentId;
+  openWorkspace(data.scenarioId);
+  say("me", utterance);
+  say("bot", T.t("ui.interpret_understood", { op: T.scenarioTitle(data.scenarioId), n: String((data.accepted || []).length) }));
   renderState(data.state);
   refreshLifecycle();
 }
@@ -449,6 +497,8 @@ async function refreshLifecycle() {
 
 function restart() { intentId = null; scenarioId = null; $("#workspace").style.display = "none"; $("#picker").style.display = "block"; }
 $("#restart").onclick = restart;
+$("#freeBtn").onclick = () => interpretEntry($("#freeInput").value);
+$("#freeInput").onkeydown = (e) => { if (e.key === "Enter") interpretEntry($("#freeInput").value); };
 
 // ── Auth / session ───────────────────────────────────────────────────────────
 let currentUser = null;
@@ -468,8 +518,10 @@ function showApp(user) {
   $("#userInitial").textContent = (user.displayName || "?").charAt(0).toUpperCase();
   $("#userRole").textContent = T.role(user.role);
 
-  // Basic RBAC in the UI: only intent creators see the operations picker.
-  if (user.permissions.includes("intent:create")) {
+  // Basic RBAC in the UI: only intent creators see the operations picker + free-text entry.
+  const canCreate = user.permissions.includes("intent:create");
+  $("#freeentry").style.display = canCreate ? "block" : "none";
+  if (canCreate) {
     loadScenarios();
   } else {
     $("#scenarios").innerHTML = `<div class="card placeholder">${esc(T.t("ui.viewer_notice"))}</div>`;
@@ -490,6 +542,7 @@ $("#logout").onclick = async () => { await api.logout(); currentUser = null; res
 async function init() {
   T.applyStatic();
   $("#pageTitle").textContent = T.t("ui.page_title_operations");
+  $("#freeInput").placeholder = T.t("ui.interpret_placeholder");
   const me = await api.me();
   if (me && me.user) showApp(me.user);
   else showLogin();

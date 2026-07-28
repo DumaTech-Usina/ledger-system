@@ -22,4 +22,5 @@ export const registerPayment: Scenario = {
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the payment made?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
+  keywords: { "pt-BR": ["fornecedor", "fornecedores", "avulso", "diversos"] },
 };

@@ -19,4 +19,5 @@ export const registerCommissionAccrual: Scenario = {
     { key: "occurredAt", type: SlotType.DATE, prompt: "As of what date is it expected?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
+  keywords: { "pt-BR": ["provisao", "prevista", "esperada"] },
 };

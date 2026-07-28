@@ -20,4 +20,5 @@ export const registerDirectPayment: Scenario = {
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the broker paid?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
+  keywords: { "pt-BR": ["direto", "diretamente", "operadora"] },
 };

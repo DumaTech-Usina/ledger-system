@@ -62,7 +62,10 @@ export class StubSlotExtractionAdapter implements SlotExtractionPort {
   private classify(text: string, scenarios: ScenarioCatalogEntry[]): ScenarioCatalogEntry | null {
     const df = new Map<string, Set<string>>(); // token → scenario ids that contain it
     for (const s of scenarios) {
-      for (const tok of new Set(tokenize(`${s.title} ${s.description}`))) {
+      // Same algorithm; the classification text now also includes the scenario's keywords, so the
+      // distinctive-token scoring works in whatever language the keywords supply.
+      const text = `${s.title} ${s.description} ${(s.keywords ?? []).join(" ")}`;
+      for (const tok of new Set(tokenize(text))) {
         (df.get(tok) ?? df.set(tok, new Set()).get(tok)!).add(s.id);
       }
     }
@@ -147,7 +150,18 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Lowercase alphanumeric words of length ≥ 3 — short glue words never discriminate a scenario. */
+/**
+ * Lowercase alphanumeric words of length ≥ 3 — short glue words never discriminate a scenario.
+ * Diacritics are folded (NFD + strip combining marks) so accented input tokenizes consistently
+ * whether or not the user typed the accent — a locale-neutral normalization (pt/es/fr/…), applied
+ * identically to catalog keywords and to the utterance, so it does not alter the scoring itself.
+ */
 function tokenize(s: string): string[] {
-  return (s.toLowerCase().match(/[a-z0-9]{3,}/g) ?? []);
+  return (
+    s
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "") // strip combining diacritical marks
+      .toLowerCase()
+      .match(/[a-z0-9]{3,}/g) ?? []
+  );
 }

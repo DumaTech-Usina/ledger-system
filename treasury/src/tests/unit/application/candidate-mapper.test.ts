@@ -145,6 +145,61 @@ describe("CandidateMapper — NON_CASH party/object mold (Phase 5)", () => {
   });
 });
 
+describe("CandidateMapper — CASH_IN settlements with lineage (Phase 6)", () => {
+  function build(scenarioId: string, answers: Record<string, string>) {
+    const scenario = getScenario(scenarioId)!;
+    const intent = Intent.rehydrate({
+      id: "intent-1",
+      scenarioId,
+      userId: "cfo",
+      status: IntentStatus.AWAITING_CONFIRMATION,
+      answers,
+      createdAt: "2026-07-09T00:00:00.000Z",
+      updatedAt: "2026-07-09T00:00:00.000Z",
+    });
+    return new CandidateMapper(USINA).build(intent, scenario);
+  }
+  const cashInCommon = { payer: "party-operator", amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09" };
+
+  it("commission received WITH an origin → CASH_IN, relatedEventId set, usina is the payee/in", () => {
+    const c = build("register_commission_received", { ...cashInCommon, origin: "evt-expected-1" });
+    expect(c.eventType).toBe("commission_received");
+    expect(c.economicEffect).toBe("cash_in");
+    expect(c.relatedEventId).toBe("evt-expected-1");
+    expect(c.reason.type).toBe("commission_payment");
+    expect(c.reason.requiresFollowup).toBe(false);
+    expect(c.parties[0]).toEqual({ partyId: USINA, role: "payee", direction: "in", amount: "1000.00" });
+    expect(c.objects).toEqual([{ objectId: "intent:intent-1", objectType: "commission_receivable", relation: "settles" }]);
+  });
+
+  it("commission received WITHOUT an origin → explicit orphan (UNKNOWN_ORIGIN, follow-up, no relatedEventId)", () => {
+    const c = build("register_commission_received", cashInCommon); // origin left empty
+    expect(c.relatedEventId).toBeUndefined();
+    expect(c.reason.type).toBe("unknown_origin");
+    expect(c.reason.requiresFollowup).toBe(true);
+  });
+
+  it("advance recovery / loan repayment carry the origin and SETTLE their credit object", () => {
+    const adv = build("register_advance_settlement", { ...cashInCommon, origin: "evt-advance-1" });
+    expect(adv.eventType).toBe("advance_settlement");
+    expect(adv.economicEffect).toBe("cash_in");
+    expect(adv.relatedEventId).toBe("evt-advance-1");
+    expect(adv.objects[0]).toMatchObject({ objectType: "advance", relation: "settles" });
+
+    const loan = build("register_loan_repayment", { ...cashInCommon, origin: "evt-loan-1" });
+    expect(loan.relatedEventId).toBe("evt-loan-1");
+    expect(loan.objects[0]).toMatchObject({ objectType: "loan", relation: "settles" });
+  });
+
+  it("maps a relatedEventId rejection back to the scenario's EVENT_REF slot", () => {
+    const mapper = new CandidateMapper(USINA);
+    expect(mapper.fieldToSlot("register_advance_settlement", "relatedEventId")).toBe("origin");
+    expect(mapper.fieldToSlot("register_commission_received", "relatedEventId")).toBe("origin");
+    // a scenario without lineage has no origin slot to re-ask
+    expect(mapper.fieldToSlot("register_penalty", "relatedEventId")).toBeUndefined();
+  });
+});
+
 describe("CandidateMapper.fieldToSlot — reverse map for correction (Phase 3)", () => {
   const mapper = new CandidateMapper(USINA);
 

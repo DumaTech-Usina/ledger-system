@@ -106,6 +106,9 @@ export class InterpretUtteranceUseCase {
       title: s.title,
       description: s.description,
       slots: s.slots,
+      // Union of every locale's keywords — makes the deterministic classifier multilingual without
+      // changing its algorithm (it just has more, language-specific tokens to match against).
+      keywords: Object.values(s.keywords ?? {}).flat(),
     }));
 
     const result = await this.safeExtract({ utterance: input.utterance, scenarios: catalog });

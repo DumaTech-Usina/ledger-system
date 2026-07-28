@@ -10,6 +10,7 @@ const catalog: ScenarioCatalogEntry[] = listScenarios().map((s) => ({
   title: s.title,
   description: s.description,
   slots: s.slots,
+  keywords: Object.values(s.keywords ?? {}).flat(),
 }));
 const adapter = new StubSlotExtractionAdapter();
 
@@ -73,6 +74,30 @@ describe("StubSlotExtractionAdapter — scenario classification (classify mode)"
       const res = await adapter.extract({ utterance, scenarios: catalog });
       expect(res.scenarioId, utterance).toBe(expected);
     }
+  });
+
+  it("classifies the main scenarios described in Portuguese (same algorithm, localized keywords)", async () => {
+    const cases: [string, string][] = [
+      ["paguei a folha dos empregados", "register_payroll"],
+      ["registrar uma multa", "register_penalty"],
+      ["uma despesa de infraestrutura", "register_infrastructure"],
+      ["um incentivo para o corretor", "register_incentive"],
+      ["um pagamento a um fornecedor", "register_payment"],
+      ["conceder um adiantamento", "register_advance"],
+      ["conceder um emprestimo", "register_loan"],
+      ["renuncia de comissao", "register_waiver"],
+    ];
+    for (const [utterance, expected] of cases) {
+      const res = await adapter.extract({ utterance, scenarios: catalog });
+      expect(res.scenarioId, utterance).toBe(expected);
+    }
+  });
+
+  it("is accent-insensitive: the same intent classifies with or without diacritics", async () => {
+    const withAccents = await adapter.extract({ utterance: "paguei o salário", scenarios: catalog });
+    const without = await adapter.extract({ utterance: "paguei o salario", scenarios: catalog });
+    expect(withAccents.scenarioId).toBe("register_payroll");
+    expect(without.scenarioId).toBe("register_payroll");
   });
 
   it("asks to clarify (no scenarioId, no slots) when the operation is ambiguous", async () => {

@@ -21,4 +21,5 @@ export const registerWaiver: Scenario = {
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it waived?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
+  keywords: { "pt-BR": ["renuncia", "renunciar", "isencao", "perdao"] },
 };

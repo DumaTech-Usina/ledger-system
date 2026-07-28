@@ -16,6 +16,13 @@ I18N.register("pt-BR", {
     ops_sub: "Diga a ação de negócio — nós guiamos o restante.",
     start: "Iniciar →",
 
+    interpret_send: "Interpretar",
+    interpret_placeholder: "Descreva a operação… ex.: paguei a folha 1500,00 em 2026-07-09",
+    interpret_or: "ou escolha uma operação",
+    interpreting: "Interpretando…",
+    interpret_ambiguous: "Não identifiquei a operação. Escolha uma abaixo ou descreva de outro jeito.",
+    interpret_understood: "Entendi: {op}. Preenchi {n} campo(s) — vamos completar o restante.",
+
     dash_lead: "Verdade financeira",
     dash_sub:
       "Visões somente leitura obtidas do Ledger. Posição de caixa, extratos e projeções.",
@@ -158,6 +165,18 @@ I18N.register("pt-BR", {
       title: "Reconhecer pagamento direto a um corretor",
       description: "Registrar que a operadora pagou um corretor diretamente — a comissão a receber da usina é liquidada sem movimento de caixa.",
     },
+    register_commission_received: {
+      title: "Registrar comissão recebida",
+      description: "Registrar uma comissão que a usina recebeu (entrada de caixa), liquidando uma comissão esperada.",
+    },
+    register_advance_settlement: {
+      title: "Registrar recuperação de adiantamento",
+      description: "Registrar a recuperação de um adiantamento concedido pela usina (entrada de caixa), liquidando o adiantamento de origem.",
+    },
+    register_loan_repayment: {
+      title: "Registrar pagamento de empréstimo",
+      description: "Registrar um pagamento de empréstimo recebido pela usina (entrada de caixa), liquidando o empréstimo de origem.",
+    },
   },
 
   slots: {
@@ -230,6 +249,30 @@ I18N.register("pt-BR", {
       amount: "Qual é o valor da comissão que foi liquidada?",
       currency: "Qual é a moeda?",
       occurredAt: "Em que data o corretor foi pago?",
+      description: "Uma breve descrição (opcional).",
+    },
+    register_commission_received: {
+      payer: "Quem pagou a comissão (operadora ou contraparte)?",
+      amount: "Qual é o valor da comissão recebida?",
+      currency: "Qual é a moeda?",
+      occurredAt: "Em que data foi recebida?",
+      origin: "Qual comissão esperada isto liquida? (deixe vazio se desconhecido)",
+      description: "Uma breve descrição (opcional).",
+    },
+    register_advance_settlement: {
+      payer: "Quem está pagando o adiantamento (corretor ou parceiro)?",
+      amount: "Qual valor foi recuperado?",
+      currency: "Qual é a moeda?",
+      occurredAt: "Em que data foi recuperado?",
+      origin: "Qual adiantamento isto liquida?",
+      description: "Uma breve descrição (opcional).",
+    },
+    register_loan_repayment: {
+      payer: "Quem está pagando o empréstimo (tomador)?",
+      amount: "Qual valor foi pago?",
+      currency: "Qual é a moeda?",
+      occurredAt: "Em que data foi pago?",
+      origin: "Qual empréstimo isto quita?",
       description: "Uma breve descrição (opcional).",
     },
   },

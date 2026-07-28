@@ -21,4 +21,5 @@ export const registerIncentive: Scenario = {
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it paid?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
+  keywords: { "pt-BR": ["incentivo", "bonus", "bonificacao", "premiacao"] },
 };

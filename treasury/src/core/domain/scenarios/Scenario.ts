@@ -9,6 +9,9 @@ import { registerLoan } from "./registerLoan";
 import { registerWaiver } from "./registerWaiver";
 import { registerCommissionAccrual } from "./registerCommissionAccrual";
 import { registerDirectPayment } from "./registerDirectPayment";
+import { registerCommissionReceived } from "./registerCommissionReceived";
+import { registerAdvanceSettlement } from "./registerAdvanceSettlement";
+import { registerLoanRepayment } from "./registerLoanRepayment";
 
 /**
  * A business intention, defined declaratively as an ordered set of slots. Adding a scenario
@@ -21,6 +24,15 @@ export interface Scenario {
   title: string;
   description: string;
   slots: SlotDefinition[];
+  /**
+   * Locale-keyed classification keywords, co-located with the scenario. They are the deterministic
+   * classifier's per-language signal: an utterance is matched against the union of all locales'
+   * keywords, so the same keyword-scoring algorithm recognizes the intent in any provided language.
+   * Adding a language is adding a key here — no parallel dictionaries, no code changes. Keep the
+   * words DISTINCTIVE (each should belong to a single scenario) since the classifier scores only
+   * tokens unique to one scenario.
+   */
+  keywords?: Record<string, string[]>;
 }
 
 const REGISTRY: Record<string, Scenario> = {
@@ -34,6 +46,9 @@ const REGISTRY: Record<string, Scenario> = {
   [registerWaiver.id]: registerWaiver,
   [registerCommissionAccrual.id]: registerCommissionAccrual,
   [registerDirectPayment.id]: registerDirectPayment,
+  [registerCommissionReceived.id]: registerCommissionReceived,
+  [registerAdvanceSettlement.id]: registerAdvanceSettlement,
+  [registerLoanRepayment.id]: registerLoanRepayment,
 };
 
 export function getScenario(id: string): Scenario | undefined {

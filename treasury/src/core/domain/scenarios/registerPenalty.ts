@@ -18,4 +18,5 @@ export const registerPenalty: Scenario = {
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it paid?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
+  keywords: { "pt-BR": ["multa", "multas", "penalidade"] },
 };
