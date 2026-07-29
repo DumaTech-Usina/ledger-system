@@ -33,14 +33,15 @@ export class AdvanceDialogUseCase {
     const slot = scenario.slots.find((s) => s.key === input.key);
     if (!slot) throw new Error(`Unknown slot '${input.key}' for scenario '${scenario.id}'`);
 
-    const error = DialogEngine.validateAnswer(slot, input.value);
+    const value = DialogEngine.normalizeAnswer(slot, input.value);
+    const error = DialogEngine.validateAnswer(slot, value);
     if (error) {
       // Reject without recording — never persist an invalid answer.
       await this.audit.record({ intentId: intent.id, at: this.clock.now(), type: "slot.rejected", detail: `${input.key}: ${error.message}` });
       return { state: DialogEngine.nextState(scenario, intent.answers), error };
     }
 
-    intent.record(input.key, input.value, this.clock.now());
+    intent.record(input.key, value, this.clock.now());
     await this.audit.record({ intentId: intent.id, at: this.clock.now(), type: "slot.answered", detail: input.key });
     const state = DialogEngine.nextState(scenario, intent.answers);
     if (state.kind === "ready") intent.markAwaitingConfirmation(this.clock.now());

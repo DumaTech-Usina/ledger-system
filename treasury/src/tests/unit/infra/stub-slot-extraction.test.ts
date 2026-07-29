@@ -31,6 +31,16 @@ describe("StubSlotExtractionAdapter", () => {
     expect(byKey(res).amount).toBe("1500.00");
   });
 
+  it("normalizes a pt-BR DD/MM/YYYY date to the slot's canonical ISO form", async () => {
+    const res = await adapter.extract({ utterance: "pago em 28/07/2026", slots });
+    expect(byKey(res).occurredAt).toBe("2026-07-28");
+  });
+
+  it("leaves an impossible DD/MM/YYYY date unfilled instead of guessing", async () => {
+    const res = await adapter.extract({ utterance: "pago em 31/02/2026", slots });
+    expect(byKey(res).occurredAt).toBeUndefined();
+  });
+
   it("grounds a PARTY mention to a known party id, and leaves it unfilled without a directory", async () => {
     const grounded = await adapter.extract({
       utterance: "pagamento para ACME",

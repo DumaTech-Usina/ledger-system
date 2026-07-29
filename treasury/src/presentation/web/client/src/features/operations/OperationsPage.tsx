@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/Card";
+import { Banner } from "@/components/Banner";
 import { OperationsIntro, type GreetingPhase } from "@/features/operations/OperationsIntro";
 import { ScenarioGrid } from "@/features/operations/ScenarioGrid";
 import { ChatStream } from "@/features/operations/ChatStream";
 import { Composer } from "@/features/operations/Composer";
 import { OperationsShell } from "@/features/operations/OperationsShell";
-import { slotPrompt, useConversation } from "@/features/operations/useConversation";
+import { useConversation } from "@/features/operations/useConversation";
+import { slotPrompt } from "@/features/operations/conversationEngine";
+import { suggestScenarios } from "@/features/operations/scenarioSuggestions";
 import { cn } from "@/utils/cn";
 import type { User } from "@/types/auth";
 
@@ -42,6 +45,7 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
     currentSlot,
     phase,
     busy,
+    pickingError,
     lifecycle,
     selectScenario,
     answer,
@@ -133,6 +137,8 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
                 placeholder="Descreva o que você quer fazer…"
                 onSend={sendUtterance}
                 busy={busy}
+                suggest={(query) => suggestScenarios(query, scenarios ?? [])}
+                onPickSuggestion={selectScenario}
               />
             ) : // Choice slots (e.g. BRL/USD) answer inline in the chat instead — see ChatStream.
             phase === "conversation" && currentSlot && currentSlot.type !== "choice" ? (
@@ -148,7 +154,14 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
         >
           {phase === "picking" ? (
             scenarios ? (
-              <ScenarioGrid scenarios={scenarios} onSelect={selectScenario} />
+              <>
+                {pickingError && (
+                  <Banner variant="bad" className="mx-auto mb-3 max-w-2xl">
+                    {pickingError}
+                  </Banner>
+                )}
+                <ScenarioGrid scenarios={scenarios} onSelect={selectScenario} />
+              </>
             ) : (
               <div className="grid h-full place-items-center text-sm text-muted">Carregando operações…</div>
             )

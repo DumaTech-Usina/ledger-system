@@ -32,6 +32,30 @@ describe("DialogEngine.nextState", () => {
   });
 });
 
+describe("DialogEngine.normalizeAnswer", () => {
+  it("converts a DD/MM/YYYY date to the slot's canonical ISO form", () => {
+    expect(DialogEngine.normalizeAnswer(slot("occurredAt"), "28/07/2026")).toBe("2026-07-28");
+  });
+
+  it("also accepts DD-MM-YYYY", () => {
+    expect(DialogEngine.normalizeAnswer(slot("occurredAt"), "28-07-2026")).toBe("2026-07-28");
+  });
+
+  it("leaves an already-ISO date unchanged", () => {
+    expect(DialogEngine.normalizeAnswer(slot("occurredAt"), "2026-07-28")).toBe("2026-07-28");
+  });
+
+  it("leaves an impossible calendar date unchanged, so validateAnswer still rejects it", () => {
+    const value = DialogEngine.normalizeAnswer(slot("occurredAt"), "31/02/2026");
+    expect(value).toBe("31/02/2026");
+    expect(DialogEngine.validateAnswer(slot("occurredAt"), value)).not.toBeNull();
+  });
+
+  it("does not touch non-date slots", () => {
+    expect(DialogEngine.normalizeAnswer(slot("amount"), "28/07/2026")).toBe("28/07/2026");
+  });
+});
+
 describe("DialogEngine.validateAnswer", () => {
   it("rejects a non-numeric money value", () => {
     expect(DialogEngine.validateAnswer(slot("amount"), "abc")).not.toBeNull();

@@ -14,6 +14,25 @@ export interface SlotValidationError {
 const isBlank = (v: SlotValue | undefined): boolean => v === undefined || v.trim() === "";
 
 /**
+ * Turns a "DD/MM/YYYY" or "DD-MM-YYYY" local-date shorthand into the slot's canonical "YYYY-MM-DD"
+ * ISO form, verifying it round-trips to a real calendar date (so "31/02/2026" is left alone rather
+ * than silently rolled over to March). Anything else — already ISO, or not date-shaped at all —
+ * passes through unchanged, so validateAnswer's Date.parse check is the one that judges it.
+ */
+export function normalizeLocalDate(value: string): string {
+  const m = value.trim().match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (!m) return value;
+  const day = Number(m[1]);
+  const month = Number(m[2]);
+  const year = Number(m[3]);
+  const iso = `${m[3]}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const roundTrip = new Date(`${iso}T00:00:00.000Z`);
+  const isRealDate =
+    roundTrip.getUTCFullYear() === year && roundTrip.getUTCMonth() + 1 === month && roundTrip.getUTCDate() === day;
+  return isRealDate ? iso : value;
+}
+
+/**
  * Pure, deterministic conversation engine — the heart of the guided (non-form) experience.
  * No LLM: given a scenario and the answers so far, it decides the next question or signals
  * readiness, and validates a single answer. Kept side-effect free so it is trivially testable
@@ -28,6 +47,16 @@ export const DialogEngine = {
     return next
       ? { kind: "question", slot: next, answered, total }
       : { kind: "ready", answered, total };
+  },
+
+  /**
+   * Normalizes a raw answer before it is validated/recorded — today only DATE accepts the common
+   * DD/MM/YYYY (or DD-MM-YYYY) local shorthand alongside the canonical ISO form the slot stores;
+   * every other slot type passes through unchanged.
+   */
+  normalizeAnswer(slot: SlotDefinition, value: SlotValue): SlotValue {
+    if (isBlank(value) || slot.type !== SlotType.DATE) return value;
+    return normalizeLocalDate(value);
   },
 
   /** Validate one answer against its slot. Returns null when valid. */

@@ -1,4 +1,5 @@
 import { SlotType } from "../../core/domain/enums/SlotType";
+import { normalizeLocalDate } from "../../core/domain/services/DialogEngine";
 import type { SlotDefinition } from "../../core/domain/value-objects/Slot";
 import type {
   ScenarioCatalogEntry,
@@ -106,9 +107,16 @@ export class StubSlotExtractionAdapter implements SlotExtractionPort {
         return value ? { key: slot.key, value, confidence: StubSlotExtractionAdapter.STRONG } : null;
       }
       case SlotType.DATE: {
-        // ISO date only — the canonical shape the slot stores; other formats are left to be asked.
-        const m = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
-        return m ? { key: slot.key, value: m[1], confidence: StubSlotExtractionAdapter.STRONG } : null;
+        // The canonical ISO shape the slot stores, or a pt-BR DD/MM/YYYY shorthand normalized to it —
+        // anything else (relative words like "hoje", other formats) is left to be asked directly.
+        const iso = text.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+        if (iso) return { key: slot.key, value: iso[1], confidence: StubSlotExtractionAdapter.STRONG };
+        const local = text.match(/\b(\d{1,2}[/-]\d{1,2}[/-]\d{4})\b/);
+        if (local) {
+          const normalized = normalizeLocalDate(local[1]);
+          if (normalized !== local[1]) return { key: slot.key, value: normalized, confidence: StubSlotExtractionAdapter.STRONG };
+        }
+        return null;
       }
       case SlotType.CHOICE: {
         // Match any declared choice as a whole word, case-insensitively.

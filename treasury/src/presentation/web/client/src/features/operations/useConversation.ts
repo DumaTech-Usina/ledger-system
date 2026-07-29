@@ -1,36 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { operationsApi } from "@/features/operations/operationsApi";
-import { scenarioCopy, scenarioSlotPrompts, translateMessage } from "@/features/operations/copy";
+import { scenarioCopy, translateMessage } from "@/features/operations/copy";
 import { typingDurationMs } from "@/features/operations/typing";
-import type {
-  AuditEntry,
-  DialogState,
-  InterpretResult,
-  IntentStatus,
-  PreviewIntentResult,
-  ScenarioSummary,
-  SlotDefinition,
-  SlotValidationError,
-  SubmissionStatus,
-} from "@/types/operations";
-
-export type StreamItem =
-  | { id: string; kind: "bot"; text: string }
-  | { id: string; kind: "user"; text: string }
-  | { id: string; kind: "error"; text: string }
-  | { id: string; kind: "suggestion"; proposalKey: string; value: string; label: string }
-  | { id: string; kind: "confirm"; preview: PreviewIntentResult }
-  | { id: string; kind: "result"; status: SubmissionStatus; ledgerReference?: string; reason?: string }
-  | { id: string; kind: "transport-error" };
-
-export type Phase = "picking" | "conversation" | "confirming" | "done";
-
-const uid = () => crypto.randomUUID();
-
-export const slotPrompt = (scenarioId: string, slot: SlotDefinition): string =>
-  scenarioSlotPrompts[scenarioId]?.[slot.key] ?? slot.prompt;
-
-const labelFor = (scenarioId: string, key: string): string => scenarioSlotPrompts[scenarioId]?.[key] ?? key;
+import {
+  decideAdvance,
+  decideClassification,
+  interpretationMessages,
+  shouldFallbackToDirectAnswer,
+  slotPrompt,
+  withId,
+  type Phase,
+  type StreamItem,
+} from "@/features/operations/conversationEngine";
+import type { AuditEntry, DialogState, IntentStatus, ScenarioSummary, SlotDefinition } from "@/types/operations";
 
 export function useConversation() {
   const [scenarios, setScenarios] = useState<ScenarioSummary[] | null>(null);
@@ -41,6 +23,11 @@ export function useConversation() {
   const [currentSlot, setCurrentSlot] = useState<SlotDefinition | null>(null);
   const [phase, setPhase] = useState<Phase>("picking");
   const [busy, setBusy] = useState(false);
+  // Picking-phase-only feedback (no scenario/intent exists yet, so there is no chat stream to show
+  // it in). Deliberately NOT pushed into `stream` — that history is what the conversation opens
+  // with once a scenario is resolved, and a failed guess from the picking screen has no business
+  // showing up there.
+  const [pickingError, setPickingError] = useState<string | null>(null);
   const [lifecycle, setLifecycle] = useState<{
     status: IntentStatus;
     history: AuditEntry[];
@@ -114,27 +101,30 @@ export function useConversation() {
   const goPreview = useCallback(async (id: string) => {
     setPhase("confirming");
     const { ok, data } = await operationsApi.preview(id);
-    if (ok) push({ id: uid(), kind: "confirm", preview: data });
+    if (ok) push(withId({ kind: "confirm", preview: data }));
   }, [push]);
 
-  /** Shared ready/question branching for any single-state outcome (a direct answer, a suggestion
-   * accepted, or a bound interpretation once its rejected/lowConfidence bubbles are already queued). */
+  /** Applies a `decideAdvance` outcome — the shared ready/question branching for any single-answer
+   * result (a direct answer, a suggestion accepted, or a bound interpretation once its
+   * `interpretationMessages` are already queued). All the actual deciding happens in the engine;
+   * this just carries out what it decided (push a message, move to preview, or open the next slot). */
   const advance = useCallback(
-    (state: DialogState, error: SlotValidationError | undefined, scenarioIdForPrompt?: string) => {
-      if (error) {
-        push({ id: uid(), kind: "error", text: translateMessage(error.message) });
-        return; // stays on the same slot — state below is unchanged (still a question).
+    (state: DialogState, error: Parameters<typeof decideAdvance>[1], scenarioIdForPrompt?: string) => {
+      const sid = scenarioIdForPrompt ?? scenarioId ?? "";
+      const decision = decideAdvance(state, error, sid);
+      if (decision.kind === "error") {
+        push(withId(decision.message));
+        return;
       }
-      if (state.kind === "ready") {
+      if (decision.kind === "ready") {
         setCurrentSlot(null);
         const id = intentIdRef.current;
         if (id) goPreview(id);
         return;
       }
-      const sid = scenarioIdForPrompt ?? scenarioId ?? "";
-      setCurrentSlot(state.slot);
-      recordSlot(state.slot, slotPrompt(sid, state.slot));
-      push({ id: uid(), kind: "bot", text: slotPrompt(sid, state.slot) });
+      setCurrentSlot(decision.slot);
+      recordSlot(decision.slot, slotPrompt(sid, decision.slot));
+      push(withId(decision.message));
     },
     [push, goPreview, scenarioId],
   );
@@ -142,18 +132,9 @@ export function useConversation() {
   /** Surfaces what an /interpret call found (validation errors, low-confidence proposals), then —
    * unless the caller is about to fall back to a direct answer — advances via the returned state. */
   const applyInterpretation = useCallback(
-    (result: InterpretResult, scenarioIdForPrompt: string, opts?: { skipAdvance?: boolean }) => {
-      for (const err of result.rejected) {
-        push({ id: uid(), kind: "error", text: translateMessage(err.message) });
-      }
-      for (const proposal of result.lowConfidence) {
-        push({
-          id: uid(),
-          kind: "suggestion",
-          proposalKey: proposal.key,
-          value: proposal.value,
-          label: labelFor(scenarioIdForPrompt, proposal.key),
-        });
+    (result: Parameters<typeof interpretationMessages>[0], scenarioIdForPrompt: string, opts?: { skipAdvance?: boolean }) => {
+      for (const message of interpretationMessages(result, scenarioIdForPrompt)) {
+        push(withId(message));
       }
       if (opts?.skipAdvance || !result.state) return;
       advance(result.state, undefined, scenarioIdForPrompt);
@@ -166,6 +147,7 @@ export function useConversation() {
       const copy = scenarioCopy[scenario.id];
       setScenarioId(scenario.id);
       setScenarioTitle(copy?.title ?? scenario.title);
+      setPickingError(null);
       clearQueue();
       setStream([]);
       setLifecycle(null);
@@ -174,22 +156,16 @@ export function useConversation() {
       const { ok, data } = await operationsApi.start(scenario.id);
       setBusy(false);
       if (!ok) {
-        push({ id: uid(), kind: "transport-error" });
+        push(withId({ kind: "transport-error" }));
         return;
       }
       setIntentId(data.intentId);
       answeredSlotsRef.current = {};
-      push({ id: uid(), kind: "bot", text: `Vamos lá! ${copy?.description ?? scenario.description}` });
+      push(withId({ kind: "bot", text: `Vamos lá! ${copy?.description ?? scenario.description}` }));
       refreshLifecycle(data.intentId);
-      if (data.state.kind === "ready") {
-        goPreview(data.intentId);
-      } else {
-        setCurrentSlot(data.state.slot);
-        recordSlot(data.state.slot, slotPrompt(scenario.id, data.state.slot));
-        push({ id: uid(), kind: "bot", text: slotPrompt(scenario.id, data.state.slot) });
-      }
+      advance(data.state, undefined, scenario.id);
     },
-    [clearQueue, goPreview, push, refreshLifecycle],
+    [clearQueue, push, refreshLifecycle, advance],
   );
 
   const answer = useCallback(
@@ -197,7 +173,7 @@ export function useConversation() {
       const id = intentIdRef.current;
       const slot = currentSlot;
       if (!id || !slot) return;
-      push({ id: uid(), kind: "user", text: value === "" ? "(pulado)" : value });
+      push(withId({ kind: "user", text: value === "" ? "(pulado)" : value }));
       setBusy(true);
       // The route replies 422 (not 2xx) for a rejected answer, but still with a well-formed
       // body — that's a normal validation outcome, not a transport failure, so `data.state`
@@ -205,7 +181,7 @@ export function useConversation() {
       const { data } = await operationsApi.answer(id, slot.key, value);
       setBusy(false);
       if (!data?.state) {
-        push({ id: uid(), kind: "transport-error" });
+        push(withId({ kind: "transport-error" }));
         return;
       }
       refreshLifecycle(id);
@@ -224,53 +200,48 @@ export function useConversation() {
    */
   const sendUtterance = useCallback(
     async (text: string) => {
-      push({ id: uid(), kind: "user", text });
-
       const id = intentIdRef.current;
 
       if (!id) {
+        setPickingError(null);
         setBusy(true);
         const { data } = await operationsApi.interpretNew(text);
         setBusy(false);
         if (!data) {
-          push({ id: uid(), kind: "transport-error" });
-          return;
-        }
-        if (!data.intentId || !data.scenarioId) {
-          push({
-            id: uid(),
-            kind: "bot",
-            text: data.clarification ?? "Não entendi qual operação você quer — escolha uma das opções abaixo.",
-          });
+          setPickingError("Não foi possível falar com o Ledger agora. Tente novamente.");
           return;
         }
 
-        const copy = scenarioCopy[data.scenarioId];
-        setScenarioId(data.scenarioId);
-        setScenarioTitle(copy?.title ?? data.scenarioId);
-        setIntentId(data.intentId);
+        const decision = decideClassification(data);
+        if (decision.kind === "error") {
+          setPickingError(decision.message);
+          return;
+        }
+
+        setScenarioId(decision.scenarioId);
+        setScenarioTitle(decision.scenarioTitle);
+        setIntentId(decision.intentId);
         answeredSlotsRef.current = {};
         setPhase("conversation");
-        push({ id: uid(), kind: "bot", text: `Vamos lá! ${copy?.description ?? ""}`.trim() });
-        refreshLifecycle(data.intentId);
-        applyInterpretation(data, data.scenarioId);
+        push(withId({ kind: "user", text }));
+        push(withId(decision.greeting));
+        refreshLifecycle(decision.intentId);
+        applyInterpretation(data, decision.scenarioId);
         return;
       }
 
+      push(withId({ kind: "user", text }));
       const askedSlotKey = currentSlot?.key ?? null;
       setBusy(true);
       const { data } = await operationsApi.interpretBound(id, text);
       setBusy(false);
       if (!data) {
-        push({ id: uid(), kind: "transport-error" });
+        push(withId({ kind: "transport-error" }));
         return;
       }
       refreshLifecycle(id);
 
-      const stillQuestion = data.state?.kind === "question";
-      const extractedNothing = data.accepted.length === 0;
-
-      if (askedSlotKey && stillQuestion && extractedNothing) {
+      if (askedSlotKey && shouldFallbackToDirectAnswer(askedSlotKey, data)) {
         // Nothing usable was extracted from this message at all — treat it as the direct answer
         // to the question on screen (matches the guided flow's old, still-supported behaviour).
         applyInterpretation(data, scenarioId ?? "", { skipAdvance: true });
@@ -278,7 +249,7 @@ export function useConversation() {
         const fallback = await operationsApi.answer(id, askedSlotKey, text);
         setBusy(false);
         if (!fallback.data?.state) {
-          push({ id: uid(), kind: "transport-error" });
+          push(withId({ kind: "transport-error" }));
           return;
         }
         refreshLifecycle(id);
@@ -303,7 +274,7 @@ export function useConversation() {
       const { data } = await operationsApi.answer(id, item.proposalKey, item.value);
       setBusy(false);
       if (!data?.state) {
-        push({ id: uid(), kind: "transport-error" });
+        push(withId({ kind: "transport-error" }));
         return;
       }
       refreshLifecycle(id);
@@ -357,11 +328,11 @@ export function useConversation() {
     setBusy(false);
     refreshLifecycle(id);
     if (!ok || !data.status) {
-      push({ id: uid(), kind: "transport-error" });
+      push(withId({ kind: "transport-error" }));
       return;
     }
     setPhase("done");
-    push({ id: uid(), kind: "result", status: data.status, ledgerReference: data.ledgerReference, reason: data.reason });
+    push(withId({ kind: "result", status: data.status, ledgerReference: data.ledgerReference, reason: data.reason }));
   }, [push, refreshLifecycle]);
 
   const restart = useCallback(() => {
@@ -373,6 +344,7 @@ export function useConversation() {
     setStream([]);
     setCurrentSlot(null);
     setLifecycle(null);
+    setPickingError(null);
     setPhase("picking");
   }, [clearQueue]);
 
@@ -385,6 +357,7 @@ export function useConversation() {
     currentSlot,
     phase,
     busy,
+    pickingError,
     lifecycle,
     selectScenario,
     answer,

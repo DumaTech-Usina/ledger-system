@@ -7,7 +7,7 @@ import { Input } from "@/components/Input";
 import { formatDate, formatMoney } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { typingDurationMs } from "@/features/operations/typing";
-import type { StreamItem } from "@/features/operations/useConversation";
+import type { StreamItem } from "@/features/operations/conversationEngine";
 import type { PreviewIntentResult, SlotDefinition } from "@/types/operations";
 
 export interface SaveEditsResult {
@@ -71,10 +71,11 @@ export function ChatStream({
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ block: "end" });
   const showInlineChoices = currentSlot?.type === "choice" && !!currentSlot.choices?.length;
+  const showDatePicker = currentSlot?.type === "date";
 
   useEffect(() => {
     scrollToBottom();
-  }, [stream, showInlineChoices]);
+  }, [stream, showInlineChoices, showDatePicker]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -201,6 +202,22 @@ export function ChatStream({
               {choice}
             </button>
           ))}
+        </div>
+      )}
+
+      {showDatePicker && (
+        // Native date input: still typeable (and free text keeps working via the composer), but its
+        // built-in calendar icon gives a one-click picker instead of requiring a typed date at all.
+        <div className="flex justify-start pl-1">
+          <input
+            type="date"
+            aria-label="Escolher data"
+            disabled={busy}
+            onChange={(e) => {
+              if (e.target.value) onAnswer?.(e.target.value);
+            }}
+            className="rounded-full border border-line bg-panel-solid px-4 py-2 text-sm font-semibold text-ink shadow-sm outline-none transition hover:border-accent focus:border-accent disabled:opacity-50 disabled:pointer-events-none [color-scheme:light] dark:[color-scheme:dark]"
+          />
         </div>
       )}
 
