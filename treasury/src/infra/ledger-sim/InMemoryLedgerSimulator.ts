@@ -3,7 +3,6 @@ import type { Candidate } from "../../core/domain/value-objects/Candidate";
 import type { CandidateSubmissionPort, SubmissionOutcome } from "../../core/application/ports/CandidateSubmissionPort";
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
 import type { CashPosition, CashMovementsPage, PositionsPage, CashMovement, PositionItem } from "../../core/application/dtos/LedgerReadModels";
-import { buildDemoCommissions } from "./demoCommissionData";
 
 /**
  * DEMO-ONLY in-memory stand-in for the whole Ledger. Implements BOTH the submission boundary and
@@ -30,6 +29,8 @@ function fromCents(cents: bigint): string {
   return `${negative ? "-" : ""}${abs / 100n}.${(abs % 100n).toString().padStart(2, "0")}`;
 }
 
+const isoDay = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d)).toISOString();
+
 interface RecordInput {
   effect: string;
   amount: string;
@@ -49,9 +50,9 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
   private seq = 0;
 
   constructor() {
-    const { movements, positions } = buildDemoCommissions();
-    this.movementStore.push(...movements);
-    this.positionStore.push(...positions);
+    // A little seeded history so the dashboard isn't empty before the first intent.
+    this.record({ effect: "cash_in", amount: "88000.00", currency: "BRL", occurredAt: isoDay(2026, 6, 5), objectType: "charge", sourceReference: "charge:seed-1", counterparty: "Grão Verde", description: "Cobrança — Grão Verde" });
+    this.record({ effect: "cash_out", amount: "15750.00", currency: "BRL", occurredAt: isoDay(2026, 6, 6), objectType: "purchase", sourceReference: "purchase:seed-2", counterparty: "Fornecedor Sul", description: "Compra — Fornecedor Sul" });
   }
 
   // ── Submission boundary ────────────────────────────────────────────────────
@@ -120,46 +121,24 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
       if (m.effect === "cash_in") cashIn += cents;
       else if (m.effect === "cash_out") cashOut += cents;
     }
-    let openReceivables = 0n;
-    let openPayables = 0n;
-    for (const p of this.positionStore) {
-      if (p.status !== "open" && p.status !== "partially_settled") continue;
-      if (p.objectType === "commission_payable") openPayables += toCents(p.openBalance);
-      else openReceivables += toCents(p.openBalance);
-    }
     const net = cashIn - cashOut;
     const sign = net >= 0n ? "+" : "-";
     return {
       totalCashIn: fromCents(cashIn),
       totalCashOut: fromCents(cashOut),
       netCashFlow: `${sign}${fromCents(net >= 0n ? net : -net)}`,
-      openReceivables: fromCents(openReceivables),
-      openPayables: fromCents(openPayables),
+      openReceivables: fromCents(cashIn), // demo simplification: charges recorded as receivables
       contingentExposure: "0.00",
       currency: this.currency,
       asOf: new Date().toISOString(),
     };
   }
 
-  async cashMovements(params: { partyId: string; limit?: number; from?: string; to?: string }): Promise<CashMovementsPage> {
-    const items = this.movementStore
-      .filter((m) => inRange(m.occurredAt, params.from, params.to))
-      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
-    return { items: items.slice(0, params.limit ?? 50), nextCursor: null, hasMore: false };
+  async cashMovements(params: { partyId: string; limit?: number }): Promise<CashMovementsPage> {
+    return { items: this.movementStore.slice(0, params.limit ?? 50), nextCursor: null, hasMore: false };
   }
 
-  async positions(params?: { limit?: number; asOf?: string }): Promise<PositionsPage> {
-    const data = this.positionStore
-      .filter((p) => !params?.asOf || !p.lastEventAt || p.lastEventAt.slice(0, 10) <= params.asOf)
-      .sort((a, b) => (b.lastEventAt ?? "").localeCompare(a.lastEventAt ?? ""));
-    return { data: data.slice(0, params?.limit ?? 50), total: data.length };
+  async positions(params?: { limit?: number }): Promise<PositionsPage> {
+    return { data: this.positionStore.slice(0, params?.limit ?? 50), total: this.positionStore.length };
   }
-}
-
-/** True when the date portion of `iso` falls within the inclusive [from, to] bounds (either may be omitted). */
-function inRange(iso: string, from?: string, to?: string): boolean {
-  const day = iso.slice(0, 10);
-  if (from && day < from) return false;
-  if (to && day > to) return false;
-  return true;
 }

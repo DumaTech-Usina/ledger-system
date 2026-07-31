@@ -56,7 +56,7 @@ export class ApplyAnswersUseCase {
     const skipped: string[] = [];
     let recorded = 0;
 
-    for (const { key, value: rawValue } of input.answers) {
+    for (const { key, value } of input.answers) {
       const slot = scenario.slots.find((s) => s.key === key);
       if (!slot) {
         // Never throw on an unknown key (a proposer may over-extract): report and move on.
@@ -70,7 +70,6 @@ export class ApplyAnswersUseCase {
         continue;
       }
 
-      const value = DialogEngine.normalizeAnswer(slot, rawValue);
       const error = DialogEngine.validateAnswer(slot, value);
       if (error) {
         // Reject without recording — never persist an invalid answer.

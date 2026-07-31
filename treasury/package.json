@@ -8,8 +8,7 @@
     "dev:backend": "tsx watch src/index.ts",
     "dev:client": "npm --prefix src/presentation/web/client run dev",
     "start": "node dist/index.js",
-    "build:client": "npm --prefix src/presentation/web/client ci && npm --prefix src/presentation/web/client run build",
-    "build": "npm run build:client && tsc && mkdir -p dist/presentation/web && cp -r src/presentation/web/client/dist dist/presentation/web/client",
+    "build": "tsc && mkdir -p dist/presentation/web && cp -r src/presentation/web/client dist/presentation/web/",
     "test": "vitest run",
     "test:watch": "vitest"
   },

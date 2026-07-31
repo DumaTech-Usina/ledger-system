@@ -79,14 +79,7 @@ describe("GetTreasuryDashboardUseCase", () => {
       positions: () => Promise.reject(new Error("down")),
     };
     const d = await new GetTreasuryDashboardUseCase(failing, "party-usina").execute();
-    expect(d).toEqual({
-      available: false,
-      cashPosition: null,
-      movements: null,
-      positions: null,
-      classificationHealth: null,
-      period: null,
-    });
+    expect(d).toEqual({ available: false, cashPosition: null, movements: null, positions: null, classificationHealth: null });
   });
 
   it("stub adapter returns representative data", async () => {

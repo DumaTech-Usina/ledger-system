@@ -4,12 +4,11 @@ import type {
   CommissionOrigin,
   CommissionParty,
   PositionItem,
-} from "../../core/application/dtos/LedgerReadModels";
+} from "@/types/dashboard";
 
 /**
- * Demo-only catalog of health-insurance commission data (Operadora > Plano > Proposta > Parcela),
- * shared by InMemoryLedgerSimulator (LEDGER_MODE=simulate) and StubLedgerReadAdapter
- * (LEDGER_MODE=stub) so the two demo modes show the same figures.
+ * Demo-only catalog of health-insurance commission data (Operadora > Plano > Proposta > Parcela).
+ * Hardcoded on the front-end — no backend/API involved, purely visual demo data.
  *
  * Each proposal is split into one or more installments (parcelas). A settled installment produces a
  * real CashMovement pair (cash_in on receipt, then either a "repasse" cash_out to the broker or a
