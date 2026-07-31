@@ -7,6 +7,7 @@ import { Input } from "@/components/Input";
 import { formatDate, formatMoney } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { typingDurationMs } from "@/features/operations/typing";
+import { useTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
 import type { StreamItem } from "@/features/operations/conversationEngine";
 import type { PreviewIntentResult, SlotDefinition } from "@/types/operations";
 
@@ -34,24 +35,51 @@ export interface ChatStreamProps {
 
 const bubbleBase = "max-w-[80%] lg:max-w-2xl px-4 py-2.5 text-[14.5px] leading-relaxed";
 
-/** Reveals `text` one character at a time — faster per character the longer it is — over `typingDurationMs(text)`. */
+/** Reveals `text` one character at a time — faster per character the longer it is — over
+ * `typingDurationMs(text)`. Shows the full text immediately when animations are disabled.
+ *
+ * Toggling animations back on must never retroactively replay a message that already finished
+ * revealing — `revealedRef` remembers that per message, so only messages that arrive *after* the
+ * toggle actually animate; anything already on screen just stays on screen. */
 function TypedText({ text, onTick }: { text: string; onTick?: () => void }) {
+  const typingHidden = useTypingAnimationDisabled();
   const [count, setCount] = useState(0);
+  const revealedRef = useRef(false);
+  const lastTextRef = useRef(text);
+
+  if (lastTextRef.current !== text) {
+    lastTextRef.current = text;
+    revealedRef.current = false;
+  }
 
   useEffect(() => {
+    if (revealedRef.current) return;
+
+    if (typingHidden) {
+      setCount(text.length);
+      revealedRef.current = true;
+      return;
+    }
+
     setCount(0);
-    if (text.length === 0) return;
+    if (text.length === 0) {
+      revealedRef.current = true;
+      return;
+    }
     const stepMs = Math.max(8, typingDurationMs(text) / text.length);
     let i = 0;
     const id = setInterval(() => {
       i += 1;
       setCount(i);
       onTick?.();
-      if (i >= text.length) clearInterval(id);
+      if (i >= text.length) {
+        clearInterval(id);
+        revealedRef.current = true;
+      }
     }, stepMs);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text]);
+  }, [text, typingHidden]);
 
   return <>{text.slice(0, count)}</>;
 }

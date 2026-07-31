@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Card } from "@/components/Card";
 import { Banner } from "@/components/Banner";
 import { OperationsIntro, type GreetingPhase } from "@/features/operations/OperationsIntro";
@@ -23,15 +23,28 @@ export interface OperationsPageProps {
 // big→docked is a pure move — the question never fades, it just relocates, per the brief.
 type QuestionPhase = "hidden" | "big" | "docked";
 
+const SKIP_INTRO_KEY = "treasury.skipLoginIntro";
+
 export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageProps) {
   const canCreate = user.permissions.includes("intent:create");
 
-  const [greetingPhase, setGreetingPhase] = useState<GreetingPhase>(showIntro ? "in" : "hidden");
-  const [questionPhase, setQuestionPhase] = useState<QuestionPhase>(showIntro ? "hidden" : "docked");
-  const [shellVisible, setShellVisible] = useState(!showIntro);
+  // Read once, at mount — a preference set mid-animation shouldn't retroactively cancel a play
+  // already in progress; it only takes effect the *next* time the intro would run.
+  const [introDisabled, setIntroDisabled] = useState(() => localStorage.getItem(SKIP_INTRO_KEY) === "1");
+  const effectiveShowIntro = showIntro && !introDisabled;
+
+  const [greetingPhase, setGreetingPhase] = useState<GreetingPhase>(effectiveShowIntro ? "in" : "hidden");
+  const [questionPhase, setQuestionPhase] = useState<QuestionPhase>(effectiveShowIntro ? "hidden" : "docked");
+  const [shellVisible, setShellVisible] = useState(!effectiveShowIntro);
   // Flips once the fade-in transition actually finishes (not when it starts) — the ambient
-  // chat video should only begin once the chat is fully, 100% on screen.
-  const [chatReady, setChatReady] = useState(!showIntro);
+  // chat video should only begin once the chat is fully, 100% on screen. Also gates whether the
+  // chat underneath is clickable at all — nothing here should be selectable mid-animation.
+  const [chatReady, setChatReady] = useState(!effectiveShowIntro);
+  // True once the user (or a stored preference) cuts the animation short — from then on every
+  // remaining transition is instant instead of animating to its final state.
+  const [skipped, setSkipped] = useState(false);
+
+  const introActive = effectiveShowIntro && !chatReady;
 
   // A ref, not a dependency — an unstable `onIntroDone` identity must never restart these timers.
   const onIntroDoneRef = useRef(onIntroDone);
@@ -57,9 +70,11 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
     saveEdits,
   } = useConversation();
 
+  const introTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
   useEffect(() => {
-    if (!showIntro) return;
-    const timers = [
+    if (!effectiveShowIntro) return;
+    introTimersRef.current = [
       setTimeout(() => setGreetingPhase("out"), 1400),
       setTimeout(() => {
         setGreetingPhase("hidden");
@@ -72,13 +87,31 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
         setShellVisible(true);
       }, 3300),
     ];
-    return () => timers.forEach(clearTimeout);
-  }, [showIntro]);
+    return () => introTimersRef.current.forEach(clearTimeout);
+  }, [effectiveShowIntro]);
+
+  /** Jumps straight to the fully-revealed chat — triggered by a click/tap/Enter anywhere on the
+   * intro, or immediately when the "don't show again" preference is already on. */
+  const skipIntro = useCallback(() => {
+    introTimersRef.current.forEach(clearTimeout);
+    setSkipped(true);
+    setGreetingPhase("hidden");
+    setQuestionPhase("docked");
+    setShellVisible(true);
+    setChatReady(true);
+    onIntroDoneRef.current();
+  }, []);
 
   // Viewers never see the shell the intro reveals — consume the flag so it doesn't linger unused.
   useEffect(() => {
     if (!canCreate && showIntro) onIntroDoneRef.current();
   }, [canCreate, showIntro]);
+
+  // The preference was already on when this page mounted — there is no animation to play, but the
+  // "just logged in" flag still needs consuming so a later remount doesn't try again from scratch.
+  useEffect(() => {
+    if (introDisabled && showIntro) onIntroDoneRef.current();
+  }, [introDisabled, showIntro]);
 
   if (!canCreate) {
     return (
@@ -98,7 +131,8 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
       <h1
         className={cn(
           "mb-4 text-center font-display text-xl font-semibold text-ink md:text-2xl",
-          "[--q-scale:1.5] [--q-travel:17rem] transition-[opacity,filter,transform] duration-1000 ease-in-out md:[--q-travel:19rem]",
+          "[--q-scale:1.5] [--q-travel:17rem] transition-[opacity,filter,transform] ease-in-out md:[--q-travel:19rem]",
+          skipped ? "duration-0" : "duration-1000",
           questionPhase === "hidden" && "opacity-0 blur-md",
           questionPhase === "big" && "opacity-100 blur-none",
           questionPhase === "docked" && "opacity-100 blur-none",
@@ -113,11 +147,16 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
 
       <div
         className={cn(
-          "transition-[opacity,filter] duration-1000 ease-out",
+          "transition-[opacity,filter] ease-out",
+          skipped ? "duration-0" : "duration-1000",
           shellVisible ? "opacity-100 blur-none" : "opacity-0 blur-md",
+          // Invisible/fading-in is not the same as interactive — nothing underneath can be
+          // clicked, tapped, or tabbed to until the chat has fully arrived.
+          !chatReady && "pointer-events-none",
         )}
+        aria-hidden={!chatReady}
         onTransitionEnd={(e) => {
-          if (e.propertyName === "opacity" && shellVisible) {
+          if (e.propertyName === "opacity" && shellVisible && !chatReady) {
             onIntroDoneRef.current();
             setChatReady(true);
           }
@@ -181,6 +220,42 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
           )}
         </OperationsShell>
       </div>
+
+      {introActive && (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Pular animação de boas-vindas"
+          onClick={skipIntro}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              skipIntro();
+            }
+          }}
+          className="fixed inset-0 z-30 cursor-pointer outline-none"
+        />
+      )}
+
+      {/* Only once the intro is actually done — not during it, and not so early it competes with
+          the header's own dropdowns (LanguageSwitcher/UserMenu are z-40; this stays well under
+          that so they always paint on top when they overlap). `absolute` within this page's own
+          (relative) root, not `fixed` to the viewport, which used to land it under the sidebar. */}
+      {chatReady && (
+        <label className="absolute top-3 right-0 z-10 flex cursor-pointer select-none items-center gap-1.5 rounded-full border border-line bg-panel-solid/90 px-3 py-1.5 text-[13px] text-muted shadow-sm backdrop-blur-md">
+          <input
+            type="checkbox"
+            checked={introDisabled}
+            onChange={(event) => {
+              const next = event.target.checked;
+              setIntroDisabled(next);
+              localStorage.setItem(SKIP_INTRO_KEY, next ? "1" : "0");
+            }}
+            className="size-3.5 accent-accent"
+          />
+          Desativar introdução
+        </label>
+      )}
     </div>
   );
 }

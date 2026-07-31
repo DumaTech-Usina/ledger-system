@@ -3,44 +3,9 @@ export interface CashPosition {
   totalCashOut: string;
   netCashFlow: string;
   openReceivables: string;
-  openPayables: string;
   contingentExposure: string;
   currency: string;
   asOf: string;
-}
-
-export type MovementCategory = "saude" | "consorcio" | "seguro" | "outros";
-
-export interface CommissionParty {
-  name: string;
-  email: string;
-  cellphoneNumber: string;
-  cpfOrCnpj: string;
-}
-
-export interface CommissionInstallment {
-  number: number;
-  originalValue: string;
-  brokerCommissionPercent: number;
-  brokerCommissionValue: string;
-  outflowReason: "repasse" | "multa";
-  penaltyAmount?: string;
-}
-
-export interface CommissionOrigin {
-  kind: "commission";
-  operatorName: string;
-  planDescription: string;
-  proposalNumber: number;
-  broker: CommissionParty;
-  client: CommissionParty;
-  effectiveDate: string;
-  status: "received" | "receivable";
-  lives: number;
-  totalValue: string;
-  installments: CommissionInstallment[];
-  installmentNumber: number;
-  outflowReason?: "repasse" | "multa";
 }
 
 export interface CashMovement {
@@ -52,8 +17,6 @@ export interface CashMovement {
   sourceReference: string;
   counterparty: string | null;
   description: string | null;
-  category?: MovementCategory;
-  origin?: CommissionOrigin;
 }
 
 export interface PositionItem {
@@ -66,8 +29,6 @@ export interface PositionItem {
   openBalance: string;
   eventCount: number;
   lastEventAt: string | null;
-  category?: MovementCategory;
-  origin?: CommissionOrigin;
 }
 
 export interface ClassificationHealth {
@@ -79,17 +40,10 @@ export interface ClassificationHealth {
   oldestDays: number | null;
 }
 
-export interface DashboardPeriod {
-  from: string | null;
-  to: string | null;
-  openingBalance: string | null;
-}
-
 export interface TreasuryDashboard {
   available: boolean;
   cashPosition: CashPosition | null;
   movements: CashMovement[] | null;
   positions: PositionItem[] | null;
   classificationHealth: ClassificationHealth | null;
-  period: DashboardPeriod | null;
 }

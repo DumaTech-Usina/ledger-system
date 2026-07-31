@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { operationsApi } from "@/features/operations/operationsApi";
 import { scenarioCopy, translateMessage } from "@/features/operations/copy";
 import { typingDurationMs } from "@/features/operations/typing";
+import { useTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
 import {
   decideAdvance,
   decideClassification,
@@ -15,6 +16,7 @@ import {
 import type { AuditEntry, DialogState, IntentStatus, ScenarioSummary, SlotDefinition } from "@/types/operations";
 
 export function useConversation() {
+  const typingHidden = useTypingAnimationDisabled();
   const [scenarios, setScenarios] = useState<ScenarioSummary[] | null>(null);
   const [scenarioId, setScenarioId] = useState<string | null>(null);
   const [scenarioTitle, setScenarioTitle] = useState<string>("");
@@ -63,12 +65,12 @@ export function useConversation() {
     if (!next) return;
     revealingRef.current = true;
     setStream((s) => [...s, next]);
-    const delay = next.kind === "bot" || next.kind === "error" ? typingDurationMs(next.text) : 150;
+    const delay = typingHidden ? 0 : next.kind === "bot" || next.kind === "error" ? typingDurationMs(next.text) : 150;
     revealTimerRef.current = setTimeout(() => {
       revealingRef.current = false;
       revealNext();
     }, delay);
-  }, []);
+  }, [typingHidden]);
 
   useEffect(
     () => () => {

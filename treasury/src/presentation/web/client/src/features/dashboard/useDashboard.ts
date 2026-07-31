@@ -1,13 +1,28 @@
-import { useMemo } from "react";
-import { buildTreasuryDashboard } from "@/features/dashboard/data/buildDashboard";
+import { useEffect, useState } from "react";
+import { dashboardApi } from "@/features/dashboard/dashboardApi";
 import type { TreasuryDashboard } from "@/types/dashboard";
 
-/** Purely local/hardcoded — no API call, so the dashboard is always available and loads instantly. */
-export function useDashboard(range?: { from: string | null; to: string | null }) {
-  const from = range?.from ?? null;
-  const to = range?.to ?? null;
+const UNAVAILABLE: TreasuryDashboard = {
+  available: false,
+  cashPosition: null,
+  movements: null,
+  positions: null,
+  classificationHealth: null,
+};
 
-  const data: TreasuryDashboard = useMemo(() => buildTreasuryDashboard({ from, to }), [from, to]);
+export function useDashboard() {
+  const [data, setData] = useState<TreasuryDashboard | null>(null);
 
-  return { data, loading: false };
+  useEffect(() => {
+    let cancelled = false;
+    setData(null);
+    dashboardApi.overview().then(({ ok, data: body }) => {
+      if (!cancelled) setData(ok ? body : UNAVAILABLE);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { data, loading: data === null };
 }

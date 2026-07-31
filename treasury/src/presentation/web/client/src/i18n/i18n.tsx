@@ -52,9 +52,6 @@ export interface Translations {
       document: string;
       cashInColumn: string;
       cashOutColumn: string;
-      balance: string;
-      openingBalance: string;
-      proposalInstallment: string;
     };
     hero: {
       badge: string;
@@ -64,57 +61,6 @@ export interface Translations {
       balanceLabel: string;
       viewAll: string;
       allMovementsTitle: string;
-    };
-    filters: {
-      dateRange: string;
-      from: string;
-      to: string;
-      apply: string;
-      clear: string;
-      placeholder: string;
-    };
-    categories: {
-      all: string;
-      health: string;
-      consortium: string;
-      insurance: string;
-      others: string;
-      comingSoon: string;
-    };
-    breakdown: {
-      title: string;
-      empty: string;
-      client: string;
-      broker: string;
-      viewDetails: string;
-      lives: string;
-      installmentNumber: string;
-      date: string;
-      originalValue: string;
-      commissionPercent: string;
-      proposalValue: string;
-      repasseLabel: string;
-      multaLabel: string;
-      operator: string;
-      plan: string;
-      proposalNumber: string;
-      reason: string;
-      statusCaption: string;
-      consolidated: string;
-      pendingStatus: string;
-      receivedSubtitle: string;
-      receivableSubtitle: string;
-      repassedSubtitle: string;
-      payableSubtitle: string;
-      netSubtitle: string;
-      projectedSubtitle: string;
-      receivedCaption: string;
-      receivableCaption: string;
-      repassedCaption: string;
-      payableCaption: string;
-      netCaption: string;
-      projectedCaption: string;
-      party: { name: string; phone: string; email: string; document: string };
     };
   };
   /** Keyed by the domain enum's raw string value (e.g. CashEffect, ObjectType). */
@@ -187,9 +133,6 @@ const ptBR: Translations = {
       document: "Número do documento",
       cashInColumn: "Entradas",
       cashOutColumn: "Saídas",
-      balance: "Saldo",
-      openingBalance: "Saldo anterior",
-      proposalInstallment: "Proposta #{proposal} · Parcela {installment}/{total}",
     },
     hero: {
       badge: "Fluxo financeiro",
@@ -199,62 +142,6 @@ const ptBR: Translations = {
       balanceLabel: "Saldo do dia",
       viewAll: "Ver fluxo completo",
       allMovementsTitle: "Fluxo completo",
-    },
-    filters: {
-      dateRange: "Período",
-      from: "De",
-      to: "Até",
-      apply: "Aplicar",
-      clear: "Limpar",
-      placeholder: "Selecione um período",
-    },
-    categories: {
-      all: "Todos",
-      health: "Saúde",
-      consortium: "Consórcio",
-      insurance: "Seguro",
-      others: "Outros",
-      comingSoon: "Função em desenvolvimento",
-    },
-    breakdown: {
-      title: "Composição",
-      empty: "Nenhuma composição para exibir.",
-      client: "Cliente",
-      broker: "Corretor",
-      viewDetails: "Ver dados",
-      lives: "Vidas",
-      installmentNumber: "Nº Parcela",
-      date: "Data",
-      originalValue: "Valor original",
-      commissionPercent: "Comissão (%)",
-      proposalValue: "Valor da proposta",
-      repasseLabel: "Repasse",
-      multaLabel: "Multa",
-      operator: "Operadora",
-      plan: "Plano",
-      proposalNumber: "Proposta",
-      reason: "Motivo",
-      statusCaption: "Status",
-      consolidated: "Consolidado",
-      pendingStatus: "Em aberto",
-      receivedSubtitle: "Comissões recebidas",
-      receivableSubtitle: "Comissões a receber",
-      repassedSubtitle: "Repasses de comissão",
-      payableSubtitle: "Repasses a pagar",
-      netSubtitle: "Comissões",
-      projectedSubtitle: "Posições previstas",
-      receivedCaption: "Recebido",
-      receivableCaption: "A receber",
-      repassedCaption: "Repassado",
-      payableCaption: "A pagar",
-      netCaption: "Líquido",
-      projectedCaption: "Previsto",
-      party: {
-        name: "Nome",
-        phone: "Telefone",
-        email: "E-mail",
-        document: "CPF/CNPJ",
-      },
     },
   },
   cashEffect: {
@@ -384,9 +271,6 @@ const en: Translations = {
       document: "Document number",
       cashInColumn: "Cash in",
       cashOutColumn: "Cash out",
-      balance: "Balance",
-      openingBalance: "Opening balance",
-      proposalInstallment: "Proposal #{proposal} · Installment {installment}/{total}",
     },
     hero: {
       badge: "Financial flow",
@@ -396,62 +280,6 @@ const en: Translations = {
       balanceLabel: "Daily balance",
       viewAll: "View full flow",
       allMovementsTitle: "Full flow",
-    },
-    filters: {
-      dateRange: "Period",
-      from: "From",
-      to: "To",
-      apply: "Apply",
-      clear: "Clear",
-      placeholder: "Select a period",
-    },
-    categories: {
-      all: "All",
-      health: "Health",
-      consortium: "Consortium",
-      insurance: "Insurance",
-      others: "Others",
-      comingSoon: "Coming soon",
-    },
-    breakdown: {
-      title: "Breakdown",
-      empty: "Nothing to show.",
-      client: "Client",
-      broker: "Broker",
-      viewDetails: "View details",
-      lives: "Lives",
-      installmentNumber: "Installment #",
-      date: "Date",
-      originalValue: "Original value",
-      commissionPercent: "Commission (%)",
-      proposalValue: "Proposal value",
-      repasseLabel: "Payout",
-      multaLabel: "Penalty",
-      operator: "Operator",
-      plan: "Plan",
-      proposalNumber: "Proposal",
-      reason: "Reason",
-      statusCaption: "Status",
-      consolidated: "Consolidated",
-      pendingStatus: "Open",
-      receivedSubtitle: "Received commissions",
-      receivableSubtitle: "Receivable commissions",
-      repassedSubtitle: "Commission payouts",
-      payableSubtitle: "Payouts due",
-      netSubtitle: "Commissions",
-      projectedSubtitle: "Projected positions",
-      receivedCaption: "Received",
-      receivableCaption: "Receivable",
-      repassedCaption: "Paid out",
-      payableCaption: "Due",
-      netCaption: "Net",
-      projectedCaption: "Projected",
-      party: {
-        name: "Name",
-        phone: "Phone",
-        email: "Email",
-        document: "Tax ID",
-      },
     },
   },
   cashEffect: {

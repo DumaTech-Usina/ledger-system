@@ -2,11 +2,15 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LifecycleMenu } from "@/features/operations/LifecycleMenu";
 import { ChatAurora } from "@/features/operations/ChatAurora";
 import { statusLabels } from "@/features/operations/copy";
+import {
+  useVideoAnimationDisabled,
+  setVideoAnimationDisabled,
+  useTypingAnimationDisabled,
+  setTypingAnimationDisabled,
+} from "@/hooks/useAnimationsDisabled";
 import { cn } from "@/utils/cn";
 import chatAnimation from "@/assets/chat animation.mp4";
 import type { AuditEntry, IntentStatus } from "@/types/operations";
-
-const HIDE_ANIMATION_KEY = "treasury.hideChatAnimation";
 
 /** useTheme() only reflects the instance that toggled it — watch the <html class> directly
     so this reacts to theme changes made elsewhere (e.g. the topbar toggle). */
@@ -59,11 +63,8 @@ export function OperationsShell({
 }: OperationsShellProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const isDark = useIsDarkMode();
-  const [animationHidden, setAnimationHidden] = useState(() => localStorage.getItem(HIDE_ANIMATION_KEY) === "1");
-
-  useEffect(() => {
-    localStorage.setItem(HIDE_ANIMATION_KEY, animationHidden ? "1" : "0");
-  }, [animationHidden]);
+  const videoHidden = useVideoAnimationDisabled();
+  const typingHidden = useTypingAnimationDisabled();
 
   // The video stays mounted and playing through the fade-out (so the motion behind it feels
   // alive) and only actually pauses once fully transparent. Revealing it always restarts
@@ -75,7 +76,7 @@ export function OperationsShell({
       return;
     }
 
-    if (animationHidden) {
+    if (videoHidden) {
       const handleTransitionEnd = (e: TransitionEvent) => {
         if (e.propertyName === "opacity") video.pause();
       };
@@ -85,7 +86,7 @@ export function OperationsShell({
 
     video.currentTime = 0;
     video.play().catch(() => {});
-  }, [isDark, ready, animationHidden]);
+  }, [isDark, ready, videoHidden]);
 
   return (
     <div className="glass relative mx-auto flex h-[calc(100vh-11.5rem)] min-h-[32rem] max-w-6xl flex-col overflow-hidden dark:bg-transparent">
@@ -104,7 +105,7 @@ export function OperationsShell({
         className={cn(
           "pointer-events-none absolute inset-0 hidden h-full w-full object-cover transition-opacity duration-700 ease-out",
           isDark && "dark:block",
-          animationHidden ? "opacity-0" : "opacity-100",
+          videoHidden ? "opacity-0" : "opacity-100",
         )}
         style={{
           WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 32%)",
@@ -146,18 +147,42 @@ export function OperationsShell({
         </div>
 
         <div className="relative flex items-center gap-1">
+          {/* Typing reveal — runs in both themes, so always shown. */}
+          <button
+            type="button"
+            onClick={() => setTypingAnimationDisabled(!typingHidden)}
+            aria-label={typingHidden ? "Ativar animação de digitação" : "Desativar animação de digitação"}
+            title={typingHidden ? "Ativar animação de digitação" : "Desativar animação de digitação"}
+            className="inline-flex size-8 items-center justify-center rounded-full text-muted transition hover:bg-ink/6 hover:text-ink dark:hover:bg-white/8"
+          >
+            <svg viewBox="0 0 20 20" fill="none" className="size-4">
+              <path
+                d="M4 5h12a1.5 1.5 0 0 1 1.5 1.5v6A1.5 1.5 0 0 1 16 14H9.5L6 17v-3H4A1.5 1.5 0 0 1 2.5 12.5v-6A1.5 1.5 0 0 1 4 5Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              />
+              <circle cx="6.7" cy="9.5" r="0.9" fill="currentColor" />
+              <circle cx="10" cy="9.5" r="0.9" fill="currentColor" />
+              <circle cx="13.3" cy="9.5" r="0.9" fill="currentColor" />
+              {typingHidden && (
+                <path d="M3 3l14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              )}
+            </svg>
+          </button>
+          {/* Ambient video — dark theme only, so only shown there. */}
           {isDark && (
             <button
               type="button"
-              onClick={() => setAnimationHidden((v) => !v)}
-              aria-label={animationHidden ? "Mostrar animação do chat" : "Ocultar animação do chat"}
-              title={animationHidden ? "Mostrar animação" : "Ocultar animação"}
+              onClick={() => setVideoAnimationDisabled(!videoHidden)}
+              aria-label={videoHidden ? "Mostrar animação do chat" : "Ocultar animação do chat"}
+              title={videoHidden ? "Mostrar animação" : "Ocultar animação"}
               className="inline-flex size-8 items-center justify-center rounded-full text-muted transition hover:bg-ink/6 hover:text-ink dark:hover:bg-white/8"
             >
               <svg viewBox="0 0 20 20" fill="none" className="size-4">
                 <rect x="2.5" y="5.5" width="10" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" />
                 <path d="M12.5 8.5 17 6v8l-4.5-2.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-                {animationHidden && (
+                {videoHidden && (
                   <path d="M3 3l14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 )}
               </svg>
