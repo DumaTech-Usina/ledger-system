@@ -46,3 +46,37 @@ export interface PositionsPage {
   data: PositionItem[];
   total: number;
 }
+
+/**
+ * One event in an economic object's life, as it relates to THAT object. `relation` is the relation
+ * the event declares for the requested objectId — originates / settles / adjusts / reverses — which
+ * is what makes the sequence readable as an evolution rather than a list of unrelated facts.
+ */
+export interface PositionLifecycleEvent {
+  eventId: string;
+  eventType: string;
+  economicEffect: string;
+  relation: string | null;
+  amount: string;
+  currency: string;
+  occurredAt: string;
+  recordedAt: string;
+  description: string | null;
+}
+
+/**
+ * The whole life of one economic object: the position the Ledger projects from its immutable chain,
+ * plus the ordered events that produced it. Treasury never recomputes any of these figures — the
+ * order is the Ledger's own (recordedAt ascending) and is preserved as received.
+ */
+export interface PositionLifecycle {
+  objectId: string;
+  status: string;
+  outcome: string;
+  currency: string;
+  totalOriginated: string;
+  totalSettled: string;
+  openBalance: string;
+  eventCount: number;
+  events: PositionLifecycleEvent[];
+}

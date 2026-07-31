@@ -11,6 +11,7 @@ import { InMemoryLedgerSimulator } from "./infra/ledger-sim/InMemoryLedgerSimula
 import { StubSlotExtractionAdapter } from "./infra/nlp/StubSlotExtractionAdapter";
 import type { CandidateSubmissionPort } from "./core/application/ports/CandidateSubmissionPort";
 import type { LedgerReadPort } from "./core/application/ports/LedgerReadPort";
+import type { PositionLifecyclePort } from "./core/application/ports/PositionLifecyclePort";
 import type { SlotExtractionPort } from "./core/application/ports/SlotExtractionPort";
 import { ScryptPasswordHasher } from "./infra/auth/ScryptPasswordHasher";
 import { InMemorySessionStore } from "./infra/auth/InMemorySessionStore";
@@ -21,6 +22,7 @@ import { Role } from "./core/domain/enums/Role";
 import { AuthService } from "./core/application/services/AuthService";
 import { CandidateMapper } from "./core/application/services/CandidateMapper";
 import { GetTreasuryDashboardUseCase } from "./core/application/use-cases/GetTreasuryDashboard";
+import { GetObjectLifecycleUseCase } from "./core/application/use-cases/GetObjectLifecycle";
 import { StartIntentUseCase } from "./core/application/use-cases/StartIntent";
 import { AdvanceDialogUseCase } from "./core/application/use-cases/AdvanceDialog";
 import { ApplyAnswersUseCase } from "./core/application/use-cases/ApplyAnswers";
@@ -74,7 +76,8 @@ function bootstrap(): void {
 
   // ── Ledger integration (mode-selected) ─────────────────────────────────────
   let submission: CandidateSubmissionPort;
-  let ledgerRead: LedgerReadPort;
+  // The same adapter serves both read boundaries in every mode; only the demo ones lack lifecycles.
+  let ledgerRead: LedgerReadPort & PositionLifecyclePort;
   if (env.LEDGER_MODE === "simulate") {
     // One in-memory fake Ledger for BOTH submit + reads → the full create→dashboard loop works.
     const simulator = new InMemoryLedgerSimulator();
@@ -98,12 +101,14 @@ function bootstrap(): void {
     ledgerRead,
     env.USINA_PARTY_ID,
   );
+  const getObjectLifecycle = new GetObjectLifecycleUseCase(ledgerRead);
 
   const app = createServer({
     auth,
     secureCookies: env.NODE_ENV === "production",
     sessionTtlSeconds,
     getDashboard,
+    getObjectLifecycle,
     startIntent: new StartIntentUseCase(intentRepo, clock, ids, audit),
     advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit),
     applyAnswers,

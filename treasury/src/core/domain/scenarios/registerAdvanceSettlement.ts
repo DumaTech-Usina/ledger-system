@@ -20,6 +20,10 @@ export const registerAdvanceSettlement: Scenario = {
     { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it recovered?", required: true },
     { key: "origin", type: SlotType.EVENT_REF, prompt: "Which advance does this settle?", required: true, suggestionSource: "origin_events" },
+    // Optional continuity assertion: the id of the advance position this recovery moves, so the
+    // Ledger projects ONE advance being settled rather than a new object per event. Never required —
+    // absence is a legitimate state (the position may simply be unknown), and it changes nothing.
+    { key: "objectRef", type: SlotType.STRING, prompt: "If you know it, the id of the advance being settled (optional).", required: false },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
   keywords: { "pt-BR": ["recuperacao", "recuperar", "recuperado"] },

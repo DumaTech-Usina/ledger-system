@@ -1,12 +1,22 @@
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
-import type { CashPosition, CashMovementsPage, PositionsPage } from "../../core/application/dtos/LedgerReadModels";
+import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
+import type { CashPosition, CashMovementsPage, PositionsPage, PositionLifecycle } from "../../core/application/dtos/LedgerReadModels";
 
 /**
  * Offline/demo adapter returning representative figures in the Ledger's raw money format
  * ("1250000.00"), so display formatting behaves identically to the real HTTP adapter. Selected via
  * LEDGER_READS=stub when no Ledger is reachable.
  */
-export class StubLedgerReadAdapter implements LedgerReadPort {
+export class StubLedgerReadAdapter implements LedgerReadPort, PositionLifecyclePort {
+  /**
+   * An object's life is projected from a real event chain, which this adapter does not have. It
+   * answers "unknown" rather than inventing a history — a fabricated lifecycle would be worse than
+   * no lifecycle. Reachable only with a real Ledger behind LEDGER_READS=http.
+   */
+  async lifecycle(_objectId: string): Promise<PositionLifecycle | null> {
+    return null;
+  }
+
   async cashPosition(): Promise<CashPosition> {
     return {
       totalCashIn: "1250000.00",

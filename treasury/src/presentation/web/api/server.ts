@@ -9,6 +9,7 @@ import { attachUser, requireAuth, requirePermission } from "./middleware/auth";
 import { Permission } from "../../../core/domain/enums/Permission";
 import type { AuthService } from "../../../core/application/services/AuthService";
 import type { GetTreasuryDashboardUseCase } from "../../../core/application/use-cases/GetTreasuryDashboard";
+import type { GetObjectLifecycleUseCase } from "../../../core/application/use-cases/GetObjectLifecycle";
 import type { StartIntentUseCase } from "../../../core/application/use-cases/StartIntent";
 import type { AdvanceDialogUseCase } from "../../../core/application/use-cases/AdvanceDialog";
 import type { ApplyAnswersUseCase } from "../../../core/application/use-cases/ApplyAnswers";
@@ -31,6 +32,7 @@ export interface ServerDeps {
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
+  getObjectLifecycle: GetObjectLifecycleUseCase;
 }
 
 export function createServer(deps: ServerDeps) {
@@ -70,7 +72,7 @@ export function createServer(deps: ServerDeps) {
     "/api/dashboard",
     requireAuth,
     requirePermission(Permission.DASHBOARD_READ),
-    dashboardRoutes(deps.getDashboard),
+    dashboardRoutes(deps.getDashboard, deps.getObjectLifecycle),
   );
 
   // Minimal error boundary: unknown scenario/intent/slot → 400 with a legible message.
