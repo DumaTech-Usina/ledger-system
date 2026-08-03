@@ -51,8 +51,9 @@ export interface PositionsPage {
 
 /**
  * One event in an economic object's life, as it relates to THAT object. `relation` is the relation
- * the event declares for the requested objectId — originates / settles / adjusts / reverses — which
- * is what makes the sequence readable as an evolution rather than a list of unrelated facts.
+ * the event declares for the requested objectId — originates / settles / adjusts / reverses /
+ * retracts — which is what makes the sequence readable as an evolution rather than a list of
+ * unrelated facts.
  */
 export interface PositionLifecycleEvent {
   eventId: string;
@@ -64,6 +65,17 @@ export interface PositionLifecycleEvent {
   occurredAt: string;
   recordedAt: string;
   description: string | null;
+  /**
+   * The event this one speaks about: the causal origin of a settlement, or — for a rectification —
+   * the assertion it retracts. Null when the event stands on its own.
+   */
+  relatedEventId: string | null;
+  /**
+   * True when a rectification declared that this event never corresponded to the world. It remains
+   * in the history (nothing is rewritten) but no longer counts towards any figure. Treasury does
+   * NOT derive this: the Ledger publishes it, so both sides can never disagree about what stands.
+   */
+  retracted: boolean;
 }
 
 /**

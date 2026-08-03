@@ -38,6 +38,7 @@ const advanceLifecycle = {
       occurredAt: "2026-07-02T00:00:00.000Z", recordedAt: "2026-07-02T10:00:00.000Z",
       amount: "500.00", currency: "BRL", description: "Advance disbursement",
       objects: [{ objectId: "intent:intent-A", objectType: "advance", relation: "originates" }],
+      relatedEventId: null, retracted: false,
       hash: "h1", previousHash: null,
     },
     {
@@ -45,6 +46,7 @@ const advanceLifecycle = {
       occurredAt: "2026-07-09T00:00:00.000Z", recordedAt: "2026-07-09T10:00:00.000Z",
       amount: "250.00", currency: "BRL", description: null,
       objects: [{ objectId: "intent:intent-A", objectType: "advance", relation: "settles" }],
+      relatedEventId: "evt-1", retracted: false,
       hash: "h2", previousHash: "h1",
     },
     {
@@ -52,6 +54,7 @@ const advanceLifecycle = {
       occurredAt: "2026-07-16T00:00:00.000Z", recordedAt: "2026-07-16T10:00:00.000Z",
       amount: "250.00", currency: "BRL", description: null,
       objects: [{ objectId: "intent:intent-A", objectType: "advance", relation: "settles" }],
+      relatedEventId: "evt-1", retracted: false,
       hash: "h3", previousHash: "h2",
     },
   ],
@@ -67,6 +70,31 @@ beforeAll(async () => {
     const path = decodeURIComponent((req.url || "").split("?")[0]);
     if (path === "/api/positions/intent:intent-A") {
       res.end(JSON.stringify(advanceLifecycle));
+    } else if (path === "/api/positions/advance:rectified") {
+      // A settlement wrongly recorded as 250, retracted, and re-asserted as 215. The Ledger
+      // publishes every event AND which of them still stand — Treasury must not have to guess.
+      res.end(JSON.stringify({
+        ...advanceLifecycle,
+        objectId: "advance:rectified",
+        status: "partially_settled",
+        outcome: "pending",
+        totalSettled: "215.00",
+        openBalance: "285.00",
+        eventCount: 4,
+        events: [
+          advanceLifecycle.events[0],
+          { ...advanceLifecycle.events[1], retracted: true },
+          {
+            id: "evt-fix", eventType: "ledger_correction", economicEffect: "non_cash",
+            occurredAt: "2026-07-12T00:00:00.000Z", recordedAt: "2026-07-12T10:00:00.000Z",
+            amount: "250.00", currency: "BRL", description: "verified by accounting",
+            objects: [{ objectId: "advance:rectified", objectType: "advance", relation: "retracts" }],
+            relatedEventId: "evt-2", retracted: false,
+            hash: "h4", previousHash: "h3",
+          },
+          { ...advanceLifecycle.events[2], id: "evt-right", amount: "215.00" },
+        ],
+      }));
     } else if (path === "/api/positions/receivable:orphan") {
       // A position the Ledger settled but whose origination it does not know: it publishes no
       // number it cannot derive, so openBalance arrives as null — never "0.00".
@@ -122,6 +150,32 @@ describe("HttpLedgerReadAdapter — position lifecycle", () => {
     expect(life.openBalance).toBeNull();
   });
 
+  it("carries what each event speaks about — relatedEventId is passed through, never derived", async () => {
+    const life = (await new HttpLedgerReadAdapter(baseUrl).lifecycle("intent:intent-A"))!;
+    expect(life.events.map((e) => e.relatedEventId)).toEqual([null, "evt-1", "evt-1"]);
+  });
+
+  it("a rectified life shows which event no longer stands, straight from the Ledger", async () => {
+    const life = (await new HttpLedgerReadAdapter(baseUrl).lifecycle("advance:rectified"))!;
+
+    // The whole history is still there: nothing was edited away.
+    expect(life.events).toHaveLength(4);
+    expect(life.events.map((e) => [e.amount, e.retracted])).toEqual([
+      ["500.00", false],
+      ["250.00", true], // the entry that never happened
+      ["250.00", false], // the retraction itself
+      ["215.00", false], // the truth that replaced it
+    ]);
+
+    // And the retraction says what it undoes.
+    const fix = life.events.find((e) => e.relation === "retracts")!;
+    expect(fix.relatedEventId).toBe("evt-2");
+
+    // Treasury publishes the Ledger's figures, and never recomputes them from the events.
+    expect(life.totalSettled).toBe("215.00");
+    expect(life.openBalance).toBe("285.00");
+  });
+
   it("the demo adapters answer null — they do not project lifecycles", async () => {
     expect(await new StubLedgerReadAdapter().lifecycle("intent:intent-A")).toBeNull();
     expect(await new InMemoryLedgerSimulator().lifecycle("intent:intent-A")).toBeNull();
@@ -168,6 +222,15 @@ describe("GET /api/dashboard/positions/:objectId", () => {
     expect(body.objectId).toBe("intent:intent-A");
     expect(body.status).toBe("fully_settled");
     expect(body.events.map((e) => e.relation)).toEqual(["originates", "settles", "settles"]);
+  });
+
+  it("serves the rectification on the wire — both new fields reach the consumer", async () => {
+    const res = await fetch(`${apiUrl}/api/dashboard/positions/${encodeURIComponent("advance:rectified")}`);
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as PositionLifecycle;
+    expect(body.events.map((e) => e.retracted)).toEqual([false, true, false, false]);
+    expect(body.events.find((e) => e.relation === "retracts")!.relatedEventId).toBe("evt-2");
   });
 
   it("answers 404 for an object the Ledger does not know", async () => {

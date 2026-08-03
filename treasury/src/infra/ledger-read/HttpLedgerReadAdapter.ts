@@ -27,6 +27,8 @@ interface LedgerPositionDetail {
     occurredAt: string;
     recordedAt: string;
     description: string | null;
+    relatedEventId: string | null;
+    retracted?: boolean;
     objects: Array<{ objectId: string; relation: string }>;
   }>;
 }
@@ -123,6 +125,10 @@ export class HttpLedgerReadAdapter implements LedgerReadPort, PositionLifecycleP
         occurredAt: e.occurredAt,
         recordedAt: e.recordedAt,
         description: e.description,
+        relatedEventId: e.relatedEventId ?? null,
+        // Absent only against a Ledger that has no rectification at all — where nothing can be
+        // retracted, so `false` states a fact rather than filling a gap with a default.
+        retracted: e.retracted === true,
       })),
     };
   }
