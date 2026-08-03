@@ -327,7 +327,7 @@ async function renderDashboard() {
     `<tr>
       <td>${esc(p.objectId)}</td>
       <td><span class="pill neutral">${esc(T.positionStatus(p.status))}</span></td>
-      <td class="num">${esc(T.money(p.openBalance, p.currency || cur))}</td></tr>`).join("") || emptyRow(3);
+      <td class="num">${p.openBalance === null ? "—" : esc(T.money(p.openBalance, p.currency || cur))}</td></tr>`).join("") || emptyRow(3);
   const positions = tableHtml([T.t("ui.col_object"), T.t("ui.col_status"), T.t("ui.col_open")], posRows);
 
   host.innerHTML =

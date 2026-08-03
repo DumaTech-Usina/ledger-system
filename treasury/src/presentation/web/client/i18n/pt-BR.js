@@ -122,6 +122,9 @@ I18N.register("pt-BR", {
     partially_settled: "Parcialmente liquidado",
     fully_settled: "Liquidado",
     reversed: "Estornado",
+    // Houve liquidação, mas não se sabe o que foi originado — não é o mesmo que "em aberto",
+    // e o saldo dessa posição é desconhecido, nunca zero.
+    unknown_origin: "Origem desconhecida",
   },
 
   scenarios: {

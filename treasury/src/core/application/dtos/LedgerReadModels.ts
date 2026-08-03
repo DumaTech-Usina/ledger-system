@@ -33,11 +33,13 @@ export interface CashMovementsPage {
 export interface PositionItem {
   objectId: string;
   objectType: string;
+  /** Includes `unknown_origin`: the Ledger knows a settlement happened but not what was originated. */
   status: string;
   outcome: string;
   currency: string;
   totalOriginated: string;
-  openBalance: string;
+  /** Null when the origination is unknown — the Ledger publishes no number it cannot derive. */
+  openBalance: string | null;
   eventCount: number;
   lastEventAt: string | null;
 }
@@ -76,7 +78,8 @@ export interface PositionLifecycle {
   currency: string;
   totalOriginated: string;
   totalSettled: string;
-  openBalance: string;
+  /** Null when the origination is unknown — never zero. */
+  openBalance: string | null;
   eventCount: number;
   events: PositionLifecycleEvent[];
 }

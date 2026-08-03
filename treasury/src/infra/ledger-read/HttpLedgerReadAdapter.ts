@@ -16,7 +16,7 @@ interface LedgerPositionDetail {
   currency: string;
   totalOriginated: string;
   totalSettled: string;
-  openBalance: string;
+  openBalance: string | null;
   eventCount: number;
   events: Array<{
     id: string;

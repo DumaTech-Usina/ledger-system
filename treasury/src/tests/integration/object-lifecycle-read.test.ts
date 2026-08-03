@@ -67,6 +67,10 @@ beforeAll(async () => {
     const path = decodeURIComponent((req.url || "").split("?")[0]);
     if (path === "/api/positions/intent:intent-A") {
       res.end(JSON.stringify(advanceLifecycle));
+    } else if (path === "/api/positions/receivable:orphan") {
+      // A position the Ledger settled but whose origination it does not know: it publishes no
+      // number it cannot derive, so openBalance arrives as null — never "0.00".
+      res.end(JSON.stringify({ ...advanceLifecycle, objectId: "receivable:orphan", status: "unknown_origin", outcome: "pending", totalOriginated: "0.00", openBalance: null, events: [] }));
     } else {
       res.statusCode = 404;
       res.end(JSON.stringify({ error: "Position not found" }));
@@ -110,6 +114,12 @@ describe("HttpLedgerReadAdapter — position lifecycle", () => {
 
   it("an unknown object is null, not an error", async () => {
     expect(await new HttpLedgerReadAdapter(baseUrl).lifecycle("intent:nope")).toBeNull();
+  });
+
+  it("an unknown origination arrives as unknown — treasury never turns it into zero", async () => {
+    const life = (await new HttpLedgerReadAdapter(baseUrl).lifecycle("receivable:orphan"))!;
+    expect(life.status).toBe("unknown_origin");
+    expect(life.openBalance).toBeNull();
   });
 
   it("the demo adapters answer null — they do not project lifecycles", async () => {
