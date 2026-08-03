@@ -1,8 +1,10 @@
 import { LedgerEvent } from "../../domain/entities/LedgerEvent";
 import { EconomicEffect } from "../../domain/enums/EconomicEffect";
+import { ReasonType } from "../../domain/enums/ReasonType";
 import { Relation } from "../../domain/enums/Relation";
 import { Money } from "../../domain/value-objects/Money";
 import { LedgerEventRepository } from "../repositories/LedgerEventRepository";
+import { hasUnknownOrigination } from "../dtos/positionUtils";
 import {
   EconomicOutcome,
   PositionOrigin,
@@ -63,23 +65,17 @@ export class PositionProjectionService {
     const refCashOut      = Money.fromUnits(agg.refCashOutUnits, currency);
 
     const totalClosed = totalSettled.add(totalAdjusted);
+    const originUnknown = hasUnknownOrigination(agg);
 
-    const openBalance =
-      totalClosed.toUnits() >= totalOriginated.toUnits()
-        ? Money.zero(currency)
-        : totalOriginated.subtract(totalClosed);
-
-    const overSettlement =
-      totalOriginated.isZero() || totalClosed.toUnits() <= totalOriginated.toUnits()
-        ? Money.zero(currency)
-        : totalClosed.subtract(totalOriginated);
+    const openBalance = this.deriveOpenBalance(totalOriginated, totalClosed, originUnknown, currency);
+    const overSettlement = this.deriveOverSettlement(totalOriginated, totalClosed, originUnknown, currency);
 
     const allocationGap =
       refCashIn.toUnits() <= refCashOut.toUnits()
         ? Money.zero(currency)
         : refCashIn.subtract(refCashOut);
 
-    const status  = this.deriveStatus(totalOriginated, totalClosed, agg.hasReversal);
+    const status  = this.deriveStatus(totalOriginated, totalClosed, agg.hasReversal, originUnknown);
     const outcome = this.deriveOutcome(status, cashRecovered, nonCashClosed);
 
     return {
@@ -127,9 +123,17 @@ export class PositionProjectionService {
     let refCashIn = Money.zero(currency);
     let refCashOut = Money.zero(currency);
     let hasReversal = false;
+    let hasUnresolvedLineage = false;
 
     for (const event of events) {
       const objects = event.getObjects().filter((o) => o.objectId.value === objectId);
+
+      // The write path REQUIRES an orphan to declare its lineage unresolved (InvariantPolicy step
+      // 10). Reading that declaration here is what keeps "unknown" from being reported as zero.
+      const reason = event.getReason();
+      if (reason?.type === ReasonType.UNKNOWN_ORIGIN && reason.requiresFollowup) {
+        hasUnresolvedLineage = true;
+      }
 
       for (const obj of objects) {
         switch (obj.relation) {
@@ -166,23 +170,17 @@ export class PositionProjectionService {
     }
 
     const totalClosed = totalSettled.add(totalAdjusted);
+    const originUnknown = hasUnresolvedLineage && totalOriginated.isZero();
 
-    const openBalance =
-      totalClosed.toUnits() >= totalOriginated.toUnits()
-        ? Money.zero(currency)
-        : totalOriginated.subtract(totalClosed);
-
-    const overSettlement =
-      totalOriginated.isZero() || totalClosed.toUnits() <= totalOriginated.toUnits()
-        ? Money.zero(currency)
-        : totalClosed.subtract(totalOriginated);
+    const openBalance = this.deriveOpenBalance(totalOriginated, totalClosed, originUnknown, currency);
+    const overSettlement = this.deriveOverSettlement(totalOriginated, totalClosed, originUnknown, currency);
 
     const allocationGap =
       refCashIn.toUnits() <= refCashOut.toUnits()
         ? Money.zero(currency)
         : refCashIn.subtract(refCashOut);
 
-    const status = this.deriveStatus(totalOriginated, totalClosed, hasReversal);
+    const status = this.deriveStatus(totalOriginated, totalClosed, hasReversal, originUnknown);
     const outcome = this.deriveOutcome(status, cashRecovered, nonCashClosed);
     const origin = this.extractOrigin(objectId, events);
 
@@ -241,12 +239,44 @@ export class PositionProjectionService {
     };
   }
 
+  /**
+   * The remaining balance. Null when the origination is unknown: subtracting from a baseline that
+   * is not on record cannot yield a number, and reporting zero would assert a completeness the
+   * event stream never made.
+   */
+  private deriveOpenBalance(
+    originated: Money,
+    totalClosed: Money,
+    originUnknown: boolean,
+    currency: string,
+  ): Money | null {
+    if (originUnknown) return null;
+    return totalClosed.toUnits() >= originated.toUnits()
+      ? Money.zero(currency)
+      : originated.subtract(totalClosed);
+  }
+
+  /** Null when the origination is unknown — there is no baseline against which to exceed. */
+  private deriveOverSettlement(
+    originated: Money,
+    totalClosed: Money,
+    originUnknown: boolean,
+    currency: string,
+  ): Money | null {
+    if (originUnknown) return null;
+    return originated.isZero() || totalClosed.toUnits() <= originated.toUnits()
+      ? Money.zero(currency)
+      : totalClosed.subtract(originated);
+  }
+
   private deriveStatus(
     originated: Money,
     totalClosed: Money,
     hasReversal: boolean,
+    originUnknown: boolean,
   ): PositionStatus {
     if (hasReversal) return "reversed";
+    if (originUnknown) return "unknown_origin";
     if (originated.isZero()) return "open";
     if (totalClosed.toUnits() >= originated.toUnits()) return "fully_settled";
     if (!totalClosed.isZero()) return "partially_settled";
@@ -259,6 +289,9 @@ export class PositionProjectionService {
     nonCashClosed: Money,
   ): EconomicOutcome {
     if (status === "reversed") return "cancelled";
+    // An unknown origination cannot be scored: gain vs loss is measured against a baseline that is
+    // not on record. `pending` says the outcome is not yet determined — which is exactly the case.
+    if (status === "unknown_origin") return "pending";
     if (status === "open" || status === "partially_settled") return "pending";
     // fully_settled
     if (nonCashClosed.isZero()) return "gain";

@@ -12,8 +12,10 @@ export function serializePositionListItem(item: PositionListItem) {
     totalOriginated: item.totalOriginated.toString(),
     totalSettled:    item.totalSettled.toString(),
     totalAdjusted:   item.totalAdjusted.toString(),
-    openBalance:     item.openBalance.toString(),
-    overSettlement:  item.overSettlement.toString(),
+    // Null — never "0.00" — when the origination is unknown: the API must not publish a number
+    // the ledger cannot derive. Consumers branch on `status === "unknown_origin"`.
+    openBalance:     item.openBalance?.toString() ?? null,
+    overSettlement:  item.overSettlement?.toString() ?? null,
     cashRecovered:   item.cashRecovered.toString(),
     nonCashClosed:   item.nonCashClosed.toString(),
     allocationGap:   item.allocationGap.toString(),
@@ -33,8 +35,8 @@ export function serializePositionSummary(summary: PositionSummary) {
     totalOriginated: summary.totalOriginated.toString(),
     totalSettled:    summary.totalSettled.toString(),
     totalAdjusted:   summary.totalAdjusted.toString(),
-    openBalance:     summary.openBalance.toString(),
-    overSettlement:  summary.overSettlement.toString(),
+    openBalance:     summary.openBalance?.toString() ?? null,
+    overSettlement:  summary.overSettlement?.toString() ?? null,
     cashRecovered:   summary.cashRecovered.toString(),
     nonCashClosed:   summary.nonCashClosed.toString(),
     allocationGap:   summary.allocationGap.toString(),

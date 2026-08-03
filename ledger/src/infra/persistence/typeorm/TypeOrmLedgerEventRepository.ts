@@ -29,10 +29,19 @@ import { PositionAggregate, PositionAggregateOptions } from '../../../core/appli
 import { EconomicOutcome, PositionStatus } from '../../../core/application/dtos/PositionSummary';
 import { CashMovementsPaginatedOptions } from '../../../core/application/dtos/CashStatement';
 
+/**
+ * SQL twin of `derivePositionStatus` (core/application/dtos/positionUtils.ts). The two must stay in
+ * lockstep — the shared truth table in tests/unit/application/position-status-truth-table.test.ts
+ * pins the agreement, since SQL cannot call the TypeScript rule.
+ */
+const UNKNOWN_ORIGIN_SQL = `(total_originated = 0 AND has_unresolved_lineage)`;
+
 function statusToSql(status: PositionStatus): string {
   switch (status) {
+    case 'unknown_origin':
+      return `(NOT has_reversal AND ${UNKNOWN_ORIGIN_SQL})`;
     case 'open':
-      return `(NOT has_reversal AND (total_originated = 0 OR total_settled + total_adjusted = 0))`;
+      return `(NOT has_reversal AND NOT ${UNKNOWN_ORIGIN_SQL} AND (total_originated = 0 OR total_settled + total_adjusted = 0))`;
     case 'partially_settled':
       return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted > 0 AND total_settled + total_adjusted < total_originated)`;
     case 'fully_settled':
@@ -182,6 +191,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
           COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_in,
           COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_out,
           BOOL_OR(o.relation = 'reverses')                                                              AS has_reversal,
+          BOOL_OR(e.reason_type = 'unknown_origin' AND e.reason_requires_followup)                      AS has_unresolved_lineage,
           COUNT(DISTINCT e.id)                                                                           AS event_count,
           MAX(e.occurred_at)                                                                             AS last_event_at,
           MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at
@@ -218,6 +228,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       refCashInUnits:       BigInt(row.ref_cash_in      as string),
       refCashOutUnits:      BigInt(row.ref_cash_out     as string),
       hasReversal:          row.has_reversal as boolean,
+      hasUnresolvedLineage: row.has_unresolved_lineage as boolean,
       eventCount:           parseInt(row.event_count as string, 10),
       lastEventAt:          new Date(row.last_event_at as string),
       originatedAt:         row.originated_at ? new Date(row.originated_at as string) : null,
@@ -370,6 +381,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
         COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_in,
         COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_out,
         BOOL_OR(o.relation = 'reverses')                                                              AS has_reversal,
+        BOOL_OR(e.reason_type = 'unknown_origin' AND e.reason_requires_followup)                       AS has_unresolved_lineage,
         COUNT(DISTINCT e.id)                                                                           AS event_count,
         MAX(e.occurred_at)                                                                             AS last_event_at,
         MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at
@@ -391,6 +403,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       refCashInUnits:       BigInt(row.ref_cash_in      as string),
       refCashOutUnits:      BigInt(row.ref_cash_out     as string),
       hasReversal:          row.has_reversal as boolean,
+      hasUnresolvedLineage: row.has_unresolved_lineage as boolean,
       eventCount:           parseInt(row.event_count as string, 10),
       lastEventAt:          new Date(row.last_event_at as string),
       originatedAt:         row.originated_at ? new Date(row.originated_at as string) : null,

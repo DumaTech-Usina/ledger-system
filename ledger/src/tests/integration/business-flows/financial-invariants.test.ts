@@ -190,7 +190,7 @@ describe("Financial invariants", () => {
       const summary = await svc.summarize("com-recv-f10");
       expect(summary!.totalOriginated.toString()).toBe("1000.00");
       expect(summary!.totalSettled.toString()).toBe("700.00");
-      expect(summary!.openBalance.toString()).toBe("300.00");
+      expect(summary!.openBalance!.toString()).toBe("300.00");
       expect(summary!.status).toBe("partially_settled");
     });
 
@@ -213,7 +213,7 @@ describe("Financial invariants", () => {
 
       const summary = await svc.summarize("com-recv-f11");
       expect(summary!.totalSettled.toString()).toBe("1100.00");
-      expect(summary!.overSettlement.toString()).toBe("100.00");
+      expect(summary!.overSettlement!.toString()).toBe("100.00");
     });
   });
 
@@ -327,7 +327,7 @@ describe("Financial invariants", () => {
       const summary = await svc.summarize("loan-f16");
       expect(summary!.totalOriginated.toString()).toBe("1000.00");
       expect(summary!.totalAdjusted.toString()).toBe("300.00");
-      expect(summary!.openBalance.toString()).toBe("700.00");
+      expect(summary!.openBalance!.toString()).toBe("700.00");
       expect(summary!.status).toBe("partially_settled");
     });
 

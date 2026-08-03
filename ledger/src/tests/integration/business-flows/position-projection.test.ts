@@ -36,7 +36,7 @@ describe("PositionProjectionService", () => {
       expect(summary!.outcome).toBe("pending");
       expect(summary!.totalOriginated.toString()).toBe("1000.00");
       expect(summary!.totalSettled.toString()).toBe("0.00");
-      expect(summary!.openBalance.toString()).toBe("1000.00");
+      expect(summary!.openBalance!.toString()).toBe("1000.00");
       expect(summary!.cashRecovered.toString()).toBe("0.00");
       expect(summary!.eventCount).toBe(1);
     });
@@ -54,7 +54,7 @@ describe("PositionProjectionService", () => {
 
       expect(summary!.status).toBe("fully_settled");
       expect(summary!.outcome).toBe("gain");
-      expect(summary!.openBalance.toString()).toBe("0.00");
+      expect(summary!.openBalance!.toString()).toBe("0.00");
       expect(summary!.cashRecovered.toString()).toBe("1000.00");
       expect(summary!.nonCashClosed.toString()).toBe("0.00");
       expect(summary!.eventCount).toBe(2);
@@ -75,7 +75,7 @@ describe("PositionProjectionService", () => {
       expect(summary!.outcome).toBe("pending");
       expect(summary!.totalOriginated.toString()).toBe("1000.00");
       expect(summary!.totalSettled.toString()).toBe("400.00");
-      expect(summary!.openBalance.toString()).toBe("600.00");
+      expect(summary!.openBalance!.toString()).toBe("600.00");
     });
 
     it("PP5 — full loss: originated 500, settled 500 via NON_CASH loss recognition", async () => {

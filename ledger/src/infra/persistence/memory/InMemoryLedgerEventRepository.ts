@@ -4,6 +4,7 @@ import { Direction } from "../../../core/domain/enums/Direction";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
+import { ReasonType } from "../../../core/domain/enums/ReasonType";
 import { Relation } from "../../../core/domain/enums/Relation";
 import { EventHash } from "../../../core/domain/value-objects/EventHash";
 import { Page, PageOptions, paginate } from "../../../core/application/dtos/Pagination";
@@ -188,6 +189,7 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
             refCashInUnits:       0n,
             refCashOutUnits:      0n,
             hasReversal: false,
+            hasUnresolvedLineage: false,
             eventCount: 0,
             lastEventAt: new Date(0),
             originatedAt: null,
@@ -197,6 +199,13 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
 
         const agg = aggMap.get(oid)!;
         eventIdsByObject.get(oid)!.add(event.id.value);
+
+        // Mirrors the SQL aggregate: carry the orphan's declared unresolved lineage into the
+        // aggregate so both read paths can tell "unknown origination" from "no origination".
+        const reason = event.getReason();
+        if (reason?.type === ReasonType.UNKNOWN_ORIGIN && reason.requiresFollowup) {
+          agg.hasUnresolvedLineage = true;
+        }
 
         switch (obj.relation) {
           case Relation.ORIGINATES:
@@ -238,7 +247,9 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     for (const agg of this.buildAggregateMap().values()) {
       if (agg.hasReversal || agg.totalOriginatedUnits === 0n) continue;
       const openBalance = openBalanceUnitsOf(agg);
-      if (openBalance === 0n) continue;
+      // Null (unknown origination) is already excluded by the totalOriginated check above; the guard
+      // keeps an unknown amount from ever being folded into a total.
+      if (openBalance === null || openBalance === 0n) continue;
       const existing = byType.get(agg.objectType);
       if (existing) existing.openBalance += openBalance;
       else byType.set(agg.objectType, { openBalance, currency: agg.currency });

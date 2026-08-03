@@ -36,9 +36,9 @@ describe("PositionProjectionService.summarizePaginated() — business flows", ()
     expect(pos.status).toBe("open");
     expect(pos.outcome).toBe("pending");
     expect(pos.totalOriginated.toString()).toBe("2000.00");
-    expect(pos.openBalance.toString()).toBe("2000.00");
+    expect(pos.openBalance!.toString()).toBe("2000.00");
     expect(pos.cashRecovered.toString()).toBe("0.00");
-    expect(pos.overSettlement.toString()).toBe("0.00");
+    expect(pos.overSettlement!.toString()).toBe("0.00");
     expect(pos.eventCount).toBe(1);
   });
 
@@ -52,7 +52,7 @@ describe("PositionProjectionService.summarizePaginated() — business flows", ()
 
     expect(pos.status).toBe("fully_settled");
     expect(pos.outcome).toBe("gain");
-    expect(pos.openBalance.toString()).toBe("0.00");
+    expect(pos.openBalance!.toString()).toBe("0.00");
     expect(pos.cashRecovered.toString()).toBe("2000.00");
     expect(pos.nonCashClosed.toString()).toBe("0.00");
     expect(pos.eventCount).toBe(2);
@@ -70,7 +70,7 @@ describe("PositionProjectionService.summarizePaginated() — business flows", ()
     expect(pos.outcome).toBe("pending");
     expect(pos.totalOriginated.toString()).toBe("2000.00");
     expect(pos.totalSettled.toString()).toBe("800.00");
-    expect(pos.openBalance.toString()).toBe("1200.00");
+    expect(pos.openBalance!.toString()).toBe("1200.00");
   });
 
   it("PA5 — advance settled via NON_CASH loss recognition: fully_settled, full_loss", async () => {
@@ -172,8 +172,8 @@ describe("PositionProjectionService.summarizePaginated() — business flows", ()
     const pos = result.data.find((p) => p.objectId === "adv-pa11")!;
 
     // totalClosed = 800 (adjusts) + 500 (settles) = 1300 > 1000 (originated)
-    expect(pos.overSettlement.toString()).toBe("300.00");
-    expect(pos.openBalance.toString()).toBe("0.00");
+    expect(pos.overSettlement!.toString()).toBe("300.00");
+    expect(pos.openBalance!.toString()).toBe("0.00");
     expect(pos.totalAdjusted.toString()).toBe("800.00");
     expect(pos.totalSettled.toString()).toBe("500.00");
   });
