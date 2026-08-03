@@ -122,5 +122,26 @@ export function eventRoutes(ledgerRepo: LedgerEventRepository): Router {
     }
   });
 
+  /**
+   * A single event by id. Declared AFTER `/feed` so the literal route wins over the parameter.
+   *
+   * A producer that wants to rectify an event needs to know what that event asserted — its amount,
+   * and the object it moved. Without this, the only way to build a correction is to retype figures
+   * the ledger already holds, which invites a correction that disagrees with what it corrects.
+   * Read-only: it serializes the stored event and derives nothing.
+   */
+  router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const event = await ledgerRepo.getById(req.params.id);
+      if (!event) {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+      res.json(serializeEvent(event));
+    } catch (err) {
+      next(err);
+    }
+  });
+
   return router;
 }
