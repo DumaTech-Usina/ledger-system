@@ -107,6 +107,11 @@ export function classifyError(message: string): RejectionDetail {
   if (/requires relatedEventId/i.test(message)) {
     return detail(RejectionCode.LINEAGE_REQUIRED, "lineage", "relatedEventId", "This operation must reference an originating entry.");
   }
+  // The target already carries a standing retraction. Terminal for the client: the correction it is
+  // trying to make is already on record, so re-asking a field would not help.
+  if (/already been retracted/i.test(message)) {
+    return detail(RejectionCode.DUPLICATE, "duplicate", undefined, "This entry was already recorded.");
+  }
   if (/Over-settlement/i.test(message)) {
     const limit = message.match(/origin amount of\s*(.+?)\s*$/i)?.[1];
     return detail(RejectionCode.OVER_SETTLEMENT, "input", "amount", "The amount exceeds the outstanding balance.", limit ? { limit } : undefined);

@@ -3,6 +3,7 @@ import { EconomicEffect } from "../../domain/enums/EconomicEffect";
 import { Money } from "../../domain/value-objects/Money";
 import { CashStatement } from "../dtos/CashStatement";
 import { LedgerEventRepository } from "../repositories/LedgerEventRepository";
+import { retractedEventIds } from "../dtos/retractionUtils";
 
 export class CashStatementService {
   constructor(
@@ -19,10 +20,30 @@ export class CashStatementService {
     const openingBalance = Money.fromUnits(openingUnits, currency);
 
     const periodEvents = await this.repo.findByPeriod(from, to);
+
+    // A retracted movement never happened, so it is not in the statement. The retraction usually
+    // occurs AFTER the period it corrects, so it cannot be found among the period's own events:
+    // one hop finds the retractions of each cash movement, a second finds any that were themselves
+    // retracted. Depth 1 guarantees there is no third, and the fold stays in retractedEventIds so
+    // this service and the aggregates can never disagree about what stands.
+    const periodCash = periodEvents.filter(
+      (e) =>
+        e.economicEffect === EconomicEffect.CASH_IN ||
+        e.economicEffect === EconomicEffect.CASH_OUT,
+    );
+    const firstHop = (
+      await Promise.all(periodCash.map((e) => this.repo.findByRelatedEventId(e.id.value)))
+    ).flat();
+    const secondHop = (
+      await Promise.all(firstHop.map((e) => this.repo.findByRelatedEventId(e.id.value)))
+    ).flat();
+    const retracted = retractedEventIds([...firstHop, ...secondHop]);
+
     let cashInUnits = 0n;
     let cashOutUnits = 0n;
 
     for (const event of periodEvents) {
+      if (retracted.has(event.id.value)) continue;
       if (event.economicEffect === EconomicEffect.CASH_IN) {
         const match = event.getParties().some(
           (p) => p.partyId.value === this.usinaPartyId && p.direction === Direction.IN,

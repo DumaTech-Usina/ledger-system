@@ -23,6 +23,8 @@ export const ECONOMIC_EFFECT_RELATION_MATRIX: Record<
     Relation.ADJUSTS,
     Relation.SETTLES,
     Relation.REVERSES,
+    // Rectification is a bookkeeping statement about a prior event, never a cash movement.
+    Relation.RETRACTS,
   ],
 
   [EconomicEffect.CONTINGENT]: [Relation.ORIGINATES, Relation.ADJUSTS],
@@ -71,32 +73,32 @@ export const OBJECT_RELATION_MATRIX: Partial<
   Record<ObjectType, readonly Relation[]>
 > = {
   // Commission
-  [ObjectType.COMMISSION_ENTITLEMENT]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
-  [ObjectType.COMMISSION_POOL]:        [Relation.ADJUSTS, Relation.REVERSES],
-  [ObjectType.COMMISSION_RECEIVABLE]:  [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
-  [ObjectType.COMMISSION_PAYABLE]:     [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.COMMISSION_ENTITLEMENT]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
+  [ObjectType.COMMISSION_POOL]:        [Relation.ADJUSTS, Relation.REVERSES, Relation.RETRACTS],
+  [ObjectType.COMMISSION_RECEIVABLE]:  [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
+  [ObjectType.COMMISSION_PAYABLE]:     [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
 
   // Credit
-  [ObjectType.LOAN]:       [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
-  [ObjectType.ADVANCE]:    [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
-  [ObjectType.RECEIVABLE]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
-  [ObjectType.PAYABLE]:    [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.LOAN]:       [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
+  [ObjectType.ADVANCE]:    [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
+  [ObjectType.RECEIVABLE]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
+  [ObjectType.PAYABLE]:    [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
 
   // Penalty / risk
-  [ObjectType.PENALTY]:          [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
-  [ObjectType.CHARGEBACK]:       [Relation.ORIGINATES, Relation.SETTLES, Relation.REVERSES],
-  [ObjectType.CONTINGENT_CLAIM]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.REVERSES],
-  [ObjectType.DISPUTE]:          [Relation.ORIGINATES, Relation.SETTLES, Relation.REVERSES],
+  [ObjectType.PENALTY]:          [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
+  [ObjectType.CHARGEBACK]:       [Relation.ORIGINATES, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
+  [ObjectType.CONTINGENT_CLAIM]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.REVERSES, Relation.RETRACTS],
+  [ObjectType.DISPUTE]:          [Relation.ORIGINATES, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
 
   // Incentive
-  [ObjectType.INCENTIVE]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES],
-  [ObjectType.BONUS]:     [Relation.ORIGINATES, Relation.SETTLES],
+  [ObjectType.INCENTIVE]: [Relation.ORIGINATES, Relation.ADJUSTS, Relation.SETTLES, Relation.REVERSES, Relation.RETRACTS],
+  [ObjectType.BONUS]:     [Relation.ORIGINATES, Relation.SETTLES, Relation.RETRACTS],
 
   // Operational costs
-  [ObjectType.PAYROLL]:             [Relation.SETTLES],
-  [ObjectType.SERVICE_FEE]:         [Relation.SETTLES],
-  [ObjectType.INFRASTRUCTURE_COST]: [Relation.SETTLES],
-  [ObjectType.TAX]:                 [Relation.SETTLES],
+  [ObjectType.PAYROLL]:             [Relation.SETTLES, Relation.RETRACTS],
+  [ObjectType.SERVICE_FEE]:         [Relation.SETTLES, Relation.RETRACTS],
+  [ObjectType.INFRASTRUCTURE_COST]: [Relation.SETTLES, Relation.RETRACTS],
+  [ObjectType.TAX]:                 [Relation.SETTLES, Relation.RETRACTS],
 
   // Contextual objects — only REFERENCES is valid; enforced by step 9 in InvariantPolicy
   [ObjectType.CONTRACT]:         [Relation.REFERENCES],
@@ -199,8 +201,8 @@ export const REASON_RELATION_MATRIX: Partial<
   [ReasonType.INCENTIVE_PAYMENT]: [Relation.ORIGINATES, Relation.SETTLES],
 
   // Governança — corrections fully reverse or partially adjust a prior entry
-  [ReasonType.MANUAL_CORRECTION]: [Relation.REVERSES, Relation.ADJUSTS],
-  [ReasonType.DATA_RECONCILIATION]: [Relation.REVERSES, Relation.ADJUSTS],
+  [ReasonType.MANUAL_CORRECTION]: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
+  [ReasonType.DATA_RECONCILIATION]: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
 
   // LATE_AWARENESS and UNKNOWN_ORIGIN are intentionally absent:
   // they can accompany any relation depending on what is being documented.

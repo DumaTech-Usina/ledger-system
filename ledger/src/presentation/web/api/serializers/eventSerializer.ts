@@ -49,5 +49,11 @@ export function serializeEvent(event: LedgerEvent) {
     },
     hash: event.hash.value,
     previousHash: event.previousHash?.value ?? null,
+    /**
+     * The event this one speaks about: the causal origin of a settlement, or — for a rectification —
+     * the assertion being retracted. Without it a consumer can see that a retraction exists and not
+     * which event it undoes.
+     */
+    relatedEventId: event.relatedEventId ?? null,
   };
 }

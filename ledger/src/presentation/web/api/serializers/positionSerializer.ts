@@ -1,5 +1,6 @@
 import { PositionSummary } from "../../../../core/application/dtos/PositionSummary";
 import { PositionListItem } from "../../../../core/application/dtos/PositionAggregate";
+import { retractedEventIds } from "../../../../core/application/dtos/retractionUtils";
 import { serializeEvent } from "./eventSerializer";
 
 export function serializePositionListItem(item: PositionListItem) {
@@ -27,6 +28,10 @@ export function serializePositionListItem(item: PositionListItem) {
 
 export function serializePositionSummary(summary: PositionSummary) {
   const currency = summary.totalOriginated.currency;
+  // The object's life keeps every event, including the ones that no longer count. Marking them here
+  // — with the same fold the projection used — spares every consumer from re-deriving the rule, and
+  // is what stops a reader from seeing a 250 and a 215 and having to guess which one stands.
+  const retracted = retractedEventIds(summary.events);
   return {
     objectId:        summary.objectId,
     status:          summary.status,
@@ -41,7 +46,10 @@ export function serializePositionSummary(summary: PositionSummary) {
     nonCashClosed:   summary.nonCashClosed.toString(),
     allocationGap:   summary.allocationGap.toString(),
     eventCount:      summary.eventCount,
-    events:          [...summary.events].map(serializeEvent),
+    events:          [...summary.events].map((event) => ({
+      ...serializeEvent(event),
+      retracted: retracted.has(event.id.value),
+    })),
     origin:          summary.origin ? {
       eventId:         summary.origin.eventId,
       eventType:       summary.origin.eventType,

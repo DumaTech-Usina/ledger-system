@@ -5,6 +5,7 @@ import { Relation } from "../../domain/enums/Relation";
 import { Money } from "../../domain/value-objects/Money";
 import { LedgerEventRepository } from "../repositories/LedgerEventRepository";
 import { hasUnknownOrigination } from "../dtos/positionUtils";
+import { retractedEventIds } from "../dtos/retractionUtils";
 import {
   EconomicOutcome,
   PositionOrigin,
@@ -125,7 +126,12 @@ export class PositionProjectionService {
     let hasReversal = false;
     let hasUnresolvedLineage = false;
 
+    // A retracted event stays in the object's history but stops contributing to its figures.
+    const retracted = retractedEventIds(events);
+
     for (const event of events) {
+      if (retracted.has(event.id.value)) continue;
+
       const objects = event.getObjects().filter((o) => o.objectId.value === objectId);
 
       // The write path REQUIRES an orphan to declare its lineage unresolved (InvariantPolicy step

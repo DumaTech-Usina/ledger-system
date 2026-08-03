@@ -90,10 +90,13 @@ describe("OBJECT_NATURE_MATRIX", () => {
 });
 
 describe("OBJECT_RELATION_MATRIX", () => {
-  it("COMMISSION_POOL allows ADJUSTS and REVERSES (corrections can reverse pool entries)", () => {
+  it("COMMISSION_POOL allows ADJUSTS and REVERSES (corrections can reverse pool entries), plus RETRACTS", () => {
     expect(OBJECT_RELATION_MATRIX[ObjectType.COMMISSION_POOL]).toEqual([
       Relation.ADJUSTS,
       Relation.REVERSES,
+      // RETRACTS annotates without moving. Admitted per object type here; gated to
+      // LEDGER_CORRECTION by the contract (InvariantPolicy step 4).
+      Relation.RETRACTS,
     ]);
   });
 
@@ -109,12 +112,13 @@ describe("OBJECT_RELATION_MATRIX", () => {
     ).not.toContain(Relation.SETTLES);
   });
 
-  it("COMMISSION_RECEIVABLE is restricted to financial lifecycle relations", () => {
+  it("COMMISSION_RECEIVABLE is restricted to financial lifecycle relations, plus RETRACTS", () => {
     expect(OBJECT_RELATION_MATRIX[ObjectType.COMMISSION_RECEIVABLE]).toEqual([
       Relation.ORIGINATES,
       Relation.ADJUSTS,
       Relation.SETTLES,
       Relation.REVERSES,
+      Relation.RETRACTS,
     ]);
   });
 });

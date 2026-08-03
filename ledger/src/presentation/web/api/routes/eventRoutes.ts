@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { LedgerEventRepository } from "../../../../core/application/repositories/LedgerEventRepository";
 import { Relation } from "../../../../core/domain/enums/Relation";
 import { normalizePageOptions } from "../../../../core/application/dtos/Pagination";
+import { retractedEventIds } from "../../../../core/application/dtos/retractionUtils";
 import { serializeEvent } from "../serializers/eventSerializer";
 
 async function buildSettledSet(
@@ -72,9 +73,14 @@ export function eventRoutes(ledgerRepo: LedgerEventRepository): Router {
       const payload = await Promise.all(
         pageEvents.map(async (event) => {
           const primaryObjectId = event.getObjects()[0]?.objectId.value;
-          const posEvents = primaryObjectId
+          const allPosEvents = primaryObjectId
             ? await ledgerRepo.findByObjectId(primaryObjectId)
             : [event];
+
+          // The chain and the status describe what still STANDS, so they read the position the same
+          // way /api/positions does. A retracted event is part of the history, not of the state.
+          const retracted = retractedEventIds(allPosEvents);
+          const posEvents = allPosEvents.filter((e) => !retracted.has(e.id.value));
 
           const allRels = posEvents.flatMap((e) => e.getObjects().map((o) => o.relation));
           const positionStatus = allRels.includes(Relation.REVERSES)

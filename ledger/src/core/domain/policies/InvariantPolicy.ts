@@ -212,5 +212,37 @@ export class InvariantPolicy {
         );
       }
     }
+
+    // ===============================
+    // 1️⃣2️⃣ Rectification: a RETRACTS must name what it retracts, and retract only
+    // ===============================
+    //
+    // RETRACTS declares that a previously recorded event never corresponded to the world. Two things
+    // follow, and both are structural rather than a matter of policy:
+    //
+    //  - the retraction is meaningless without a target: "something never happened" is not a fact
+    //    until it says WHICH something. The target travels in relatedEventId;
+    //  - retracting and flowing are opposite acts. An event that both retracts a prior assertion and
+    //    moves a position is two facts wearing one hash, and no reader could tell them apart.
+    //
+    // Whether the target EXISTS (and the chain-depth rules) needs the ledger, so it lives in the use
+    // case; what can be decided from the event alone is decided here.
+
+    const retracting = props.objects.filter((o) => o.relation === Relation.RETRACTS);
+
+    if (retracting.length > 0) {
+      if (!props.relatedEventId) {
+        throw new Error(
+          "A retraction requires relatedEventId pointing to the event being retracted",
+        );
+      }
+
+      const flowing = props.objects.filter((o) => o.relation !== Relation.RETRACTS);
+      if (flowing.length > 0) {
+        throw new Error(
+          "A retraction cannot also move a position: RETRACTS must be the only relation on the event",
+        );
+      }
+    }
   }
 }
