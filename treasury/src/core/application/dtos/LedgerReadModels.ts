@@ -95,3 +95,20 @@ export interface PositionLifecycle {
   eventCount: number;
   events: PositionLifecycleEvent[];
 }
+
+/**
+ * A single Ledger event, as `GET /api/events/:id` publishes it — trimmed to what Treasury needs in
+ * order to describe a correction of it. The figures are the Ledger's own; Treasury never recomputes
+ * them and never guesses them from the user.
+ */
+export interface LedgerEventRef {
+  eventId: string;
+  eventType: string;
+  economicEffect: string;
+  amount: string;
+  currency: string;
+  occurredAt: string;
+  description: string | null;
+  relatedEventId: string | null;
+  objects: { objectId: string; objectType: string; relation: string }[];
+}

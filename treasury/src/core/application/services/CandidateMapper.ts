@@ -239,6 +239,33 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     relatedEventSlot: "origin",
     objectIdSlot: "objectRef",
   },
+  // ── Rectification ──────────────────────────────────────────────────────────────────────────────
+  // Declares that a previously recorded event never corresponded to the world. RETRACTS names the
+  // position the corrected entry moved WITHOUT moving it: the effect of a rectification is to remove
+  // the target's contribution, never to add one of its own. The Ledger validates the target and the
+  // chain rules; treasury only carries the assertion.
+  //
+  // `objectType` is not a user choice — it is filled from the Ledger's own record of the corrected
+  // event, so a correction cannot name a kind of position the entry never touched.
+  register_rectification: {
+    eventType: "ledger_correction",
+    economicEffect: "non_cash",
+    parties: [{ who: "usina", role: "platform", direction: "neutral" }],
+    objects: [{ objectType: "advance", relation: "retracts" }],
+    reasonType: "data_reconciliation",
+    reasonText: "Entry rectified: verified against the source, it never happened",
+    variants: {
+      selectorSlot: "objectType",
+      byChoice: {
+        advance: { objectType: "advance" },
+        loan: { objectType: "loan" },
+        commission_receivable: { objectType: "commission_receivable" },
+      },
+    },
+    relatedEventSlot: "target",
+    objectIdSlot: "objectRef",
+  },
+
   // Loan repayment SETTLES the loan a LOAN_ORIGINATION originated. Origin is required.
   register_loan_repayment: {
     eventType: "loan_repayment",

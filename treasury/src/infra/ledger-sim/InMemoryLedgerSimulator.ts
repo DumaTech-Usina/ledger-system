@@ -3,7 +3,8 @@ import type { Candidate } from "../../core/domain/value-objects/Candidate";
 import type { CandidateSubmissionPort, SubmissionOutcome } from "../../core/application/ports/CandidateSubmissionPort";
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
-import type { CashPosition, CashMovementsPage, PositionsPage, CashMovement, PositionItem, PositionLifecycle } from "../../core/application/dtos/LedgerReadModels";
+import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
+import type { CashPosition, CashMovementsPage, PositionsPage, CashMovement, PositionItem, PositionLifecycle, LedgerEventRef } from "../../core/application/dtos/LedgerReadModels";
 
 /**
  * DEMO-ONLY in-memory stand-in for the whole Ledger. Implements BOTH the submission boundary and
@@ -43,7 +44,7 @@ interface RecordInput {
   description: string | null;
 }
 
-export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort {
+export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort {
   private readonly movementStore: CashMovement[] = [];
   private readonly positionStore: PositionItem[] = [];
   private readonly seen = new Set<string>();
@@ -149,6 +150,11 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
    * honest answer; the real lifecycle needs the real Ledger.
    */
   async lifecycle(_objectId: string): Promise<PositionLifecycle | null> {
+    return null;
+  }
+
+  /** No event store behind this adapter, so no event can be looked up — and none is invented. */
+  async event(_eventId: string): Promise<LedgerEventRef | null> {
     return null;
   }
 }

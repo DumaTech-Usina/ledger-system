@@ -1,11 +1,13 @@
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
+import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
 import type {
   CashPosition,
   CashMovementsPage,
   PositionsPage,
   PositionItem,
   PositionLifecycle,
+  LedgerEventRef,
 } from "../../core/application/dtos/LedgerReadModels";
 
 /** The Ledger's position-detail payload, as `serializePositionSummary` emits it. */
@@ -37,7 +39,7 @@ interface LedgerPositionDetail {
  * Reads the Ledger's published read API over HTTP. Uses Node's global fetch (no dependency) with a
  * timeout so a slow/hung Ledger can't hang a treasury request.
  */
-export class HttpLedgerReadAdapter implements LedgerReadPort, PositionLifecyclePort {
+export class HttpLedgerReadAdapter implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort {
   constructor(
     private readonly baseUrl: string,
     private readonly serviceToken = "",
@@ -129,6 +131,41 @@ export class HttpLedgerReadAdapter implements LedgerReadPort, PositionLifecycleP
         // Absent only against a Ledger that has no rectification at all — where nothing can be
         // retracted, so `false` states a fact rather than filling a gap with a default.
         retracted: e.retracted === true,
+      })),
+    };
+  }
+
+  /**
+   * One event, as the Ledger stored it. Used to describe a rectification in the Ledger's own terms
+   * — the amount and the object come from the record being corrected, never from a second typing.
+   */
+  async event(eventId: string): Promise<LedgerEventRef | null> {
+    const raw = await this.getOrNull<{
+      id: string;
+      eventType: string;
+      economicEffect: string;
+      amount: string;
+      currency: string;
+      occurredAt: string;
+      description: string | null;
+      relatedEventId: string | null;
+      objects: Array<{ objectId: string; objectType: string; relation: string }>;
+    }>(`/api/events/${encodeURIComponent(eventId)}`);
+    if (!raw) return null;
+
+    return {
+      eventId: raw.id,
+      eventType: raw.eventType,
+      economicEffect: raw.economicEffect,
+      amount: raw.amount,
+      currency: raw.currency,
+      occurredAt: raw.occurredAt,
+      description: raw.description ?? null,
+      relatedEventId: raw.relatedEventId ?? null,
+      objects: (raw.objects ?? []).map((o) => ({
+        objectId: o.objectId,
+        objectType: o.objectType,
+        relation: o.relation,
       })),
     };
   }

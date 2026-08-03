@@ -6,6 +6,7 @@ import type { ApplyAnswersUseCase } from "../../../../core/application/use-cases
 import type { InterpretUtteranceUseCase } from "../../../../core/application/use-cases/InterpretUtterance";
 import type { PreviewIntentUseCase } from "../../../../core/application/use-cases/PreviewIntent";
 import type { SubmitIntentUseCase } from "../../../../core/application/use-cases/SubmitIntent";
+import type { SubmitRectificationUseCase } from "../../../../core/application/use-cases/SubmitRectification";
 import { Permission } from "../../../../core/domain/enums/Permission";
 import { currentUser, requirePermission } from "../middleware/auth";
 
@@ -20,6 +21,7 @@ export function conversationRoutes(
   interpretUtterance: InterpretUtteranceUseCase,
   previewIntent: PreviewIntentUseCase,
   submitIntent: SubmitIntentUseCase,
+  submitRectification: SubmitRectificationUseCase,
 ): Router {
   const router = Router();
 
@@ -99,6 +101,31 @@ export function conversationRoutes(
     async (req: Request, res: Response, next: NextFunction) => {
       try {
         res.json(await submitIntent.execute(req.params.intentId));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  // Rectify a recorded entry. It is not a guided conversation: the operator points at the entry that
+  // never happened, and everything else is read from the Ledger's own record of it.
+  router.post(
+    "/rectify",
+    requirePermission(Permission.INTENT_SUBMIT),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { targetEventId, description } = req.body ?? {};
+        if (typeof targetEventId !== "string" || targetEventId.trim() === "") {
+          res.status(400).json({ error: "targetEventId is required." });
+          return;
+        }
+        res.json(
+          await submitRectification.execute({
+            targetEventId,
+            description,
+            userId: currentUser(req).id,
+          }),
+        );
       } catch (err) {
         next(err);
       }

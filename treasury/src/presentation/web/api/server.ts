@@ -16,6 +16,7 @@ import type { ApplyAnswersUseCase } from "../../../core/application/use-cases/Ap
 import type { InterpretUtteranceUseCase } from "../../../core/application/use-cases/InterpretUtterance";
 import type { PreviewIntentUseCase } from "../../../core/application/use-cases/PreviewIntent";
 import type { SubmitIntentUseCase } from "../../../core/application/use-cases/SubmitIntent";
+import type { SubmitRectificationUseCase } from "../../../core/application/use-cases/SubmitRectification";
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
 
@@ -29,6 +30,7 @@ export interface ServerDeps {
   interpretUtterance: InterpretUtteranceUseCase;
   previewIntent: PreviewIntentUseCase;
   submitIntent: SubmitIntentUseCase;
+  submitRectification: SubmitRectificationUseCase;
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
@@ -60,6 +62,7 @@ export function createServer(deps: ServerDeps) {
       deps.interpretUtterance,
       deps.previewIntent,
       deps.submitIntent,
+      deps.submitRectification,
     ),
   );
   app.use(

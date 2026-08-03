@@ -12,6 +12,7 @@ import { StubSlotExtractionAdapter } from "./infra/nlp/StubSlotExtractionAdapter
 import type { CandidateSubmissionPort } from "./core/application/ports/CandidateSubmissionPort";
 import type { LedgerReadPort } from "./core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "./core/application/ports/PositionLifecyclePort";
+import type { LedgerEventLookupPort } from "./core/application/ports/LedgerEventLookupPort";
 import type { SlotExtractionPort } from "./core/application/ports/SlotExtractionPort";
 import { ScryptPasswordHasher } from "./infra/auth/ScryptPasswordHasher";
 import { InMemorySessionStore } from "./infra/auth/InMemorySessionStore";
@@ -29,6 +30,7 @@ import { ApplyAnswersUseCase } from "./core/application/use-cases/ApplyAnswers";
 import { InterpretUtteranceUseCase } from "./core/application/use-cases/InterpretUtterance";
 import { PreviewIntentUseCase } from "./core/application/use-cases/PreviewIntent";
 import { SubmitIntentUseCase } from "./core/application/use-cases/SubmitIntent";
+import { SubmitRectificationUseCase } from "./core/application/use-cases/SubmitRectification";
 import { GetIntentUseCase } from "./core/application/use-cases/GetIntent";
 import { ListIntentsUseCase } from "./core/application/use-cases/ListIntents";
 
@@ -77,7 +79,7 @@ function bootstrap(): void {
   // ── Ledger integration (mode-selected) ─────────────────────────────────────
   let submission: CandidateSubmissionPort;
   // The same adapter serves both read boundaries in every mode; only the demo ones lack lifecycles.
-  let ledgerRead: LedgerReadPort & PositionLifecyclePort;
+  let ledgerRead: LedgerReadPort & PositionLifecyclePort & LedgerEventLookupPort;
   if (env.LEDGER_MODE === "simulate") {
     // One in-memory fake Ledger for BOTH submit + reads → the full create→dashboard loop works.
     const simulator = new InMemoryLedgerSimulator();
@@ -103,13 +105,22 @@ function bootstrap(): void {
   );
   const getObjectLifecycle = new GetObjectLifecycleUseCase(ledgerRead);
 
+  const startIntent = new StartIntentUseCase(intentRepo, clock, ids, audit);
+  const submitIntent = new SubmitIntentUseCase(
+    intentRepo,
+    candidateMapper,
+    submission,
+    audit,
+    clock,
+  );
+
   const app = createServer({
     auth,
     secureCookies: env.NODE_ENV === "production",
     sessionTtlSeconds,
     getDashboard,
     getObjectLifecycle,
-    startIntent: new StartIntentUseCase(intentRepo, clock, ids, audit),
+    startIntent,
     advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit),
     applyAnswers,
     interpretUtterance: new InterpretUtteranceUseCase(
@@ -121,11 +132,12 @@ function bootstrap(): void {
       ids,
     ),
     previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper),
-    submitIntent: new SubmitIntentUseCase(
-      intentRepo,
-      candidateMapper,
-      submission,
-      audit,
+    submitIntent,
+    submitRectification: new SubmitRectificationUseCase(
+      ledgerRead,
+      startIntent,
+      applyAnswers,
+      submitIntent,
       clock,
     ),
     getIntent: new GetIntentUseCase(intentRepo, audit),
