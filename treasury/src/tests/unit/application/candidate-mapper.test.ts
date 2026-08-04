@@ -3,13 +3,14 @@ import { CandidateMapper } from "../../../core/application/services/CandidateMap
 import { getScenario } from "../../../core/domain/scenarios/Scenario";
 import { Intent } from "../../../core/domain/entities/Intent";
 import { IntentStatus } from "../../../core/domain/enums/IntentStatus";
+import { PARTY } from "../../fixtures/parties";
 
 /**
  * Pins the ratified economic tuple each scenario maps to. The Ledger gate is the ultimate authority,
  * but this test guards the tuple Treasury proposes so a mapping change can never silently record an
  * operation under the wrong semantic. Tuples were verified against EVENT_CONTRACTS + FormalMatrices.
  */
-const USINA = "party-usina";
+const USINA = PARTY.USINA;
 
 function buildFor(scenarioId: string) {
   const scenario = getScenario(scenarioId)!;
@@ -18,7 +19,7 @@ function buildFor(scenarioId: string) {
     scenarioId,
     userId: "cfo",
     status: IntentStatus.AWAITING_CONFIRMATION,
-    answers: { payee: "party-broker", amount: "1500.00", currency: "BRL", occurredAt: "2026-07-09" },
+    answers: { payee: PARTY.BROKER, amount: "1500.00", currency: "BRL", occurredAt: "2026-07-09" },
     createdAt: "2026-07-09T00:00:00.000Z",
     updatedAt: "2026-07-09T00:00:00.000Z",
   });
@@ -35,7 +36,7 @@ describe("CandidateMapper — credit scenarios (Phase 1)", () => {
     // usina pays out; the recipient is a neutral payee Party carrying no amount.
     expect(c.parties).toEqual([
       { partyId: USINA, role: "payer", direction: "out", amount: "1500.00" },
-      { partyId: "party-broker", role: "payee", direction: "neutral" },
+      { partyId: PARTY.BROKER, role: "payee", direction: "neutral" },
     ]);
   });
 
@@ -47,7 +48,7 @@ describe("CandidateMapper — credit scenarios (Phase 1)", () => {
     expect(c.reason.type).toBe("loan_origination");
     expect(c.parties).toEqual([
       { partyId: USINA, role: "payer", direction: "out", amount: "1500.00" },
-      { partyId: "party-broker", role: "payee", direction: "neutral" },
+      { partyId: PARTY.BROKER, role: "payee", direction: "neutral" },
     ]);
   });
 
@@ -68,7 +69,7 @@ describe("CandidateMapper — per-instance tuple selection (Phase 4)", () => {
       scenarioId: "register_incentive",
       userId: "cfo",
       status: IntentStatus.AWAITING_CONFIRMATION,
-      answers: { payee: "party-broker", kind, amount: "1500.00", currency: "BRL", occurredAt: "2026-07-09" },
+      answers: { payee: PARTY.BROKER, kind, amount: "1500.00", currency: "BRL", occurredAt: "2026-07-09" },
       createdAt: "2026-07-09T00:00:00.000Z",
       updatedAt: "2026-07-09T00:00:00.000Z",
     });
@@ -113,16 +114,16 @@ describe("CandidateMapper — NON_CASH party/object mold (Phase 5)", () => {
   const nonCashCommon = { amount: "500.00", currency: "BRL", occurredAt: "2026-07-09" };
 
   it("register_waiver (SETTLES) → NON_CASH, single BENEFICIARY party carrying NO amount", () => {
-    const c = build("register_waiver", { payee: "party-broker", basis: "waiver", ...nonCashCommon });
+    const c = build("register_waiver", { payee: PARTY.BROKER, basis: "waiver", ...nonCashCommon });
     expect(c.eventType).toBe("commission_waiver");
     expect(c.economicEffect).toBe("non_cash");
-    expect(c.parties).toEqual([{ partyId: "party-broker", role: "beneficiary", direction: "neutral" }]);
+    expect(c.parties).toEqual([{ partyId: PARTY.BROKER, role: "beneficiary", direction: "neutral" }]);
     expect(c.objects).toEqual([{ objectId: "intent:intent-1", objectType: "commission_entitlement", relation: "settles" }]);
     expect(c.parties.every((p) => !("amount" in p))).toBe(true); // no party carries cash on a NON_CASH event
   });
 
   it("register_waiver (REVERSES) → the variant selects the reversal relation", () => {
-    const c = build("register_waiver", { payee: "party-broker", basis: "reversal", ...nonCashCommon });
+    const c = build("register_waiver", { payee: PARTY.BROKER, basis: "reversal", ...nonCashCommon });
     expect(c.objects[0].relation).toBe("reverses");
   });
 
@@ -135,9 +136,9 @@ describe("CandidateMapper — NON_CASH party/object mold (Phase 5)", () => {
   });
 
   it("register_direct_payment → NON_CASH, TWO objects with distinct ids, both SETTLES", () => {
-    const c = build("register_direct_payment", { payee: "party-broker", ...nonCashCommon });
+    const c = build("register_direct_payment", { payee: PARTY.BROKER, ...nonCashCommon });
     expect(c.economicEffect).toBe("non_cash");
-    expect(c.parties).toEqual([{ partyId: "party-broker", role: "beneficiary", direction: "neutral" }]);
+    expect(c.parties).toEqual([{ partyId: PARTY.BROKER, role: "beneficiary", direction: "neutral" }]);
     expect(c.objects).toEqual([
       { objectId: "intent:intent-1:commission_receivable", objectType: "commission_receivable", relation: "settles" },
       { objectId: "intent:intent-1:commission_entitlement", objectType: "commission_entitlement", relation: "settles" },
@@ -159,7 +160,7 @@ describe("CandidateMapper — CASH_IN settlements with lineage (Phase 6)", () =>
     });
     return new CandidateMapper(USINA).build(intent, scenario);
   }
-  const cashInCommon = { payer: "party-operator", amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09" };
+  const cashInCommon = { payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09" };
 
   it("commission received WITH an origin → CASH_IN, relatedEventId set, usina is the payee/in", () => {
     const c = build("register_commission_received", { ...cashInCommon, origin: "evt-expected-1" });

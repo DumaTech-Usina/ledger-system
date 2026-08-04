@@ -244,6 +244,10 @@ const api = {
   // deterministic extractor is one adapter behind SlotExtractionPort — an LLM would slot in here
   // with no change to this call. Bound-mode continuation would POST /:id/interpret.
   interpret: (utterance) => post("/api/conversation/interpret", { utterance }),
+  // Creating an identity — or declaring one cannot be identified — is its own call, never a way to
+  // answer the slot. The server mints the PartyId; the client only asks for it.
+  decideIdentity: (id, body) => post(`/api/conversation/${id}/identity`, body),
+  enrich: (id, body) => post(`/api/conversation/${id}/enrich`, body),
 };
 function post(url, body) {
   return fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
@@ -401,9 +405,12 @@ async function interpretEntry(raw) {
   refreshLifecycle();
 }
 
+let currentSlot = null;
+
 function renderState(state) {
   if (state.kind === "ready") return goPreview();
   const slot = state.slot;
+  currentSlot = slot;
   say("bot", T.slotPrompt(scenarioId, slot.key, slot.prompt));
   const composer = $("#composer"); composer.innerHTML = "";
 
@@ -433,7 +440,83 @@ async function answer(key, value) {
   const { data } = await api.answer(intentId, key, value);
   refreshLifecycle();
   if (data.error) { say("err", T.message(data.error.message)); renderState(data.state); return; }
+  // A party mention that did not resolve leaves the slot empty on purpose. Rather than repeating the
+  // same question, show what the mention could have meant and let the user decide.
+  if (data.identity && !identityWasRecorded(data.identity)) return renderIdentity(data.identity, key, value);
   renderState(data.state);
+}
+
+/** Recorded only when an exact rung matched — a similarity hit is a suggestion, not an answer. */
+function identityWasRecorded(identity) {
+  const r = identity.resolution;
+  return r.kind === "resolved" && !r.needsConfirmation;
+}
+
+function renderIdentity(identity, key, mention) {
+  const r = identity.resolution;
+  const slot = currentSlot;
+  const composer = $("#composer"); composer.innerHTML = "";
+
+  const candidates = r.kind === "ambiguous" ? r.candidates
+    : r.kind === "resolved" ? [{ partyId: r.partyId, displayName: r.displayName || r.partyId }]
+    : [];
+
+  say("bot", candidates.length
+    ? T.t("ui.identity_pick", { mention })
+    : T.t("ui.identity_unknown", { mention }));
+
+  const chips = el("div", "chips");
+  // Picking a candidate is just answering with its id — the exact rung resolves it, no extra path.
+  candidates.forEach(c => {
+    const b = el("button", "btn ghost", esc(c.displayName || c.partyId));
+    b.onclick = () => answer(key, c.partyId);
+    chips.appendChild(b);
+  });
+
+  const create = el("button", "btn", esc(T.t("ui.identity_create", { mention })));
+  create.onclick = async () => {
+    say("me", T.t("ui.identity_create", { mention }));
+    const { ok, data } = await api.decideIdentity(intentId, { slot: key, kind: "create", mention });
+    if (!ok) { say("err", data.error); return renderState({ kind: "question", slot }); }
+    renderState(data.state);
+  };
+  chips.appendChild(create);
+
+  if (slot && slot.allowUnidentifiable) {
+    const unknown = el("button", "btn ghost", esc(T.t("ui.identity_unidentifiable")));
+    unknown.onclick = () => askJustification(key, mention, slot);
+    chips.appendChild(unknown);
+  }
+
+  composer.appendChild(chips);
+}
+
+/** The exception costs a separate act AND a reason. Without that it would just be the cheap path. */
+function askJustification(key, mention, slot) {
+  say("bot", T.t("ui.identity_justify"));
+  const composer = $("#composer"); composer.innerHTML = "";
+  const input = el("input"); input.type = "text";
+  const send = async () => {
+    const justification = input.value.trim();
+    if (!justification) return input.focus();
+    say("me", justification);
+    const { ok, data } = await api.decideIdentity(intentId, {
+      slot: key, kind: "unidentifiable", mention, justification,
+    });
+    if (!ok) { say("err", data.error); return renderState({ kind: "question", slot }); }
+    renderState(data.state);
+  };
+  input.onkeydown = (e) => { if (e.key === "Enter") send(); };
+  const btn = el("button", "btn", esc(T.t("ui.send")));
+  btn.onclick = send;
+  composer.appendChild(input); composer.appendChild(btn);
+  input.focus();
+}
+
+/** The Directory's name for an id. An id it does not know stays visible as itself — never faked. */
+function partyLabel(preview, partyId) {
+  if (!partyId) return "—";
+  return (preview.partyNames && preview.partyNames[partyId]) || partyId;
 }
 
 async function goPreview() {
@@ -448,7 +531,7 @@ async function goPreview() {
     <div class="kv">
       <div class="k">${esc(T.t("ui.f_operation"))}</div><div class="v">${esc(T.scenarioTitle(scenarioId, p.scenarioTitle))}</div>
       <div class="k">${esc(T.t("ui.f_amount"))}</div><div class="v">${esc(T.money(c.amount, c.currency))}</div>
-      <div class="k">${esc(T.t("ui.f_counterparty"))}</div><div class="v">${esc(c.parties[1]?.partyId ?? "—")}</div>
+      <div class="k">${esc(T.t("ui.f_counterparty"))}</div><div class="v">${esc(partyLabel(p, c.parties[1]?.partyId))}</div>
       <div class="k">${esc(T.t("ui.f_date"))}</div><div class="v">${esc(T.date(c.occurredAt))}</div>
       ${c.description ? `<div class="k">${esc(T.t("ui.f_description"))}</div><div class="v">${esc(c.description)}</div>` : ""}
     </div>
@@ -461,6 +544,32 @@ async function goPreview() {
   const stream = $("#stream"); stream.appendChild(card); stream.scrollTop = stream.scrollHeight;
   $("#confirmBtn").onclick = submit;
   $("#cancelBtn").onclick = restart;
+  if (p.enrichment) renderEnrichment(p.enrichment);
+}
+
+/**
+ * At most one question, offered only once the card is already submittable. Skipping is a first-class
+ * answer: it records "declined", which is why it is never asked again.
+ */
+function renderEnrichment(suggestion) {
+  const composer = $("#composer"); composer.innerHTML = "";
+  say("bot", T.t("ui.enrich_ask", {
+    party: suggestion.displayName,
+    attribute: T.t("ui.attr_" + suggestion.attribute),
+  }));
+
+  const input = el("input"); input.type = "text";
+  const done = async (value) => {
+    say("me", value || T.t("ui.enrich_skip"));
+    await api.enrich(intentId, { partyId: suggestion.partyId, key: suggestion.attribute, value });
+    $("#composer").innerHTML = "";
+  };
+  input.onkeydown = (e) => { if (e.key === "Enter") done(input.value.trim()); };
+  const btn = el("button", "btn", esc(T.t("ui.send")));
+  btn.onclick = () => done(input.value.trim());
+  const skip = el("button", "btn ghost", esc(T.t("ui.enrich_skip")));
+  skip.onclick = () => done("");
+  composer.appendChild(input); composer.appendChild(btn); composer.appendChild(skip);
 }
 
 async function submit() {

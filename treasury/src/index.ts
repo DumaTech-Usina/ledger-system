@@ -1,6 +1,9 @@
 import { env } from "./config/env";
 import { createServer } from "./presentation/web/api/server";
 import { InMemoryIntentRepository } from "./infra/persistence/InMemoryIntentRepository";
+import { InMemoryPartyRepository } from "./infra/persistence/InMemoryPartyRepository";
+import { MongoPartyRepository, connectMongo } from "./infra/persistence/MongoPartyRepository";
+import { PartyDirectory } from "./core/application/services/PartyDirectory";
 import { InMemoryUserRepository } from "./infra/persistence/InMemoryUserRepository";
 import { InMemoryAuditLog } from "./infra/audit/InMemoryAuditLog";
 import { StubCandidateSubmissionAdapter } from "./infra/submission/StubCandidateSubmissionAdapter";
@@ -31,17 +34,46 @@ import { InterpretUtteranceUseCase } from "./core/application/use-cases/Interpre
 import { PreviewIntentUseCase } from "./core/application/use-cases/PreviewIntent";
 import { SubmitIntentUseCase } from "./core/application/use-cases/SubmitIntent";
 import { SubmitRectificationUseCase } from "./core/application/use-cases/SubmitRectification";
+import { DecideIdentityUseCase } from "./core/application/use-cases/DecideIdentity";
+import { RecordPartyAttributeUseCase } from "./core/application/use-cases/RecordPartyAttribute";
+import { ListIncompletePartiesUseCase } from "./core/application/use-cases/ListIncompleteParties";
 import { GetIntentUseCase } from "./core/application/use-cases/GetIntent";
 import { ListIntentsUseCase } from "./core/application/use-cases/ListIntents";
 
-function bootstrap(): void {
+async function bootstrap(): Promise<void> {
   // ── Composition root ─────────────────────────────────────────────────────────
   const intentRepo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
   const clock = new SystemClock();
   const ids = new UuidGenerator();
   const candidateMapper = new CandidateMapper(env.USINA_PARTY_ID);
-  const applyAnswers = new ApplyAnswersUseCase(intentRepo, clock, audit);
+
+  // ── Party Directory ──────────────────────────────────────────────────────────
+  // A PARTY answer is only recorded once it resolves here, so this is on the critical path of every
+  // conversation. In "memory" it is empty at boot and every mention falls through unresolved —
+  // usable for a disconnected demo, never for issuing ids that reach a Ledger.
+  const partyRepo =
+    env.PARTY_DIRECTORY_MODE === "mongo"
+      ? new MongoPartyRepository((await connectMongo(env.MONGO_URL, env.MONGO_DB)).db)
+      : new InMemoryPartyRepository();
+  const partyDirectory = new PartyDirectory(partyRepo);
+
+  // An empty Directory is not a broken one — it resolves nothing, honestly. But it also means every
+  // counterparty mention falls through, so no scenario with a PARTY slot can be completed by simply
+  // answering. That is a deliberate consequence of the barrier and a silent one, so it is announced.
+  const knownParties = (await partyDirectory.list()).length;
+  if (knownParties === 0) {
+    console.warn(
+      "[party-directory] EMPTY (mode: " + env.PARTY_DIRECTORY_MODE + "). No counterparty will resolve, " +
+        "so every party slot needs an explicit creation decision.\n" +
+        "  Seed it with: PARTY_DIRECTORY_MODE=mongo npm run seed:directory",
+    );
+  } else {
+    console.log("[party-directory] " + knownParties + " known part" + (knownParties === 1 ? "y" : "ies") +
+      " (mode: " + env.PARTY_DIRECTORY_MODE + ")");
+  }
+
+  const applyAnswers = new ApplyAnswersUseCase(intentRepo, clock, audit, partyDirectory);
 
   // Slot extraction (the LLM boundary), selected by env.EXTRACTION_MODE. Only the deterministic stub
   // exists today; a real-model adapter becomes another case here with no change to core.
@@ -112,6 +144,7 @@ function bootstrap(): void {
     submission,
     audit,
     clock,
+    partyDirectory,
   );
 
   const app = createServer({
@@ -121,7 +154,7 @@ function bootstrap(): void {
     getDashboard,
     getObjectLifecycle,
     startIntent,
-    advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit),
+    advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit, partyDirectory),
     applyAnswers,
     interpretUtterance: new InterpretUtteranceUseCase(
       intentRepo,
@@ -130,8 +163,9 @@ function bootstrap(): void {
       audit,
       clock,
       ids,
+      partyDirectory,
     ),
-    previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper),
+    previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper, partyDirectory),
     submitIntent,
     submitRectification: new SubmitRectificationUseCase(
       ledgerRead,
@@ -140,6 +174,9 @@ function bootstrap(): void {
       submitIntent,
       clock,
     ),
+    decideIdentity: new DecideIdentityUseCase(intentRepo, partyRepo, clock, ids, audit),
+    recordPartyAttribute: new RecordPartyAttributeUseCase(partyRepo, clock, audit),
+    listIncompleteParties: new ListIncompletePartiesUseCase(partyDirectory),
     getIntent: new GetIntentUseCase(intentRepo, audit),
     listIntents: new ListIntentsUseCase(intentRepo),
   });
@@ -157,4 +194,7 @@ function bootstrap(): void {
   process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+});

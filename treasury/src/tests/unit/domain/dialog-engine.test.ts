@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { DialogEngine } from "../../../core/domain/services/DialogEngine";
 import { registerPayment } from "../../../core/domain/scenarios/registerPayment";
+import { PARTY } from "../../fixtures/parties";
 
 const slot = (key: string) => registerPayment.slots.find((s) => s.key === key)!;
 
@@ -13,7 +14,7 @@ describe("DialogEngine.nextState", () => {
 
   it("skips to the next unfilled required slot as answers arrive", () => {
     const state = DialogEngine.nextState(registerPayment, {
-      payee: "ACME",
+      payee: PARTY.ACME,
       amount: "1500.00",
       currency: "BRL",
     });
@@ -23,7 +24,7 @@ describe("DialogEngine.nextState", () => {
 
   it("is ready when all required slots are filled (optional ones may be blank)", () => {
     const state = DialogEngine.nextState(registerPayment, {
-      payee: "ACME",
+      payee: PARTY.ACME,
       amount: "1500.00",
       currency: "BRL",
       occurredAt: "2026-07-09",

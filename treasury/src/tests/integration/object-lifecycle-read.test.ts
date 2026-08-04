@@ -9,6 +9,7 @@ import { GetObjectLifecycleUseCase } from "../../core/application/use-cases/GetO
 import { dashboardRoutes } from "../../presentation/web/api/routes/dashboardRoutes";
 import { GetTreasuryDashboardUseCase } from "../../core/application/use-cases/GetTreasuryDashboard";
 import type { PositionLifecycle } from "../../core/application/dtos/LedgerReadModels";
+import { PARTY } from "../fixtures/parties";
 
 /**
  * Makes the life of ONE economic object observable through Treasury's API. Nothing is projected
@@ -199,7 +200,7 @@ describe("GET /api/dashboard/positions/:objectId", () => {
     const read = new HttpLedgerReadAdapter(ledgerBaseUrl);
     return express().use(
       "/api/dashboard",
-      dashboardRoutes(new GetTreasuryDashboardUseCase(read, "party-usina"), new GetObjectLifecycleUseCase(read)),
+      dashboardRoutes(new GetTreasuryDashboardUseCase(read, PARTY.USINA), new GetObjectLifecycleUseCase(read)),
     );
   }
 

@@ -14,6 +14,7 @@ import { IntentStatus } from "../../core/domain/enums/IntentStatus";
 import type { Candidate } from "../../core/domain/value-objects/Candidate";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
+import { PARTY, partyDirectory } from "../fixtures/parties";
 
 /**
  * Treasury produces a LEDGER_CORRECTION through the Ledger's public API.
@@ -83,14 +84,15 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((resolve) => ledger.close(() => resolve())));
 
 function wire() {
+  const directory = partyDirectory();
   submitted = [];
   nextOutcome = null;
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
-  const mapper = new CandidateMapper("party-usina");
+  const mapper = new CandidateMapper(PARTY.USINA);
   let n = 0;
   const ids: IdGenerator = { next: () => `rect-${++n}` };
-  const applyAnswers = new ApplyAnswersUseCase(repo, clock, audit);
+  const applyAnswers = new ApplyAnswersUseCase(repo, clock, audit, directory);
   const startIntent = new StartIntentUseCase(repo, clock, ids, audit);
   const submitIntent = new SubmitIntentUseCase(
     repo,
@@ -98,6 +100,7 @@ function wire() {
     new HttpCandidateSubmissionAdapter(baseUrl, ""),
     audit,
     clock,
+    directory,
   );
   return {
     repo,
@@ -144,7 +147,7 @@ describe("the payload Treasury produces for a rectification", () => {
     await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo" });
 
     expect(submitted[0].parties).toEqual([
-      { partyId: "party-usina", role: "platform", direction: "neutral" },
+      { partyId: PARTY.USINA, role: "platform", direction: "neutral" },
     ]);
   });
 

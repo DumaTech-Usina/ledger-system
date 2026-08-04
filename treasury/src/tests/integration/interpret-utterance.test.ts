@@ -8,6 +8,7 @@ import { InterpretUtteranceUseCase, type InterpretOptions } from "../../core/app
 import type { SlotExtractionPort, SlotExtractionResult } from "../../core/application/ports/SlotExtractionPort";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
+import { PARTY, partyDirectory } from "../fixtures/parties";
 
 const clock: Clock = { now: () => "2026-07-23T00:00:00.000Z" };
 
@@ -17,13 +18,14 @@ const fakePort = (result: SlotExtractionResult | (() => never)): SlotExtractionP
 });
 
 async function wire(extractor: SlotExtractionPort, options?: InterpretOptions) {
+  const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
-  const apply = new ApplyAnswersUseCase(repo, clock, audit);
+  const apply = new ApplyAnswersUseCase(repo, clock, audit, directory);
   const start = new StartIntentUseCase(repo, clock, ids, audit);
-  const interpret = new InterpretUtteranceUseCase(repo, extractor, apply, audit, clock, ids, options);
+  const interpret = new InterpretUtteranceUseCase(repo, extractor, apply, audit, clock, ids, directory, options);
   const { intentId } = await start.execute({ scenarioId: "register_payment", userId: "cfo" });
   return { repo, audit, interpret, intentId };
 }
@@ -45,7 +47,7 @@ describe("InterpretUtterance", () => {
     const { interpret, intentId } = await wire(
       fakePort({
         slots: [
-          { key: "payee", value: "party-acme", confidence: 0.9 },
+          { key: "payee", value: PARTY.ACME, confidence: 0.9 },
           { key: "amount", value: "1500.00", confidence: 0.9 },
           { key: "currency", value: "BRL", confidence: 0.9 },
           { key: "occurredAt", value: "2026-07-23", confidence: 0.9 },

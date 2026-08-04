@@ -10,16 +10,18 @@ import { PreviewIntentUseCase } from "../../core/application/use-cases/PreviewIn
 import { SubmitIntentUseCase } from "../../core/application/use-cases/SubmitIntent";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
+import { PARTY, partyDirectory } from "../fixtures/parties";
 
 const clock: Clock = { now: () => "2026-07-23T00:00:00.000Z" };
 
 function wire() {
+  const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
-  const mapper = new CandidateMapper("party-usina");
-  const apply = new ApplyAnswersUseCase(repo, clock, audit);
+  const mapper = new CandidateMapper(PARTY.USINA);
+  const apply = new ApplyAnswersUseCase(repo, clock, audit, directory);
   return {
     repo,
     apply,
@@ -30,16 +32,16 @@ function wire() {
       audit,
       clock,
       ids,
-      { list: async () => [] },
+      directory,
     ),
-    preview: new PreviewIntentUseCase(repo, mapper),
-    submit: new SubmitIntentUseCase(repo, mapper, new StubCandidateSubmissionAdapter(), audit, clock),
+    preview: new PreviewIntentUseCase(repo, mapper, directory),
+    submit: new SubmitIntentUseCase(repo, mapper, new StubCandidateSubmissionAdapter(), audit, clock, directory),
   };
 }
 
 /** Fill the one slot the stub can't ground (the payee PARTY) so the intent becomes ready. */
 async function fillPayee(apply: ReturnType<typeof wire>["apply"], intentId: string) {
-  await apply.execute({ intentId, answers: [{ key: "payee", value: "party-acme" }] });
+  await apply.execute({ intentId, answers: [{ key: "payee", value: PARTY.ACME }] });
 }
 
 describe("confirm → submit (Phase 4 end-to-end)", () => {

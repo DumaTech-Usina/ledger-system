@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { AddressInfo } from "net";
 import { HttpCandidateSubmissionAdapter } from "../../infra/submission/HttpCandidateSubmissionAdapter";
 import type { Candidate } from "../../core/domain/value-objects/Candidate";
+import { PARTY } from "../fixtures/parties";
 
 const candidate = (over: Partial<Candidate> = {}): Candidate => ({
   sourceReference: "intent:abc",
@@ -12,7 +13,7 @@ const candidate = (over: Partial<Candidate> = {}): Candidate => ({
   amount: "1500.00",
   currency: "BRL",
   description: undefined,
-  parties: [{ partyId: "party-usina", role: "payee", direction: "in", amount: "1500.00" }],
+  parties: [{ partyId: PARTY.USINA, role: "payee", direction: "in", amount: "1500.00" }],
   objects: [{ objectId: "intent:abc", objectType: "charge", relation: "originates" }],
   reason: { type: "charge", description: "x", confidence: "high", requiresFollowup: false },
   reporter: { reporterType: "user", reporterId: "user-cfo", channel: "web" },

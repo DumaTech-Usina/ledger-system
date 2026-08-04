@@ -10,6 +10,7 @@ import { SubmitIntentUseCase } from "../../core/application/use-cases/SubmitInte
 import { IntentStatus } from "../../core/domain/enums/IntentStatus";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
+import { PARTY, partyDirectory } from "../fixtures/parties";
 
 /**
  * MVA — the continuity assertion is reachable through the real guided flow, with no new plumbing:
@@ -19,17 +20,18 @@ import type { IdGenerator } from "../../core/application/ports/IdGenerator";
 const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
 
 function wire() {
+  const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
-  const mapper = new CandidateMapper("party-usina");
+  const mapper = new CandidateMapper(PARTY.USINA);
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
   return {
     repo,
     start: new StartIntentUseCase(repo, clock, ids, audit),
-    advance: new AdvanceDialogUseCase(repo, clock, audit),
-    preview: new PreviewIntentUseCase(repo, mapper),
-    submit: new SubmitIntentUseCase(repo, mapper, new StubCandidateSubmissionAdapter(), audit, clock),
+    advance: new AdvanceDialogUseCase(repo, clock, audit, directory),
+    preview: new PreviewIntentUseCase(repo, mapper, directory),
+    submit: new SubmitIntentUseCase(repo, mapper, new StubCandidateSubmissionAdapter(), audit, clock, directory),
   };
 }
 
@@ -46,7 +48,7 @@ describe("object continuity flow (MVA)", () => {
 
     // 1. The advance is disbursed — its object identity is minted, as always.
     const disbursement = await fill(w, "register_advance", {
-      payee: "party-broker", amount: "500.00", currency: "BRL", occurredAt: "2026-07-02",
+      payee: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-02",
     });
     const advanceObjectId = (await w.preview.execute(disbursement.intentId)).candidate.objects[0].objectId;
     expect((await w.submit.execute(disbursement.intentId)).intentStatus).toBe(IntentStatus.ACCEPTED);
@@ -55,7 +57,7 @@ describe("object continuity flow (MVA)", () => {
     const recoveries = [];
     for (const _ of [1, 2]) {
       const { intentId, last } = await fill(w, "register_advance_settlement", {
-        payer: "party-broker", amount: "250.00", currency: "BRL", occurredAt: "2026-07-09",
+        payer: PARTY.BROKER, amount: "250.00", currency: "BRL", occurredAt: "2026-07-09",
         origin: "evt-advance-1", objectRef: advanceObjectId,
       });
       expect(last.state.kind).toBe("ready");
@@ -73,7 +75,7 @@ describe("object continuity flow (MVA)", () => {
   it("the continuity slot is optional — leaving it empty reaches ready and mints as today", async () => {
     const w = wire();
     const { intentId, last } = await fill(w, "register_advance_settlement", {
-      payer: "party-broker", amount: "500.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-advance-1",
+      payer: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-advance-1",
     });
 
     expect(last.state.kind).toBe("ready");

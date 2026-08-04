@@ -6,10 +6,12 @@ import { AdvanceDialogUseCase } from "../../core/application/use-cases/AdvanceDi
 import { IntentStatus } from "../../core/domain/enums/IntentStatus";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
+import { PARTY, partyDirectory } from "../fixtures/parties";
 
 const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
 
 function wire() {
+  const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
   let n = 0;
@@ -18,7 +20,7 @@ function wire() {
     repo,
     audit,
     start: new StartIntentUseCase(repo, clock, ids, audit),
-    advance: new AdvanceDialogUseCase(repo, clock, audit),
+    advance: new AdvanceDialogUseCase(repo, clock, audit, directory),
   };
 }
 
@@ -29,7 +31,7 @@ describe("conversation flow (register_payment)", () => {
     const { intentId, state } = await start.execute({ scenarioId: "register_payment", userId: "cfo" });
     expect(state.kind).toBe("question");
 
-    await advance.execute({ intentId, key: "payee", value: "ACME" });
+    await advance.execute({ intentId, key: "payee", value: PARTY.ACME });
     await advance.execute({ intentId, key: "amount", value: "1500.00" });
     await advance.execute({ intentId, key: "currency", value: "BRL" });
     const last = await advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });

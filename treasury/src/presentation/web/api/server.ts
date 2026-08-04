@@ -17,6 +17,9 @@ import type { InterpretUtteranceUseCase } from "../../../core/application/use-ca
 import type { PreviewIntentUseCase } from "../../../core/application/use-cases/PreviewIntent";
 import type { SubmitIntentUseCase } from "../../../core/application/use-cases/SubmitIntent";
 import type { SubmitRectificationUseCase } from "../../../core/application/use-cases/SubmitRectification";
+import type { DecideIdentityUseCase } from "../../../core/application/use-cases/DecideIdentity";
+import type { RecordPartyAttributeUseCase } from "../../../core/application/use-cases/RecordPartyAttribute";
+import type { ListIncompletePartiesUseCase } from "../../../core/application/use-cases/ListIncompleteParties";
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
 
@@ -31,6 +34,9 @@ export interface ServerDeps {
   previewIntent: PreviewIntentUseCase;
   submitIntent: SubmitIntentUseCase;
   submitRectification: SubmitRectificationUseCase;
+  decideIdentity: DecideIdentityUseCase;
+  recordPartyAttribute: RecordPartyAttributeUseCase;
+  listIncompleteParties: ListIncompletePartiesUseCase;
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
@@ -63,6 +69,9 @@ export function createServer(deps: ServerDeps) {
       deps.previewIntent,
       deps.submitIntent,
       deps.submitRectification,
+      deps.decideIdentity,
+      deps.recordPartyAttribute,
+      deps.listIncompleteParties,
     ),
   );
   app.use(

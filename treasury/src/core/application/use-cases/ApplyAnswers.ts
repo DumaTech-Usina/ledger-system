@@ -4,6 +4,13 @@ import type { SlotValue } from "../../domain/value-objects/Slot";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { Clock } from "../ports/Clock";
 import type { AuditLog } from "../ports/AuditLog";
+import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
+import {
+  auditDetail,
+  recordableId,
+  resolveIdentitySlot,
+  type IdentityOutcome,
+} from "../services/IdentitySlotResolution";
 
 /**
  * How a batch of answers treats slots that are already filled.
@@ -25,6 +32,12 @@ export interface ApplyAnswersResult {
   rejected: SlotValidationError[];
   /** Keys skipped because the slot was already filled and mode is `fill`. */
   skipped: string[];
+  /**
+   * One entry per PARTY answer processed this turn. An answer that did not resolve to exactly one
+   * known party is absent from the intent — the slot stays blank and is asked again — and its
+   * candidates are here for the conversation to offer.
+   */
+  identity: IdentityOutcome[];
 }
 
 const isBlank = (v: SlotValue | undefined): boolean => v === undefined || v.trim() === "";
@@ -41,6 +54,7 @@ export class ApplyAnswersUseCase {
     private readonly repo: IntentRepository,
     private readonly clock: Clock,
     private readonly audit: AuditLog,
+    private readonly directory: PartyDirectoryPort,
   ) {}
 
   async execute(input: ApplyAnswersInput): Promise<ApplyAnswersResult> {
@@ -54,6 +68,7 @@ export class ApplyAnswersUseCase {
     const now = this.clock.now();
     const rejected: SlotValidationError[] = [];
     const skipped: string[] = [];
+    const identity: IdentityOutcome[] = [];
     let recorded = 0;
 
     for (const { key, value } of input.answers) {
@@ -78,7 +93,27 @@ export class ApplyAnswersUseCase {
         continue;
       }
 
-      intent.record(key, value, now);
+      // Identity is resolved between validating and recording. An unresolved mention is not
+      // recorded, which leaves the slot blank and keeps the intent short of `ready`. The barrier is
+      // the omission itself — no separate gate can be forgotten or bypassed.
+      const resolution = await resolveIdentitySlot(slot, value, this.directory);
+      let valueToRecord = value;
+
+      if (resolution) {
+        identity.push({ slot: key, resolution });
+        await this.audit.record({
+          intentId: intent.id,
+          at: now,
+          type: "identity.resolution",
+          detail: auditDetail(key, resolution),
+        });
+
+        const partyId = recordableId(resolution);
+        if (partyId === null) continue;
+        valueToRecord = partyId;
+      }
+
+      intent.record(key, valueToRecord, now);
       await this.audit.record({ intentId: intent.id, at: now, type: "slot.answered", detail: key });
       recorded += 1;
     }
@@ -89,6 +124,6 @@ export class ApplyAnswersUseCase {
       await this.repo.save(intent);
     }
 
-    return { state, rejected, skipped };
+    return { state, rejected, skipped, identity };
   }
 }

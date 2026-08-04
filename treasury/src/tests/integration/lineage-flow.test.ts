@@ -13,6 +13,7 @@ import type { Candidate } from "../../core/domain/value-objects/Candidate";
 import type { CandidateSubmissionPort, SubmissionOutcome } from "../../core/application/ports/CandidateSubmissionPort";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
+import { PARTY, partyDirectory } from "../fixtures/parties";
 
 const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
 
@@ -32,18 +33,19 @@ class OriginGate implements CandidateSubmissionPort {
 }
 
 function wire(submission: CandidateSubmissionPort = new StubCandidateSubmissionAdapter()) {
+  const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
-  const mapper = new CandidateMapper("party-usina");
+  const mapper = new CandidateMapper(PARTY.USINA);
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
   return {
     repo,
     start: new StartIntentUseCase(repo, clock, ids, audit),
-    advance: new AdvanceDialogUseCase(repo, clock, audit),
-    apply: new ApplyAnswersUseCase(repo, clock, audit),
-    preview: new PreviewIntentUseCase(repo, mapper),
-    submit: new SubmitIntentUseCase(repo, mapper, submission, audit, clock),
+    advance: new AdvanceDialogUseCase(repo, clock, audit, directory),
+    apply: new ApplyAnswersUseCase(repo, clock, audit, directory),
+    preview: new PreviewIntentUseCase(repo, mapper, directory),
+    submit: new SubmitIntentUseCase(repo, mapper, submission, audit, clock, directory),
   };
 }
 
@@ -58,7 +60,7 @@ describe("lineage flow (Phase 6)", () => {
   it("commission received with an origin is ready and accepted; the candidate carries relatedEventId", async () => {
     const w = wire();
     const { intentId, last } = await fill(w, "register_commission_received", {
-      payer: "party-operator", amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-expected-1",
+      payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-expected-1",
     });
     expect(last.state.kind).toBe("ready");
     const preview = await w.preview.execute(intentId);
@@ -70,7 +72,7 @@ describe("lineage flow (Phase 6)", () => {
     const w = wire();
     // origin is optional → omitting it still reaches ready; the mapper records an orphan.
     const { intentId, last } = await fill(w, "register_commission_received", {
-      payer: "party-operator", amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
+      payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
     });
     expect(last.state.kind).toBe("ready");
     const preview = await w.preview.execute(intentId);
@@ -82,7 +84,7 @@ describe("lineage flow (Phase 6)", () => {
   it("advance recovery requires an origin — the dialog keeps asking until it is provided", async () => {
     const w = wire();
     const { intentId, last } = await fill(w, "register_advance_settlement", {
-      payer: "party-broker", amount: "500.00", currency: "BRL", occurredAt: "2026-07-09",
+      payer: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-09",
     });
     // origin still missing → not ready, and the next question is the origin slot.
     expect(last.state.kind).toBe("question");
@@ -92,7 +94,7 @@ describe("lineage flow (Phase 6)", () => {
   it("a bad origin → lineage rejection → AWAITING_CORRECTION re-asking `origin` → fix → accepted", async () => {
     const w = wire(new OriginGate("evt-bad"));
     const { intentId } = await fill(w, "register_advance_settlement", {
-      payer: "party-broker", amount: "500.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-bad",
+      payer: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-bad",
     });
 
     const first = await w.submit.execute(intentId);

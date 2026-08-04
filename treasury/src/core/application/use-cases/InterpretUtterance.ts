@@ -13,6 +13,8 @@ import type {
   SlotProposal,
 } from "../ports/SlotExtractionPort";
 import type { ApplyAnswersUseCase } from "./ApplyAnswers";
+import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
+import type { IdentityOutcome } from "../services/IdentitySlotResolution";
 
 export interface InterpretUtteranceInput {
   /** Present to continue an existing intent (bound mode). Absent to start from the first utterance. */
@@ -39,6 +41,8 @@ export interface InterpretUtteranceResult {
   skipped: string[];
   /** Proposals below the confidence threshold — not applied; surfaced for a later confirm step. */
   lowConfidence: SlotProposal[];
+  /** How each proposed PARTY mention resolved. An unresolved one is not recorded. */
+  identity: IdentityOutcome[];
 }
 
 export interface InterpretOptions {
@@ -47,8 +51,11 @@ export interface InterpretOptions {
 }
 
 /** The merge-outcome fields when nothing was proposed (e.g. a clarification turn). */
-function emptyOutcome(): Pick<InterpretUtteranceResult, "accepted" | "rejected" | "skipped" | "lowConfidence"> {
-  return { accepted: [], rejected: [], skipped: [], lowConfidence: [] };
+function emptyOutcome(): Pick<
+  InterpretUtteranceResult,
+  "accepted" | "rejected" | "skipped" | "lowConfidence" | "identity"
+> {
+  return { accepted: [], rejected: [], skipped: [], lowConfidence: [], identity: [] };
 }
 
 /**
@@ -74,6 +81,7 @@ export class InterpretUtteranceUseCase {
     private readonly audit: AuditLog,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
+    private readonly directory: PartyDirectoryPort,
     options: InterpretOptions = {},
   ) {
     this.threshold = options.confidenceThreshold ?? 0.5;
@@ -92,7 +100,15 @@ export class InterpretUtteranceUseCase {
 
     await this.audit.record({ intentId, at: this.clock.now(), type: "utterance.received", detail: utterance });
 
-    const result = await this.safeExtract({ utterance, slots: scenario.slots, priorAnswers: intent.answers }, intentId);
+    const result = await this.safeExtract(
+      {
+        utterance,
+        slots: scenario.slots,
+        priorAnswers: intent.answers,
+        knownParties: await this.knownParties(),
+      },
+      intentId,
+    );
     const merged = await this.mergeProposals(intentId, result.slots);
     return { intentId, scenarioId: scenario.id, ...merged };
   }
@@ -111,7 +127,11 @@ export class InterpretUtteranceUseCase {
       keywords: Object.values(s.keywords ?? {}).flat(),
     }));
 
-    const result = await this.safeExtract({ utterance: input.utterance, scenarios: catalog });
+    const result = await this.safeExtract({
+      utterance: input.utterance,
+      scenarios: catalog,
+      knownParties: await this.knownParties(),
+    });
 
     // No confident, real scenario → ask which operation. Nothing is created.
     const scenario = result.scenarioId ? getScenario(result.scenarioId) : undefined;
@@ -144,7 +164,14 @@ export class InterpretUtteranceUseCase {
     const skippedKeys = new Set(applied.skipped);
     const accepted = confident.map((p) => p.key).filter((k) => !rejectedKeys.has(k) && !skippedKeys.has(k));
 
-    return { state: applied.state, accepted, rejected: applied.rejected, skipped: applied.skipped, lowConfidence };
+    return {
+      state: applied.state,
+      accepted,
+      rejected: applied.rejected,
+      skipped: applied.skipped,
+      lowConfidence,
+      identity: applied.identity,
+    };
   }
 
   /**
@@ -163,6 +190,15 @@ export class InterpretUtteranceUseCase {
       });
       return { slots: [] };
     }
+  }
+
+  /**
+   * The grounding context an extractor receives. The field has existed on SlotExtractionRequest all
+   * along with nobody to fill it, so a PARTY mention was never extracted from natural language at
+   * all — it always fell through to the guided question and was answered as free text.
+   */
+  private async knownParties(): Promise<{ partyId: string; name: string }[]> {
+    return (await this.directory.list()).map((p) => ({ partyId: p.partyId, name: p.displayName }));
   }
 
   private defaultClarification(catalog: ScenarioCatalogEntry[]): string {

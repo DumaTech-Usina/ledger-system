@@ -11,13 +11,15 @@ import { GetIntentUseCase } from "../../core/application/use-cases/GetIntent";
 import { IntentStatus } from "../../core/domain/enums/IntentStatus";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
+import { PARTY, partyDirectory } from "../fixtures/parties";
 
 const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
 
 function wire() {
+  const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
-  const mapper = new CandidateMapper("party-usina");
+  const mapper = new CandidateMapper(PARTY.USINA);
   const submission = new StubCandidateSubmissionAdapter();
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
@@ -25,16 +27,16 @@ function wire() {
     repo,
     audit,
     start: new StartIntentUseCase(repo, clock, ids, audit),
-    advance: new AdvanceDialogUseCase(repo, clock, audit),
-    preview: new PreviewIntentUseCase(repo, mapper),
-    submit: new SubmitIntentUseCase(repo, mapper, submission, audit, clock),
+    advance: new AdvanceDialogUseCase(repo, clock, audit, directory),
+    preview: new PreviewIntentUseCase(repo, mapper, directory),
+    submit: new SubmitIntentUseCase(repo, mapper, submission, audit, clock, directory),
     get: new GetIntentUseCase(repo, audit),
   };
 }
 
 async function fillAddCharge(w: ReturnType<typeof wire>, description = "") {
   const { intentId } = await w.start.execute({ scenarioId: "register_payment", userId: "cfo" });
-  await w.advance.execute({ intentId, key: "payee", value: "ACME" });
+  await w.advance.execute({ intentId, key: "payee", value: PARTY.ACME });
   await w.advance.execute({ intentId, key: "amount", value: "1500.00" });
   await w.advance.execute({ intentId, key: "currency", value: "BRL" });
   await w.advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });

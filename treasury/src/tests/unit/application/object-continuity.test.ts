@@ -3,6 +3,7 @@ import { CandidateMapper } from "../../../core/application/services/CandidateMap
 import { getScenario } from "../../../core/domain/scenarios/Scenario";
 import { Intent } from "../../../core/domain/entities/Intent";
 import { IntentStatus } from "../../../core/domain/enums/IntentStatus";
+import { PARTY } from "../../fixtures/parties";
 
 /**
  * MVA — economic object continuity. Validates ONE hypothesis: that Treasury can represent the same
@@ -15,7 +16,7 @@ import { IntentStatus } from "../../../core/domain/enums/IntentStatus";
  *
  * Scope: `register_advance_settlement` only. Everything else must keep minting, byte for byte.
  */
-const USINA = "party-usina";
+const USINA = PARTY.USINA;
 
 function build(scenarioId: string, intentId: string, answers: Record<string, string>) {
   const scenario = getScenario(scenarioId)!;
@@ -31,7 +32,7 @@ function build(scenarioId: string, intentId: string, answers: Record<string, str
   return new CandidateMapper(USINA).build(intent, scenario);
 }
 
-const settlementAnswers = { payer: "party-broker", amount: "250.00", currency: "BRL", occurredAt: "2026-07-09" };
+const settlementAnswers = { payer: PARTY.BROKER, amount: "250.00", currency: "BRL", occurredAt: "2026-07-09" };
 
 describe("object continuity — absence keeps today's behaviour", () => {
   it("advance settlement WITHOUT a continuity answer mints the objectId exactly as today", () => {
@@ -47,7 +48,7 @@ describe("object continuity — absence keeps today's behaviour", () => {
   it("a scenario that does not declare continuity ignores the answer entirely", () => {
     // commission_received is out of this MVA's scope: it must keep minting even if the key is present.
     const c = build("register_commission_received", "intent-1", {
-      payer: "party-operator", amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
+      payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
       origin: "evt-expected-1", objectRef: "intent:intent-A",
     });
     expect(c.objects[0].objectId).toBe("intent:intent-1");
@@ -57,7 +58,7 @@ describe("object continuity — absence keeps today's behaviour", () => {
 describe("object continuity — one economic object across several events", () => {
   // The canonical sequence: an advance of 500 is disbursed, then recovered in two 250 instalments.
   const origination = build("register_advance", "intent-A", {
-    payee: "party-broker", amount: "500.00", currency: "BRL", occurredAt: "2026-07-02",
+    payee: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-02",
   });
   const advanceObjectId = origination.objects[0].objectId;
 

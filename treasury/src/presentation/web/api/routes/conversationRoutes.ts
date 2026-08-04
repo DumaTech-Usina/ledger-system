@@ -7,6 +7,10 @@ import type { InterpretUtteranceUseCase } from "../../../../core/application/use
 import type { PreviewIntentUseCase } from "../../../../core/application/use-cases/PreviewIntent";
 import type { SubmitIntentUseCase } from "../../../../core/application/use-cases/SubmitIntent";
 import type { SubmitRectificationUseCase } from "../../../../core/application/use-cases/SubmitRectification";
+import type { DecideIdentityUseCase } from "../../../../core/application/use-cases/DecideIdentity";
+import type { RecordPartyAttributeUseCase } from "../../../../core/application/use-cases/RecordPartyAttribute";
+import type { ListIncompletePartiesUseCase } from "../../../../core/application/use-cases/ListIncompleteParties";
+import { IdentityDecisionKind } from "../../../../core/domain/value-objects/IdentityDecision";
 import { Permission } from "../../../../core/domain/enums/Permission";
 import { currentUser, requirePermission } from "../middleware/auth";
 
@@ -22,6 +26,9 @@ export function conversationRoutes(
   previewIntent: PreviewIntentUseCase,
   submitIntent: SubmitIntentUseCase,
   submitRectification: SubmitRectificationUseCase,
+  decideIdentity: DecideIdentityUseCase,
+  recordPartyAttribute: RecordPartyAttributeUseCase,
+  listIncompleteParties: ListIncompletePartiesUseCase,
 ): Router {
   const router = Router();
 
@@ -82,6 +89,59 @@ export function conversationRoutes(
         userId: currentUser(req).id,
       });
       res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // Deliberately its own endpoint, not another way to answer the slot: creating an identity — or
+  // declaring one cannot be identified — is an act distinct from replying to a question, and it is
+  // the only conversational path that mints a PartyId.
+  router.post("/:intentId/identity", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { slot, kind, mention, justification } = req.body ?? {};
+      if (kind !== IdentityDecisionKind.CREATE && kind !== IdentityDecisionKind.UNIDENTIFIABLE) {
+        res.status(422).json({ error: "kind must be 'create' or 'unidentifiable'." });
+        return;
+      }
+      const result = await decideIdentity.execute({
+        intentId: req.params.intentId,
+        slot,
+        kind,
+        mention,
+        justification,
+        userId: currentUser(req).id,
+      });
+      res.json(result);
+    } catch (err) {
+      // A refused decision (not admissible, missing justification) is the user's to fix, not a fault.
+      res.status(422).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // Answering (or refusing) the one optional question the confirmation card may offer. Separate
+  // from the intent entirely: it can only ever run after the fact is already complete, and nothing
+  // here can hold a submission back.
+  router.post("/:intentId/enrich", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { partyId, key, value } = req.body ?? {};
+      const party = await recordPartyAttribute.execute({
+        partyId,
+        key,
+        value,
+        userId: currentUser(req).id,
+        intentId: req.params.intentId,
+      });
+      res.json({ partyId: party.partyId });
+    } catch (err) {
+      res.status(422).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  // The backlog: what is still unknown, computed on demand and never stored.
+  router.get("/parties/incomplete", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await listIncompleteParties.execute());
     } catch (err) {
       next(err);
     }

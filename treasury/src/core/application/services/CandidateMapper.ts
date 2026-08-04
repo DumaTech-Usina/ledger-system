@@ -279,10 +279,27 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
   },
 };
 
+/**
+ * The marker appended to a candidate's reason description when a counterparty could not be
+ * identified. Stable and greppable on purpose: it is the only signal that crosses the boundary, so
+ * a reader of the book can tell an unknown counterparty from a known one.
+ */
+export const UNIDENTIFIED_COUNTERPARTY = "counterparty not identified";
+
 export class CandidateMapper {
   constructor(private readonly usinaPartyId: string) {}
 
-  build(intent: Intent, _scenario: Scenario): Candidate {
+  /**
+   * @param unidentifiedParties party ids the Directory holds as explicitly not identifiable. The
+   *   candidate cannot say so in `reason.type` — the Ledger's ReasonType has no value for an
+   *   unknown counterparty, and inventing one would mean changing the Ledger. So the gap is carried
+   *   the only two ways the frozen contract allows: the follow-up flag and the reason's description.
+   */
+  build(
+    intent: Intent,
+    _scenario: Scenario,
+    unidentifiedParties: ReadonlySet<string> = new Set(),
+  ): Candidate {
     const m = MAPPINGS[intent.scenarioId];
     if (!m) throw new Error(`No candidate mapping for scenario '${intent.scenarioId}'`);
 
@@ -334,6 +351,16 @@ export class CandidateMapper {
       const base = { partyId, role: pt.role, direction: pt.direction };
       return pt.carriesAmount ? { ...base, amount } : base;
     });
+
+    // An unidentified counterparty is a gap in what is KNOWN, and the book must show it rather than
+    // let it pass as an ordinary party. `reason.type` is deliberately left alone: it names the
+    // event's cause, and overwriting it with unknown_origin would assert an unresolved LINEAGE,
+    // which is a different fact and may be false — the origin can be perfectly well known. What is
+    // true, and what is recorded, is that something here is still pending and what that something is.
+    if (parties.some((party) => unidentifiedParties.has(party.partyId))) {
+      requiresFollowup = true;
+      reasonText = `${reasonText} · ${UNIDENTIFIED_COUNTERPARTY}`;
+    }
 
     return {
       sourceReference,
