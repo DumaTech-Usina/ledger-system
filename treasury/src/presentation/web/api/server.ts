@@ -9,12 +9,17 @@ import { attachUser, requireAuth, requirePermission } from "./middleware/auth";
 import { Permission } from "../../../core/domain/enums/Permission";
 import type { AuthService } from "../../../core/application/services/AuthService";
 import type { GetTreasuryDashboardUseCase } from "../../../core/application/use-cases/GetTreasuryDashboard";
+import type { GetObjectLifecycleUseCase } from "../../../core/application/use-cases/GetObjectLifecycle";
 import type { StartIntentUseCase } from "../../../core/application/use-cases/StartIntent";
 import type { AdvanceDialogUseCase } from "../../../core/application/use-cases/AdvanceDialog";
 import type { ApplyAnswersUseCase } from "../../../core/application/use-cases/ApplyAnswers";
 import type { InterpretUtteranceUseCase } from "../../../core/application/use-cases/InterpretUtterance";
 import type { PreviewIntentUseCase } from "../../../core/application/use-cases/PreviewIntent";
 import type { SubmitIntentUseCase } from "../../../core/application/use-cases/SubmitIntent";
+import type { SubmitRectificationUseCase } from "../../../core/application/use-cases/SubmitRectification";
+import type { DecideIdentityUseCase } from "../../../core/application/use-cases/DecideIdentity";
+import type { RecordPartyAttributeUseCase } from "../../../core/application/use-cases/RecordPartyAttribute";
+import type { ListIncompletePartiesUseCase } from "../../../core/application/use-cases/ListIncompleteParties";
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
 
@@ -28,9 +33,14 @@ export interface ServerDeps {
   interpretUtterance: InterpretUtteranceUseCase;
   previewIntent: PreviewIntentUseCase;
   submitIntent: SubmitIntentUseCase;
+  submitRectification: SubmitRectificationUseCase;
+  decideIdentity: DecideIdentityUseCase;
+  recordPartyAttribute: RecordPartyAttributeUseCase;
+  listIncompleteParties: ListIncompletePartiesUseCase;
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
+  getObjectLifecycle: GetObjectLifecycleUseCase;
 }
 
 export function createServer(deps: ServerDeps) {
@@ -58,6 +68,10 @@ export function createServer(deps: ServerDeps) {
       deps.interpretUtterance,
       deps.previewIntent,
       deps.submitIntent,
+      deps.submitRectification,
+      deps.decideIdentity,
+      deps.recordPartyAttribute,
+      deps.listIncompleteParties,
     ),
   );
   app.use(
@@ -70,7 +84,7 @@ export function createServer(deps: ServerDeps) {
     "/api/dashboard",
     requireAuth,
     requirePermission(Permission.DASHBOARD_READ),
-    dashboardRoutes(deps.getDashboard),
+    dashboardRoutes(deps.getDashboard, deps.getObjectLifecycle),
   );
 
   // Minimal error boundary: unknown scenario/intent/slot → 400 with a legible message.

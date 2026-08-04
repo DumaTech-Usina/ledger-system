@@ -3,6 +3,7 @@ import { StubSlotExtractionAdapter } from "../../../infra/nlp/StubSlotExtraction
 import { getScenario, listScenarios } from "../../../core/domain/scenarios/Scenario";
 import type { SlotDefinition } from "../../../core/domain/value-objects/Slot";
 import type { ScenarioCatalogEntry } from "../../../core/application/ports/SlotExtractionPort";
+import { PARTY, knownParties } from "../../fixtures/parties";
 
 const slots = getScenario("register_payment")!.slots; // payee, amount, currency(BRL|USD), occurredAt, description
 const catalog: ScenarioCatalogEntry[] = listScenarios().map((s) => ({
@@ -35,9 +36,9 @@ describe("StubSlotExtractionAdapter", () => {
     const grounded = await adapter.extract({
       utterance: "pagamento para ACME",
       slots,
-      knownParties: [{ partyId: "party-acme", name: "ACME" }],
+      knownParties: knownParties(),
     });
-    expect(byKey(grounded).payee).toBe("party-acme");
+    expect(byKey(grounded).payee).toBe(PARTY.ACME);
 
     const ungrounded = await adapter.extract({ utterance: "pagamento para ACME", slots });
     expect(byKey(ungrounded).payee).toBeUndefined();

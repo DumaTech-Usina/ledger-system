@@ -4,6 +4,7 @@ import { LedgerEventObject } from "../../domain/entities/LedgerEconomicObject";
 import { LedgerEvent } from "../../domain/entities/LedgerEvent";
 import { LedgerEventParty } from "../../domain/entities/LedgerEventParty";
 import { EVENT_CONTRACTS } from "../../domain/contracts/EventContract";
+import { retractedEventIds } from "../dtos/retractionUtils";
 import { Relation } from "../../domain/enums/Relation";
 import { EventHash } from "../../domain/value-objects/EventHash";
 import { EventId } from "../../domain/value-objects/EventId";
@@ -57,12 +58,66 @@ export class CreateLedgerEventUseCase {
       }
     }
 
+    // Pillar 10 — rectification: a retraction speaks about ONE standing assertion.
+    //
+    // Two rules need the ledger, so they cannot live in InvariantPolicy (which sees only the event):
+    //
+    //  - one standing retraction per target. Without it, two retractions on the same event are
+    //    ambiguous — a repeat or a double negative? With it, retractions form a chain, never a tree,
+    //    and the chain can be folded deterministically by every reader;
+    //  - depth 1 (approved). A retraction may be retracted; a retraction OF a retraction may not.
+    //    This caps the fold at two hops, so no reader ever needs a recursive walk.
+    const isRetraction = command.objects.some((o) => o.relation === Relation.RETRACTS);
+
+    if (originEvent && isRetraction) {
+      const carriesRetraction = (e: LedgerEvent) =>
+        e.getObjects().some((o) => o.relation === Relation.RETRACTS);
+
+      const existingRetractions = (await this.repository.findByRelatedEventId(command.relatedEventId!))
+        .filter(carriesRetraction);
+
+      if (existingRetractions.length > 0) {
+        throw new Error(
+          `Event ${command.relatedEventId} has already been retracted by ${existingRetractions[0].id.value}`,
+        );
+      }
+
+      if (carriesRetraction(originEvent) && originEvent.relatedEventId) {
+        const retractedByTarget = await this.repository.getById(originEvent.relatedEventId);
+        if (retractedByTarget && carriesRetraction(retractedByTarget)) {
+          throw new Error(
+            "Retraction chain too deep: a retraction of a retraction cannot itself be retracted",
+          );
+        }
+      }
+    }
+
     const hasSettlesRelation = command.objects.some((o) => o.relation === Relation.SETTLES);
 
     if (originEvent && hasSettlesRelation) {
       const existing = await this.repository.findByRelatedEventId(command.relatedEventId!);
-      const alreadySettled = existing
-        .filter((e) => e.getObjects().some((o) => o.relation === Relation.SETTLES))
+      const settlements = existing.filter((e) =>
+        e.getObjects().some((o) => o.relation === Relation.SETTLES),
+      );
+
+      // Conservation is measured against what still STANDS. A settlement that was retracted never
+      // happened, so counting it here would make the ledger refuse the true fact that replaces it —
+      // which is exactly the failure the rectification exists to remove.
+      //
+      // A retraction points at the settlement, not at the origin, so it is not among `existing`:
+      // one hop finds the retractions, a second finds any that were themselves retracted. Depth 1
+      // guarantees there is no third. The fold itself stays in retractedEventIds — one rule, one
+      // place, so the projection and this guard can never disagree about what stands.
+      const firstHop = (
+        await Promise.all(settlements.map((e) => this.repository.findByRelatedEventId(e.id.value)))
+      ).flat();
+      const secondHop = (
+        await Promise.all(firstHop.map((e) => this.repository.findByRelatedEventId(e.id.value)))
+      ).flat();
+      const retracted = retractedEventIds([...firstHop, ...secondHop]);
+
+      const alreadySettled = settlements
+        .filter((e) => !retracted.has(e.id.value))
         .reduce((acc, e) => acc + e.amount.toUnits(), 0n);
 
       if (alreadySettled + money.toUnits() > originEvent.amount.toUnits()) {

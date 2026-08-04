@@ -269,11 +269,17 @@ describe("Reversal — cash flow totals (CashPositionService)", () => {
   it("CPREV5 — totalCashIn preserves the physical record after NON_CASH reversals", async () => {
     // LEDGER_CORRECTION is NON_CASH: it annotates the position as 'reversed' (semantic)
     // but does not alter the cash flow record (physical). The R$1,500 CASH_IN that entered
-    // the system remains in totalCashIn regardless of how many corrections follow.
+    // the system remains in totalCashIn regardless of how many REVERSALS follow.
     //
     // This is intentional: the ledger is an immutable audit trail. Reversals mark entries
     // as cancelled without rewriting history. Physical cash restitution requires a separate
     // CASH_OUT event representing the actual return of funds.
+    //
+    // SCOPE — this doctrine is about REVERSALS, and only those. A reversal cancels a movement
+    // that really happened, so the cash record must survive it. A RETRACTION (Relation.RETRACTS)
+    // makes the opposite claim — that the movement never happened at all — and by decision D5 the
+    // cash aggregates do drop it. See rectification-cash.test.ts, which pins that case and leaves
+    // this one untouched. Two different claims about reality, two different consequences.
     const ref = makeRef();
     const { ledgerRepo, run } = setup();
     const cashSvc = new CashPositionService(ledgerRepo);

@@ -5,7 +5,7 @@ import { EconomicOutcome, PositionStatus } from "../../../../core/application/dt
 import { ObjectType } from "../../../../core/domain/enums/ObjectType";
 import { serializePositionListItem, serializePositionSummary } from "../serializers/positionSerializer";
 
-const VALID_STATUSES  = new Set<string>(["open", "partially_settled", "fully_settled", "reversed"]);
+const VALID_STATUSES  = new Set<string>(["open", "partially_settled", "fully_settled", "reversed", "unknown_origin"]);
 const VALID_OUTCOMES  = new Set<string>(["gain", "partial_loss", "full_loss", "cancelled", "pending"]);
 const VALID_OBJ_TYPES = new Set<string>(Object.values(ObjectType));
 

@@ -5,6 +5,7 @@ import { HttpLedgerReadAdapter } from "../../infra/ledger-read/HttpLedgerReadAda
 import { StubLedgerReadAdapter } from "../../infra/ledger-read/StubLedgerReadAdapter";
 import { GetTreasuryDashboardUseCase } from "../../core/application/use-cases/GetTreasuryDashboard";
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
+import { PARTY } from "../fixtures/parties";
 
 // A fake Ledger returning its real read-API shapes.
 let server: Server;
@@ -47,7 +48,7 @@ describe("HttpLedgerReadAdapter", () => {
   it("reads and maps the Ledger read-API shapes", async () => {
     const adapter = new HttpLedgerReadAdapter(baseUrl);
     expect((await adapter.cashPosition()).netCashFlow).toBe("+600.00");
-    const mv = await adapter.cashMovements({ partyId: "party-usina" });
+    const mv = await adapter.cashMovements({ partyId: PARTY.USINA });
     expect(mv.items[0].effect).toBe("cash_in");
     const pos = await adapter.positions();
     expect(pos.total).toBe(1);
@@ -64,7 +65,7 @@ describe("HttpLedgerReadAdapter", () => {
 
 describe("GetTreasuryDashboardUseCase", () => {
   it("composes an available dashboard from Ledger reads", async () => {
-    const uc = new GetTreasuryDashboardUseCase(new HttpLedgerReadAdapter(baseUrl), "party-usina");
+    const uc = new GetTreasuryDashboardUseCase(new HttpLedgerReadAdapter(baseUrl), PARTY.USINA);
     const d = await uc.execute();
     expect(d.available).toBe(true);
     expect(d.cashPosition?.currency).toBe("BRL");
@@ -78,12 +79,12 @@ describe("GetTreasuryDashboardUseCase", () => {
       cashMovements: () => Promise.reject(new Error("down")),
       positions: () => Promise.reject(new Error("down")),
     };
-    const d = await new GetTreasuryDashboardUseCase(failing, "party-usina").execute();
+    const d = await new GetTreasuryDashboardUseCase(failing, PARTY.USINA).execute();
     expect(d).toEqual({ available: false, cashPosition: null, movements: null, positions: null, classificationHealth: null });
   });
 
   it("stub adapter returns representative data", async () => {
-    const d = await new GetTreasuryDashboardUseCase(new StubLedgerReadAdapter(), "party-usina").execute();
+    const d = await new GetTreasuryDashboardUseCase(new StubLedgerReadAdapter(), PARTY.USINA).execute();
     expect(d.available).toBe(true);
     expect(Number(d.cashPosition?.totalCashIn)).toBeGreaterThan(0);
   });

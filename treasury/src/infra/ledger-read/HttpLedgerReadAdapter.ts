@@ -1,34 +1,73 @@
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
+import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
+import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
 import type {
   CashPosition,
   CashMovementsPage,
   PositionsPage,
   PositionItem,
+  PositionLifecycle,
+  LedgerEventRef,
 } from "../../core/application/dtos/LedgerReadModels";
+
+/** The Ledger's position-detail payload, as `serializePositionSummary` emits it. */
+interface LedgerPositionDetail {
+  objectId: string;
+  status: string;
+  outcome: string;
+  currency: string;
+  totalOriginated: string;
+  totalSettled: string;
+  openBalance: string | null;
+  eventCount: number;
+  events: Array<{
+    id: string;
+    eventType: string;
+    economicEffect: string;
+    amount: string;
+    currency: string;
+    occurredAt: string;
+    recordedAt: string;
+    description: string | null;
+    relatedEventId: string | null;
+    retracted?: boolean;
+    objects: Array<{ objectId: string; relation: string }>;
+  }>;
+}
 
 /**
  * Reads the Ledger's published read API over HTTP. Uses Node's global fetch (no dependency) with a
  * timeout so a slow/hung Ledger can't hang a treasury request.
  */
-export class HttpLedgerReadAdapter implements LedgerReadPort {
+export class HttpLedgerReadAdapter implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort {
   constructor(
     private readonly baseUrl: string,
     private readonly serviceToken = "",
     private readonly timeoutMs = 4000,
   ) {}
 
-  private async get<T>(path: string): Promise<T> {
+  private async request<T>(path: string, nullOn404: boolean): Promise<T | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
       const headers: Record<string, string> = {};
       if (this.serviceToken) headers["authorization"] = `Bearer ${this.serviceToken}`;
       const res = await fetch(this.baseUrl + path, { headers, signal: controller.signal });
+      if (nullOn404 && res.status === 404) return null;
       if (!res.ok) throw new Error(`Ledger read failed (${res.status}) for ${path}`);
       return (await res.json()) as T;
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  private async get<T>(path: string): Promise<T> {
+    return (await this.request<T>(path, false)) as T;
+  }
+
+  /** For resources the Ledger may legitimately not know: 404 comes back as `null`, never as a throw. */
+  private getOrNull<T>(path: string): Promise<T | null> {
+    return this.request<T>(path, true);
   }
 
   cashPosition(): Promise<CashPosition> {
@@ -56,6 +95,77 @@ export class HttpLedgerReadAdapter implements LedgerReadPort {
         openBalance: p.openBalance,
         eventCount: p.eventCount,
         lastEventAt: p.lastEventAt,
+      })),
+    };
+  }
+
+  /**
+   * The life of one economic object, from the Ledger's own position projection. The event order is
+   * the Ledger's (recordedAt ascending) and is passed through untouched; each event is trimmed to
+   * the fields treasury displays, plus the relation it declares for THIS object.
+   */
+  async lifecycle(objectId: string): Promise<PositionLifecycle | null> {
+    const raw = await this.getOrNull<LedgerPositionDetail>(`/api/positions/${encodeURIComponent(objectId)}`);
+    if (!raw) return null;
+
+    return {
+      objectId: raw.objectId,
+      status: raw.status,
+      outcome: raw.outcome,
+      currency: raw.currency,
+      totalOriginated: raw.totalOriginated,
+      totalSettled: raw.totalSettled,
+      openBalance: raw.openBalance,
+      eventCount: raw.eventCount,
+      events: (raw.events ?? []).map((e) => ({
+        eventId: e.id,
+        eventType: e.eventType,
+        economicEffect: e.economicEffect,
+        relation: e.objects?.find((o) => o.objectId === raw.objectId)?.relation ?? null,
+        amount: e.amount,
+        currency: e.currency,
+        occurredAt: e.occurredAt,
+        recordedAt: e.recordedAt,
+        description: e.description,
+        relatedEventId: e.relatedEventId ?? null,
+        // Absent only against a Ledger that has no rectification at all — where nothing can be
+        // retracted, so `false` states a fact rather than filling a gap with a default.
+        retracted: e.retracted === true,
+      })),
+    };
+  }
+
+  /**
+   * One event, as the Ledger stored it. Used to describe a rectification in the Ledger's own terms
+   * — the amount and the object come from the record being corrected, never from a second typing.
+   */
+  async event(eventId: string): Promise<LedgerEventRef | null> {
+    const raw = await this.getOrNull<{
+      id: string;
+      eventType: string;
+      economicEffect: string;
+      amount: string;
+      currency: string;
+      occurredAt: string;
+      description: string | null;
+      relatedEventId: string | null;
+      objects: Array<{ objectId: string; objectType: string; relation: string }>;
+    }>(`/api/events/${encodeURIComponent(eventId)}`);
+    if (!raw) return null;
+
+    return {
+      eventId: raw.id,
+      eventType: raw.eventType,
+      economicEffect: raw.economicEffect,
+      amount: raw.amount,
+      currency: raw.currency,
+      occurredAt: raw.occurredAt,
+      description: raw.description ?? null,
+      relatedEventId: raw.relatedEventId ?? null,
+      objects: (raw.objects ?? []).map((o) => ({
+        objectId: o.objectId,
+        objectType: o.objectType,
+        relation: o.relation,
       })),
     };
   }

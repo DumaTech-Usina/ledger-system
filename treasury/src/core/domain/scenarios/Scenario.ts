@@ -11,6 +11,7 @@ import { registerCommissionAccrual } from "./registerCommissionAccrual";
 import { registerDirectPayment } from "./registerDirectPayment";
 import { registerCommissionReceived } from "./registerCommissionReceived";
 import { registerAdvanceSettlement } from "./registerAdvanceSettlement";
+import { registerRectification } from "./registerRectification";
 import { registerLoanRepayment } from "./registerLoanRepayment";
 
 /**
@@ -48,6 +49,7 @@ const REGISTRY: Record<string, Scenario> = {
   [registerDirectPayment.id]: registerDirectPayment,
   [registerCommissionReceived.id]: registerCommissionReceived,
   [registerAdvanceSettlement.id]: registerAdvanceSettlement,
+  [registerRectification.id]: registerRectification,
   [registerLoanRepayment.id]: registerLoanRepayment,
 };
 

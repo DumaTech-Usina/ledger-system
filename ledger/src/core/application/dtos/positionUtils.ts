@@ -1,8 +1,19 @@
 import { PositionAggregate } from "./PositionAggregate";
 import { PositionStatus } from "./PositionSummary";
 
+/**
+ * A position whose origination is unknown: some event declared its lineage unresolved and no
+ * ORIGINATES is on record. The baseline is missing, so every derivation that subtracts from it is
+ * unknowable — never zero. Distinct from a cash-basis payable, which has no origination because
+ * none exists and claims none.
+ */
+export function hasUnknownOrigination(agg: PositionAggregate): boolean {
+  return agg.hasUnresolvedLineage && agg.totalOriginatedUnits === 0n;
+}
+
 export function derivePositionStatus(agg: PositionAggregate): PositionStatus {
   if (agg.hasReversal) return "reversed";
+  if (hasUnknownOrigination(agg)) return "unknown_origin";
   const totalClosed = agg.totalSettledUnits + agg.totalAdjustedUnits;
   if (agg.totalOriginatedUnits === 0n) return "open";
   if (totalClosed >= agg.totalOriginatedUnits) return "fully_settled";
@@ -10,7 +21,9 @@ export function derivePositionStatus(agg: PositionAggregate): PositionStatus {
   return "open";
 }
 
-export function openBalanceUnitsOf(agg: PositionAggregate): bigint {
+/** Null when the origination is unknown — the remainder is not computable. */
+export function openBalanceUnitsOf(agg: PositionAggregate): bigint | null {
+  if (hasUnknownOrigination(agg)) return null;
   const totalClosed = agg.totalSettledUnits + agg.totalAdjustedUnits;
   return totalClosed >= agg.totalOriginatedUnits
     ? 0n
@@ -28,6 +41,9 @@ export function computeCapitalMetrics(
   for (const agg of aggs) {
     if (agg.currency !== currency || agg.hasReversal) continue;
     const openBalance = openBalanceUnitsOf(agg);
+    // An unknown exposure is not a zero exposure — it is simply not summable. Adding it as zero
+    // would understate the book; it is left out and surfaced by the position's own status.
+    if (openBalance === null) continue;
     openExposureUnits += openBalance;
     if (
       openBalance > 0n &&

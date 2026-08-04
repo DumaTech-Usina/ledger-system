@@ -29,10 +29,36 @@ import { PositionAggregate, PositionAggregateOptions } from '../../../core/appli
 import { EconomicOutcome, PositionStatus } from '../../../core/application/dtos/PositionSummary';
 import { CashMovementsPaginatedOptions } from '../../../core/application/dtos/CashStatement';
 
+/**
+ * SQL twin of `derivePositionStatus` (core/application/dtos/positionUtils.ts). The two must stay in
+ * lockstep — the shared truth table in tests/unit/application/position-status-truth-table.test.ts
+ * pins the agreement, since SQL cannot call the TypeScript rule.
+ */
+const UNKNOWN_ORIGIN_SQL = `(total_originated = 0 AND has_unresolved_lineage)`;
+
+/**
+ * SQL twin of `retractedEventIds` (core/application/dtos/retractionUtils.ts): the event is retracted
+ * by a retraction that still stands. Two nested NOT EXISTS, never a recursive walk — that is exactly
+ * what the approved depth of 1 buys. `<alias>` is the events table being filtered.
+ */
+const notRetracted = (alias: string) => `
+  NOT EXISTS (
+    SELECT 1 FROM ledger_events r
+    JOIN ledger_event_objects ro ON ro.event_id = r.id AND ro.relation = 'retracts'
+    WHERE r.related_event_id = ${alias}.id
+      AND NOT EXISTS (
+        SELECT 1 FROM ledger_events r2
+        JOIN ledger_event_objects r2o ON r2o.event_id = r2.id AND r2o.relation = 'retracts'
+        WHERE r2.related_event_id = r.id
+      )
+  )`;
+
 function statusToSql(status: PositionStatus): string {
   switch (status) {
+    case 'unknown_origin':
+      return `(NOT has_reversal AND ${UNKNOWN_ORIGIN_SQL})`;
     case 'open':
-      return `(NOT has_reversal AND (total_originated = 0 OR total_settled + total_adjusted = 0))`;
+      return `(NOT has_reversal AND NOT ${UNKNOWN_ORIGIN_SQL} AND (total_originated = 0 OR total_settled + total_adjusted = 0))`;
     case 'partially_settled':
       return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted > 0 AND total_settled + total_adjusted < total_originated)`;
     case 'fully_settled':
@@ -182,11 +208,13 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
           COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_in,
           COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_out,
           BOOL_OR(o.relation = 'reverses')                                                              AS has_reversal,
+          BOOL_OR(e.reason_type = 'unknown_origin' AND e.reason_requires_followup)                      AS has_unresolved_lineage,
           COUNT(DISTINCT e.id)                                                                           AS event_count,
           MAX(e.occurred_at)                                                                             AS last_event_at,
           MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at
         FROM ledger_events e
         JOIN ledger_event_objects o ON o.event_id = e.id
+        WHERE ${notRetracted('e')}
         GROUP BY o.object_id
       )
     `;
@@ -218,6 +246,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       refCashInUnits:       BigInt(row.ref_cash_in      as string),
       refCashOutUnits:      BigInt(row.ref_cash_out     as string),
       hasReversal:          row.has_reversal as boolean,
+      hasUnresolvedLineage: row.has_unresolved_lineage as boolean,
       eventCount:           parseInt(row.event_count as string, 10),
       lastEventAt:          new Date(row.last_event_at as string),
       originatedAt:         row.originated_at ? new Date(row.originated_at as string) : null,
@@ -240,6 +269,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
             BOOL_OR(o.relation = 'reverses')                                                               AS has_reversal
           FROM ledger_events e
           JOIN ledger_event_objects o ON o.event_id = e.id
+          WHERE ${notRetracted('e')}
           GROUP BY o.object_id
         ),
         open_objects AS (
@@ -267,8 +297,9 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       SELECT economic_effect AS effect,
              SUM(amount_units)   AS total,
              MAX(amount_currency) AS currency
-      FROM ledger_events
+      FROM ledger_events e
       WHERE economic_effect IN ('cash_in', 'cash_out')
+        AND ${notRetracted('e')}
       GROUP BY economic_effect
     `);
 
@@ -310,9 +341,10 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       SELECT economic_effect AS effect,
              SUM(amount_units)    AS total,
              MAX(amount_currency) AS currency
-      FROM ledger_events
+      FROM ledger_events e
       WHERE economic_effect IN ('cash_in', 'cash_out')
         AND occurred_at < $1
+        AND ${notRetracted('e')}
       GROUP BY economic_effect
     `, [date]);
 
@@ -347,7 +379,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
          AND EXISTS (
            SELECT 1 FROM ledger_event_objects o
            WHERE o.event_id = e.id AND o.relation = 'settles'
-         )`,
+         )
+         AND ${notRetracted('e')}`,
       [from, to, currency],
     );
     return {
@@ -370,11 +403,13 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
         COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_in,
         COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_out,
         BOOL_OR(o.relation = 'reverses')                                                              AS has_reversal,
+        BOOL_OR(e.reason_type = 'unknown_origin' AND e.reason_requires_followup)                       AS has_unresolved_lineage,
         COUNT(DISTINCT e.id)                                                                           AS event_count,
         MAX(e.occurred_at)                                                                             AS last_event_at,
         MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at
       FROM ledger_events e
       JOIN ledger_event_objects o ON o.event_id = e.id
+      WHERE ${notRetracted('e')}
       GROUP BY o.object_id
       ORDER BY last_event_at DESC
     `);
@@ -391,6 +426,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       refCashInUnits:       BigInt(row.ref_cash_in      as string),
       refCashOutUnits:      BigInt(row.ref_cash_out     as string),
       hasReversal:          row.has_reversal as boolean,
+      hasUnresolvedLineage: row.has_unresolved_lineage as boolean,
       eventCount:           parseInt(row.event_count as string, 10),
       lastEventAt:          new Date(row.last_event_at as string),
       originatedAt:         row.originated_at ? new Date(row.originated_at as string) : null,
@@ -404,9 +440,10 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     const rows: { event_type: string; economic_effect: string; total_units: string; currency: string }[] =
       await this.repo.manager.query(
         `SELECT event_type, economic_effect, SUM(amount_units) AS total_units, MAX(amount_currency) AS currency
-         FROM ledger_events
+         FROM ledger_events e
          WHERE occurred_at >= $1 AND occurred_at <= $2
            AND economic_effect IN ('cash_in', 'cash_out')
+           AND ${notRetracted('e')}
          GROUP BY event_type, economic_effect`,
         [from, to],
       );
@@ -425,6 +462,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       .leftJoinAndSelect('e.parties', 'parties')
       .leftJoinAndSelect('e.objects', 'objects')
       .where('e.economicEffect IN (:...effects)', { effects: ['cash_in', 'cash_out'] })
+      .andWhere(notRetracted('e'))
       .orderBy('e.occurredAt', 'DESC')
       .take(limit)
       .getMany();
@@ -443,6 +481,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
         { partyId: options.partyId },
       )
       .where('e.economicEffect IN (:...effects)', { effects: ['cash_in', 'cash_out'] })
+      // A retracted movement never happened, so it is not part of the statement.
+      .andWhere(notRetracted('e'))
       .orderBy('e.occurredAt', 'ASC')
       .addOrderBy('e.id', 'ASC')
       .take(options.limit + 1);

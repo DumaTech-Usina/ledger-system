@@ -2,7 +2,9 @@ import { randomUUID } from "crypto";
 import type { Candidate } from "../../core/domain/value-objects/Candidate";
 import type { CandidateSubmissionPort, SubmissionOutcome } from "../../core/application/ports/CandidateSubmissionPort";
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
-import type { CashPosition, CashMovementsPage, PositionsPage, CashMovement, PositionItem } from "../../core/application/dtos/LedgerReadModels";
+import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
+import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
+import type { CashPosition, CashMovementsPage, PositionsPage, CashMovement, PositionItem, PositionLifecycle, LedgerEventRef } from "../../core/application/dtos/LedgerReadModels";
 
 /**
  * DEMO-ONLY in-memory stand-in for the whole Ledger. Implements BOTH the submission boundary and
@@ -42,7 +44,7 @@ interface RecordInput {
   description: string | null;
 }
 
-export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerReadPort {
+export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort {
   private readonly movementStore: CashMovement[] = [];
   private readonly positionStore: PositionItem[] = [];
   private readonly seen = new Set<string>();
@@ -140,5 +142,19 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
 
   async positions(params?: { limit?: number }): Promise<PositionsPage> {
     return { data: this.positionStore.slice(0, params?.limit ?? 50), total: this.positionStore.length };
+  }
+
+  /**
+   * Not projected here. This store keys a position per submission (by sourceReference) and knows
+   * nothing about object continuity, so any history it produced would be a fiction. Unknown is the
+   * honest answer; the real lifecycle needs the real Ledger.
+   */
+  async lifecycle(_objectId: string): Promise<PositionLifecycle | null> {
+    return null;
+  }
+
+  /** No event store behind this adapter, so no event can be looked up — and none is invented. */
+  async event(_eventId: string): Promise<LedgerEventRef | null> {
+    return null;
   }
 }

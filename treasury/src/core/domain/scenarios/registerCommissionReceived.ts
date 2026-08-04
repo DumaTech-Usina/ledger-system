@@ -16,7 +16,11 @@ export const registerCommissionReceived: Scenario = {
   title: "Register commission received",
   description: "Record a commission the usina received (cash in), settling an expected commission.",
   slots: [
-    { key: "payer", type: SlotType.PARTY, prompt: "Who paid the commission (operator or counterparty)?", required: true, suggestionSource: "parties" },
+    // The only slot in the catalogue where an unidentifiable counterparty is admitted, and for the
+    // same reason this scenario already admits UNKNOWN_ORIGIN: money that ARRIVES can arrive without
+    // its sender being known, and refusing the fact would lose the whole payment to gain an
+    // attribute. An outgoing payment is the opposite — you know who you paid.
+    { key: "payer", type: SlotType.PARTY, prompt: "Who paid the commission (operator or counterparty)?", required: true, suggestionSource: "parties", allowUnidentifiable: true },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the commission amount received?", required: true },
     { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it received?", required: true },

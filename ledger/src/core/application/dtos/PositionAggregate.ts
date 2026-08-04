@@ -23,6 +23,12 @@ export interface PositionAggregate {
   refCashInUnits: bigint;
   refCashOutUnits: bigint;
   hasReversal: boolean;
+  /**
+   * True when some event on this object declared its lineage unresolved (reason UNKNOWN_ORIGIN with
+   * requiresFollowup). Combined with no ORIGINATES, it is the difference between "nothing was ever
+   * originated" (a cash-basis payable) and "we do not know what was originated" (an orphan).
+   */
+  hasUnresolvedLineage: boolean;
   eventCount: number;
   lastEventAt: Date;
   /** Date of the first ORIGINATES event for this object. Null when the position has no origination event. */
@@ -38,8 +44,10 @@ export interface PositionListItem {
   totalOriginated: Money;
   totalSettled: Money;
   totalAdjusted: Money;
-  openBalance: Money;
-  overSettlement: Money;
+  /** Null when the origination is unknown: the remaining balance is not computable, not zero. */
+  openBalance: Money | null;
+  /** Null when the origination is unknown: there is no baseline to exceed. */
+  overSettlement: Money | null;
   cashRecovered: Money;
   nonCashClosed: Money;
   allocationGap: Money;

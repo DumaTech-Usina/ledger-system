@@ -6,6 +6,8 @@ import type { CandidateMapper } from "../services/CandidateMapper";
 import type { CandidateSubmissionPort, SubmissionStatus, RejectionDetail } from "../ports/CandidateSubmissionPort";
 import type { AuditLog } from "../ports/AuditLog";
 import type { Clock } from "../ports/Clock";
+import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
+import { unidentifiedPartiesOf } from "../services/UnidentifiedParties";
 
 export interface SubmitIntentResult {
   intentId: string;
@@ -37,6 +39,7 @@ export class SubmitIntentUseCase {
     private readonly submission: CandidateSubmissionPort,
     private readonly audit: AuditLog,
     private readonly clock: Clock,
+    private readonly directory: PartyDirectoryPort,
   ) {}
 
   async execute(intentId: string): Promise<SubmitIntentResult> {
@@ -47,7 +50,12 @@ export class SubmitIntentUseCase {
     if (!scenario) throw new Error(`Unknown scenario: ${intent.scenarioId}`);
 
     intent.markSubmitted(this.clock.now()); // guard first: throws if not awaiting confirmation
-    const candidate = this.mapper.build(intent, scenario);
+    const draft = this.mapper.build(intent, scenario);
+    const candidate = this.mapper.build(
+      intent,
+      scenario,
+      await unidentifiedPartiesOf(draft, this.directory),
+    );
     await this.audit.record({ intentId, at: this.clock.now(), type: "intent.submitted", detail: candidate.sourceReference });
 
     const outcome = await this.submission.submit(candidate);

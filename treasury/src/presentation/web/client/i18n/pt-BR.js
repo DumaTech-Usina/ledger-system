@@ -16,6 +16,19 @@ I18N.register("pt-BR", {
     ops_sub: "Diga a ação de negócio — nós guiamos o restante.",
     start: "Iniciar →",
 
+    // Identidade — a contraparte precisa ser uma entidade conhecida, nunca o texto digitado.
+    identity_pick: "Não tenho certeza de quem é \"{mention}\". É alguma destas?",
+    identity_unknown: "Não conheço \"{mention}\" ainda.",
+    identity_create: "Cadastrar \"{mention}\"",
+    identity_unidentifiable: "Não é possível identificar",
+    identity_justify: "Por que a contraparte não pode ser identificada?",
+
+    // Enriquecimento — no máximo uma pergunta, sempre depois do registro estar completo.
+    enrich_ask: "Quer informar {attribute} de {party}? (opcional)",
+    enrich_skip: "Agora não",
+    attr_document: "o CPF/CNPJ",
+    attr_type: "o tipo",
+
     interpret_send: "Interpretar",
     interpret_placeholder: "Descreva a operação… ex.: paguei a folha 1500,00 em 2026-07-09",
     interpret_or: "ou escolha uma operação",
@@ -122,6 +135,9 @@ I18N.register("pt-BR", {
     partially_settled: "Parcialmente liquidado",
     fully_settled: "Liquidado",
     reversed: "Estornado",
+    // Houve liquidação, mas não se sabe o que foi originado — não é o mesmo que "em aberto",
+    // e o saldo dessa posição é desconhecido, nunca zero.
+    unknown_origin: "Origem desconhecida",
   },
 
   scenarios: {

@@ -253,6 +253,8 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
    * - previousHash mandatory: must link to the event being corrected.
    * - HIGH confidence mandatory: corrections must be certain.
    * - REVERSES cancels the original entirely; ADJUSTS records a partial fix.
+   * - RETRACTS declares that the event named by relatedEventId never corresponded to the world:
+   *   it names the position only to say WHERE the retracted assertion lived, and moves nothing.
    *
    * Note: `objects` here is informational — enforcement of object-type matching
    * against the original event is a future step.
@@ -263,67 +265,67 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     objects: [
       {
         objectType: ObjectType.COMMISSION_RECEIVABLE,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.COMMISSION_PAYABLE,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.COMMISSION_ENTITLEMENT,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.COMMISSION_POOL,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.LOAN,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.ADVANCE,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.RECEIVABLE,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.PAYABLE,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.PENALTY,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.CHARGEBACK,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.INCENTIVE,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.BONUS,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.PAYROLL,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.SERVICE_FEE,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.INFRASTRUCTURE_COST,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
       {
         objectType: ObjectType.TAX,
-        relations: [Relation.REVERSES, Relation.ADJUSTS],
+        relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
       },
     ],
 

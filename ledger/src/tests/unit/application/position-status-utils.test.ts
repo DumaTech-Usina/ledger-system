@@ -23,6 +23,7 @@ function makeAggregate(
     refCashInUnits: 0n,
     refCashOutUnits: 0n,
     hasReversal: false,
+    hasUnresolvedLineage: false,
     eventCount: 1,
     lastEventAt: new Date("2024-01-01"),
     originatedAt: new Date("2024-01-01"),
@@ -139,5 +140,47 @@ describe("openBalanceUnitsOf — calculating how much of a commission obligation
       totalAdjustedUnits: 0n,
     });
     expect(openBalanceUnitsOf(agg)).toBe(800n);
+  });
+});
+
+// ── unknown origination ───────────────────────────────────────────────────────
+
+describe("an unknown origination is not an origination of zero", () => {
+  /** The orphan: an event declared its lineage unresolved and nothing originated the object. */
+  const orphan = () =>
+    makeAggregate({
+      hasUnresolvedLineage: true,
+      totalOriginatedUnits: 0n,
+      totalSettledUnits: 700n,
+      cashRecoveredUnits: 700n,
+      originatedAt: null,
+    });
+
+  it("classifies as 'unknown_origin', not as 'open' — the position does carry a settlement", () => {
+    expect(derivePositionStatus(orphan())).toBe("unknown_origin");
+  });
+
+  it("reports the open balance as unknown, never as zero", () => {
+    expect(openBalanceUnitsOf(orphan())).toBeNull();
+  });
+
+  it("a reversal still supersedes an unknown origination", () => {
+    expect(derivePositionStatus(makeAggregate({ hasUnresolvedLineage: true, hasReversal: true }))).toBe("reversed");
+  });
+
+  it("once an origination IS on record, the position is measurable again even if an orphan event exists", () => {
+    const agg = makeAggregate({
+      hasUnresolvedLineage: true,
+      totalOriginatedUnits: 1000n,
+      totalSettledUnits: 400n,
+    });
+    expect(derivePositionStatus(agg)).toBe("partially_settled");
+    expect(openBalanceUnitsOf(agg)).toBe(600n);
+  });
+
+  it("REGRESSION GUARD — nothing originated and nothing claimed stays 'open' with a zero balance (cash-basis payable)", () => {
+    const agg = makeAggregate({ hasUnresolvedLineage: false, totalOriginatedUnits: 0n, totalSettledUnits: 1500n });
+    expect(derivePositionStatus(agg)).toBe("open");
+    expect(openBalanceUnitsOf(agg)).toBe(0n);
   });
 });

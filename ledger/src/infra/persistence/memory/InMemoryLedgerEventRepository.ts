@@ -4,6 +4,7 @@ import { Direction } from "../../../core/domain/enums/Direction";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
 import { EventType } from "../../../core/domain/enums/EventType";
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
+import { ReasonType } from "../../../core/domain/enums/ReasonType";
 import { Relation } from "../../../core/domain/enums/Relation";
 import { EventHash } from "../../../core/domain/value-objects/EventHash";
 import { Page, PageOptions, paginate } from "../../../core/application/dtos/Pagination";
@@ -11,6 +12,7 @@ import { PositionAggregate, PositionAggregateOptions } from "../../../core/appli
 import { EconomicOutcome, PositionStatus } from "../../../core/application/dtos/PositionSummary";
 import { CashMovementsPaginatedOptions } from "../../../core/application/dtos/CashStatement";
 import { derivePositionStatus, openBalanceUnitsOf } from "../../../core/application/dtos/positionUtils";
+import { retractedEventIds } from "../../../core/application/dtos/retractionUtils";
 
 function deriveOutcomeFromAggregate(status: PositionStatus, agg: PositionAggregate): EconomicOutcome {
   if (status === "reversed") return "cancelled";
@@ -123,7 +125,9 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   ): Promise<Array<{ eventType: EventType; economicEffect: EconomicEffect; totalUnits: bigint; currency: string }>> {
     const byKey = new Map<string, { totalUnits: bigint; currency: string }>();
 
+    const retractedForPeriod = retractedEventIds(this.store);
     for (const event of this.store) {
+      if (retractedForPeriod.has(event.id.value)) continue;
       if (event.occurredAt < from || event.occurredAt > to) continue;
       if (
         event.economicEffect !== EconomicEffect.CASH_IN &&
@@ -151,11 +155,13 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   }
 
   async findRecentCashMovements(limit: number): Promise<LedgerEvent[]> {
+    const retracted = retractedEventIds(this.store);
     return this.store
       .filter(
         (e) =>
-          e.economicEffect === EconomicEffect.CASH_IN ||
-          e.economicEffect === EconomicEffect.CASH_OUT,
+          !retracted.has(e.id.value) &&
+          (e.economicEffect === EconomicEffect.CASH_IN ||
+            e.economicEffect === EconomicEffect.CASH_OUT),
       )
       .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
       .slice(0, limit);
@@ -166,8 +172,11 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   private buildAggregateMap(): Map<string, PositionAggregate> {
     const aggMap = new Map<string, PositionAggregate>();
     const eventIdsByObject = new Map<string, Set<string>>();
+    // Same rule the projection applies, over the whole store: a retracted event contributes nothing.
+    const retracted = retractedEventIds(this.store);
 
     for (const event of this.store) {
+      if (retracted.has(event.id.value)) continue;
       const currency = event.amount.currency;
       const units = event.amount.toUnits();
       const occurredAt = event.occurredAt;
@@ -188,6 +197,7 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
             refCashInUnits:       0n,
             refCashOutUnits:      0n,
             hasReversal: false,
+            hasUnresolvedLineage: false,
             eventCount: 0,
             lastEventAt: new Date(0),
             originatedAt: null,
@@ -197,6 +207,13 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
 
         const agg = aggMap.get(oid)!;
         eventIdsByObject.get(oid)!.add(event.id.value);
+
+        // Mirrors the SQL aggregate: carry the orphan's declared unresolved lineage into the
+        // aggregate so both read paths can tell "unknown origination" from "no origination".
+        const reason = event.getReason();
+        if (reason?.type === ReasonType.UNKNOWN_ORIGIN && reason.requiresFollowup) {
+          agg.hasUnresolvedLineage = true;
+        }
 
         switch (obj.relation) {
           case Relation.ORIGINATES:
@@ -238,7 +255,9 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     for (const agg of this.buildAggregateMap().values()) {
       if (agg.hasReversal || agg.totalOriginatedUnits === 0n) continue;
       const openBalance = openBalanceUnitsOf(agg);
-      if (openBalance === 0n) continue;
+      // Null (unknown origination) is already excluded by the totalOriginated check above; the guard
+      // keeps an unknown amount from ever being folded into a total.
+      if (openBalance === null || openBalance === 0n) continue;
       const existing = byType.get(agg.objectType);
       if (existing) existing.openBalance += openBalance;
       else byType.set(agg.objectType, { openBalance, currency: agg.currency });
@@ -253,8 +272,10 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     let cashOutUnits = 0n;
     let currency = "BRL";
     let found = false;
+    const retracted = retractedEventIds(this.store);
 
     for (const event of this.store) {
+      if (retracted.has(event.id.value)) continue;
       if (event.economicEffect === EconomicEffect.CASH_IN) {
         if (!found) { currency = event.amount.currency; found = true; }
         cashInUnits += event.amount.toUnits();
@@ -282,8 +303,10 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     let cashOutUnits = 0n;
     let currency = "BRL";
     let found = false;
+    const retracted = retractedEventIds(this.store);
 
     for (const event of this.store) {
+      if (retracted.has(event.id.value)) continue;
       if (event.occurredAt >= date) continue;
       if (event.economicEffect === EconomicEffect.CASH_IN) {
         if (!found) { currency = event.amount.currency; found = true; }
@@ -304,7 +327,9 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   ): Promise<{ cashInSettledUnits: bigint; totalSettledUnits: bigint }> {
     let cashInSettledUnits = 0n;
     let totalSettledUnits  = 0n;
+    const retracted = retractedEventIds(this.store);
     for (const ev of this.store) {
+      if (retracted.has(ev.id.value)) continue;
       if (ev.occurredAt < from || ev.occurredAt > to) continue;
       if (ev.amount.currency !== currency) continue;
       if (!ev.getObjects().some((o) => o.relation === Relation.SETTLES)) continue;
@@ -315,7 +340,11 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   }
 
   async findCashMovementsPaginated(options: CashMovementsPaginatedOptions): Promise<{ items: LedgerEvent[]; hasMore: boolean; nextCursor: { occurredAt: Date; id: string } | null }> {
+    const retractedMovements = retractedEventIds(this.store);
     let filtered = this.store.filter((event) => {
+      // A movement that never happened does not belong on a cash statement. The event itself is
+      // still readable through the object's lifecycle — history lives there, not here.
+      if (retractedMovements.has(event.id.value)) return false;
       if (event.economicEffect === EconomicEffect.CASH_IN) {
         const match = event.getParties().some(
           (p) => p.partyId.value === options.partyId && p.direction === Direction.IN,

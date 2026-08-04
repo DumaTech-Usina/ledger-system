@@ -154,8 +154,8 @@ describe("PositionProjectionService.summarizePaginated()", () => {
     const result = await svc(ledgerRepo).summarizePaginated({ objectType: ObjectType.ADVANCE });
     const pos = result.data.find((p) => p.objectId === "adv-u11")!;
 
-    expect(pos.overSettlement.toString()).toBe("300.00");
-    expect(pos.openBalance.toString()).toBe("0.00");
+    expect(pos.overSettlement!.toString()).toBe("300.00");
+    expect(pos.openBalance!.toString()).toBe("0.00");
   });
 
   it("U12 — openBalance is zero when position is fully settled", async () => {
@@ -166,7 +166,7 @@ describe("PositionProjectionService.summarizePaginated()", () => {
     const result = await svc(ledgerRepo).summarizePaginated({});
     const pos = result.data.find((p) => p.objectId === "loan-u12")!;
 
-    expect(pos.openBalance.toString()).toBe("0.00");
+    expect(pos.openBalance!.toString()).toBe("0.00");
     expect(pos.status).toBe("fully_settled");
   });
 });

@@ -10,6 +10,7 @@ import { SubmitIntentUseCase } from "../../core/application/use-cases/SubmitInte
 import { IntentStatus } from "../../core/domain/enums/IntentStatus";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
+import { PARTY, partyDirectory } from "../fixtures/parties";
 
 /**
  * Phase 5: the NON_CASH operations are reachable end-to-end via the guided path and produce valid
@@ -19,17 +20,18 @@ import type { IdGenerator } from "../../core/application/ports/IdGenerator";
 const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
 
 function wire() {
+  const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
-  const mapper = new CandidateMapper("party-usina");
+  const mapper = new CandidateMapper(PARTY.USINA);
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
   return {
     repo,
     start: new StartIntentUseCase(repo, clock, ids, audit),
-    advance: new AdvanceDialogUseCase(repo, clock, audit),
-    preview: new PreviewIntentUseCase(repo, mapper),
-    submit: new SubmitIntentUseCase(repo, mapper, new StubCandidateSubmissionAdapter(), audit, clock),
+    advance: new AdvanceDialogUseCase(repo, clock, audit, directory),
+    preview: new PreviewIntentUseCase(repo, mapper, directory),
+    submit: new SubmitIntentUseCase(repo, mapper, new StubCandidateSubmissionAdapter(), audit, clock, directory),
   };
 }
 
@@ -46,7 +48,7 @@ describe("NON_CASH scenarios flow (Phase 5)", () => {
   it("commission waiver: no party carries an amount; object relation follows the basis choice", async () => {
     const w = wire();
     const { intentId, last } = await fill(w, "register_waiver", {
-      payee: "party-broker", basis: "reversal", amount: "500.00", currency: "BRL", occurredAt: "2026-07-09",
+      payee: PARTY.BROKER, basis: "reversal", amount: "500.00", currency: "BRL", occurredAt: "2026-07-09",
     });
     expect(last.state.kind).toBe("ready");
 
@@ -66,7 +68,7 @@ describe("NON_CASH scenarios flow (Phase 5)", () => {
     });
     const preview = await w.preview.execute(intentId);
     expect(preview.candidate.eventType).toBe("commission_expected");
-    expect(preview.candidate.parties).toEqual([{ partyId: "party-usina", role: "beneficiary", direction: "neutral" }]);
+    expect(preview.candidate.parties).toEqual([{ partyId: PARTY.USINA, role: "beneficiary", direction: "neutral" }]);
 
     const result = await w.submit.execute(intentId);
     expect(result.intentStatus).toBe(IntentStatus.ACCEPTED);
@@ -75,7 +77,7 @@ describe("NON_CASH scenarios flow (Phase 5)", () => {
   it("direct payment acknowledgement: two settled objects, accepted", async () => {
     const w = wire();
     const { intentId } = await fill(w, "register_direct_payment", {
-      payee: "party-broker", amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
+      payee: PARTY.BROKER, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
     });
     const preview = await w.preview.execute(intentId);
     expect(preview.candidate.objects).toHaveLength(2);

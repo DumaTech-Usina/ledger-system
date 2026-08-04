@@ -36,8 +36,16 @@ export interface PositionOrigin {
  * partially_settled — some SETTLES events, but totalSettled < totalOriginated
  * fully_settled   — totalSettled >= totalOriginated
  * reversed        — a REVERSES event is present (position cancelled)
+ * unknown_origin  — an event declared its lineage unresolved and no ORIGINATES is on record: what
+ *                   was originated is NOT known. Distinct from `open` (which asserts a known
+ *                   baseline still outstanding) and never to be read as an origination of zero.
  */
-export type PositionStatus = "open" | "partially_settled" | "fully_settled" | "reversed";
+export type PositionStatus =
+  | "open"
+  | "partially_settled"
+  | "fully_settled"
+  | "reversed"
+  | "unknown_origin";
 
 /**
  * gain         — fully settled via cash (no loss events)
@@ -58,10 +66,18 @@ export interface PositionSummary {
   totalSettled: Money;
   /** Sum of amounts from all ADJUSTS events (e.g. partial repayments via commission netting). */
   totalAdjusted: Money;
-  /** Remaining: totalOriginated − (totalSettled + totalAdjusted). Zero when fully closed. */
-  openBalance: Money;
-  /** Amount by which (totalSettled + totalAdjusted) exceeds totalOriginated. Zero when within bounds. */
-  overSettlement: Money;
+  /**
+   * Remaining: totalOriginated − (totalSettled + totalAdjusted). Zero when fully closed.
+   * **Null when the origination is unknown** — a missing baseline makes the remainder unknowable,
+   * and reporting it as zero would state a completeness the event stream does not assert.
+   */
+  openBalance: Money | null;
+  /**
+   * Amount by which (totalSettled + totalAdjusted) exceeds totalOriginated. Zero when within bounds.
+   * **Null when the origination is unknown** — there is no baseline to exceed, so conservation
+   * cannot be evaluated; zero here would silently claim it was.
+   */
+  overSettlement: Money | null;
   /** SETTLES events with CASH_IN effect — actual money returned. */
   cashRecovered: Money;
   /** SETTLES events with NON_CASH effect — written off or debt-renegotiated amounts. */

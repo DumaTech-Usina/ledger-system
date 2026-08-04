@@ -63,6 +63,15 @@ interface ScenarioMapping {
   /** EVENT_REF answer key holding the causal origin's event id (for settlements). */
   relatedEventSlot?: string;
   /**
+   * Answer key holding the id of an economic object this event moves — the identity of a position
+   * that already exists, asserted by the producer. Present ⇒ the object is a continuation, not a new
+   * one; absent or blank ⇒ the id is minted as always. Distinct from `relatedEventSlot` on purpose:
+   * lineage answers "which fact caused this fact" and is validated by the Ledger, while continuity
+   * answers "which position this fact moves" and is nobody's to validate. Declared only on
+   * single-object mappings — the multi-object case (one id per object) is not modelled yet.
+   */
+  objectIdSlot?: string;
+  /**
    * When the origin slot is left empty, record the fact as an explicit orphan instead of gating it:
    * the reason declares the lineage unresolved (UNKNOWN_ORIGIN + follow-up). Only where the Ledger
    * contract admits UNKNOWN_ORIGIN (COMMISSION_RECEIVED). Absent ⇒ the origin slot must be required.
@@ -228,7 +237,35 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     reasonType: "advance_payment",
     reasonText: "Advance recovery",
     relatedEventSlot: "origin",
+    objectIdSlot: "objectRef",
   },
+  // ── Rectification ──────────────────────────────────────────────────────────────────────────────
+  // Declares that a previously recorded event never corresponded to the world. RETRACTS names the
+  // position the corrected entry moved WITHOUT moving it: the effect of a rectification is to remove
+  // the target's contribution, never to add one of its own. The Ledger validates the target and the
+  // chain rules; treasury only carries the assertion.
+  //
+  // `objectType` is not a user choice — it is filled from the Ledger's own record of the corrected
+  // event, so a correction cannot name a kind of position the entry never touched.
+  register_rectification: {
+    eventType: "ledger_correction",
+    economicEffect: "non_cash",
+    parties: [{ who: "usina", role: "platform", direction: "neutral" }],
+    objects: [{ objectType: "advance", relation: "retracts" }],
+    reasonType: "data_reconciliation",
+    reasonText: "Entry rectified: verified against the source, it never happened",
+    variants: {
+      selectorSlot: "objectType",
+      byChoice: {
+        advance: { objectType: "advance" },
+        loan: { objectType: "loan" },
+        commission_receivable: { objectType: "commission_receivable" },
+      },
+    },
+    relatedEventSlot: "target",
+    objectIdSlot: "objectRef",
+  },
+
   // Loan repayment SETTLES the loan a LOAN_ORIGINATION originated. Origin is required.
   register_loan_repayment: {
     eventType: "loan_repayment",
@@ -242,10 +279,27 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
   },
 };
 
+/**
+ * The marker appended to a candidate's reason description when a counterparty could not be
+ * identified. Stable and greppable on purpose: it is the only signal that crosses the boundary, so
+ * a reader of the book can tell an unknown counterparty from a known one.
+ */
+export const UNIDENTIFIED_COUNTERPARTY = "counterparty not identified";
+
 export class CandidateMapper {
   constructor(private readonly usinaPartyId: string) {}
 
-  build(intent: Intent, _scenario: Scenario): Candidate {
+  /**
+   * @param unidentifiedParties party ids the Directory holds as explicitly not identifiable. The
+   *   candidate cannot say so in `reason.type` — the Ledger's ReasonType has no value for an
+   *   unknown counterparty, and inventing one would mean changing the Ledger. So the gap is carried
+   *   the only two ways the frozen contract allows: the follow-up flag and the reason's description.
+   */
+  build(
+    intent: Intent,
+    _scenario: Scenario,
+    unidentifiedParties: ReadonlySet<string> = new Set(),
+  ): Candidate {
     const m = MAPPINGS[intent.scenarioId];
     if (!m) throw new Error(`No candidate mapping for scenario '${intent.scenarioId}'`);
 
@@ -280,8 +334,14 @@ export class CandidateMapper {
     const objectTemplates = m.objects.map((o, i) =>
       i === 0 ? { objectType: override.objectType ?? o.objectType, relation: override.relation ?? o.relation } : o,
     );
+    // Continuity: when the scenario declares an object-id slot and the user asserted a position, the
+    // event continues THAT object instead of starting a new one — which is what lets a single object
+    // be originated, then partially settled, then closed. Absent or blank, the id is minted exactly
+    // as before. Treasury never verifies the asserted id exists: like lineage, that is the Ledger's
+    // business, and an unknown position is a legitimate state, not a reason to refuse the fact.
+    const assertedObjectId = m.objectIdSlot ? a[m.objectIdSlot]?.trim() || undefined : undefined;
     const objects = objectTemplates.map((o) => ({
-      objectId: objectTemplates.length === 1 ? sourceReference : `${sourceReference}:${o.objectType}`,
+      objectId: assertedObjectId ?? (objectTemplates.length === 1 ? sourceReference : `${sourceReference}:${o.objectType}`),
       objectType: o.objectType,
       relation: o.relation,
     }));
@@ -291,6 +351,16 @@ export class CandidateMapper {
       const base = { partyId, role: pt.role, direction: pt.direction };
       return pt.carriesAmount ? { ...base, amount } : base;
     });
+
+    // An unidentified counterparty is a gap in what is KNOWN, and the book must show it rather than
+    // let it pass as an ordinary party. `reason.type` is deliberately left alone: it names the
+    // event's cause, and overwriting it with unknown_origin would assert an unresolved LINEAGE,
+    // which is a different fact and may be false — the origin can be perfectly well known. What is
+    // true, and what is recorded, is that something here is still pending and what that something is.
+    if (parties.some((party) => unidentifiedParties.has(party.partyId))) {
+      requiresFollowup = true;
+      reasonText = `${reasonText} · ${UNIDENTIFIED_COUNTERPARTY}`;
+    }
 
     return {
       sourceReference,

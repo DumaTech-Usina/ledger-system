@@ -31,6 +31,20 @@ const envSchema = z.object({
   /** The usina's party id, used when mapping an intent to a Ledger candidate. */
   USINA_PARTY_ID: z.string().default("party-usina"),
 
+  /**
+   * Where the Party Directory lives:
+   *  - "memory": volatile. Fine for tests and for exercising resolution, never for issuing ids.
+   *  - "mongo":  durable, at MONGO_URL. Required before any PartyId reaches a production Ledger —
+   *              an id lost on restart would be orphaned inside an immutable event.
+   */
+  PARTY_DIRECTORY_MODE: z.enum(["memory", "mongo"]).default("memory"),
+
+  /** MongoDB connection string for the Party Directory. */
+  MONGO_URL: z.string().default("mongodb://root:rootpassword@localhost:27017"),
+
+  /** Database holding the Party Directory collection. */
+  MONGO_DB: z.string().default("treasury"),
+
   /** Session lifetime in hours. */
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(12),
 

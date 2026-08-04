@@ -16,6 +16,15 @@ export interface SlotDefinition {
   choices?: string[];
   /** Identifies a deterministic suggestion source (e.g. known parties from Ledger data). */
   suggestionSource?: string;
+  /**
+   * PARTY slots only: whether this counterparty may be recorded as explicitly not identifiable.
+   * Declared per slot, so it is per scenario AND per role — the payer of an arriving payment can be
+   * unknown in a way the payee of an outgoing one cannot.
+   *
+   * Absent means NOT admissible, mirroring how an absent `orphan` mapping makes an origin slot
+   * required. The exception has to be granted somewhere explicit; it is never a global escape.
+   */
+  allowUnidentifiable?: boolean;
 }
 
 export type SlotValue = string;

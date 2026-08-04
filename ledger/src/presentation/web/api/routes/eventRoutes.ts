@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { LedgerEventRepository } from "../../../../core/application/repositories/LedgerEventRepository";
 import { Relation } from "../../../../core/domain/enums/Relation";
 import { normalizePageOptions } from "../../../../core/application/dtos/Pagination";
+import { retractedEventIds } from "../../../../core/application/dtos/retractionUtils";
 import { serializeEvent } from "../serializers/eventSerializer";
 
 async function buildSettledSet(
@@ -72,9 +73,14 @@ export function eventRoutes(ledgerRepo: LedgerEventRepository): Router {
       const payload = await Promise.all(
         pageEvents.map(async (event) => {
           const primaryObjectId = event.getObjects()[0]?.objectId.value;
-          const posEvents = primaryObjectId
+          const allPosEvents = primaryObjectId
             ? await ledgerRepo.findByObjectId(primaryObjectId)
             : [event];
+
+          // The chain and the status describe what still STANDS, so they read the position the same
+          // way /api/positions does. A retracted event is part of the history, not of the state.
+          const retracted = retractedEventIds(allPosEvents);
+          const posEvents = allPosEvents.filter((e) => !retracted.has(e.id.value));
 
           const allRels = posEvents.flatMap((e) => e.getObjects().map((o) => o.relation));
           const positionStatus = allRels.includes(Relation.REVERSES)
@@ -111,6 +117,27 @@ export function eventRoutes(ledgerRepo: LedgerEventRepository): Router {
       );
 
       res.json({ data: payload, total, page: options.page, limit: options.limit, totalPages });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * A single event by id. Declared AFTER `/feed` so the literal route wins over the parameter.
+   *
+   * A producer that wants to rectify an event needs to know what that event asserted — its amount,
+   * and the object it moved. Without this, the only way to build a correction is to retype figures
+   * the ledger already holds, which invites a correction that disagrees with what it corrects.
+   * Read-only: it serializes the stored event and derives nothing.
+   */
+  router.get("/:id", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const event = await ledgerRepo.getById(req.params.id);
+      if (!event) {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+      res.json(serializeEvent(event));
     } catch (err) {
       next(err);
     }

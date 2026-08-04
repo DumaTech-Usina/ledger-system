@@ -11,6 +11,7 @@ import type { Candidate } from "../../core/domain/value-objects/Candidate";
 import type { CandidateSubmissionPort, SubmissionOutcome } from "../../core/application/ports/CandidateSubmissionPort";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
+import { PARTY, partyDirectory } from "../fixtures/parties";
 
 const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
 
@@ -42,24 +43,25 @@ class FixedGate implements CandidateSubmissionPort {
 }
 
 function wire(submission: CandidateSubmissionPort) {
+  const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
-  const mapper = new CandidateMapper("party-usina");
+  const mapper = new CandidateMapper(PARTY.USINA);
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
   return {
     repo,
     audit,
     start: new StartIntentUseCase(repo, clock, ids, audit),
-    advance: new AdvanceDialogUseCase(repo, clock, audit),
-    apply: new ApplyAnswersUseCase(repo, clock, audit),
-    submit: new SubmitIntentUseCase(repo, mapper, submission, audit, clock),
+    advance: new AdvanceDialogUseCase(repo, clock, audit, directory),
+    apply: new ApplyAnswersUseCase(repo, clock, audit, directory),
+    submit: new SubmitIntentUseCase(repo, mapper, submission, audit, clock, directory),
   };
 }
 
 async function fillPenalty(w: ReturnType<typeof wire>, amount: string) {
   const { intentId } = await w.start.execute({ scenarioId: "register_penalty", userId: "cfo" });
-  await w.advance.execute({ intentId, key: "payee", value: "party-authority" });
+  await w.advance.execute({ intentId, key: "payee", value: PARTY.AUTHORITY });
   await w.advance.execute({ intentId, key: "amount", value: amount });
   await w.advance.execute({ intentId, key: "currency", value: "BRL" });
   await w.advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });

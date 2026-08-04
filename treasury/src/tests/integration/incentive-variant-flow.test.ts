@@ -10,6 +10,7 @@ import { SubmitIntentUseCase } from "../../core/application/use-cases/SubmitInte
 import { IntentStatus } from "../../core/domain/enums/IntentStatus";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
+import { PARTY, partyDirectory } from "../fixtures/parties";
 
 /**
  * Phase 4: a CHOICE slot (`kind`) selects a branch of the tuple (the object). The mapper stays the
@@ -19,23 +20,24 @@ import type { IdGenerator } from "../../core/application/ports/IdGenerator";
 const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
 
 function wire() {
+  const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
-  const mapper = new CandidateMapper("party-usina");
+  const mapper = new CandidateMapper(PARTY.USINA);
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
   return {
     repo,
     start: new StartIntentUseCase(repo, clock, ids, audit),
-    advance: new AdvanceDialogUseCase(repo, clock, audit),
-    preview: new PreviewIntentUseCase(repo, mapper),
-    submit: new SubmitIntentUseCase(repo, mapper, new StubCandidateSubmissionAdapter(), audit, clock),
+    advance: new AdvanceDialogUseCase(repo, clock, audit, directory),
+    preview: new PreviewIntentUseCase(repo, mapper, directory),
+    submit: new SubmitIntentUseCase(repo, mapper, new StubCandidateSubmissionAdapter(), audit, clock, directory),
   };
 }
 
 async function fillIncentive(w: ReturnType<typeof wire>, kind: string) {
   const { intentId } = await w.start.execute({ scenarioId: "register_incentive", userId: "cfo" });
-  await w.advance.execute({ intentId, key: "payee", value: "party-broker" });
+  await w.advance.execute({ intentId, key: "payee", value: PARTY.BROKER });
   await w.advance.execute({ intentId, key: "kind", value: kind });
   await w.advance.execute({ intentId, key: "amount", value: "1500.00" });
   await w.advance.execute({ intentId, key: "currency", value: "BRL" });
@@ -47,7 +49,7 @@ describe("incentive variant flow (Phase 4)", () => {
   it("rejects an invalid kind choice (deterministic engine guards it)", async () => {
     const w = wire();
     const { intentId } = await w.start.execute({ scenarioId: "register_incentive", userId: "cfo" });
-    await w.advance.execute({ intentId, key: "payee", value: "party-broker" });
+    await w.advance.execute({ intentId, key: "payee", value: PARTY.BROKER });
     const res = await w.advance.execute({ intentId, key: "kind", value: "gift" });
     expect(res.error?.key).toBe("kind");
   });
