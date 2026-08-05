@@ -19,6 +19,7 @@ import { SubmitRectificationUseCase } from "../../core/application/use-cases/Sub
 import { DecideIdentityUseCase } from "../../core/application/use-cases/DecideIdentity";
 import { RecordPartyAttributeUseCase } from "../../core/application/use-cases/RecordPartyAttribute";
 import { ListIncompletePartiesUseCase } from "../../core/application/use-cases/ListIncompleteParties";
+import { ListSettlementCandidatesUseCase } from "../../core/application/use-cases/ListSettlementCandidates";
 import { StubLedgerReadAdapter } from "../../infra/ledger-read/StubLedgerReadAdapter";
 import { Role } from "../../core/domain/enums/Role";
 import { PartyAttributeKey } from "../../core/domain/value-objects/PartyAttribute";
@@ -91,6 +92,7 @@ function harness() {
       new DecideIdentityUseCase(intents, parties, clock, ids, audit),
       new RecordPartyAttributeUseCase(parties, clock, audit),
       new ListIncompletePartiesUseCase(directory),
+      new ListSettlementCandidatesUseCase(intents, new StubLedgerReadAdapter(), directory),
     ),
   );
   return { app, parties, directory };

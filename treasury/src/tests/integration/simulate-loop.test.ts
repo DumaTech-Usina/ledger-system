@@ -26,7 +26,7 @@ describe("simulate mode — full create → dashboard loop", () => {
     const start = new StartIntentUseCase(repo, clock, ids, audit);
     const advance = new AdvanceDialogUseCase(repo, clock, audit, directory);
     const submit = new SubmitIntentUseCase(repo, mapper, simulator, audit, clock, directory);
-    const dashboard = new GetTreasuryDashboardUseCase(simulator, PARTY.USINA);
+    const dashboard = new GetTreasuryDashboardUseCase(simulator, PARTY.USINA, partyDirectory());
 
     const before = Number((await dashboard.execute()).cashPosition!.totalCashOut);
 

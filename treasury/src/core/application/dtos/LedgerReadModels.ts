@@ -42,11 +42,16 @@ export interface PositionItem {
   openBalance: string | null;
   eventCount: number;
   lastEventAt: string | null;
+  /** When the position was originated. Null when no ORIGINATES event is on record. */
+  originatedAt: string | null;
 }
 
 export interface PositionsPage {
   data: PositionItem[];
   total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 /**
@@ -111,4 +116,39 @@ export interface LedgerEventRef {
   description: string | null;
   relatedEventId: string | null;
   objects: { objectId: string; objectType: string; relation: string }[];
+}
+
+/**
+ * The Ledger's own read of the book's economic state — what the position math says about the whole
+ * book, rather than about one object. Mirrors the fields treasury displays from `GET /api/dashboard`
+ * (`serializeDashboard`), trimmed to those.
+ *
+ * All three figures are CURRENT STATE, not period-scoped: `DashboardService.compute` derives them
+ * from `findAllPositionAggregates()`, while `from`/`to` only scope the cash figures treasury does
+ * not read here. That is why no period is passed.
+ *
+ * `attentionPositions` is deliberately NOT mirrored. The Ledger selects it by position *status* and
+ * sorts by `originatedAt ?? 0`, so a cash-basis position — status `open`, balance 0.00, no
+ * origination date — sorts to the top and occupies the six slots before the list is cut. Filtering
+ * downstream cannot recover what the cut already dropped, so treasury builds its own attention list
+ * from balances instead.
+ */
+export interface BookExposure {
+  currency: string;
+  /** Sum of open balances across positions the Ledger can measure. */
+  openExposure: string;
+  /** Open balances originated over 30 days ago with nothing settled against them yet. */
+  capitalAtRisk: string;
+  healthScore: {
+    /** Composite 0–100. */
+    score: number;
+    label: string;
+    trend: string;
+    trendDelta: number;
+    /** Fraction of settlements closed via cash in the window (0–1). */
+    closureQuality: number;
+    /** 1 − (capitalAtRisk / openExposure) across open positions (0–1). */
+    openBookHealth: number;
+    windowDays: number;
+  };
 }

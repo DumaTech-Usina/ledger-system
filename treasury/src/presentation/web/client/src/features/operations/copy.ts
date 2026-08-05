@@ -165,6 +165,7 @@ export const statusLabels: Record<IntentStatus, string> = {
   awaiting_confirmation: "Aguardando confirmação",
   confirmed: "Confirmado",
   submitted: "Enviado",
+  awaiting_correction: "Aguardando correção",
   accepted: "Aceito",
   rejected: "Rejeitado",
 };
@@ -173,9 +174,96 @@ export const eventLabels: Record<string, string> = {
   "intent.started": "Iniciado",
   "slot.answered": "Respondido",
   "slot.rejected": "Resposta inválida detectada",
+  "identity.resolution": "Contraparte consultada",
+  "identity.decision": "Contraparte definida",
   "intent.submitted": "Enviado ao Ledger",
   "intent.accepted": "Aceito",
   "intent.rejected": "Rejeitado",
+};
+
+/**
+ * The counterparty conversation. A mention the Directory could not turn into exactly one known
+ * party is never recorded by the backend, so the question comes back — these are what the chat says
+ * instead of asking the same thing again in silence.
+ */
+export const identityCopy = {
+  /**
+   * Similarity hit: close, not equal. Confirming is the user's to do — never assumed. The backend's
+   * `resolved` outcome publishes only the PartyId (no display name, unlike an ambiguous candidate),
+   * so the id is what goes on screen — an unknown label is never invented to fill the gap.
+   */
+  confirm: (mention: string, partyId: string) =>
+    `"${mention}" parece ser a contraparte ${partyId}. É essa mesma?`,
+  ambiguous: (mention: string) =>
+    `Mais de uma contraparte se parece com "${mention}". Qual delas?`,
+  unknown: (mention: string) => `Ainda não conheço "${mention}". Quer cadastrar?`,
+  create: (mention: string) => `Cadastrar "${mention}"`,
+  unidentifiable: "Não é possível identificar",
+  justificationLabel: "Por que a contraparte não pode ser identificada?",
+  justificationConfirm: "Registrar assim",
+  justificationCancel: "Voltar",
+  /** Shown when the slot is open again: retyping is always a way out. */
+  retype: "Ou escreva outro nome na caixa abaixo.",
+};
+
+/**
+ * Choosing which position a settlement is about. The question replaces typing an event id with
+ * recognising a business fact — "the advance of R$ 500 paid to Corretor Parceiro on 02/07" — and it
+ * only ever appears when there is something real to choose from.
+ */
+export const positionCopy = {
+  prompt: "Escolha qual delas está sendo quitada:",
+  /** Always present: the list is an offer, never a gate. Typing still works. */
+  notListed: "Não está na lista",
+  originatedOn: "Originado em",
+  stillOpen: "Em aberto",
+  unknownCounterparty: "Contraparte desconhecida",
+  unknownDate: "Data de originação desconhecida",
+  /** What goes into the transcript once a position is picked. */
+  picked: (counterparty: string | null, amount: string) =>
+    counterparty ? `${counterparty} — ${amount}` : amount,
+};
+
+/**
+ * The one optional question the confirmation card may offer. It exists only after the fact is
+ * already complete and can never hold a submission back — so it is phrased as an offer, never as a
+ * pending item, and "prefiro não informar" is a first-class answer rather than a dismissal.
+ */
+export const enrichmentCopy = {
+  question: (displayName: string, attribute: string) =>
+    `Quer aproveitar e informar ${attributeLabels[attribute] ?? attribute} de ${displayName}?`,
+  save: "Salvar",
+  decline: "Prefiro não informar",
+  saved: "Anotado.",
+  declined: "Sem problema — não pergunto de novo.",
+};
+
+/** The attributes the conversation may ask for, and the Ledger's own party vocabulary for `type`. */
+export const attributeLabels: Record<string, string> = {
+  document: "o CPF/CNPJ",
+  type: "o tipo",
+};
+
+export const partyTypeChoices = ["company", "client", "supplier", "bank", "gateway"] as const;
+
+/**
+ * What the Ledger's answer means for the conversation. A fixable rejection is not an ending: the
+ * Ledger named what it could not accept, and the same intent can carry a corrected version.
+ */
+export const submitCopy = {
+  correctionTitle: "O Ledger ainda não aceitou",
+  correctionHint: "Ajuste o que está apontado abaixo e envie de novo.",
+  correctionAction: "Corrigir",
+  correctionSave: "Salvar e revisar",
+  correctionCancel: "Cancelar",
+};
+
+export const partyTypeLabels: Record<string, string> = {
+  company: "Empresa",
+  client: "Cliente",
+  supplier: "Fornecedor",
+  bank: "Banco",
+  gateway: "Gateway",
 };
 
 const messageTranslations: Record<string, string> = {

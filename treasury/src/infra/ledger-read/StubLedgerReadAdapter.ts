@@ -1,14 +1,22 @@
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
+import type { PositionCandidate, PositionLookupPort } from "../../core/application/ports/PositionLookupPort";
 import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
-import type { CashPosition, CashMovementsPage, PositionsPage, PositionLifecycle, LedgerEventRef } from "../../core/application/dtos/LedgerReadModels";
+import type {
+  BookExposure,
+  CashPosition,
+  CashMovementsPage,
+  PositionsPage,
+  PositionLifecycle,
+  LedgerEventRef,
+} from "../../core/application/dtos/LedgerReadModels";
 
 /**
  * Offline/demo adapter returning representative figures in the Ledger's raw money format
  * ("1250000.00"), so display formatting behaves identically to the real HTTP adapter. Selected via
  * LEDGER_READS=stub when no Ledger is reachable.
  */
-export class StubLedgerReadAdapter implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort {
+export class StubLedgerReadAdapter implements LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort {
   /**
    * An object's life is projected from a real event chain, which this adapter does not have. It
    * answers "unknown" rather than inventing a history — a fabricated lifecycle would be worse than
@@ -53,15 +61,50 @@ export class StubLedgerReadAdapter implements LedgerReadPort, PositionLifecycleP
     const at = (mo: number, d: number) => new Date(Date.UTC(2026, mo, d)).toISOString();
     return {
       total: 5,
+      page: 1,
+      limit: 50,
+      totalPages: 1,
       data: [
-        { objectId: "charge:1001", objectType: "charge", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "42000.00", openBalance: "42000.00", eventCount: 1, lastEventAt: at(6, 9) },
-        { objectId: "charge:1000", objectType: "charge", status: "partially_settled", outcome: "pending", currency: "BRL", totalOriginated: "120000.00", openBalance: "32000.00", eventCount: 3, lastEventAt: at(6, 7) },
-        { objectId: "advance:3003", objectType: "advance", status: "fully_settled", outcome: "gain", currency: "BRL", totalOriginated: "9300.00", openBalance: "0.00", eventCount: 2, lastEventAt: at(6, 6) },
+        { objectId: "charge:1001", objectType: "charge", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "42000.00", openBalance: "42000.00", eventCount: 1, lastEventAt: at(6, 9), originatedAt: null },
+        { objectId: "charge:1000", objectType: "charge", status: "partially_settled", outcome: "pending", currency: "BRL", totalOriginated: "120000.00", openBalance: "32000.00", eventCount: 3, lastEventAt: at(6, 7), originatedAt: null },
+        { objectId: "advance:3003", objectType: "advance", status: "fully_settled", outcome: "gain", currency: "BRL", totalOriginated: "9300.00", openBalance: "0.00", eventCount: 2, lastEventAt: at(6, 6), originatedAt: null },
         // Two generic/uncategorized payments (objectType "payable") — one recent, one stale — so the
         // classification-health panel shows a representative backlog in demo mode.
-        { objectId: "intent:p-88", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(6, 5) },
-        { objectId: "intent:p-42", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(2, 2) },
+        { objectId: "intent:p-88", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(6, 5), originatedAt: null },
+        { objectId: "intent:p-42", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(2, 2), originatedAt: null },
       ],
     };
   }
+
+  /**
+   * No position store to offer from, so nothing is offered. The conversation then asks its question
+   * the way it always has — an empty list is a legitimate answer, not a degraded one.
+   */
+  async openPositions(): Promise<PositionCandidate[]> {
+    return [];
+  }
+
+
+  /**
+   * No book to measure. Zeroes here would claim a healthy book rather than an absent one, so the
+   * figures are stated as zero exposure with a zero score — and the demo adapters are never the
+   * source for a real decision.
+   */
+  async bookExposure(): Promise<BookExposure> {
+    return {
+      currency: "BRL",
+      openExposure: "0.00",
+      capitalAtRisk: "0.00",
+      healthScore: {
+        score: 0,
+        label: "healthy",
+        trend: "stable",
+        trendDelta: 0,
+        closureQuality: 0,
+        openBookHealth: 0,
+        windowDays: 90,
+      },
+    };
+  }
+
 }

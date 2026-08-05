@@ -22,11 +22,13 @@ export interface CashMovement {
 export interface PositionItem {
   objectId: string;
   objectType: string;
+  /** Includes `unknown_origin`: the Ledger knows a settlement happened but not what was originated. */
   status: string;
   outcome: string;
   currency: string;
   totalOriginated: string;
-  openBalance: string;
+  /** Null when the origination is unknown — never zero. The Ledger publishes no figure it cannot derive. */
+  openBalance: string | null;
   eventCount: number;
   lastEventAt: string | null;
 }
@@ -46,4 +48,94 @@ export interface TreasuryDashboard {
   movements: CashMovement[] | null;
   positions: PositionItem[] | null;
   classificationHealth: ClassificationHealth | null;
+  /**
+   * partyId → display name for the counterparties in `movements`. A party the Directory does not
+   * know is absent here and keeps its id on screen — never a label treasury cannot support.
+   */
+  partyNames: Record<string, string>;
+}
+
+/**
+ * One event in an economic object's life, as it relates to THAT object. `relation` is what the
+ * event declares for the requested objectId — originates / settles / adjusts / reverses / retracts
+ * / references — which is what makes the sequence readable as an evolution rather than a list.
+ */
+export interface PositionLifecycleEvent {
+  eventId: string;
+  eventType: string;
+  economicEffect: string;
+  relation: string | null;
+  amount: string;
+  currency: string;
+  occurredAt: string;
+  recordedAt: string;
+  description: string | null;
+  /**
+   * The event this one speaks about: the causal origin of a settlement, or — for a rectification —
+   * the assertion it retracts. Null when the event stands on its own.
+   */
+  relatedEventId: string | null;
+  /**
+   * True when a rectification declared that this event never corresponded to the world. It stays in
+   * the history (nothing is rewritten) but no longer counts towards any figure. The Ledger publishes
+   * this; treasury never derives it.
+   */
+  retracted: boolean;
+}
+
+/**
+ * The whole life of one economic object: the position the Ledger projects from its immutable chain,
+ * plus the ordered events that produced it. The order is the Ledger's own (recordedAt ascending)
+ * and is preserved as received — never re-sorted here.
+ */
+export interface PositionLifecycle {
+  objectId: string;
+  status: string;
+  outcome: string;
+  currency: string;
+  totalOriginated: string;
+  totalSettled: string;
+  /** Null when the origination is unknown — never zero. */
+  openBalance: string | null;
+  eventCount: number;
+  events: PositionLifecycleEvent[];
+}
+
+/**
+ * What the position math says about the whole book. Current state, not a period — the Ledger derives
+ * these from every aggregate, and its `from`/`to` only scope cash figures the cash screen reads.
+ */
+export interface BookExposure {
+  currency: string;
+  openExposure: string;
+  capitalAtRisk: string;
+  healthScore: {
+    score: number;
+    label: string;
+    trend: string;
+    trendDelta: number;
+    closureQuality: number;
+    openBookHealth: number;
+    windowDays: number;
+  };
+}
+
+export interface BookExposureResult {
+  /** False when the Ledger could not be reached. Never rendered as zero — unknown stays unknown. */
+  available: boolean;
+  exposure: BookExposure | null;
+}
+
+/** One page of positions, paged by the Ledger itself. */
+export interface PositionsPage {
+  data: PositionItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface ListPositionsResult {
+  available: boolean;
+  page: PositionsPage | null;
 }

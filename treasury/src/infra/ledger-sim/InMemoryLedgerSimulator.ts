@@ -3,8 +3,18 @@ import type { Candidate } from "../../core/domain/value-objects/Candidate";
 import type { CandidateSubmissionPort, SubmissionOutcome } from "../../core/application/ports/CandidateSubmissionPort";
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
+import type { PositionCandidate, PositionLookupPort } from "../../core/application/ports/PositionLookupPort";
 import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
-import type { CashPosition, CashMovementsPage, PositionsPage, CashMovement, PositionItem, PositionLifecycle, LedgerEventRef } from "../../core/application/dtos/LedgerReadModels";
+import type {
+  BookExposure,
+  CashPosition,
+  CashMovementsPage,
+  PositionsPage,
+  CashMovement,
+  PositionItem,
+  PositionLifecycle,
+  LedgerEventRef,
+} from "../../core/application/dtos/LedgerReadModels";
 
 /**
  * DEMO-ONLY in-memory stand-in for the whole Ledger. Implements BOTH the submission boundary and
@@ -44,7 +54,7 @@ interface RecordInput {
   description: string | null;
 }
 
-export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort {
+export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort {
   private readonly movementStore: CashMovement[] = [];
   private readonly positionStore: PositionItem[] = [];
   private readonly seen = new Set<string>();
@@ -109,7 +119,7 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
       totalOriginated: input.amount,
       openBalance: input.amount,
       eventCount: 1,
-      lastEventAt: input.occurredAt,
+      lastEventAt: input.occurredAt, originatedAt: null,
     });
     return ledgerReference;
   }
@@ -140,8 +150,17 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
     return { items: this.movementStore.slice(0, params.limit ?? 50), nextCursor: null, hasMore: false };
   }
 
-  async positions(params?: { limit?: number }): Promise<PositionsPage> {
-    return { data: this.positionStore.slice(0, params?.limit ?? 50), total: this.positionStore.length };
+  async positions(params?: { limit?: number; page?: number }): Promise<PositionsPage> {
+    const limit = params?.limit ?? 50;
+    const page = params?.page ?? 1;
+    const data = this.positionStore.slice((page - 1) * limit, page * limit);
+    return {
+      data,
+      total: this.positionStore.length,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(this.positionStore.length / limit)),
+    };
   }
 
   /**
@@ -157,4 +176,36 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
   async event(_eventId: string): Promise<LedgerEventRef | null> {
     return null;
   }
+
+  /**
+   * No position store to offer from, so nothing is offered. The conversation then asks its question
+   * the way it always has — an empty list is a legitimate answer, not a degraded one.
+   */
+  async openPositions(): Promise<PositionCandidate[]> {
+    return [];
+  }
+
+
+  /**
+   * No book to measure. Zeroes here would claim a healthy book rather than an absent one, so the
+   * figures are stated as zero exposure with a zero score — and the demo adapters are never the
+   * source for a real decision.
+   */
+  async bookExposure(): Promise<BookExposure> {
+    return {
+      currency: "BRL",
+      openExposure: "0.00",
+      capitalAtRisk: "0.00",
+      healthScore: {
+        score: 0,
+        label: "healthy",
+        trend: "stable",
+        trendDelta: 0,
+        closureQuality: 0,
+        openBookHealth: 0,
+        windowDays: 90,
+      },
+    };
+  }
+
 }

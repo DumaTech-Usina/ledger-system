@@ -286,6 +286,33 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
  */
 export const UNIDENTIFIED_COUNTERPARTY = "counterparty not identified";
 
+/**
+ * The kind of position a scenario can continue, or undefined when it cannot continue any.
+ *
+ * Read from the mapping rather than inferred from `relation === "settles"`: the mapper is the sole
+ * authority over the tuple, and declaring admissibility explicitly is what keeps the capability from
+ * leaking into the cash expenses that settle positions nobody ever originated (payroll, penalties,
+ * infrastructure). Offering continuity there would ask a question with no possible answer.
+ *
+ * Multi-object mappings are excluded on purpose: their ids are minted one per object, and selecting
+ * a single position could only speak for one of them.
+ */
+export function continuityObjectType(scenarioId: string): string | undefined {
+  const mapping = MAPPINGS[scenarioId];
+  if (!mapping?.objectIdSlot || mapping.objects.length !== 1) return undefined;
+  return mapping.objects[0].objectType;
+}
+
+/** The answer key a scenario carries its continuity assertion in. */
+export function continuitySlot(scenarioId: string): string | undefined {
+  return MAPPINGS[scenarioId]?.objectIdSlot;
+}
+
+/** The answer key a scenario carries its lineage assertion in. */
+export function lineageSlot(scenarioId: string): string | undefined {
+  return MAPPINGS[scenarioId]?.relatedEventSlot;
+}
+
 export class CandidateMapper {
   constructor(private readonly usinaPartyId: string) {}
 

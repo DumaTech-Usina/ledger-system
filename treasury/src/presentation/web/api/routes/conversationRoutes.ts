@@ -10,6 +10,7 @@ import type { SubmitRectificationUseCase } from "../../../../core/application/us
 import type { DecideIdentityUseCase } from "../../../../core/application/use-cases/DecideIdentity";
 import type { RecordPartyAttributeUseCase } from "../../../../core/application/use-cases/RecordPartyAttribute";
 import type { ListIncompletePartiesUseCase } from "../../../../core/application/use-cases/ListIncompleteParties";
+import type { ListSettlementCandidatesUseCase } from "../../../../core/application/use-cases/ListSettlementCandidates";
 import { IdentityDecisionKind } from "../../../../core/domain/value-objects/IdentityDecision";
 import { Permission } from "../../../../core/domain/enums/Permission";
 import { currentUser, requirePermission } from "../middleware/auth";
@@ -29,6 +30,7 @@ export function conversationRoutes(
   decideIdentity: DecideIdentityUseCase,
   recordPartyAttribute: RecordPartyAttributeUseCase,
   listIncompleteParties: ListIncompletePartiesUseCase,
+  listSettlementCandidates: ListSettlementCandidatesUseCase,
 ): Router {
   const router = Router();
 
@@ -142,6 +144,16 @@ export function conversationRoutes(
   router.get("/parties/incomplete", async (_req: Request, res: Response, next: NextFunction) => {
     try {
       res.json(await listIncompleteParties.execute());
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // The positions this settlement could be about. An empty list is the ordinary answer and means
+  // the conversation asks its question the way it always has — never that something is missing.
+  router.get("/:intentId/candidates", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await listSettlementCandidates.execute(req.params.intentId));
     } catch (err) {
       next(err);
     }

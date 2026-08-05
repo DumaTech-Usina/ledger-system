@@ -64,6 +64,11 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
     answer,
     sendUtterance,
     resolveSuggestion,
+    decideIdentity,
+    selectPosition,
+    dismissPositions,
+    recordEnrichment,
+    applyCorrection,
     confirmSubmit,
     restart,
     answeredSlots,
@@ -216,6 +221,11 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
               answeredSlots={answeredSlots}
               onSaveEdits={saveEdits}
               onResolveSuggestion={resolveSuggestion}
+              onDecideIdentity={decideIdentity}
+              onRecordEnrichment={recordEnrichment}
+              onApplyCorrection={applyCorrection}
+              onSelectPosition={selectPosition}
+              onDismissPositions={dismissPositions}
             />
           )}
         </OperationsShell>

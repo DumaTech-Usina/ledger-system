@@ -14,8 +14,40 @@ export const languageOptions: LanguageOption[] = [
 ];
 
 export interface Translations {
-  common: { loading: string; noRecords: string; close: string; previous: string; next: string; pageOf: string; viewDetails: string };
-  nav: { operations: string; dashboards: string };
+  common: {
+    loading: string;
+    noRecords: string;
+    close: string;
+    previous: string;
+    next: string;
+    pageOf: string;
+    viewDetails: string;
+    /** For a figure the Ledger cannot derive. Never rendered as zero — the two mean different things. */
+    unknown: string;
+  };
+  nav: { operations: string; dashboards: string; positions: string; intents: string };
+  /** The economic reality: what is owed, what is outstanding, how each object evolved. */
+  positions: {
+    heading: string;
+    subheading: string;
+    exposure: string;
+    capitalAtRisk: string;
+    bookHealth: string;
+    closureQuality: string;
+    exposureUnavailable: string;
+    capitalAtRiskNote: string;
+    listUnavailable: string;
+    total: string;
+  };
+  intents: {
+    heading: string;
+    subheading: string;
+    operation: string;
+    status: string;
+    updatedAt: string;
+    historyTitle: string;
+    noHistory: string;
+  };
   roles: { finance_manager: string; viewer: string };
   topbar: { openMenu: string; account: string; signOut: string; language: string };
   sidebar: { closeMenu: string; collapseMenu: string; expandMenu: string; collapse: string };
@@ -28,7 +60,10 @@ export interface Translations {
     netFlow: string;
     positionAsOf: string;
     recentMovements: string;
+    /** The figure the Ledger computes from balances, and the drill-down that matches it. */
     openPositions: string;
+    /** The full list, which includes positions with nothing outstanding. */
+    allPositions: string;
     classificationHealth: {
       title: string;
       uncategorized: string;
@@ -52,6 +87,36 @@ export interface Translations {
       document: string;
       cashInColumn: string;
       cashOutColumn: string;
+      /** Reads as a question a person would ask, not as a field name. */
+      whatHappened: string;
+    };
+    lifecycle: {
+      tabSummary: string;
+      tabLifecycle: string;
+      /** The Ledger knows no such object — distinct from "this object has no events". */
+      unknownObject: string;
+      unavailable: string;
+      originated: string;
+      settled: string;
+      events: string;
+      occurredOn: string;
+      recordedOn: string;
+      relatedEvent: string;
+      copyEventId: string;
+      copied: string;
+      retracted: string;
+      retractedNote: string;
+      openByIdLabel: string;
+      openByIdPlaceholder: string;
+      openByIdAction: string;
+      rectify: string;
+      rectifyTitle: string;
+      rectifyExplain: string;
+      rectifyDescription: string;
+      rectifyConfirm: string;
+      rectifyCancel: string;
+      rectifyUnsupported: string;
+      rectifyContextual: string;
     };
     hero: {
       badge: string;
@@ -66,6 +131,11 @@ export interface Translations {
   /** Keyed by the domain enum's raw string value (e.g. CashEffect, ObjectType). */
   cashEffect: Record<string, string>;
   positionStatus: Record<string, string>;
+  /** What an event declares about the object it names — the axis that makes a history readable. */
+  eventRelation: Record<string, string>;
+  positionOutcome: Record<string, string>;
+  /** The intent lifecycle inside the User App — distinct from the Ledger's fact lifecycle. */
+  intentStatus: Record<string, string>;
   objectType: Record<string, string>;
   eventType: Record<string, string>;
 }
@@ -79,10 +149,34 @@ const ptBR: Translations = {
     next: "Próxima",
     pageOf: "Página {page} de {total}",
     viewDetails: "Ver detalhes",
+    unknown: "Desconhecido",
   },
   nav: {
     operations: "Operações",
-    dashboards: "Dashboards",
+    dashboards: "Caixa",
+    positions: "Posições",
+    intents: "Minhas operações",
+  },
+  positions: {
+    heading: "Posições econômicas",
+    subheading: "O que ainda está em aberto, o que já foi encerrado e como cada objeto evoluiu.",
+    exposure: "Exposição em aberto",
+    capitalAtRisk: "Capital em risco",
+    bookHealth: "Saúde do livro",
+    closureQuality: "Qualidade de fechamento",
+    exposureUnavailable: "Não foi possível ler a exposição do livro agora.",
+    capitalAtRiskNote: "Originado há mais de 30 dias, sem nenhuma liquidação até aqui.",
+    listUnavailable: "Não foi possível listar as posições agora.",
+    total: "{count} posições",
+  },
+  intents: {
+    heading: "Minhas operações",
+    subheading: "O que você registrou e o que aconteceu com cada registro.",
+    operation: "Operação",
+    status: "Situação",
+    updatedAt: "Atualizado em",
+    historyTitle: "Histórico",
+    noHistory: "Sem histórico registrado.",
   },
   roles: {
     finance_manager: "Financeiro",
@@ -101,8 +195,8 @@ const ptBR: Translations = {
     collapse: "Recolher",
   },
   dashboard: {
-    heading: "Verdade financeira",
-    subheading: "Visões somente leitura obtidas do Ledger. Posição de caixa, extratos e projeções.",
+    heading: "Caixa",
+    subheading: "Quanto dinheiro entrou e saiu, e quando. Somente leitura, obtido do Ledger.",
     unavailable: "Não foi possível carregar os dados do Ledger no momento.",
     cashIn: "Entradas de caixa",
     cashOut: "Saídas de caixa",
@@ -110,6 +204,7 @@ const ptBR: Translations = {
     positionAsOf: "Posição em {date}",
     recentMovements: "Movimentações recentes",
     openPositions: "Posições em aberto",
+    allPositions: "Posições",
     classificationHealth: {
       title: "Saúde de classificação",
       uncategorized: "Pagamentos sem categoria",
@@ -133,6 +228,35 @@ const ptBR: Translations = {
       document: "Número do documento",
       cashInColumn: "Entradas",
       cashOutColumn: "Saídas",
+      whatHappened: "O que aconteceu",
+    },
+    lifecycle: {
+      tabSummary: "Resumo",
+      tabLifecycle: "Ciclo de vida",
+      unknownObject: "O Ledger não conhece esta posição. Isso não afirma que nada aconteceu com ela.",
+      unavailable: "Não foi possível carregar o ciclo de vida agora.",
+      originated: "Originado",
+      settled: "Liquidado",
+      events: "Eventos",
+      occurredOn: "Ocorreu em",
+      recordedOn: "Registrado em",
+      relatedEvent: "Evento relacionado",
+      copyEventId: "Copiar id do evento",
+      copied: "Copiado",
+      retracted: "Retratado",
+      retractedNote: "Uma retificação declarou que este evento nunca aconteceu. Ele permanece na história e não conta para nenhum valor.",
+      openByIdLabel: "Abrir posição por id",
+      openByIdPlaceholder: "ex.: intent:8f2c…",
+      openByIdAction: "Abrir",
+      rectify: "Retificar",
+      rectifyTitle: "Este lançamento nunca aconteceu?",
+      rectifyExplain:
+        "A retificação declara que o lançamento não corresponde ao mundo. Ele continua na história e deixa de contar. Valor e posição vêm do registro do Ledger — você não redigita nada.",
+      rectifyDescription: "O que comprovou o erro (documento, conciliação)?",
+      rectifyConfirm: "Registrar retificação",
+      rectifyCancel: "Cancelar",
+      rectifyUnsupported: "Retificação ainda não disponível para este tipo de posição.",
+      rectifyContextual: "Este evento não movimenta esta posição.",
     },
     hero: {
       badge: "Fluxo financeiro",
@@ -156,6 +280,33 @@ const ptBR: Translations = {
     partially_settled: "Parcialmente liquidado",
     fully_settled: "Liquidado",
     reversed: "Estornado",
+    // The Ledger saw a settlement but not what was originated — never to be read as zero.
+    unknown_origin: "Origem desconhecida",
+  },
+  eventRelation: {
+    originates: "Origina",
+    adjusts: "Ajusta",
+    settles: "Liquida",
+    reverses: "Estorna",
+    references: "Referencia",
+    retracts: "Retrata",
+  },
+  intentStatus: {
+    draft: "Rascunho",
+    gathering: "Coletando informações",
+    awaiting_confirmation: "Aguardando confirmação",
+    confirmed: "Confirmado",
+    submitted: "Enviado",
+    awaiting_correction: "Aguardando correção",
+    accepted: "Aceito",
+    rejected: "Rejeitado",
+  },
+  positionOutcome: {
+    gain: "Recuperado",
+    partial_loss: "Perda parcial",
+    full_loss: "Perda total",
+    cancelled: "Cancelado",
+    pending: "Em andamento",
   },
   objectType: {
     commission_entitlement: "Direito à comissão",
@@ -217,10 +368,34 @@ const en: Translations = {
     next: "Next",
     pageOf: "Page {page} of {total}",
     viewDetails: "View details",
+    unknown: "Unknown",
   },
   nav: {
     operations: "Operations",
-    dashboards: "Dashboards",
+    dashboards: "Cash",
+    positions: "Positions",
+    intents: "My entries",
+  },
+  positions: {
+    heading: "Economic positions",
+    subheading: "What is still outstanding, what has closed, and how each object evolved.",
+    exposure: "Open exposure",
+    capitalAtRisk: "Capital at risk",
+    bookHealth: "Book health",
+    closureQuality: "Closure quality",
+    exposureUnavailable: "Couldn't read the book's exposure right now.",
+    capitalAtRiskNote: "Originated over 30 days ago, with nothing settled against it yet.",
+    listUnavailable: "Couldn't list positions right now.",
+    total: "{count} positions",
+  },
+  intents: {
+    heading: "My entries",
+    subheading: "What you recorded, and what became of each record.",
+    operation: "Operation",
+    status: "Status",
+    updatedAt: "Updated",
+    historyTitle: "History",
+    noHistory: "No history recorded.",
   },
   roles: {
     finance_manager: "Finance",
@@ -239,8 +414,8 @@ const en: Translations = {
     collapse: "Collapse",
   },
   dashboard: {
-    heading: "Financial truth",
-    subheading: "Read-only views sourced from the Ledger. Cash position, statements and projections.",
+    heading: "Cash",
+    subheading: "How much money came in and out, and when. Read-only, sourced from the Ledger.",
     unavailable: "Couldn't load Ledger data right now.",
     cashIn: "Cash in",
     cashOut: "Cash out",
@@ -248,6 +423,7 @@ const en: Translations = {
     positionAsOf: "Position as of {date}",
     recentMovements: "Recent movements",
     openPositions: "Open positions",
+    allPositions: "Positions",
     classificationHealth: {
       title: "Classification health",
       uncategorized: "Uncategorized payments",
@@ -271,6 +447,35 @@ const en: Translations = {
       document: "Document number",
       cashInColumn: "Cash in",
       cashOutColumn: "Cash out",
+      whatHappened: "What happened",
+    },
+    lifecycle: {
+      tabSummary: "Summary",
+      tabLifecycle: "Lifecycle",
+      unknownObject: "The Ledger knows no such position. That doesn't assert nothing happened to it.",
+      unavailable: "Couldn't load the lifecycle right now.",
+      originated: "Originated",
+      settled: "Settled",
+      events: "Events",
+      occurredOn: "Occurred on",
+      recordedOn: "Recorded on",
+      relatedEvent: "Related event",
+      copyEventId: "Copy event id",
+      copied: "Copied",
+      retracted: "Retracted",
+      retractedNote: "A rectification declared this event never happened. It stays in the history and counts towards no figure.",
+      openByIdLabel: "Open position by id",
+      openByIdPlaceholder: "e.g. intent:8f2c…",
+      openByIdAction: "Open",
+      rectify: "Rectify",
+      rectifyTitle: "Did this entry never happen?",
+      rectifyExplain:
+        "A rectification declares the entry doesn't correspond to the world. It stays in the history and stops counting. The amount and position come from the Ledger's own record — you retype nothing.",
+      rectifyDescription: "What established the error (document, reconciliation)?",
+      rectifyConfirm: "Record rectification",
+      rectifyCancel: "Cancel",
+      rectifyUnsupported: "Rectifying this kind of position isn't supported yet.",
+      rectifyContextual: "This event doesn't move this position.",
     },
     hero: {
       badge: "Financial flow",
@@ -294,6 +499,32 @@ const en: Translations = {
     partially_settled: "Partially settled",
     fully_settled: "Settled",
     reversed: "Reversed",
+    unknown_origin: "Unknown origin",
+  },
+  eventRelation: {
+    originates: "Originates",
+    adjusts: "Adjusts",
+    settles: "Settles",
+    reverses: "Reverses",
+    references: "References",
+    retracts: "Retracts",
+  },
+  intentStatus: {
+    draft: "Draft",
+    gathering: "Gathering information",
+    awaiting_confirmation: "Awaiting confirmation",
+    confirmed: "Confirmed",
+    submitted: "Submitted",
+    awaiting_correction: "Awaiting correction",
+    accepted: "Accepted",
+    rejected: "Rejected",
+  },
+  positionOutcome: {
+    gain: "Recovered",
+    partial_loss: "Partial loss",
+    full_loss: "Full loss",
+    cancelled: "Cancelled",
+    pending: "In progress",
   },
   objectType: {
     commission_entitlement: "Commission entitlement",

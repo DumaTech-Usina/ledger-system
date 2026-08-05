@@ -15,6 +15,7 @@ import { StubSlotExtractionAdapter } from "./infra/nlp/StubSlotExtractionAdapter
 import type { CandidateSubmissionPort } from "./core/application/ports/CandidateSubmissionPort";
 import type { LedgerReadPort } from "./core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "./core/application/ports/PositionLifecyclePort";
+import type { PositionLookupPort } from "./core/application/ports/PositionLookupPort";
 import type { LedgerEventLookupPort } from "./core/application/ports/LedgerEventLookupPort";
 import type { SlotExtractionPort } from "./core/application/ports/SlotExtractionPort";
 import { ScryptPasswordHasher } from "./infra/auth/ScryptPasswordHasher";
@@ -27,6 +28,8 @@ import { AuthService } from "./core/application/services/AuthService";
 import { CandidateMapper } from "./core/application/services/CandidateMapper";
 import { GetTreasuryDashboardUseCase } from "./core/application/use-cases/GetTreasuryDashboard";
 import { GetObjectLifecycleUseCase } from "./core/application/use-cases/GetObjectLifecycle";
+import { GetBookExposureUseCase } from "./core/application/use-cases/GetBookExposure";
+import { ListPositionsUseCase } from "./core/application/use-cases/ListPositions";
 import { StartIntentUseCase } from "./core/application/use-cases/StartIntent";
 import { AdvanceDialogUseCase } from "./core/application/use-cases/AdvanceDialog";
 import { ApplyAnswersUseCase } from "./core/application/use-cases/ApplyAnswers";
@@ -37,6 +40,7 @@ import { SubmitRectificationUseCase } from "./core/application/use-cases/SubmitR
 import { DecideIdentityUseCase } from "./core/application/use-cases/DecideIdentity";
 import { RecordPartyAttributeUseCase } from "./core/application/use-cases/RecordPartyAttribute";
 import { ListIncompletePartiesUseCase } from "./core/application/use-cases/ListIncompleteParties";
+import { ListSettlementCandidatesUseCase } from "./core/application/use-cases/ListSettlementCandidates";
 import { GetIntentUseCase } from "./core/application/use-cases/GetIntent";
 import { ListIntentsUseCase } from "./core/application/use-cases/ListIntents";
 
@@ -111,7 +115,7 @@ async function bootstrap(): Promise<void> {
   // ── Ledger integration (mode-selected) ─────────────────────────────────────
   let submission: CandidateSubmissionPort;
   // The same adapter serves both read boundaries in every mode; only the demo ones lack lifecycles.
-  let ledgerRead: LedgerReadPort & PositionLifecyclePort & LedgerEventLookupPort;
+  let ledgerRead: LedgerReadPort & PositionLifecyclePort & LedgerEventLookupPort & PositionLookupPort;
   if (env.LEDGER_MODE === "simulate") {
     // One in-memory fake Ledger for BOTH submit + reads → the full create→dashboard loop works.
     const simulator = new InMemoryLedgerSimulator();
@@ -129,13 +133,18 @@ async function bootstrap(): Promise<void> {
     ledgerRead = new HttpLedgerReadAdapter(
       env.LEDGER_API_URL,
       env.LEDGER_SUBMIT_TOKEN,
+      undefined,
+      env.USINA_PARTY_ID,
     );
   }
   const getDashboard = new GetTreasuryDashboardUseCase(
     ledgerRead,
     env.USINA_PARTY_ID,
+    partyDirectory,
   );
   const getObjectLifecycle = new GetObjectLifecycleUseCase(ledgerRead);
+  const getBookExposure = new GetBookExposureUseCase(ledgerRead);
+  const listPositions = new ListPositionsUseCase(ledgerRead);
 
   const startIntent = new StartIntentUseCase(intentRepo, clock, ids, audit);
   const submitIntent = new SubmitIntentUseCase(
@@ -153,6 +162,8 @@ async function bootstrap(): Promise<void> {
     sessionTtlSeconds,
     getDashboard,
     getObjectLifecycle,
+    getBookExposure,
+    listPositions,
     startIntent,
     advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit, partyDirectory),
     applyAnswers,
@@ -177,6 +188,7 @@ async function bootstrap(): Promise<void> {
     decideIdentity: new DecideIdentityUseCase(intentRepo, partyRepo, clock, ids, audit),
     recordPartyAttribute: new RecordPartyAttributeUseCase(partyRepo, clock, audit),
     listIncompleteParties: new ListIncompletePartiesUseCase(partyDirectory),
+    listSettlementCandidates: new ListSettlementCandidatesUseCase(intentRepo, ledgerRead, partyDirectory),
     getIntent: new GetIntentUseCase(intentRepo, audit),
     listIntents: new ListIntentsUseCase(intentRepo),
   });

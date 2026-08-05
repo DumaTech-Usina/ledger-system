@@ -8,6 +8,7 @@ const UNAVAILABLE: TreasuryDashboard = {
   movements: null,
   positions: null,
   classificationHealth: null,
+  partyNames: {},
 };
 
 export function useDashboard() {

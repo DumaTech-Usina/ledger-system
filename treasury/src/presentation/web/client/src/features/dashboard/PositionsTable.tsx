@@ -18,7 +18,21 @@ function EyeIcon() {
   );
 }
 
-export function PositionsTable({ positions, currency }: { positions: PositionItem[]; currency: string }) {
+export function PositionsTable({
+  positions,
+  currency,
+  canRectify = false,
+  paginate = true,
+}: {
+  positions: PositionItem[];
+  currency: string;
+  canRectify?: boolean;
+  /**
+   * Off when the caller already asked the Ledger for one page and owns the pager itself. Slicing
+   * again here would page a page.
+   */
+  paginate?: boolean;
+}) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<PositionItem | null>(null);
@@ -28,7 +42,7 @@ export function PositionsTable({ positions, currency }: { positions: PositionIte
   }, [positions]);
 
   const totalPages = Math.max(1, Math.ceil(positions.length / PAGE_SIZE));
-  const pageRows = positions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageRows = paginate ? positions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : positions;
 
   return (
     <div>
@@ -55,7 +69,10 @@ export function PositionsTable({ positions, currency }: { positions: PositionIte
                 <Table.Cell>
                   <Badge variant="neutral">{t.positionStatus[p.status] ?? p.status}</Badge>
                 </Table.Cell>
-                <Table.Cell mono>{formatMoney(p.openBalance, p.currency || currency)}</Table.Cell>
+                {/* A null balance is an unknown origination, not a zero — the two must never look alike. */}
+                <Table.Cell mono className={p.openBalance === null ? "text-muted" : undefined}>
+                  {p.openBalance === null ? t.common.unknown : formatMoney(p.openBalance, p.currency || currency)}
+                </Table.Cell>
                 <Table.Cell>
                   <button
                     type="button"
@@ -72,8 +89,15 @@ export function PositionsTable({ positions, currency }: { positions: PositionIte
           )}
         </Table.Body>
       </Table.Root>
-      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-      {selected && <RowDetailModal position={selected} currency={currency} onClose={() => setSelected(null)} />}
+      {paginate && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />}
+      {selected && (
+        <RowDetailModal
+          position={selected}
+          currency={currency}
+          canRectify={canRectify}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }

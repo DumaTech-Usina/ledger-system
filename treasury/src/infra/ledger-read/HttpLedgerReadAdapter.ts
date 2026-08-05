@@ -1,7 +1,9 @@
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
 import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
+import type { PositionCandidate, PositionLookupPort } from "../../core/application/ports/PositionLookupPort";
 import type {
+  BookExposure,
   CashPosition,
   CashMovementsPage,
   PositionsPage,
@@ -31,6 +33,7 @@ interface LedgerPositionDetail {
     description: string | null;
     relatedEventId: string | null;
     retracted?: boolean;
+    parties?: Array<{ partyId: string; role: string; direction: string }>;
     objects: Array<{ objectId: string; relation: string }>;
   }>;
 }
@@ -39,11 +42,15 @@ interface LedgerPositionDetail {
  * Reads the Ledger's published read API over HTTP. Uses Node's global fetch (no dependency) with a
  * timeout so a slow/hung Ledger can't hang a treasury request.
  */
-export class HttpLedgerReadAdapter implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort {
+export class HttpLedgerReadAdapter
+  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort
+{
   constructor(
     private readonly baseUrl: string,
     private readonly serviceToken = "",
     private readonly timeoutMs = 4000,
+    /** Needed only to tell the counterparty from ourselves on an originating event. */
+    private readonly usinaPartyId = "",
   ) {}
 
   private async request<T>(path: string, nullOn404: boolean): Promise<T | null> {
@@ -79,12 +86,29 @@ export class HttpLedgerReadAdapter implements LedgerReadPort, PositionLifecycleP
     return this.get<CashMovementsPage>(`/api/cash-movements?${q.toString()}`);
   }
 
-  async positions(params?: { limit?: number }): Promise<PositionsPage> {
+  async positions(params?: {
+    limit?: number;
+    page?: number;
+    status?: string;
+    objectType?: string;
+  }): Promise<PositionsPage> {
     const q = new URLSearchParams({ limit: String(params?.limit ?? 50) });
-    const raw = await this.get<{ data: PositionItem[]; total: number }>(`/api/positions?${q.toString()}`);
-    // Keep only the fields treasury displays.
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.status) q.set("status", params.status);
+    if (params?.objectType) q.set("objectType", params.objectType);
+    const raw = await this.get<{
+      data: PositionItem[];
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    }>(`/api/positions?${q.toString()}`);
+    // Keep only the fields treasury displays; the paging is the Ledger's own, passed through.
     return {
       total: raw.total,
+      page: raw.page,
+      limit: raw.limit,
+      totalPages: raw.totalPages,
       data: (raw.data ?? []).map((p) => ({
         objectId: p.objectId,
         objectType: p.objectType,
@@ -95,8 +119,77 @@ export class HttpLedgerReadAdapter implements LedgerReadPort, PositionLifecycleP
         openBalance: p.openBalance,
         eventCount: p.eventCount,
         lastEventAt: p.lastEventAt,
+        originatedAt: p.originatedAt ?? null,
       })),
     };
+  }
+
+  /**
+   * What the position math says about the whole book. No period is sent: the three figures read
+   * here are current-state (`findAllPositionAggregates`), and `from`/`to` would only scope cash
+   * figures treasury reads elsewhere.
+   */
+  async bookExposure(): Promise<BookExposure> {
+    const raw = await this.get<{
+      currency: string;
+      openExposure: string;
+      capitalAtRisk: string;
+      healthScore: BookExposure["healthScore"];
+    }>("/api/dashboard");
+    return {
+      currency: raw.currency,
+      openExposure: raw.openExposure,
+      capitalAtRisk: raw.capitalAtRisk,
+      healthScore: raw.healthScore,
+    };
+  }
+
+  /**
+   * Positions a settlement could still move, with the context a person needs to recognise one.
+   *
+   * Two filtered listings rather than one unfiltered sweep: the Ledger's status filter takes a
+   * single value, and asking it for exactly what is wanted beats fetching everything and discarding
+   * most of it. The counterparty then costs one detail read per candidate — it is published only
+   * there — which is why the list is capped: an affordance must not turn into a scan.
+   *
+   * Everything here is read from the origination that still STANDS. The detail's `origin` field is
+   * deliberately not used: it is extracted before the retraction fold, so it keeps naming an event a
+   * rectification already declared never happened. Reading `events` instead — where the Ledger
+   * publishes `retracted` per event — keeps this adapter answering with the same book every other
+   * derivation answers with.
+   */
+  async openPositions(objectType: string, limit = 20): Promise<PositionCandidate[]> {
+    const pages = await Promise.all(
+      ["open", "partially_settled"].map((status) => this.positions({ objectType, status, limit })),
+    );
+    const items = pages.flatMap((p) => p.data).slice(0, limit);
+
+    const details = await Promise.all(
+      items.map((item) => this.getOrNull<LedgerPositionDetail>(`/api/positions/${encodeURIComponent(item.objectId)}`)),
+    );
+
+    return items.map((item, i) => {
+      const originating = (details[i]?.events ?? []).find(
+        (e) =>
+          e.retracted !== true &&
+          e.objects?.some((o) => o.objectId === item.objectId && o.relation === "originates"),
+      );
+      return {
+        objectId: item.objectId,
+        objectType: item.objectType,
+        originEventId: originating?.id ?? null,
+        // The other side of the origination. Absent when no origination stands — unknown, which the
+        // conversation shows as unknown rather than filling in.
+        counterpartyId:
+          originating?.parties?.find((p) => p.partyId !== this.usinaPartyId)?.partyId ?? null,
+        totalOriginated: item.totalOriginated,
+        openBalance: item.openBalance,
+        currency: item.currency,
+        // The aggregate already excludes retracted events, so null here means no origination stands.
+        // It is never filled in from elsewhere: doing so would undo the rectification on screen.
+        originatedAt: item.originatedAt,
+      };
+    });
   }
 
   /**

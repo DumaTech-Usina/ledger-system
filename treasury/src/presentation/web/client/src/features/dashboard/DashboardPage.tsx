@@ -1,17 +1,14 @@
 import { useState } from "react";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
-import { ClassificationAgingCard } from "@/features/dashboard/ClassificationAgingCard";
-import { ClassificationHealthCard } from "@/features/dashboard/ClassificationHealthCard";
 import { MovementsTable } from "@/features/dashboard/MovementsTable";
-import { PositionsTable } from "@/features/dashboard/PositionsTable";
 import { TotalFlowWidget } from "@/features/dashboard/TotalFlowWidget";
 import { useDashboard } from "@/features/dashboard/useDashboard";
 import { formatTemplate, useLanguage } from "@/i18n/i18n";
 import { formatDate, formatMoney } from "@/utils/format";
-import type { CashMovement, PositionItem } from "@/types/dashboard";
+import type { CashMovement } from "@/types/dashboard";
 
-type DetailKind = "cashIn" | "cashOut" | "netFlow" | "receivables";
+type DetailKind = "cashIn" | "cashOut" | "netFlow";
 
 function Stat({
   label,
@@ -49,6 +46,11 @@ function Stat({
   );
 }
 
+/**
+ * Cash: how much money moved, and when. Everything here comes from the Ledger's cash math —
+ * `economicEffect` × `amount` — which never reads an object. What a position owes, and whether it
+ * is still open, is a different question answered by a different fold; it lives in PositionsPage.
+ */
 export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperations?: () => void }) {
   const { data, loading } = useDashboard();
   const { t } = useLanguage();
@@ -73,24 +75,20 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
         (() => {
           const cashPosition = data.cashPosition;
           const movements = data.movements ?? [];
-          const positions = data.positions ?? [];
           const cashInMovements = movements.filter((m: CashMovement) => m.effect === "cash_in");
           const cashOutMovements = movements.filter((m: CashMovement) => m.effect === "cash_out");
-          const receivablePositions = positions.filter(
-            (p: PositionItem) => p.status === "open" || p.status === "partially_settled",
-          );
 
           return (
             <>
-              <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
-                <div className="h-full lg:col-span-2">
-                  <TotalFlowWidget movements={movements} cashPosition={cashPosition} onNavigateToOperations={onNavigateToOperations} />
-                </div>
-                {data.classificationHealth && <ClassificationHealthCard health={data.classificationHealth} />}
-              </div>
+              <TotalFlowWidget
+                movements={movements}
+                cashPosition={cashPosition}
+                partyNames={data.partyNames}
+                onNavigateToOperations={onNavigateToOperations}
+              />
 
               <section>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <Stat
                     label={t.dashboard.cashIn}
                     value={formatMoney(cashPosition.totalCashIn, cashPosition.currency)}
@@ -108,20 +106,10 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
                     tone={cashPosition.netCashFlow.startsWith("-") ? "bad" : "ok"}
                     onClick={() => setDetail("netFlow")}
                   />
-                  <Stat
-                    label={t.dashboard.openPositions}
-                    value={formatMoney(cashPosition.openReceivables, cashPosition.currency)}
-                    onClick={() => setDetail("receivables")}
-                  />
                 </div>
                 <p className="mt-3 text-[13px] text-muted">
                   {formatTemplate(t.dashboard.positionAsOf, { date: formatDate(cashPosition.asOf) })}
                 </p>
-                {data.classificationHealth && (
-                  <div className="mt-4">
-                    <ClassificationAgingCard health={data.classificationHealth} />
-                  </div>
-                )}
               </section>
 
               <Modal
@@ -131,7 +119,7 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
                 closeLabel={t.common.close}
                 className="max-w-6xl"
               >
-                <MovementsTable movements={cashInMovements} currency={cashPosition.currency} />
+                <MovementsTable movements={cashInMovements} currency={cashPosition.currency} partyNames={data.partyNames} />
               </Modal>
 
               <Modal
@@ -141,7 +129,7 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
                 closeLabel={t.common.close}
                 className="max-w-6xl"
               >
-                <MovementsTable movements={cashOutMovements} currency={cashPosition.currency} />
+                <MovementsTable movements={cashOutMovements} currency={cashPosition.currency} partyNames={data.partyNames} />
               </Modal>
 
               <Modal
@@ -173,32 +161,17 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
                     </p>
                   </div>
                 </div>
-                <MovementsTable movements={movements} currency={cashPosition.currency} />
+                <MovementsTable movements={movements} currency={cashPosition.currency} partyNames={data.partyNames} />
               </Modal>
 
-              <Modal
-                open={detail === "receivables"}
-                onClose={() => setDetail(null)}
-                title={t.dashboard.openPositions}
-                closeLabel={t.common.close}
-                className="max-w-6xl"
-              >
-                <PositionsTable positions={receivablePositions} currency={cashPosition.currency} />
-              </Modal>
 
               <section className="space-y-4">
                 <h3 className="font-display text-[15px] font-semibold text-ink">{t.dashboard.recentMovements}</h3>
                 <Card padding="none">
-                  <MovementsTable movements={movements} currency={cashPosition.currency} />
+                  <MovementsTable movements={movements} currency={cashPosition.currency} partyNames={data.partyNames} />
                 </Card>
               </section>
 
-              <section className="space-y-4">
-                <h3 className="font-display text-[15px] font-semibold text-ink">{t.dashboard.openPositions}</h3>
-                <Card padding="none">
-                  <PositionsTable positions={positions} currency={cashPosition.currency} />
-                </Card>
-              </section>
             </>
           );
         })()

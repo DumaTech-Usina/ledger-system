@@ -1,4 +1,9 @@
-import type { CashPosition, CashMovementsPage, PositionsPage } from "../dtos/LedgerReadModels";
+import type {
+  BookExposure,
+  CashPosition,
+  CashMovementsPage,
+  PositionsPage,
+} from "../dtos/LedgerReadModels";
 
 /**
  * Read-only boundary to the Ledger's financial truth. The concrete adapter talks HTTP to the
@@ -7,5 +12,17 @@ import type { CashPosition, CashMovementsPage, PositionsPage } from "../dtos/Led
 export interface LedgerReadPort {
   cashPosition(): Promise<CashPosition>;
   cashMovements(params: { partyId: string; limit?: number }): Promise<CashMovementsPage>;
-  positions(params?: { limit?: number }): Promise<PositionsPage>;
+  /**
+   * A page of positions. `page`/`limit` and the filters are passed through to the Ledger, which
+   * owns paging — treasury never slices a page it did not ask for, because a silently truncated
+   * list states something about the book that is not true.
+   */
+  positions(params?: {
+    limit?: number;
+    page?: number;
+    status?: string;
+    objectType?: string;
+  }): Promise<PositionsPage>;
+  /** What the position math says about the whole book: exposure, capital at risk, book health. */
+  bookExposure(): Promise<BookExposure>;
 }

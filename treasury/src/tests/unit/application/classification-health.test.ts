@@ -15,6 +15,7 @@ function pos(over: Partial<PositionItem>): PositionItem {
     openBalance: "0.00",
     eventCount: 1,
     lastEventAt: "2026-07-10T00:00:00.000Z",
+    originatedAt: null,
     ...over,
   };
 }

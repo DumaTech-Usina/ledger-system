@@ -8,8 +8,23 @@ import { formatDate, formatMoney } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { typingDurationMs } from "@/features/operations/typing";
 import { useTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
-import type { StreamItem } from "@/features/operations/conversationEngine";
-import type { PreviewIntentResult, SlotDefinition } from "@/types/operations";
+import {
+  enrichmentCopy,
+  identityCopy,
+  partyTypeChoices,
+  partyTypeLabels,
+  positionCopy,
+  statusLabels,
+  submitCopy,
+} from "@/features/operations/copy";
+import type { IdentityOption, StreamItem } from "@/features/operations/conversationEngine";
+import type {
+  EnrichmentSuggestion,
+  PreviewIntentResult,
+  RejectionDetail,
+  SettlementCandidate,
+  SlotDefinition,
+} from "@/types/operations";
 
 export interface SaveEditsResult {
   ok: boolean;
@@ -31,6 +46,19 @@ export interface ChatStreamProps {
   onSaveEdits?: (edits: Record<string, string>) => Promise<SaveEditsResult>;
   /** Sim/Não on a low-confidence extraction suggestion bubble. */
   onResolveSuggestion?: (item: { id: string; proposalKey: string; value: string }, accept: boolean) => void;
+  /** Settles an open counterparty question. `justification` is required to declare unidentifiable. */
+  onDecideIdentity?: (item: { id: string; slot: string }, option: IdentityOption, justification?: string) => void;
+  /** Answers the confirmation card's optional question, or records the refusal (value omitted). */
+  onRecordEnrichment?: (partyId: string, key: string, value?: string) => Promise<{ ok: boolean }>;
+  /** Re-answers the slots a fixable rejection implicated, then returns to the confirmation card. */
+  onApplyCorrection?: (edits: Record<string, string>) => Promise<SaveEditsResult>;
+  /** Records which position a settlement is about — asserting continuity and lineage together. */
+  onSelectPosition?: (
+    item: { id: string; slots: { continuity?: string; lineage?: string } },
+    candidate: SettlementCandidate,
+  ) => void;
+  /** Puts the offer away; the composer still accepts a typed reference. */
+  onDismissPositions?: (itemId: string) => void;
 }
 
 const bubbleBase = "max-w-[80%] lg:max-w-2xl px-4 py-2.5 text-[14.5px] leading-relaxed";
@@ -95,6 +123,11 @@ export function ChatStream({
   answeredSlots,
   onSaveEdits,
   onResolveSuggestion,
+  onDecideIdentity,
+  onRecordEnrichment,
+  onApplyCorrection,
+  onSelectPosition,
+  onDismissPositions,
 }: ChatStreamProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ block: "end" });
@@ -167,6 +200,29 @@ export function ChatStream({
                 </div>
               </div>
             );
+          case "identity":
+            return (
+              <IdentityBubble
+                key={item.id}
+                text={item.text}
+                options={item.options}
+                busy={busy}
+                onDecide={(option, justification) =>
+                  onDecideIdentity?.({ id: item.id, slot: item.slot }, option, justification)
+                }
+                onReveal={scrollToBottom}
+              />
+            );
+          case "positions":
+            return (
+              <PositionPicker
+                key={item.id}
+                candidates={item.candidates}
+                busy={busy}
+                onPick={(candidate) => onSelectPosition?.({ id: item.id, slots: item.slots }, candidate)}
+                onDismiss={() => onDismissPositions?.(item.id)}
+              />
+            );
           case "transport-error":
             return (
               <Banner key={item.id} variant="bad">
@@ -184,9 +240,25 @@ export function ChatStream({
                 onCancel={onCancel}
                 answeredSlots={answeredSlots ?? {}}
                 onSaveEdits={onSaveEdits ?? (async () => ({ ok: false }))}
+                onRecordEnrichment={onRecordEnrichment}
               />
             );
           case "result":
+            // A fixable rejection is not an ending — it names what to change and offers the way to.
+            if (item.intentStatus === "awaiting_correction") {
+              return (
+                <CorrectionCard
+                  key={item.id}
+                  reason={item.reason}
+                  rejections={item.rejections ?? []}
+                  slots={(item.correctionSlots ?? [])
+                    .map((key) => (answeredSlots ?? {})[key])
+                    .filter((slot): slot is SlotDefinition => Boolean(slot))}
+                  busy={busy}
+                  onApply={onApplyCorrection ?? (async () => ({ ok: false }))}
+                />
+              );
+            }
             return item.status === "accepted" ? (
               <Banner key={item.id} variant="ok" className="flex flex-wrap items-center justify-between gap-3">
                 <span>✓ Aceito pelo Ledger — referência {item.ledgerReference}</span>
@@ -254,6 +326,289 @@ export function ChatStream({
   );
 }
 
+/**
+ * Which position this settlement is about, answered by recognising a fact rather than by typing an
+ * id: who it involved, how much it was, and when it started.
+ *
+ * "Não está na lista" only dismisses the offer — the composer underneath still accepts a typed
+ * reference, so the list can never become the sole way through.
+ */
+function PositionPicker({
+  candidates,
+  busy,
+  onPick,
+  onDismiss,
+}: {
+  candidates: SettlementCandidate[];
+  busy: boolean;
+  onPick: (candidate: SettlementCandidate) => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="flex justify-start">
+      <div className="flex w-full max-w-md flex-col gap-2">
+        <p className="px-1 text-[13px] text-muted">{positionCopy.prompt}</p>
+
+        {candidates.map((candidate) => (
+          <button
+            key={candidate.objectId}
+            type="button"
+            disabled={busy}
+            onClick={() => onPick(candidate)}
+            className={cn(
+              "rounded-2xl border border-white/40 bg-panel-solid/85 p-3.5 text-left shadow-sm backdrop-blur-md transition",
+              "hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-glow",
+              "disabled:opacity-50 disabled:pointer-events-none dark:border-white/10 dark:bg-panel-solid/80",
+            )}
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[14px] font-semibold text-ink">
+                {candidate.counterparty ?? positionCopy.unknownCounterparty}
+              </span>
+              <span className="tabular text-[14px] font-semibold text-ink">
+                {formatMoney(candidate.totalOriginated, candidate.currency)}
+              </span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-baseline justify-between gap-x-3 text-[12px] text-muted">
+              <span>
+                {candidate.originatedAt
+                  ? `${positionCopy.originatedOn} ${formatDate(candidate.originatedAt)}`
+                  : positionCopy.unknownDate}
+              </span>
+              {/* Only when part of it came back already — otherwise the figure would just repeat. */}
+              {candidate.openBalance && (
+                <span className="tabular">
+                  {positionCopy.stillOpen} {formatMoney(candidate.openBalance, candidate.currency)}
+                </span>
+              )}
+            </div>
+          </button>
+        ))}
+
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onDismiss}
+          className="self-start px-1 text-[12px] font-semibold text-muted underline underline-offset-2 transition hover:text-ink disabled:opacity-50 disabled:pointer-events-none"
+        >
+          {positionCopy.notListed}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * A rejection the Ledger classified as fixable. It shows what the Ledger objected to, in the
+ * Ledger's own words, and re-opens only the slots that complaint maps back to — re-asking the whole
+ * conversation would treat a precise objection as a general failure.
+ *
+ * Saving does not resubmit. It returns to the confirmation card, so nothing is sent again without
+ * the user seeing exactly what will go.
+ */
+function CorrectionCard({
+  reason,
+  rejections,
+  slots,
+  busy,
+  onApply,
+}: {
+  reason?: string;
+  rejections: RejectionDetail[];
+  slots: SlotDefinition[];
+  busy: boolean;
+  onApply: (edits: Record<string, string>) => Promise<SaveEditsResult>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [fieldError, setFieldError] = useState<{ key: string; message: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const result = await onApply(values);
+    setSaving(false);
+    if (!result.ok) {
+      setFieldError(result.error ?? null);
+      return;
+    }
+    setEditing(false);
+  };
+
+  return (
+    <Card padding="lg" className="max-w-md bg-panel-solid/75 backdrop-blur-2xl">
+      <div className="flex items-start justify-between gap-3">
+        <h4 className="font-display text-lg font-bold text-ink">{submitCopy.correctionTitle}</h4>
+        <Badge variant="warn">{statusLabels.awaiting_correction}</Badge>
+      </div>
+
+      {reason && <p className="mt-2 text-[13px] text-ink">{reason}</p>}
+
+      {rejections.length > 0 && (
+        <ul className="mt-3 space-y-2 border-t border-line pt-3 text-[13px]">
+          {rejections.map((rejection) => (
+            <li key={rejection.code}>
+              <span className="text-ink">{rejection.detail}</span>
+              <span className="tabular ml-1.5 text-[11px] text-muted">{rejection.code}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {editing ? (
+        <>
+          <div className="mt-4 flex flex-col gap-4">
+            {slots.map((slot) => (
+              <EditField
+                key={slot.key}
+                slot={slot}
+                value={values[slot.key] ?? ""}
+                onChange={(value) => setValues((s) => ({ ...s, [slot.key]: value }))}
+                disabled={saving}
+                error={fieldError?.key === slot.key ? fieldError.message : undefined}
+              />
+            ))}
+          </div>
+          <div className="mt-5 flex gap-2.5">
+            <Button loading={saving} onClick={save} className="flex-1">
+              {submitCopy.correctionSave}
+            </Button>
+            <Button variant="ghost" disabled={saving} onClick={() => setEditing(false)}>
+              {submitCopy.correctionCancel}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="mt-3 text-[13px] text-muted">{submitCopy.correctionHint}</p>
+          <Button
+            variant="warn"
+            disabled={busy || slots.length === 0}
+            onClick={() => {
+              setValues({});
+              setFieldError(null);
+              setEditing(true);
+            }}
+            className="mt-4 w-full"
+          >
+            {submitCopy.correctionAction}
+          </Button>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * The counterparty question. Its options are ordered so the first one is the likely move — a
+ * candidate when there are candidates, creating when there are none — and declaring the
+ * counterparty unidentifiable stays a quiet escape rather than an equal choice.
+ *
+ * That last option asks for a justification before it commits, because the backend requires one and
+ * discovering that through a 422 would be a worse way to learn it.
+ */
+function IdentityBubble({
+  text,
+  options,
+  busy,
+  onDecide,
+  onReveal,
+}: {
+  text: string;
+  options: IdentityOption[];
+  busy: boolean;
+  onDecide: (option: IdentityOption, justification?: string) => void;
+  onReveal?: () => void;
+}) {
+  const [justifying, setJustifying] = useState<IdentityOption | null>(null);
+  const [justification, setJustification] = useState("");
+
+  const decidable = options.filter((o) => o.kind !== "unidentifiable");
+  const escape = options.find((o) => o.kind === "unidentifiable");
+
+  return (
+    <div className="flex justify-start">
+      <div
+        className={cn(
+          bubbleBase,
+          "flex flex-col gap-3 rounded-2xl rounded-bl-md border border-white/40 bg-panel-solid/85 text-ink shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-panel-solid/80",
+        )}
+      >
+        <span>
+          <TypedText text={text} onTick={onReveal} />
+        </span>
+
+        {justifying ? (
+          <div className="flex flex-col gap-2.5">
+            <Input
+              label={identityCopy.justificationLabel}
+              value={justification}
+              disabled={busy}
+              autoFocus
+              onChange={(e) => setJustification(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy || justification.trim() === ""}
+                onClick={() => onDecide(justifying, justification.trim())}
+                className="rounded-full border border-accent/40 bg-accent px-3 py-1.5 text-xs font-semibold text-accent-ink transition hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none"
+              >
+                {identityCopy.justificationConfirm}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setJustifying(null)}
+                className="rounded-full border border-line bg-panel-solid px-3 py-1.5 text-xs font-semibold text-ink transition hover:border-accent"
+              >
+                {identityCopy.justificationCancel}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {decidable.map((option, index) => (
+                <button
+                  key={option.kind === "select" ? option.partyId : option.kind}
+                  type="button"
+                  disabled={busy}
+                  onClick={() => onDecide(option)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 disabled:pointer-events-none",
+                    index === 0
+                      ? "border border-accent/40 bg-accent text-accent-ink hover:opacity-90"
+                      : "border border-line bg-panel-solid text-ink hover:border-accent",
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted">
+              <span>{identityCopy.retype}</span>
+              {escape && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setJustification("");
+                    setJustifying(escape);
+                  }}
+                  className="font-semibold text-muted underline underline-offset-2 transition hover:text-ink disabled:opacity-50 disabled:pointer-events-none"
+                >
+                  {escape.label}
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SummaryRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-4">
@@ -316,6 +671,90 @@ function EditField({
   );
 }
 
+/**
+ * The one optional question, offered beside the confirmation — never in front of it. It cannot
+ * block the submit, so it owns no `busy` state of its own and its outcome changes nothing about
+ * what will be recorded.
+ */
+function EnrichmentOffer({
+  suggestion,
+  disabled,
+  onRecord,
+}: {
+  suggestion: EnrichmentSuggestion;
+  disabled: boolean;
+  onRecord: (value?: string) => Promise<{ ok: boolean }>;
+}) {
+  const [value, setValue] = useState("");
+  const [settled, setSettled] = useState<"saved" | "declined" | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const record = async (given?: string) => {
+    setSaving(true);
+    const { ok } = await onRecord(given);
+    setSaving(false);
+    if (ok) setSettled(given ? "saved" : "declined");
+  };
+
+  if (settled) {
+    return (
+      <p className="mt-4 border-t border-line pt-4 text-[13px] text-muted">
+        {settled === "saved" ? enrichmentCopy.saved : enrichmentCopy.declined}
+      </p>
+    );
+  }
+
+  const isType = suggestion.attribute === "type";
+
+  return (
+    <div className="mt-4 border-t border-line pt-4">
+      <p className="text-[13px] text-muted">{enrichmentCopy.question(suggestion.displayName, suggestion.attribute)}</p>
+
+      {isType ? (
+        <div className="mt-2.5 flex flex-wrap gap-2">
+          {partyTypeChoices.map((choice) => (
+            <button
+              key={choice}
+              type="button"
+              disabled={disabled || saving}
+              onClick={() => record(choice)}
+              className="rounded-full border border-line bg-panel-solid px-3 py-1.5 text-xs font-semibold text-ink transition hover:border-accent disabled:opacity-50 disabled:pointer-events-none"
+            >
+              {partyTypeLabels[choice] ?? choice}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="mt-2.5 flex flex-wrap items-end gap-2">
+          <Input
+            value={value}
+            disabled={disabled || saving}
+            onChange={(e) => setValue(e.target.value)}
+            className="min-w-0 flex-1"
+          />
+          <button
+            type="button"
+            disabled={disabled || saving || value.trim() === ""}
+            onClick={() => record(value.trim())}
+            className="h-10 rounded-full border border-line bg-panel-solid px-3.5 text-xs font-semibold text-ink transition hover:border-accent disabled:opacity-50 disabled:pointer-events-none"
+          >
+            {enrichmentCopy.save}
+          </button>
+        </div>
+      )}
+
+      <button
+        type="button"
+        disabled={disabled || saving}
+        onClick={() => record(undefined)}
+        className="mt-2 text-[12px] font-semibold text-muted underline underline-offset-2 transition hover:text-ink disabled:opacity-50 disabled:pointer-events-none"
+      >
+        {enrichmentCopy.decline}
+      </button>
+    </div>
+  );
+}
+
 function ConfirmCard({
   preview,
   scenarioTitle,
@@ -324,6 +763,7 @@ function ConfirmCard({
   onCancel,
   answeredSlots,
   onSaveEdits,
+  onRecordEnrichment,
 }: {
   preview: PreviewIntentResult;
   scenarioTitle: string;
@@ -332,9 +772,13 @@ function ConfirmCard({
   onCancel: () => void;
   answeredSlots: Record<string, SlotDefinition>;
   onSaveEdits: (edits: Record<string, string>) => Promise<SaveEditsResult>;
+  onRecordEnrichment?: (partyId: string, key: string, value?: string) => Promise<{ ok: boolean }>;
 }) {
   const { candidate } = preview;
-  const counterparty = candidate.parties[1]?.partyId ?? "—";
+  const counterpartyId = candidate.parties[1]?.partyId;
+  // A party the Directory doesn't know keeps its id on screen. Unknown is shown as unknown — an
+  // invented label would be a claim the system cannot support.
+  const counterparty = counterpartyId ? preview.partyNames[counterpartyId] ?? counterpartyId : "—";
   const isCashIn = candidate.economicEffect === "cash_in";
   const effectPhrase = isCashIn ? "entrada de caixa prevista" : "saída de caixa a pagar";
   const [showDetails, setShowDetails] = useState(false);
@@ -434,6 +878,14 @@ function ConfirmCard({
             {formatMoney(candidate.amount, candidate.currency)}, atribuído a você.
           </p>
         </div>
+      )}
+
+      {preview.enrichment && onRecordEnrichment && (
+        <EnrichmentOffer
+          suggestion={preview.enrichment}
+          disabled={busy}
+          onRecord={(value) => onRecordEnrichment(preview.enrichment!.partyId, preview.enrichment!.attribute, value)}
+        />
       )}
 
       <div className="mt-5 flex flex-col gap-2.5">

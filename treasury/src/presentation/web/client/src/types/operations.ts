@@ -1,4 +1,4 @@
-export type SlotType = "string" | "money" | "date" | "choice" | "party";
+export type SlotType = "string" | "money" | "date" | "choice" | "party" | "event_ref";
 
 export interface SlotDefinition {
   key: string;
@@ -8,6 +8,11 @@ export interface SlotDefinition {
   help?: string;
   choices?: string[];
   suggestionSource?: string;
+  /**
+   * PARTY slots only: whether this counterparty may be recorded as explicitly not identifiable.
+   * Absent means NOT admissible — the option is never offered as a global escape.
+   */
+  allowUnidentifiable?: boolean;
 }
 
 export type DialogState =
@@ -31,9 +36,80 @@ export interface StartIntentResult {
   state: DialogState;
 }
 
+/** The raw text the user used to refer to a counterparty. A mention is not an identity. */
+export interface Mention {
+  text: string;
+  normalized: string;
+}
+
+/** Which rung of the backend's resolution cascade produced the answer. */
+export type ResolutionRule =
+  | "exact_id"
+  | "exact_document"
+  | "exact_external_id"
+  | "exact_name"
+  | "similarity";
+
+export interface ResolutionCandidate {
+  partyId: string;
+  displayName: string;
+  /** In [0, 1]. */
+  score: number;
+}
+
+/**
+ * How a mention resolved against the Party Directory. `resolved` with `needsConfirmation` is a
+ * similarity hit, not an equality one — the backend does NOT record it, so the conversation has to
+ * ask before it can be used. `ambiguous` and `new` are likewise not recorded: the slot stays blank
+ * and is asked again until an identity decision settles it.
+ */
+export type Resolution =
+  | {
+      kind: "resolved";
+      mention: Mention;
+      partyId: string;
+      rule: ResolutionRule;
+      score: number;
+      needsConfirmation: boolean;
+    }
+  | { kind: "ambiguous"; mention: Mention; candidates: ResolutionCandidate[] }
+  | { kind: "new"; mention: Mention };
+
+/** What one turn did with one PARTY slot. Reported alongside the dialog state, never inside it. */
+export interface IdentityOutcome {
+  slot: string;
+  resolution: Resolution;
+}
+
+/** The two acts that may bring a PartyId into existence from a conversation. */
+export type IdentityDecisionKind = "create" | "unidentifiable";
+
 export interface AdvanceDialogResult {
   state: DialogState;
   error?: SlotValidationError;
+  /**
+   * Present when the answer named a PARTY. When it did not resolve to exactly one known party the
+   * slot is left unfilled — so `state` simply asks again — and this carries what the conversation
+   * needs to offer a decision.
+   */
+  identity?: IdentityOutcome;
+}
+
+/** The record of an act that brought a PartyId into existence, with its author and moment. */
+export interface IdentityDecision {
+  kind: IdentityDecisionKind;
+  partyId: string;
+  mention: string;
+  slot: string;
+  justification?: string;
+  decidedBy: string;
+  decidedAt: string;
+  intentId: string;
+}
+
+export interface DecideIdentityResult {
+  decision: IdentityDecision;
+  state: DialogState;
 }
 
 export interface SlotProposal {
@@ -59,6 +135,8 @@ export interface InterpretResult {
   skipped: string[];
   /** Proposals below the confidence threshold — not applied; surfaced for a later confirm step. */
   lowConfidence: SlotProposal[];
+  /** How each proposed PARTY mention resolved. An unresolved one is not recorded. */
+  identity: IdentityOutcome[];
 }
 
 export interface CandidateParty {
@@ -88,20 +166,56 @@ export interface Candidate {
   reporter: { reporterType: string; reporterId: string; channel: string };
 }
 
+/** One optional question, offered after the intent is already complete. Never blocks the submit. */
+export interface EnrichmentSuggestion {
+  partyId: string;
+  displayName: string;
+  attribute: string;
+}
+
 export interface PreviewIntentResult {
   intentId: string;
   scenarioTitle: string;
   answers: Record<string, string>;
   candidate: Candidate;
+  /**
+   * partyId → display name, for the confirmation card. A party the Directory does not know is
+   * absent here and keeps its id on screen — unknown is shown as unknown, never given a label.
+   */
+  partyNames: Record<string, string>;
+  /** Present when exactly one party in this candidate is worth one question. */
+  enrichment?: EnrichmentSuggestion;
 }
 
 export type SubmissionStatus = "accepted" | "rejected";
 
+/**
+ * Disposition of a rejection — the only thing the conversation branches on. `input`/`lineage` are
+ * fixable (re-ask the implicated slot); `duplicate`/`internal` are terminal.
+ */
+export type RejectionCategory = "input" | "lineage" | "duplicate" | "internal";
+
+/** One structured rejection. `code` is the Ledger's stable domain vocabulary, treated as opaque. */
+export interface RejectionDetail {
+  code: string;
+  category: RejectionCategory;
+  field?: string;
+  detail: string;
+  hint?: Record<string, string>;
+}
+
 export interface SubmitIntentResult {
   intentId: string;
+  /** Raw Ledger disposition. */
   status: SubmissionStatus;
+  /** Resulting intent lifecycle status — this, not `status`, is what the conversation branches on. */
+  intentStatus: IntentStatus;
   ledgerReference?: string;
   reason?: string;
+  /** Present when rejected. */
+  rejections?: RejectionDetail[];
+  /** When intentStatus is `awaiting_correction` — the scenario slot keys the user should re-answer. */
+  correction?: { slots: string[] };
   candidate: Candidate;
 }
 
@@ -111,6 +225,8 @@ export type IntentStatus =
   | "awaiting_confirmation"
   | "confirmed"
   | "submitted"
+  /** The Ledger rejected for a fixable reason. Not terminal: edit the implicated slots and resubmit. */
+  | "awaiting_correction"
   | "accepted"
   | "rejected";
 
@@ -138,4 +254,53 @@ export interface GetIntentResult {
   intent: IntentProps;
   scenarioTitle: string;
   history: AuditEntry[];
+}
+
+/**
+ * One position a settlement could be about. Selecting it asserts two things at once: which position
+ * the fact moves (continuity) and which fact caused it (lineage) — one business question, two
+ * fields the user never has to know exist.
+ */
+export interface SettlementCandidate {
+  objectId: string;
+  /** Null when the Ledger holds no origination, so this position cannot supply lineage. */
+  originEventId: string | null;
+  /** The Directory's name, the raw id when it has none, or null when there is no origin at all. */
+  counterparty: string | null;
+  totalOriginated: string;
+  /** Present only when it differs from what was originated — i.e. already partly settled. */
+  openBalance: string | null;
+  currency: string;
+  originatedAt: string | null;
+}
+
+export interface SettlementCandidatesResult {
+  /** The answer keys a selection fills. Empty when the scenario admits no continuity. */
+  slots: { continuity?: string; lineage?: string };
+  candidates: SettlementCandidate[];
+}
+
+/** The workspace list row for one intent. */
+export interface IntentSummary {
+  id: string;
+  scenarioId: string;
+  scenarioTitle: string;
+  status: IntentStatus;
+  updatedAt: string;
+}
+
+/**
+ * How a batch of answers treats slots that are already filled. `fill` only fills empty ones;
+ * `edit` overwrites and re-validates.
+ */
+export type ApplyMode = "fill" | "edit";
+
+export interface ApplyAnswersResult {
+  state: DialogState;
+  /** Answers that failed validation (or named an unknown slot). Never recorded. */
+  rejected: SlotValidationError[];
+  /** Keys skipped because the slot was already filled and mode is `fill`. */
+  skipped: string[];
+  /** One entry per PARTY answer processed this turn. */
+  identity: IdentityOutcome[];
 }

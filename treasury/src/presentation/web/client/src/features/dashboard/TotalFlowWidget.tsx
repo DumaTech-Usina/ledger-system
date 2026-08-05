@@ -41,10 +41,13 @@ function formatDayLabel(day: string, locale: string): string {
 export function TotalFlowWidget({
   movements,
   cashPosition,
+  partyNames,
   onNavigateToOperations,
 }: {
   movements: CashMovement[];
   cashPosition: CashPosition;
+  /** Passed straight through to the movement tables this widget opens. */
+  partyNames?: Record<string, string>;
   onNavigateToOperations?: () => void;
 }) {
   const { t, language } = useLanguage();
@@ -173,11 +176,11 @@ export function TotalFlowWidget({
         title={selectedDay ? formatTemplate(h.dayDetailTitle, { date: formatDate(selectedDay) }) : ""}
         closeLabel={t.common.close}
       >
-        <MovementsTable movements={dayMovements} currency={cashPosition.currency} />
+        <MovementsTable movements={dayMovements} currency={cashPosition.currency} partyNames={partyNames} />
       </Modal>
 
       <Modal open={showAll} onClose={() => setShowAll(false)} title={h.allMovementsTitle} closeLabel={t.common.close}>
-        <MovementsTable movements={movements} currency={cashPosition.currency} />
+        <MovementsTable movements={movements} currency={cashPosition.currency} partyNames={partyNames} />
       </Modal>
     </Card>
   );

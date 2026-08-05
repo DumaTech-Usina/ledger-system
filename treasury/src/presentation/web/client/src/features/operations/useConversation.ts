@@ -1,19 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { operationsApi } from "@/features/operations/operationsApi";
-import { scenarioCopy, translateMessage } from "@/features/operations/copy";
+import { positionCopy, scenarioCopy, translateMessage } from "@/features/operations/copy";
 import { typingDurationMs } from "@/features/operations/typing";
 import { useTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
+import { formatMoney } from "@/utils/format";
 import {
   decideAdvance,
   decideClassification,
+  decideSubmitOutcome,
   interpretationMessages,
+  offerablePositions,
+  pendingIdentity,
+  positionAnswers,
   shouldFallbackToDirectAnswer,
   slotPrompt,
   withId,
+  type IdentityOption,
   type Phase,
   type StreamItem,
 } from "@/features/operations/conversationEngine";
-import type { AuditEntry, DialogState, IntentStatus, ScenarioSummary, SlotDefinition } from "@/types/operations";
+import type {
+  AuditEntry,
+  DialogState,
+  IdentityOutcome,
+  IntentStatus,
+  ScenarioSummary,
+  SettlementCandidate,
+  SlotDefinition,
+} from "@/types/operations";
 
 export function useConversation() {
   const typingHidden = useTypingAnimationDisabled();
@@ -131,6 +145,21 @@ export function useConversation() {
     [push, goPreview, scenarioId],
   );
 
+  /**
+   * Offers the one identity question a turn is worth asking, and reports whether it did. When it
+   * did, the caller must NOT advance: the backend recorded nothing for that slot, so advancing
+   * would re-push the very question this bubble replaces.
+   */
+  const offerIdentity = useCallback(
+    (outcomes: IdentityOutcome[] | undefined): boolean => {
+      const message = pendingIdentity(outcomes, answeredSlotsRef.current);
+      if (!message) return false;
+      push(withId(message));
+      return true;
+    },
+    [push],
+  );
+
   /** Surfaces what an /interpret call found (validation errors, low-confidence proposals), then —
    * unless the caller is about to fall back to a direct answer — advances via the returned state. */
   const applyInterpretation = useCallback(
@@ -139,9 +168,10 @@ export function useConversation() {
         push(withId(message));
       }
       if (opts?.skipAdvance || !result.state) return;
+      if (offerIdentity(result.identity)) return;
       advance(result.state, undefined, scenarioIdForPrompt);
     },
-    [push, advance],
+    [push, advance, offerIdentity],
   );
 
   const selectScenario = useCallback(
@@ -187,9 +217,12 @@ export function useConversation() {
         return;
       }
       refreshLifecycle(id);
+      // An unresolved counterparty was not recorded, so `state` asks this same slot again. Offering
+      // the decision replaces that repetition — the slot stays open and the composer still works.
+      if (!data.error && offerIdentity(data.identity ? [data.identity] : undefined)) return;
       advance(data.state, data.error);
     },
-    [currentSlot, push, refreshLifecycle, advance],
+    [currentSlot, push, refreshLifecycle, advance, offerIdentity],
   );
 
   /**
@@ -255,6 +288,9 @@ export function useConversation() {
           return;
         }
         refreshLifecycle(id);
+        if (!fallback.data.error && offerIdentity(fallback.data.identity ? [fallback.data.identity] : undefined)) {
+          return;
+        }
         advance(fallback.data.state, fallback.data.error);
         return;
       }
@@ -284,6 +320,123 @@ export function useConversation() {
     },
     [push, refreshLifecycle, advance],
   );
+
+  /**
+   * Settles an open counterparty question. Selecting an existing party is an ordinary answer
+   * carrying its PartyId (the cascade resolves it by exact_id); creating one — or declaring the
+   * counterparty unidentifiable — goes through the identity route, the only path that mints an id.
+   */
+  const decideIdentity = useCallback(
+    async (item: { id: string; slot: string }, option: IdentityOption, justification?: string) => {
+      const id = intentIdRef.current;
+      if (!id) return;
+      setStream((s) => s.filter((it) => it.id !== item.id));
+      setBusy(true);
+
+      if (option.kind === "select") {
+        const { data } = await operationsApi.answer(id, item.slot, option.partyId);
+        setBusy(false);
+        if (!data?.state) {
+          push(withId({ kind: "transport-error" }));
+          return;
+        }
+        refreshLifecycle(id);
+        advance(data.state, data.error);
+        return;
+      }
+
+      const { ok, data } = await operationsApi.decideIdentity(id, {
+        slot: item.slot,
+        kind: option.kind,
+        mention: option.mention,
+        justification,
+      });
+      setBusy(false);
+      // A refused decision (not admissible, missing justification) comes back 422 with a legible
+      // reason. That is the user's to fix, not a transport failure.
+      if (!ok) {
+        const reason = data && "error" in data ? data.error : undefined;
+        push(withId(reason ? { kind: "error", text: translateMessage(reason) } : { kind: "transport-error" }));
+        return;
+      }
+      if (!data || !("state" in data)) {
+        push(withId({ kind: "transport-error" }));
+        return;
+      }
+      refreshLifecycle(id);
+      advance(data.state, undefined);
+    },
+    [push, refreshLifecycle, advance],
+  );
+
+  /**
+   * When the open question asks which position a settlement is about, offer the positions instead
+   * of an id field. Runs off the open slot rather than off a reply, because the offer belongs to the
+   * question — and it stays silent when there is nothing to offer, which is the ordinary case.
+   */
+  useEffect(() => {
+    const id = intentIdRef.current;
+    if (!id || !currentSlot || currentSlot.type !== "event_ref") return;
+
+    let cancelled = false;
+    operationsApi.settlementCandidates(id).then(({ ok, data }) => {
+      if (cancelled || !ok) return;
+      const offerable = offerablePositions(data.candidates, currentSlot);
+      if (offerable.length === 0) return;
+      push(withId({ kind: "positions", slots: data.slots, candidates: offerable }));
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSlot, push]);
+
+  /**
+   * Records the position the user pointed at. One selection, two assertions: which position this
+   * fact moves and which fact caused it — merged in a single batch so they can never land apart.
+   */
+  const selectPosition = useCallback(
+    async (item: { id: string; slots: { continuity?: string; lineage?: string } }, candidate: SettlementCandidate) => {
+      const id = intentIdRef.current;
+      if (!id) return;
+      setStream((s) => s.filter((it) => it.id !== item.id));
+      push(
+        withId({
+          kind: "user",
+          text: positionCopy.picked(candidate.counterparty, formatMoney(candidate.totalOriginated, candidate.currency)),
+        }),
+      );
+
+      setBusy(true);
+      const { data } = await operationsApi.applyAnswers(id, positionAnswers(candidate, item.slots), "fill");
+      setBusy(false);
+      if (!data?.state) {
+        push(withId({ kind: "transport-error" }));
+        return;
+      }
+      refreshLifecycle(id);
+      advance(data.state, data.rejected[0]);
+    },
+    [push, refreshLifecycle, advance],
+  );
+
+  /** Puts the offer away. Nothing is recorded: the question stays open and the composer answers it. */
+  const dismissPositions = useCallback((itemId: string) => {
+    setStream((s) => s.filter((it) => it.id !== itemId));
+  }, []);
+
+  /**
+   * Records an answer to the confirmation card's optional question, or the refusal to give one.
+   * Deliberately does NOT touch `busy` or the preview: nothing here can hold a submission back, and
+   * making the confirm button wait on it would be exactly that.
+   */
+  const recordEnrichment = useCallback(async (partyId: string, key: string, value?: string) => {
+    const id = intentIdRef.current;
+    if (!id) return { ok: false as const };
+    const { ok } = await operationsApi.enrich(id, { partyId, key, value });
+    if (ok) refreshLifecycle(id);
+    return { ok };
+  }, [refreshLifecycle]);
 
   /**
    * Applies edits to already-answered slots (any key the scenario knows, not just the "next"
@@ -333,9 +486,44 @@ export function useConversation() {
       push(withId({ kind: "transport-error" }));
       return;
     }
-    setPhase("done");
-    push(withId({ kind: "result", status: data.status, ledgerReference: data.ledgerReference, reason: data.reason }));
+    const decision = decideSubmitOutcome(data);
+    // A correctable rejection leaves the conversation open — only a settled one ends it.
+    if (decision.terminal) setPhase("done");
+    push(withId(decision.message));
   }, [push, refreshLifecycle]);
+
+  /**
+   * Re-answers the slots a fixable rejection implicated, then shows the confirmation card again.
+   *
+   * Uses the batch merge with `edit` (the same deterministic validator every other path uses), so a
+   * correction is one round-trip that reports every problem at once instead of stopping at the
+   * first. It never resubmits by itself: the user confirms again, exactly as the first time.
+   */
+  const applyCorrection = useCallback(
+    async (edits: Record<string, string>) => {
+      const id = intentIdRef.current;
+      if (!id) return { ok: false as const };
+      setBusy(true);
+      const answers = Object.entries(edits).map(([key, value]) => ({ key, value }));
+      const { data } = await operationsApi.applyAnswers(id, answers, "edit");
+      if (!data?.state) {
+        setBusy(false);
+        return { ok: false as const };
+      }
+      if (data.rejected.length > 0) {
+        setBusy(false);
+        const first = data.rejected[0];
+        return { ok: false as const, error: { key: first.key, message: translateMessage(first.message) } };
+      }
+      setBusy(false);
+      refreshLifecycle(id);
+      if (offerIdentity(data.identity)) return { ok: true as const };
+      // Back to confirm-before-commit: nothing is resent without the user seeing it again.
+      await goPreview(id);
+      return { ok: true as const };
+    },
+    [refreshLifecycle, offerIdentity, goPreview],
+  );
 
   const restart = useCallback(() => {
     clearQueue();
@@ -365,6 +553,11 @@ export function useConversation() {
     answer,
     sendUtterance,
     resolveSuggestion,
+    decideIdentity,
+    selectPosition,
+    dismissPositions,
+    recordEnrichment,
+    applyCorrection,
     confirmSubmit,
     restart,
     answeredSlots: answeredSlotsRef.current,

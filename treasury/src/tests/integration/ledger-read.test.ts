@@ -5,7 +5,8 @@ import { HttpLedgerReadAdapter } from "../../infra/ledger-read/HttpLedgerReadAda
 import { StubLedgerReadAdapter } from "../../infra/ledger-read/StubLedgerReadAdapter";
 import { GetTreasuryDashboardUseCase } from "../../core/application/use-cases/GetTreasuryDashboard";
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
-import { PARTY } from "../fixtures/parties";
+import type { PartyDirectoryPort } from "../../core/application/ports/PartyDirectoryPort";
+import { PARTY, PARTY_DISPLAY_NAMES, emptyPartyDirectory, partyDirectory } from "../fixtures/parties";
 
 // A fake Ledger returning its real read-API shapes.
 let server: Server;
@@ -25,7 +26,7 @@ beforeAll(async () => {
       }));
     } else if (path === "/api/cash-movements") {
       res.end(JSON.stringify({
-        items: [{ eventId: "e1", occurredAt: "2026-07-09T00:00:00.000Z", effect: "cash_in", amount: "1000.00", sourceReference: "charge:1", description: "x" }],
+        items: [{ eventId: "e1", occurredAt: "2026-07-09T00:00:00.000Z", effect: "cash_in", amount: "1000.00", sourceReference: "charge:1", counterparty: PARTY.OPERATOR, description: "x" }],
         nextCursor: null, hasMore: false,
       }));
     } else if (path === "/api/positions") {
@@ -65,7 +66,7 @@ describe("HttpLedgerReadAdapter", () => {
 
 describe("GetTreasuryDashboardUseCase", () => {
   it("composes an available dashboard from Ledger reads", async () => {
-    const uc = new GetTreasuryDashboardUseCase(new HttpLedgerReadAdapter(baseUrl), PARTY.USINA);
+    const uc = new GetTreasuryDashboardUseCase(new HttpLedgerReadAdapter(baseUrl), PARTY.USINA, partyDirectory());
     const d = await uc.execute();
     expect(d.available).toBe(true);
     expect(d.cashPosition?.currency).toBe("BRL");
@@ -73,18 +74,55 @@ describe("GetTreasuryDashboardUseCase", () => {
     expect(d.positions?.length).toBe(1);
   });
 
+  it("names the counterparties on screen, without touching the movements themselves", async () => {
+    const uc = new GetTreasuryDashboardUseCase(new HttpLedgerReadAdapter(baseUrl), PARTY.USINA, partyDirectory());
+    const d = await uc.execute();
+    expect(d.partyNames).toEqual({ [PARTY.OPERATOR]: PARTY_DISPLAY_NAMES[PARTY.OPERATOR] });
+    // The movement stays the Ledger's own shape: an id, never a name.
+    expect(d.movements?.[0].counterparty).toBe(PARTY.OPERATOR);
+    expect(d.movements?.[0]).not.toHaveProperty("counterpartyName");
+  });
+
+  it("leaves a party the Directory does not know absent, so its id stays on screen", async () => {
+    const uc = new GetTreasuryDashboardUseCase(new HttpLedgerReadAdapter(baseUrl), PARTY.USINA, emptyPartyDirectory());
+    const d = await uc.execute();
+    expect(d.partyNames).toEqual({});
+    expect(d.movements?.[0].counterparty).toBe(PARTY.OPERATOR);
+  });
+
+  it("keeps the Ledger's figures when the Directory is down — names are legibility, not truth", async () => {
+    const brokenDirectory: PartyDirectoryPort = {
+      get: () => Promise.reject(new Error("directory down")),
+      list: () => Promise.reject(new Error("directory down")),
+      resolve: () => Promise.reject(new Error("directory down")),
+    };
+    const uc = new GetTreasuryDashboardUseCase(new HttpLedgerReadAdapter(baseUrl), PARTY.USINA, brokenDirectory);
+    const d = await uc.execute();
+    expect(d.available).toBe(true);
+    expect(d.cashPosition?.currency).toBe("BRL");
+    expect(d.partyNames).toEqual({});
+  });
+
   it("degrades to available:false when the Ledger is unreachable", async () => {
     const failing: LedgerReadPort = {
       cashPosition: () => Promise.reject(new Error("down")),
       cashMovements: () => Promise.reject(new Error("down")),
       positions: () => Promise.reject(new Error("down")),
+      bookExposure: () => Promise.reject(new Error("down")),
     };
-    const d = await new GetTreasuryDashboardUseCase(failing, PARTY.USINA).execute();
-    expect(d).toEqual({ available: false, cashPosition: null, movements: null, positions: null, classificationHealth: null });
+    const d = await new GetTreasuryDashboardUseCase(failing, PARTY.USINA, partyDirectory()).execute();
+    expect(d).toEqual({
+      available: false,
+      cashPosition: null,
+      movements: null,
+      positions: null,
+      classificationHealth: null,
+      partyNames: {},
+    });
   });
 
   it("stub adapter returns representative data", async () => {
-    const d = await new GetTreasuryDashboardUseCase(new StubLedgerReadAdapter(), PARTY.USINA).execute();
+    const d = await new GetTreasuryDashboardUseCase(new StubLedgerReadAdapter(), PARTY.USINA, partyDirectory()).execute();
     expect(d.available).toBe(true);
     expect(Number(d.cashPosition?.totalCashIn)).toBeGreaterThan(0);
   });

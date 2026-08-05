@@ -5,7 +5,7 @@ import { cn } from "@/utils/cn";
 export interface NavItem {
   id: string;
   label: string;
-  icon: "operations" | "dashboards";
+  icon: "operations" | "dashboards" | "positions" | "intents";
 }
 
 export interface SidebarProps {
@@ -35,6 +35,25 @@ const icons: Record<NavItem["icon"], ReactElement> = {
       <rect x="11.5" y="2.5" width="6" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.5" />
       <rect x="11.5" y="10.5" width="6" height="7" rx="1.2" stroke="currentColor" strokeWidth="1.5" />
       <rect x="2.5" y="14.5" width="6" height="3" rx="1.2" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  ),
+  positions: (
+    <svg viewBox="0 0 20 20" fill="none" className="size-4">
+      <path d="M3 16.5h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <rect x="4" y="9" width="3.5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="9.5" y="5" width="3.5" height="9" rx="1" stroke="currentColor" strokeWidth="1.5" />
+      <rect x="15" y="11" width="1.5" height="3" rx="0.7" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  ),
+  intents: (
+    <svg viewBox="0 0 20 20" fill="none" className="size-4">
+      <path
+        d="M5 2.5h7l3.5 3.5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <path d="M11.5 2.5v4h4M7 11h6M7 14h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   ),
 };

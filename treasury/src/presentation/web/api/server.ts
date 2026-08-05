@@ -10,6 +10,8 @@ import { Permission } from "../../../core/domain/enums/Permission";
 import type { AuthService } from "../../../core/application/services/AuthService";
 import type { GetTreasuryDashboardUseCase } from "../../../core/application/use-cases/GetTreasuryDashboard";
 import type { GetObjectLifecycleUseCase } from "../../../core/application/use-cases/GetObjectLifecycle";
+import type { GetBookExposureUseCase } from "../../../core/application/use-cases/GetBookExposure";
+import type { ListPositionsUseCase } from "../../../core/application/use-cases/ListPositions";
 import type { StartIntentUseCase } from "../../../core/application/use-cases/StartIntent";
 import type { AdvanceDialogUseCase } from "../../../core/application/use-cases/AdvanceDialog";
 import type { ApplyAnswersUseCase } from "../../../core/application/use-cases/ApplyAnswers";
@@ -20,6 +22,7 @@ import type { SubmitRectificationUseCase } from "../../../core/application/use-c
 import type { DecideIdentityUseCase } from "../../../core/application/use-cases/DecideIdentity";
 import type { RecordPartyAttributeUseCase } from "../../../core/application/use-cases/RecordPartyAttribute";
 import type { ListIncompletePartiesUseCase } from "../../../core/application/use-cases/ListIncompleteParties";
+import type { ListSettlementCandidatesUseCase } from "../../../core/application/use-cases/ListSettlementCandidates";
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
 
@@ -37,10 +40,13 @@ export interface ServerDeps {
   decideIdentity: DecideIdentityUseCase;
   recordPartyAttribute: RecordPartyAttributeUseCase;
   listIncompleteParties: ListIncompletePartiesUseCase;
+  listSettlementCandidates: ListSettlementCandidatesUseCase;
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
   getObjectLifecycle: GetObjectLifecycleUseCase;
+  getBookExposure: GetBookExposureUseCase;
+  listPositions: ListPositionsUseCase;
 }
 
 export function createServer(deps: ServerDeps) {
@@ -72,6 +78,7 @@ export function createServer(deps: ServerDeps) {
       deps.decideIdentity,
       deps.recordPartyAttribute,
       deps.listIncompleteParties,
+      deps.listSettlementCandidates,
     ),
   );
   app.use(
@@ -84,7 +91,7 @@ export function createServer(deps: ServerDeps) {
     "/api/dashboard",
     requireAuth,
     requirePermission(Permission.DASHBOARD_READ),
-    dashboardRoutes(deps.getDashboard, deps.getObjectLifecycle),
+    dashboardRoutes(deps.getDashboard, deps.getObjectLifecycle, deps.getBookExposure, deps.listPositions),
   );
 
   // Minimal error boundary: unknown scenario/intent/slot → 400 with a legible message.
