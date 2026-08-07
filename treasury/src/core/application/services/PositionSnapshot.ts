@@ -31,6 +31,9 @@ export interface SnapshotPosition {
   eventCount: number;
   lastEventAt: string | null;
   originatedAt: string | null;
+  createdAt: string | null;
+  /** Copied like every other figure. Null here means the Ledger said null — never "not copied". */
+  dueAt: string | null;
   /**
    * When the Ledger said this. Mandatory: a copy without an age looks current, and a consumer that
    * cannot see the age cannot decide whether it is good enough for what it is about to do.

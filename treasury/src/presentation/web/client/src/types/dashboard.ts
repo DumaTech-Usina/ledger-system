@@ -31,15 +31,13 @@ export interface PositionItem {
   openBalance: string | null;
   eventCount: number;
   lastEventAt: string | null;
-}
-
-export interface ClassificationHealth {
-  uncategorizedCount: number;
-  scannedCount: number;
-  totalPositions: number;
-  sharePercent: number;
-  aging: { fresh: number; recent: number; stale: number };
-  oldestDays: number | null;
+  /** When the position entered the book — the key the default listing is ordered by. */
+  createdAt: string | null;
+  /**
+   * When the obligation falls due, as the fact that established it stated. Null when no origination
+   * stated terms: neither "due today" nor "never due", and never rendered as either.
+   */
+  dueAt: string | null;
 }
 
 export interface TreasuryDashboard {
@@ -47,7 +45,6 @@ export interface TreasuryDashboard {
   cashPosition: CashPosition | null;
   movements: CashMovement[] | null;
   positions: PositionItem[] | null;
-  classificationHealth: ClassificationHealth | null;
   /**
    * partyId → display name for the counterparties in `movements`. A party the Directory does not
    * know is absent here and keeps its id on screen — never a label treasury cannot support.
@@ -115,6 +112,14 @@ export interface PositionLifecycle {
 export interface BookExposure {
   currency: string;
   openExposure: string;
+  /** What Usina owes on obligations not yet paid — the total expected to leave the company. */
+  openPayableExposure: string;
+  /** The part of it already past its stated due date. */
+  overduePayable: string;
+  /** The part with a stated due date still ahead. */
+  upcomingPayable: string;
+  /** The part whose establishing fact stated no due date — neither late nor upcoming. */
+  undatedPayable: string;
   capitalAtRisk: string;
   healthScore: {
     score: number;
@@ -145,4 +150,20 @@ export interface PositionsPage {
 export interface ListPositionsResult {
   available: boolean;
   page: PositionsPage | null;
+}
+
+/**
+ * The payable positions behind the upcoming/overdue figures, already split by the server.
+ *
+ * The totals are NOT here on purpose: they come from `BookExposure`, folded by the Ledger over every
+ * aggregate. These lists are capped, and `truncated` says so rather than letting a partial list read
+ * as the whole book.
+ */
+export interface PayablePositionsResult {
+  available: boolean;
+  overdue: PositionItem[];
+  upcoming: PositionItem[];
+  /** Outstanding, but no due date was ever stated. Shown apart — neither late nor upcoming. */
+  undated: PositionItem[];
+  truncated: boolean;
 }

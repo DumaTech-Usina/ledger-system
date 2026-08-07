@@ -26,6 +26,12 @@ export interface Candidate {
   eventType: string;
   economicEffect: string;
   occurredAt: string;
+  /**
+   * When the obligation this candidate originates falls due, as the establishing document stated it.
+   * Absent when the scenario does not collect one or the document did not say — which the Ledger
+   * records as no due date, never as a date inferred from `occurredAt`.
+   */
+  dueAt?: string;
   amount: string;
   currency: string;
   description?: string;

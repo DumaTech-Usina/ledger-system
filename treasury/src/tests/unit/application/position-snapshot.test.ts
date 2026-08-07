@@ -15,6 +15,8 @@ const item = (objectId: string, over: Partial<PositionItem> = {}): PositionItem 
   eventCount: 1,
   lastEventAt: "2026-08-06T00:00:00.000Z",
   originatedAt: "2026-08-01T00:00:00.000Z",
+  createdAt: "2026-08-01T00:00:00.000Z",
+  dueAt: null,
   ...over,
 });
 

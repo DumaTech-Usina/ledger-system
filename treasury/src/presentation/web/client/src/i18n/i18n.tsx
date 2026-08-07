@@ -32,12 +32,19 @@ export interface Translations {
     subheading: string;
     exposure: string;
     capitalAtRisk: string;
-    bookHealth: string;
-    closureQuality: string;
     exposureUnavailable: string;
     capitalAtRiskNote: string;
     listUnavailable: string;
     total: string;
+    upcomingEntries: string;
+    upcomingEntriesNote: string;
+    overdueEntries: string;
+    overdueEntriesNote: string;
+    undatedEntries: string;
+    undatedEntriesNote: string;
+    dueOn: string;
+    noDueDate: string;
+    truncatedList: string;
   };
   intents: {
     heading: string;
@@ -64,17 +71,6 @@ export interface Translations {
     openPositions: string;
     /** The full list, which includes positions with nothing outstanding. */
     allPositions: string;
-    classificationHealth: {
-      title: string;
-      uncategorized: string;
-      share: string;
-      oldest: string;
-      oldestDays: string;
-      fresh: string;
-      recent: string;
-      stale: string;
-      note: string;
-    };
     table: {
       date: string;
       recordedDate: string;
@@ -176,11 +172,18 @@ const ptBR: Translations = {
     subheading: "O que ainda está em aberto, o que já foi encerrado e como cada objeto evoluiu.",
     exposure: "Exposição em aberto",
     capitalAtRisk: "Capital em risco",
-    bookHealth: "Saúde do livro",
-    closureQuality: "Qualidade de fechamento",
     exposureUnavailable: "Não foi possível ler a exposição do livro agora.",
     capitalAtRiskNote: "Originado há mais de 30 dias, sem nenhuma liquidação até aqui.",
     listUnavailable: "Não foi possível listar as posições agora.",
+    upcomingEntries: "Lançamentos futuros",
+    upcomingEntriesNote: "Obrigações em aberto com vencimento ainda à frente.",
+    overdueEntries: "Lançamentos atrasados",
+    overdueEntriesNote: "Obrigações em aberto cujo vencimento já passou.",
+    undatedEntries: "Sem vencimento informado",
+    undatedEntriesNote: "Em aberto, mas o documento que as originou não informou vencimento. Não são futuras nem atrasadas.",
+    dueOn: "Vence em",
+    noDueDate: "Sem vencimento informado",
+    truncatedList: "A lista abaixo mostra apenas as primeiras posições. Os valores acima consideram o livro inteiro.",
     total: "{count} posições",
   },
   intents: {
@@ -219,17 +222,6 @@ const ptBR: Translations = {
     recentMovements: "Movimentações recentes",
     openPositions: "Posições em aberto",
     allPositions: "Posições",
-    classificationHealth: {
-      title: "Saúde de classificação",
-      uncategorized: "Pagamentos sem categoria",
-      share: "Participação",
-      oldest: "Mais antigo",
-      oldestDays: "{days} dias",
-      fresh: "≤ 30 dias",
-      recent: "31–90 dias",
-      stale: "> 90 dias",
-      note: "Saídas registradas sem uma categoria específica. Promova-as a uma operação dedicada (ex.: Folha de pagamento) para reduzir este número.",
-    },
     table: {
       date: "Data",
       recordedDate: "Data do registro",
@@ -415,11 +407,18 @@ const en: Translations = {
     subheading: "What is still outstanding, what has closed, and how each object evolved.",
     exposure: "Open exposure",
     capitalAtRisk: "Capital at risk",
-    bookHealth: "Book health",
-    closureQuality: "Closure quality",
     exposureUnavailable: "Couldn't read the book's exposure right now.",
     capitalAtRiskNote: "Originated over 30 days ago, with nothing settled against it yet.",
     listUnavailable: "Couldn't list positions right now.",
+    upcomingEntries: "Upcoming entries",
+    upcomingEntriesNote: "Outstanding obligations whose due date is still ahead.",
+    overdueEntries: "Overdue entries",
+    overdueEntriesNote: "Outstanding obligations whose due date has passed.",
+    undatedEntries: "No due date stated",
+    undatedEntriesNote: "Outstanding, but the document that established them stated no due date. Neither upcoming nor overdue.",
+    dueOn: "Due",
+    noDueDate: "No due date stated",
+    truncatedList: "The list below shows only the first positions. The figures above cover the whole book.",
     total: "{count} positions",
   },
   intents: {
@@ -458,17 +457,6 @@ const en: Translations = {
     recentMovements: "Recent movements",
     openPositions: "Open positions",
     allPositions: "Positions",
-    classificationHealth: {
-      title: "Classification health",
-      uncategorized: "Uncategorized payments",
-      share: "Share",
-      oldest: "Oldest",
-      oldestDays: "{days} days",
-      fresh: "≤ 30 days",
-      recent: "31–90 days",
-      stale: "> 90 days",
-      note: "Outbound payments recorded without a specific category. Promote them to a dedicated operation (e.g. Payroll) to reduce this number.",
-    },
     table: {
       date: "Date",
       recordedDate: "Recorded date",

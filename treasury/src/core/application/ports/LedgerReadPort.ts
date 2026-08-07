@@ -22,6 +22,9 @@ export interface LedgerReadPort {
     page?: number;
     status?: string;
     objectType?: string;
+    /** `createdAt` (default) or `dueAt`. Validated by the Ledger against a closed set. */
+    sortBy?: string;
+    sortOrder?: string;
   }): Promise<PositionsPage>;
   /** What the position math says about the whole book: exposure, capital at risk, book health. */
   bookExposure(): Promise<BookExposure>;

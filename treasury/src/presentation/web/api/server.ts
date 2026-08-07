@@ -12,6 +12,7 @@ import type { GetTreasuryDashboardUseCase } from "../../../core/application/use-
 import type { GetObjectLifecycleUseCase } from "../../../core/application/use-cases/GetObjectLifecycle";
 import type { GetBookExposureUseCase } from "../../../core/application/use-cases/GetBookExposure";
 import type { ListPositionsUseCase } from "../../../core/application/use-cases/ListPositions";
+import type { ListPayablePositionsUseCase } from "../../../core/application/use-cases/ListPayablePositions";
 import type { StartIntentUseCase } from "../../../core/application/use-cases/StartIntent";
 import type { AdvanceDialogUseCase } from "../../../core/application/use-cases/AdvanceDialog";
 import type { ApplyAnswersUseCase } from "../../../core/application/use-cases/ApplyAnswers";
@@ -53,6 +54,7 @@ export interface ServerDeps {
   getObjectLifecycle: GetObjectLifecycleUseCase;
   getBookExposure: GetBookExposureUseCase;
   listPositions: ListPositionsUseCase;
+  listPayablePositions: ListPayablePositionsUseCase;
 }
 
 export function createServer(deps: ServerDeps) {
@@ -100,7 +102,13 @@ export function createServer(deps: ServerDeps) {
     "/api/dashboard",
     requireAuth,
     requirePermission(Permission.DASHBOARD_READ),
-    dashboardRoutes(deps.getDashboard, deps.getObjectLifecycle, deps.getBookExposure, deps.listPositions),
+    dashboardRoutes(
+      deps.getDashboard,
+      deps.getObjectLifecycle,
+      deps.getBookExposure,
+      deps.listPositions,
+      deps.listPayablePositions,
+    ),
   );
 
   // Minimal error boundary: unknown scenario/intent/slot → 400 with a legible message.

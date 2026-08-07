@@ -7,6 +7,10 @@ import type { BookExposure, PositionsPage } from "../../../core/application/dtos
 const exposure: BookExposure = {
   currency: "BRL",
   openExposure: "7800.00",
+  openPayableExposure: "5000.00",
+  overduePayable: "1200.00",
+  upcomingPayable: "2300.00",
+  undatedPayable: "1500.00",
   capitalAtRisk: "7000.00",
   healthScore: {
     score: 62.5,

@@ -94,11 +94,17 @@ export class HttpLedgerReadAdapter
     page?: number;
     status?: string;
     objectType?: string;
+    sortBy?: string;
+    sortOrder?: string;
   }): Promise<PositionsPage> {
     const q = new URLSearchParams({ limit: String(params?.limit ?? 50) });
     if (params?.page) q.set("page", String(params.page));
     if (params?.status) q.set("status", params.status);
     if (params?.objectType) q.set("objectType", params.objectType);
+    // The Ledger validates both against a closed set, so an unrecognised value falls back there
+    // rather than travelling into its SQL.
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     const raw = await this.get<{
       data: PositionItem[];
       total: number;
@@ -123,6 +129,10 @@ export class HttpLedgerReadAdapter
         eventCount: p.eventCount,
         lastEventAt: p.lastEventAt,
         originatedAt: p.originatedAt ?? null,
+        createdAt: p.createdAt ?? null,
+        // Null against a Ledger that predates the due-date field, and null for any obligation whose
+        // establishing fact stated no terms. Both are "not known", which is what the screen shows.
+        dueAt: p.dueAt ?? null,
       })),
     };
   }
@@ -136,12 +146,22 @@ export class HttpLedgerReadAdapter
     const raw = await this.get<{
       currency: string;
       openExposure: string;
+      openPayableExposure?: string;
+      overduePayable?: string;
+      upcomingPayable?: string;
+      undatedPayable?: string;
       capitalAtRisk: string;
       healthScore: BookExposure["healthScore"];
     }>("/api/dashboard");
     return {
       currency: raw.currency,
       openExposure: raw.openExposure,
+      // Defaulted to "0.00" only for a Ledger that predates these figures — where a payable position
+      // could not be originated at all, so zero is the true total rather than a stand-in for unknown.
+      openPayableExposure: raw.openPayableExposure ?? "0.00",
+      overduePayable: raw.overduePayable ?? "0.00",
+      upcomingPayable: raw.upcomingPayable ?? "0.00",
+      undatedPayable: raw.undatedPayable ?? "0.00",
       capitalAtRisk: raw.capitalAtRisk,
       healthScore: raw.healthScore,
     };

@@ -3,6 +3,7 @@ import type { GetTreasuryDashboardUseCase } from "../../../../core/application/u
 import type { GetObjectLifecycleUseCase } from "../../../../core/application/use-cases/GetObjectLifecycle";
 import type { GetBookExposureUseCase } from "../../../../core/application/use-cases/GetBookExposure";
 import type { ListPositionsUseCase } from "../../../../core/application/use-cases/ListPositions";
+import type { ListPayablePositionsUseCase } from "../../../../core/application/use-cases/ListPayablePositions";
 
 /** Authorization-filtered display of Ledger truth. Read-only; degrades gracefully if Ledger is down. */
 export function dashboardRoutes(
@@ -10,6 +11,7 @@ export function dashboardRoutes(
   getLifecycle: GetObjectLifecycleUseCase,
   getBookExposure: GetBookExposureUseCase,
   listPositions: ListPositionsUseCase,
+  listPayablePositions: ListPayablePositionsUseCase,
 ): Router {
   const router = Router();
 
@@ -42,6 +44,17 @@ export function dashboardRoutes(
           objectType: typeof req.query.objectType === "string" ? req.query.objectType : undefined,
         }),
       );
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // The payable positions behind the upcoming/overdue figures, split by what the book knows about
+  // their timing. The totals stay on /exposure — they are the Ledger's own fold over the whole book,
+  // and deriving them from this capped list would let the two disagree.
+  router.get("/payables", async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json(await listPayablePositions.execute());
     } catch (err) {
       next(err);
     }

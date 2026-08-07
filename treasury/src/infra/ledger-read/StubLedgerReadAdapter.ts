@@ -65,13 +65,13 @@ export class StubLedgerReadAdapter implements LedgerReadPort, PositionLifecycleP
       limit: 50,
       totalPages: 1,
       data: [
-        { objectId: "charge:1001", objectType: "charge", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "42000.00", openBalance: "42000.00", eventCount: 1, lastEventAt: at(6, 9), originatedAt: null },
-        { objectId: "charge:1000", objectType: "charge", status: "partially_settled", outcome: "pending", currency: "BRL", totalOriginated: "120000.00", openBalance: "32000.00", eventCount: 3, lastEventAt: at(6, 7), originatedAt: null },
-        { objectId: "advance:3003", objectType: "advance", status: "fully_settled", outcome: "gain", currency: "BRL", totalOriginated: "9300.00", openBalance: "0.00", eventCount: 2, lastEventAt: at(6, 6), originatedAt: null },
+        { objectId: "charge:1001", objectType: "charge", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "42000.00", openBalance: "42000.00", eventCount: 1, lastEventAt: at(6, 9), originatedAt: null, createdAt: null, dueAt: null },
+        { objectId: "charge:1000", objectType: "charge", status: "partially_settled", outcome: "pending", currency: "BRL", totalOriginated: "120000.00", openBalance: "32000.00", eventCount: 3, lastEventAt: at(6, 7), originatedAt: null, createdAt: null, dueAt: null },
+        { objectId: "advance:3003", objectType: "advance", status: "fully_settled", outcome: "gain", currency: "BRL", totalOriginated: "9300.00", openBalance: "0.00", eventCount: 2, lastEventAt: at(6, 6), originatedAt: null, createdAt: null, dueAt: null },
         // Two generic/uncategorized payments (objectType "payable") — one recent, one stale — so the
         // classification-health panel shows a representative backlog in demo mode.
-        { objectId: "intent:p-88", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(6, 5), originatedAt: null },
-        { objectId: "intent:p-42", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(2, 2), originatedAt: null },
+        { objectId: "intent:p-88", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(6, 5), originatedAt: null, createdAt: null, dueAt: null },
+        { objectId: "intent:p-42", objectType: "payable", status: "open", outcome: "pending", currency: "BRL", totalOriginated: "0.00", openBalance: "0.00", eventCount: 1, lastEventAt: at(2, 2), originatedAt: null, createdAt: null, dueAt: null },
       ],
     };
   }
@@ -99,6 +99,10 @@ export class StubLedgerReadAdapter implements LedgerReadPort, PositionLifecycleP
     return {
       currency: "BRL",
       openExposure: "0.00",
+      openPayableExposure: "0.00",
+      overduePayable: "0.00",
+      upcomingPayable: "0.00",
+      undatedPayable: "0.00",
       capitalAtRisk: "0.00",
       healthScore: {
         score: 0,

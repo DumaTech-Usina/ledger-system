@@ -4,13 +4,12 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Modal } from "@/components/Modal";
-import { ClassificationAgingCard } from "@/features/dashboard/ClassificationAgingCard";
-import { ClassificationHealthCard } from "@/features/dashboard/ClassificationHealthCard";
 import { ObjectLifecycleTimeline } from "@/features/dashboard/ObjectLifecycleTimeline";
 import { PositionsTable } from "@/features/dashboard/PositionsTable";
 import { hasOutstandingBalance } from "@/features/dashboard/lifecycleEngine";
 import { Pagination } from "@/components/Pagination";
 import { useBookExposure } from "@/features/dashboard/useBookExposure";
+import { usePayablePositions } from "@/features/dashboard/usePayablePositions";
 import { usePositionsPage } from "@/features/dashboard/usePositionsPage";
 import { useDashboard } from "@/features/dashboard/useDashboard";
 import { formatTemplate, useLanguage } from "@/i18n/i18n";
@@ -82,9 +81,12 @@ export function PositionsPage({
 }) {
   const { data, loading } = useDashboard();
   const { exposure } = useBookExposure();
+  const { payables } = usePayablePositions();
   const { page, setPage, result: positionsPage, loading: listLoading } = usePositionsPage();
   const { t } = useLanguage();
   const [showOutstanding, setShowOutstanding] = useState(false);
+  /** Which payable drill-down is open, if any. The three lists share one modal. */
+  const [openPayables, setOpenPayables] = useState<"upcoming" | "overdue" | "undated" | null>(null);
 
   return (
     <div className="space-y-8">
@@ -112,7 +114,7 @@ export function PositionsPage({
           return (
             <>
               <section>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                   <Card
                     role="button"
                     tabIndex={0}
@@ -156,35 +158,84 @@ export function PositionsPage({
                     <p className="mt-1 text-[11px] text-muted">{t.positions.capitalAtRiskNote}</p>
                   </Card>
 
-                  <Card>
-                    <p className="text-[13px] font-semibold text-muted">{t.positions.bookHealth}</p>
+                  {/* What is expected to LEAVE the company, split by what the book knows about
+                      timing. The figures are the Ledger's own fold over every aggregate; the lists
+                      behind them are a separate read, which is why a capped list says so instead of
+                      quietly disagreeing with the number above it. */}
+                  <Card
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setOpenPayables("upcoming")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setOpenPayables("upcoming");
+                      }
+                    }}
+                    className="transition hover:bg-ink/6 dark:hover:bg-white/8"
+                  >
+                    <p className="text-[13px] font-semibold text-muted">{t.positions.upcomingEntries}</p>
                     <p className="tabular mt-1.5 text-2xl font-semibold text-ink">
-                      {exposure ? `${exposure.healthScore.score}` : t.common.unknown}
+                      {exposure
+                        ? formatMoney(exposure.upcomingPayable, exposure.currency)
+                        : t.common.unknown}
                     </p>
-                    {exposure && (
-                      <p className="mt-1 text-[11px] text-muted">
-                        {t.positions.closureQuality} {Math.round(exposure.healthScore.closureQuality * 100)}% ·{" "}
-                        {exposure.healthScore.windowDays}d
-                      </p>
-                    )}
+                    <p className="mt-1 text-[11px] text-muted">{t.positions.upcomingEntriesNote}</p>
                   </Card>
-                </div>
 
-                {data.classificationHealth && (
-                  <div className="mt-4">
-                    <ClassificationHealthCard health={data.classificationHealth} />
-                  </div>
-                )}
+                  <Card
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setOpenPayables("overdue")}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setOpenPayables("overdue");
+                      }
+                    }}
+                    className="transition hover:bg-ink/6 dark:hover:bg-white/8"
+                  >
+                    <p className="text-[13px] font-semibold text-muted">{t.positions.overdueEntries}</p>
+                    <p
+                      className={`tabular mt-1.5 text-2xl font-semibold ${
+                        exposure && Number(exposure.overduePayable) > 0 ? "text-warn" : "text-ink"
+                      }`}
+                    >
+                      {exposure
+                        ? formatMoney(exposure.overduePayable, exposure.currency)
+                        : t.common.unknown}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted">{t.positions.overdueEntriesNote}</p>
+                  </Card>
+
+                  {/* Only shown when there is something in it. An obligation whose document stated no
+                      terms belongs to neither card above, and hiding it there would let one of them
+                      absorb it silently; showing an empty third card every time would be noise. */}
+                  {exposure && Number(exposure.undatedPayable) > 0 && (
+                    <Card
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setOpenPayables("undated")}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          setOpenPayables("undated");
+                        }
+                      }}
+                      className="transition hover:bg-ink/6 dark:hover:bg-white/8"
+                    >
+                      <p className="text-[13px] font-semibold text-muted">{t.positions.undatedEntries}</p>
+                      <p className="tabular mt-1.5 text-2xl font-semibold text-ink">
+                        {formatMoney(exposure.undatedPayable, exposure.currency)}
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted">{t.positions.undatedEntriesNote}</p>
+                    </Card>
+                  )}
+                </div>
 
                 <p className="mt-3 text-[13px] text-muted">
                   {formatTemplate(t.dashboard.positionAsOf, { date: formatDate(cashPosition.asOf) })}
                 </p>
-
-                {data.classificationHealth && (
-                  <div className="mt-4">
-                    <ClassificationAgingCard health={data.classificationHealth} />
-                  </div>
-                )}
               </section>
 
               <Modal
@@ -200,6 +251,46 @@ export function PositionsPage({
                   canRectify={canRectify}
                   onOperationStarted={onOperationStarted}
                 />
+              </Modal>
+
+              {/* One modal for the three payable drill-downs — same table, same affordances as the
+                  open-positions one above, with the due-date column that gives these three lists
+                  their meaning. */}
+              <Modal
+                open={openPayables !== null}
+                onClose={() => setOpenPayables(null)}
+                title={
+                  openPayables === "overdue"
+                    ? t.positions.overdueEntries
+                    : openPayables === "undated"
+                      ? t.positions.undatedEntries
+                      : t.positions.upcomingEntries
+                }
+                closeLabel={t.common.close}
+                className="max-w-6xl"
+              >
+                {!payables ? (
+                  <p className="px-1 py-4 text-sm text-muted">{t.positions.listUnavailable}</p>
+                ) : (
+                  <>
+                    {payables.truncated && (
+                      <p className="px-1 pb-3 text-[12px] text-muted">{t.positions.truncatedList}</p>
+                    )}
+                    <PositionsTable
+                      positions={
+                        openPayables === "overdue"
+                          ? payables.overdue
+                          : openPayables === "undated"
+                            ? payables.undated
+                            : payables.upcoming
+                      }
+                      currency={cashPosition.currency}
+                      canRectify={canRectify}
+                      onOperationStarted={onOperationStarted}
+                      showDueDate
+                    />
+                  </>
+                )}
               </Modal>
 
               {/* Every position the overview returns, including the ones with nothing outstanding —

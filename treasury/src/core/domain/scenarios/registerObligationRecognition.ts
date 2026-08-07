@@ -38,6 +38,16 @@ export const registerObligationRecognition: Scenario = {
       required: true,
     },
     {
+      // When the obligation falls due, as the establishing document states it. Optional on purpose:
+      // an invoice usually carries terms, a closed payroll often does not, and demanding a date the
+      // user does not have would either block a real fact or invite an invented one. Left empty, the
+      // position is reported as having no known due date — never as due today.
+      key: "dueAt",
+      type: SlotType.DATE,
+      prompt: "On what date does it fall due? (leave empty if the document does not say)",
+      required: false,
+    },
+    {
       // Optional continuity assertion: the position of a payment already recorded, which this
       // recognition originates in hindsight. Never required — a recognition that comes first has
       // nothing to point at, and that is the ordinary case, not a gap.

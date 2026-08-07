@@ -44,6 +44,13 @@ export interface PositionItem {
   lastEventAt: string | null;
   /** When the position was originated. Null when no ORIGINATES event is on record. */
   originatedAt: string | null;
+  /** When the position entered the book, and the key the default listing is ordered by. */
+  createdAt: string | null;
+  /**
+   * When the obligation falls due, as the fact that established it stated. Null when no origination
+   * stated terms — which is neither "due today" nor "never due", and must never be rendered as either.
+   */
+  dueAt: string | null;
 }
 
 export interface PositionsPage {
@@ -158,6 +165,20 @@ export interface BookExposure {
   currency: string;
   /** Sum of open balances across positions the Ledger can measure. */
   openExposure: string;
+  /**
+   * What Usina owes on recognized obligations it has not yet paid — the total expected to leave the
+   * company. Kept apart from `openExposure`, which runs the other way; the Ledger never adds them.
+   */
+  openPayableExposure: string;
+  /** The part of `openPayableExposure` already past its stated due date. */
+  overduePayable: string;
+  /** The part with a stated due date still ahead. */
+  upcomingPayable: string;
+  /**
+   * The part whose establishing fact stated no due date. Belongs to neither of the other two: the
+   * book cannot call it late and cannot call it upcoming, so it is published as its own figure.
+   */
+  undatedPayable: string;
   /** Open balances originated over 30 days ago with nothing settled against them yet. */
   capitalAtRisk: string;
   healthScore: {

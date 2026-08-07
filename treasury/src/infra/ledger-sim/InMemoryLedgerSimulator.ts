@@ -119,7 +119,7 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
       totalOriginated: input.amount,
       openBalance: input.amount,
       eventCount: 1,
-      lastEventAt: input.occurredAt, originatedAt: null,
+      lastEventAt: input.occurredAt, originatedAt: null, createdAt: input.occurredAt, dueAt: null,
     });
     return ledgerReference;
   }
@@ -200,6 +200,10 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
     return {
       currency: "BRL",
       openExposure: "0.00",
+      openPayableExposure: "0.00",
+      overduePayable: "0.00",
+      upcomingPayable: "0.00",
+      undatedPayable: "0.00",
       capitalAtRisk: "0.00",
       healthScore: {
         score: 0,

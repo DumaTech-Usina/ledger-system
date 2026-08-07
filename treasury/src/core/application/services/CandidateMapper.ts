@@ -682,6 +682,10 @@ export class CandidateMapper {
       eventType: m.eventType,
       economicEffect,
       occurredAt: new Date(a.occurredAt).toISOString(),
+      // Only sent when the scenario collected one and the user filled it in. Omitted rather than
+      // sent as null so a scenario that never asks cannot accidentally assert "no due date stated"
+      // — and the Ledger's invariant refuses it outright on any tuple that cannot carry one.
+      ...(a.dueAt?.trim() ? { dueAt: new Date(a.dueAt).toISOString() } : {}),
       amount,
       currency: a.currency,
       description: a.description || undefined,

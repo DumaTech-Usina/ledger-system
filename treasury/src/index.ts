@@ -32,6 +32,7 @@ import { GetTreasuryDashboardUseCase } from "./core/application/use-cases/GetTre
 import { GetObjectLifecycleUseCase } from "./core/application/use-cases/GetObjectLifecycle";
 import { GetBookExposureUseCase } from "./core/application/use-cases/GetBookExposure";
 import { ListPositionsUseCase } from "./core/application/use-cases/ListPositions";
+import { ListPayablePositionsUseCase } from "./core/application/use-cases/ListPayablePositions";
 import { StartIntentUseCase } from "./core/application/use-cases/StartIntent";
 import { AdvanceDialogUseCase } from "./core/application/use-cases/AdvanceDialog";
 import { ApplyAnswersUseCase } from "./core/application/use-cases/ApplyAnswers";
@@ -170,6 +171,7 @@ async function bootstrap(): Promise<void> {
   const getObjectLifecycle = new GetObjectLifecycleUseCase(ledgerRead);
   const getBookExposure = new GetBookExposureUseCase(ledgerRead);
   const listPositions = new ListPositionsUseCase(ledgerRead, (positions) => positionSnapshot.remember(positions));
+  const listPayablePositions = new ListPayablePositionsUseCase(ledgerRead);
 
   const startIntent = new StartIntentUseCase(intentRepo, clock, ids, audit);
   const submitIntent = new SubmitIntentUseCase(
@@ -189,6 +191,7 @@ async function bootstrap(): Promise<void> {
     getObjectLifecycle,
     getBookExposure,
     listPositions,
+    listPayablePositions,
     startIntent,
     advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit, partyDirectory),
     applyAnswers,

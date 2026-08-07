@@ -2,6 +2,7 @@ import { apiGet } from "@/api/client";
 import type {
   BookExposureResult,
   ListPositionsResult,
+  PayablePositionsResult,
   PositionLifecycle,
   TreasuryDashboard,
 } from "@/types/dashboard";
@@ -17,6 +18,8 @@ export const dashboardApi = {
   exposure: () => apiGet<BookExposureResult>("/api/dashboard/exposure"),
   /** A page of positions, paged by the Ledger. Distinct from the fixed slice in `overview`. */
   positions: (page: number) => apiGet<ListPositionsResult>(`/api/dashboard/positions?page=${page}`),
+  /** The payable positions behind the upcoming/overdue figures, split by the server. */
+  payables: () => apiGet<PayablePositionsResult>("/api/dashboard/payables"),
   objectLifecycle: (objectId: string) =>
     apiGet<PositionLifecycle | NotFoundBody>(`/api/dashboard/positions/${encodeURIComponent(objectId)}`),
 };
