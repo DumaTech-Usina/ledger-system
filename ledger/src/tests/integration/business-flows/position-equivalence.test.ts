@@ -4,12 +4,16 @@ import { makeRef } from "./helpers/ref";
 import { BROKER, USINA, reporter } from "./helpers/parties";
 import { commissionExpected, commissionReceived } from "./helpers/commands/commission-commands";
 import { advancePayment, advanceSettlement } from "./helpers/commands/advance-commands";
+import { obligationRecognized, payrollPayment } from "./helpers/commands/obligation-commands";
 import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { PositionProjectionService } from "../../../core/application/services/PositionProjectionService";
 import { CashPositionService } from "../../../core/application/services/CashPositionService";
 import { CreateLedgerEventCommand } from "../../../core/application/dtos/CreateLedgerEventInput";
 import { PositionStatus } from "../../../core/application/dtos/PositionSummary";
-import { USINA_RECEIVABLE_OBJECT_TYPES } from "../../../core/domain/policies/CashPositionPolicy";
+import {
+  USINA_PAYABLE_OBJECT_TYPES,
+  USINA_RECEIVABLE_OBJECT_TYPES,
+} from "../../../core/domain/policies/CashPositionPolicy";
 import { ConfidenceLevel } from "../../../core/domain/enums/ConfidenceLevel";
 import { Direction } from "../../../core/domain/enums/Direction";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
@@ -114,6 +118,7 @@ const ORPHAN = "com-recv:orphan";
 const CASH_BASIS = "payable:cash-basis";
 const ADV_OPEN = "advance:open";
 const ADV_PARTIAL = "advance:partial";
+const OBLIGATION = "payroll:recognized";
 
 let repo: InMemoryLedgerEventRepository;
 let positions: PositionProjectionService;
@@ -148,6 +153,11 @@ beforeAll(async () => {
   // cash-basis expense — settles a payable nothing originated (ratified, must not change)
   await run(outboundPayment(CASH_BASIS, "1500.00"));
 
+  // an obligation Usina owes — recognized 45000, partially paid 20000. It is a real open position
+  // and must NOT leak into openReceivables: the two directions are never added together.
+  await run(obligationRecognized(ref, OBLIGATION, "45000.00"));
+  await run(payrollPayment(ref, OBLIGATION, "20000.00"));
+
   // receivable-typed positions, for the cash-position invariant
   await run(advancePayment(ref, ADV_OPEN, "500.00"));
   const advOrigin = await run(advancePayment(ref, ADV_PARTIAL, "800.00"));
@@ -156,7 +166,7 @@ beforeAll(async () => {
   );
 });
 
-const ALL_OBJECT_IDS = [OPEN, PARTIAL, FULL, REVERSED, ORPHAN, CASH_BASIS, ADV_OPEN, ADV_PARTIAL];
+const ALL_OBJECT_IDS = [OPEN, PARTIAL, FULL, REVERSED, ORPHAN, CASH_BASIS, ADV_OPEN, ADV_PARTIAL, OBLIGATION];
 
 describe("EQ-1 — the detail path and the list path agree on every position", () => {
   it.each(ALL_OBJECT_IDS)("%s reads the same through summarize() and aggregateToListItem()", async (objectId) => {
@@ -219,6 +229,29 @@ describe("EQ-3 — open receivables agree with the projected positions", () => {
 
     const summary = await cash.summarize();
     expect(summary.openReceivables.toUnits()).toBe(expected);
+  });
+
+  it("openPayables equals the sum of open balances of payable-typed positions, and the two totals never mix", async () => {
+    const { data } = await repo.findPositionAggregates({ limit: 200 });
+
+    let expected = 0n;
+    for (const agg of data) {
+      if (!USINA_PAYABLE_OBJECT_TYPES.has(agg.objectType)) continue;
+      const item = positions.aggregateToListItem(agg);
+      if (item.status === "reversed" || item.openBalance === null) continue;
+      expected += item.openBalance.toUnits();
+    }
+
+    const summary = await cash.summarize();
+    // 45000 recognized − 20000 paid
+    expect(expected).toBe(2500000n);
+    expect(summary.openPayables.toUnits()).toBe(expected);
+
+    // The obligation is owed BY Usina, so it can never reach what is owed TO it: the two policy
+    // sets are disjoint, which is what makes the totals safe to publish side by side.
+    for (const objectType of USINA_PAYABLE_OBJECT_TYPES) {
+      expect(USINA_RECEIVABLE_OBJECT_TYPES.has(objectType)).toBe(false);
+    }
   });
 });
 

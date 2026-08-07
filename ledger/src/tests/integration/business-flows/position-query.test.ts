@@ -163,10 +163,12 @@ describe("PositionProjectionService.summarizePaginated() — business flows", ()
   it("PA11 — overSettlement is detected when ADJUSTS + SETTLES exceed totalOriginated", async () => {
     const { ledgerRepo, run } = setup();
     const adv = await run(advancePayment(ref, "adv-pa11", "1000.00"));
-    // NON_CASH + ADJUSTS bypasses the over-settlement guard (guard only sums SETTLES events)
-    // NON_CASH is required: ECONOMIC_EFFECT_RELATION_MATRIX[CASH_IN] does not include ADJUSTS
-    await run(advanceSettlement(ref, "adv-pa11", adv.id.value, Relation.ADJUSTS, EconomicEffect.NON_CASH, "800.00", ReasonType.ADVANCE_PAYMENT));
+    // The settlement comes first and is within the baseline, so the conservation guard admits it.
     await run(advanceSettlement(ref, "adv-pa11", adv.id.value, Relation.SETTLES, EconomicEffect.CASH_IN, "500.00", ReasonType.ADVANCE_PAYMENT));
+    // The ADJUSTS is what carries the position past its baseline: the guard triggers on SETTLES
+    // only, because an adjustment is how a restructuring or a loss is recorded.
+    // NON_CASH is required: ECONOMIC_EFFECT_RELATION_MATRIX[CASH_IN] does not include ADJUSTS.
+    await run(advanceSettlement(ref, "adv-pa11", adv.id.value, Relation.ADJUSTS, EconomicEffect.NON_CASH, "800.00", ReasonType.ADVANCE_PAYMENT));
 
     const result = await makeService(ledgerRepo).summarizePaginated({});
     const pos = result.data.find((p) => p.objectId === "adv-pa11")!;

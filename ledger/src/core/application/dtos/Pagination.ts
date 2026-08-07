@@ -18,12 +18,22 @@ export interface Page<T> {
 export const DEFAULT_PAGE_OPTIONS: PageOptions = { page: 1, limit: 50 };
 export const MAX_PAGE_LIMIT = 200;
 
+const SORT_BY_VALUES = ['occurredAt', 'recordedAt'] as const;
+const SORT_ORDER_VALUES = ['ASC', 'DESC'] as const;
+
+/**
+ * Normalizes page options coming from anywhere, including an HTTP query string.
+ *
+ * `sortBy` and `sortOrder` are whitelisted rather than passed through: they reach the repository as
+ * a column name and an order direction, and an unrecognized value must become "unspecified" instead
+ * of travelling further. Anything not on the list is dropped, and the caller's default applies.
+ */
 export function normalizePageOptions(raw: Partial<PageOptions>): PageOptions {
   const page = Math.max(1, Number.isInteger(raw.page) ? (raw.page as number) : 1);
   const rawLimit = Number.isInteger(raw.limit) ? (raw.limit as number) : DEFAULT_PAGE_OPTIONS.limit;
   const limit = Math.min(Math.max(1, rawLimit), MAX_PAGE_LIMIT);
-  const sortBy = raw.sortBy;
-  const sortOrder = raw.sortOrder;
+  const sortBy = SORT_BY_VALUES.includes(raw.sortBy as never) ? raw.sortBy : undefined;
+  const sortOrder = SORT_ORDER_VALUES.includes(raw.sortOrder as never) ? raw.sortOrder : undefined;
   return { page, limit, ...(sortBy && { sortBy }), ...(sortOrder && { sortOrder }) };
 }
 

@@ -9,6 +9,8 @@ export interface CashPositionSummary {
   totalCashIn: Money;
   totalCashOut: Money;
   openReceivables: Money;
+  /** Recognized obligations not yet paid. Never netted against openReceivables. */
+  openPayables: Money;
   contingentExposure: Money;
   currency: string;
   asOf: Date;

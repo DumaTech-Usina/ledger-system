@@ -49,4 +49,17 @@ export enum EventType {
    * and the Reason — not by new event types, unless the economics actually differ.
    */
   OUTBOUND_PAYMENT = "outbound_payment",
+
+  /**
+   * Records an obligation the usina owes, created by an external fact — an invoice issued against
+   * it, a payroll closed, a tax assessed. NON_CASH — no money moves; this ORIGINATES the position
+   * that a later payment settles.
+   *
+   * The twin of COMMISSION_EXPECTED on the outbound side: which kind of obligation it is rides on
+   * the objectType (PAYROLL, SERVICE_FEE, INFRASTRUCTURE_COST, TAX, PAYABLE), not on the event type.
+   *
+   * Carries no relatedEventId requirement, and the payment that settles it needs no prior
+   * recognition: both orders of arrival are legitimate, and both derive to the same position.
+   */
+  OBLIGATION_RECOGNIZED = "obligation_recognized",
 }

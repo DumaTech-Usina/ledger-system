@@ -249,7 +249,11 @@ describe("State explainability", () => {
     await run(
       loanRepayment(ref, "loan-e8", loan.id.value, EconomicEffect.NON_CASH, Relation.ADJUSTS, ReasonType.LOAN_REPAYMENT_VIA_COMMISSION, "200.00"),
     );
-    await run(commissionSplit(ref, "com-e8", "700.00"));
+    // The split settles a COMMISSION_PAYABLE — what the usina owes the broker — which is a different
+    // economic object from the COMMISSION_RECEIVABLE the operator settled, and therefore a different
+    // position. Naming the receivable's objectId here would claim 700 more against a baseline that
+    // was already closed; the position is the objectId, so the payable gets its own.
+    await run(commissionSplit(ref, "com-e8:payable", "700.00"));
 
     const loanLifecycle = await ledgerRepo.findByObjectId("loan-e8");
     const repayments = await ledgerRepo.findByRelatedEventId(loan.id.value);

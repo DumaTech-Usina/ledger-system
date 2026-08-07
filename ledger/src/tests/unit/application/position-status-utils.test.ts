@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  computeCapitalMetrics,
   derivePositionStatus,
   openBalanceUnitsOf,
 } from "../../../core/application/dtos/positionUtils";
@@ -182,5 +183,81 @@ describe("an unknown origination is not an origination of zero", () => {
     const agg = makeAggregate({ hasUnresolvedLineage: false, totalOriginatedUnits: 0n, totalSettledUnits: 1500n });
     expect(derivePositionStatus(agg)).toBe("open");
     expect(openBalanceUnitsOf(agg)).toBe(0n);
+  });
+});
+
+// ── computeCapitalMetrics ─────────────────────────────────────────────────────
+
+describe("computeCapitalMetrics — keeping what is owed TO Usina apart from what it owes", () => {
+  const LONG_AGO = new Date("2020-01-01");
+  const cutoff = new Date("2024-06-01").getTime();
+
+  it("an obligation Usina owes counts as payable exposure, never as open exposure", () => {
+    const obligation = makeAggregate({
+      objectType: ObjectType.PAYROLL,
+      totalOriginatedUnits: 4500000n,
+      totalSettledUnits: 0n,
+    });
+
+    const m = computeCapitalMetrics([obligation], "BRL", cutoff);
+
+    expect(m.openPayableExposureUnits).toBe(4500000n);
+    expect(m.openExposureUnits).toBe(0n);
+  });
+
+  it("an unpaid obligation is never capital at risk — the risk of it is the creditor's, not Usina's", () => {
+    const obligation = makeAggregate({
+      objectType: ObjectType.PAYROLL,
+      totalOriginatedUnits: 4500000n,
+      totalSettledUnits: 0n,
+      originatedAt: LONG_AGO,
+    });
+
+    // The same shape in a receivable type WOULD be capital at risk, which is the point of the guard.
+    const receivable = makeAggregate({
+      objectType: ObjectType.ADVANCE,
+      totalOriginatedUnits: 4500000n,
+      totalSettledUnits: 0n,
+      originatedAt: LONG_AGO,
+    });
+
+    expect(computeCapitalMetrics([obligation], "BRL", cutoff).capitalAtRiskUnits).toBe(0n);
+    expect(computeCapitalMetrics([receivable], "BRL", cutoff).capitalAtRiskUnits).toBe(4500000n);
+  });
+
+  it("the two exposures are reported separately and are never netted against each other", () => {
+    const m = computeCapitalMetrics(
+      [
+        makeAggregate({ objectId: "a", objectType: ObjectType.ADVANCE, totalOriginatedUnits: 1000n }),
+        makeAggregate({ objectId: "b", objectType: ObjectType.PAYROLL, totalOriginatedUnits: 1000n }),
+        makeAggregate({ objectId: "c", objectType: ObjectType.TAX,     totalOriginatedUnits: 500n }),
+      ],
+      "BRL",
+      cutoff,
+    );
+
+    expect(m.openExposureUnits).toBe(1000n);
+    expect(m.openPayableExposureUnits).toBe(1500n);
+  });
+
+  it("REGRESSION GUARD — a paid-off obligation stops counting as payable exposure", () => {
+    const settled = makeAggregate({
+      objectType: ObjectType.PAYROLL,
+      totalOriginatedUnits: 4500000n,
+      totalSettledUnits: 4500000n,
+    });
+    expect(computeCapitalMetrics([settled], "BRL", cutoff).openPayableExposureUnits).toBe(0n);
+  });
+
+  it("REGRESSION GUARD — an obligation whose origination is unknown is left out of BOTH totals, never counted as zero", () => {
+    const unknown = makeAggregate({
+      objectType: ObjectType.PAYROLL,
+      hasUnresolvedLineage: true,
+      totalOriginatedUnits: 0n,
+      totalSettledUnits: 700n,
+    });
+    const m = computeCapitalMetrics([unknown], "BRL", cutoff);
+    expect(m.openPayableExposureUnits).toBe(0n);
+    expect(m.openExposureUnits).toBe(0n);
   });
 });

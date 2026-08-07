@@ -194,13 +194,29 @@ describe("Financial invariants", () => {
       expect(summary!.status).toBe("partially_settled");
     });
 
-    it("F11 — direct payment acknowledgement plus cash receipt on the same receivable must surface an over-settlement", async () => {
+    /**
+     * F11 — two settlements that do not know about each other are still measured together.
+     *
+     * This test used to assert the opposite: that the ledger ACCEPTED both and surfaced the excess
+     * as a read-side `overSettlement` of 100. It did, but only because the guard compared each
+     * settlement against the amount of the origin event named by its own `relatedEventId` — and the
+     * acknowledgement carries none, so it was never counted. Two events settling one position
+     * escaped conservation precisely by not referencing each other.
+     *
+     * The guard now measures the position, so the second settlement is refused at write time. The
+     * inconsistency did not become invisible; it became impossible to record silently.
+     *
+     * A real 300 that genuinely arrived is not lost — it means the 1000 baseline is wrong, and the
+     * expectation is what has to be corrected. That is a fact about the expectation, not about the
+     * receipt.
+     */
+    it("F11 — a settlement that would close more than was opened is refused, even with no shared lineage", async () => {
       const { ledgerRepo, run } = setup();
       const svc = new PositionProjectionService(ledgerRepo);
 
       // Expected: R$1000 (the ignition point)
       const expected = await run(commissionExpected(ref, "com-recv-f11", "1000.00"));
-      // Operator paid broker directly (NON_CASH) — settles R$800
+      // Operator paid broker directly (NON_CASH) — settles R$800, and carries NO relatedEventId
       await run(
         directPaymentAcknowledged(
           ref, "com-recv-f11", ObjectType.COMMISSION_RECEIVABLE,
@@ -208,12 +224,38 @@ describe("Financial invariants", () => {
           "operator paid broker directly", "800.00",
         ),
       );
-      // Cash receipt also arrives for R$300 — total settled R$1100 > expected R$1000
-      await run(commissionReceived(ref, "com-recv-f11", expected.id.value, "300.00"));
 
+      // A cash receipt of R$300 would bring the total closed to R$1100 against a R$1000 baseline.
+      await expect(
+        run(commissionReceived(ref, "com-recv-f11", expected.id.value, "300.00")),
+      ).rejects.toThrow(/Over-settlement/);
+
+      // The book is left coherent: only what was legitimately recorded stands.
       const summary = await svc.summarize("com-recv-f11");
-      expect(summary!.totalSettled.toString()).toBe("1100.00");
-      expect(summary!.overSettlement!.toString()).toBe("100.00");
+      expect(summary!.totalOriginated.toString()).toBe("1000.00");
+      expect(summary!.totalSettled.toString()).toBe("800.00");
+      expect(summary!.openBalance!.toString()).toBe("200.00");
+      expect(summary!.overSettlement!.toString()).toBe("0.00");
+    });
+
+    it("F11b — a receipt that fits the remaining balance is still accepted", async () => {
+      const { ledgerRepo, run } = setup();
+      const svc = new PositionProjectionService(ledgerRepo);
+
+      const expected = await run(commissionExpected(ref, "com-recv-f11b", "1000.00"));
+      await run(
+        directPaymentAcknowledged(
+          ref, "com-recv-f11b", ObjectType.COMMISSION_RECEIVABLE,
+          ReasonType.DIRECT_COMMISSION_PAYMENT_AUTHORIZED, ConfidenceLevel.MEDIUM,
+          "operator paid broker directly", "800.00",
+        ),
+      );
+      // 200 is exactly what is left: the guard limits, it does not forbid.
+      await run(commissionReceived(ref, "com-recv-f11b", expected.id.value, "200.00"));
+
+      const summary = await svc.summarize("com-recv-f11b");
+      expect(summary!.totalSettled.toString()).toBe("1000.00");
+      expect(summary!.status).toBe("fully_settled");
     });
   });
 

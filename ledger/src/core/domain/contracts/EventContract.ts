@@ -362,4 +362,39 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     ],
     minConfidence: ConfidenceLevel.MEDIUM,
   },
+
+  /**
+   * Recognition entry: records an obligation the usina owes, established by an external fact — an
+   * invoice issued against it, a payroll closed, a tax assessed. The outbound twin of
+   * COMMISSION_EXPECTED: NON_CASH, ORIGINATES only, and it sets the baseline a later payment is
+   * measured against.
+   *
+   * Which kind of obligation it is rides on the objectType, not on the event type — the economics
+   * are identical across them, only the position differs.
+   *
+   * No relatedEventId requirement, by premise: a fact's validity never depends on its lineage. The
+   * payment that settles the obligation may arrive before OR after this recognition, and both
+   * orders derive to the same position, because the fold reads sums and never order. When the
+   * recognition is the later of the two, LATE_AWARENESS is the honest reason.
+   *
+   * ADJUSTS is deliberately absent: a recognition stated at the wrong amount is corrected by
+   * RETRACTS plus a new recognition, which leaves both the error and its correction on the record.
+   */
+  [EventType.OBLIGATION_RECOGNIZED]: {
+    economicEffects: [EconomicEffect.NON_CASH],
+
+    objects: [
+      { objectType: ObjectType.PAYROLL,             relations: [Relation.ORIGINATES] },
+      { objectType: ObjectType.SERVICE_FEE,         relations: [Relation.ORIGINATES] },
+      { objectType: ObjectType.INFRASTRUCTURE_COST, relations: [Relation.ORIGINATES] },
+      { objectType: ObjectType.TAX,                 relations: [Relation.ORIGINATES] },
+      { objectType: ObjectType.PAYABLE,             relations: [Relation.ORIGINATES] },
+    ],
+
+    reasons: [
+      ReasonType.OBLIGATION_RECOGNITION, // the obligation was established by an external fact
+      ReasonType.LATE_AWARENESS,         // ...and only came to be known after it was already paid
+    ],
+    minConfidence: ConfidenceLevel.MEDIUM,
+  },
 };

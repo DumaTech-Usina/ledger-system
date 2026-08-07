@@ -14,6 +14,9 @@ function makeMockRepo(): Mocked<LedgerEventRepository> {
     // COMMISSION_EXPECTED via relatedEventId — return one so the happy paths succeed.
     getById: vi.fn().mockResolvedValue(LedgerEvent.create(makeExpectedProps())),
     findByRelatedEventId: vi.fn().mockResolvedValue([]),
+    // The conservation guard reads the position by objectId. Empty means "nothing on record for
+    // this position", which is the state every happy path here is written against.
+    findByObjectId: vi.fn().mockResolvedValue([]),
     getByHash: vi.fn().mockResolvedValue(null),
     getByCommandId: vi.fn().mockResolvedValue(null),
     getLastEventHash: vi.fn().mockResolvedValue(null),

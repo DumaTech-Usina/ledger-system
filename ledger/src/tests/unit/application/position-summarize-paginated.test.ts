@@ -146,10 +146,13 @@ describe("PositionProjectionService.summarizePaginated()", () => {
   it("U11 — overSettlement is non-zero when totalClosed exceeds totalOriginated", async () => {
     const { ledgerRepo, run } = setup();
     const adv = await run(advancePayment(ref, "adv-u11", "1000.00"));
-    // NON_CASH + ADJUSTS bypasses the over-settlement guard (guard only sums SETTLES events)
-    // NON_CASH is required: ECONOMIC_EFFECT_RELATION_MATRIX[CASH_IN] does not include ADJUSTS
-    await run(advanceSettlement(ref, "adv-u11", adv.id.value, Relation.ADJUSTS, EconomicEffect.NON_CASH, "800.00", ReasonType.ADVANCE_PAYMENT));
+    // The settlement comes first and is within the baseline, so the conservation guard admits it.
     await run(advanceSettlement(ref, "adv-u11", adv.id.value, Relation.SETTLES, EconomicEffect.CASH_IN, "500.00", ReasonType.ADVANCE_PAYMENT));
+    // The ADJUSTS is what carries the position past its baseline. The guard triggers on SETTLES
+    // only — an adjustment is how a debt is restructured or a loss recognized, and refusing one for
+    // exceeding the original amount would refuse the very facts that relation exists to record.
+    // NON_CASH is required: ECONOMIC_EFFECT_RELATION_MATRIX[CASH_IN] does not include ADJUSTS.
+    await run(advanceSettlement(ref, "adv-u11", adv.id.value, Relation.ADJUSTS, EconomicEffect.NON_CASH, "800.00", ReasonType.ADVANCE_PAYMENT));
 
     const result = await svc(ledgerRepo).summarizePaginated({ objectType: ObjectType.ADVANCE });
     const pos = result.data.find((p) => p.objectId === "adv-u11")!;

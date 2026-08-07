@@ -95,10 +95,17 @@ export const OBJECT_RELATION_MATRIX: Partial<
   [ObjectType.BONUS]:     [Relation.ORIGINATES, Relation.SETTLES, Relation.RETRACTS],
 
   // Operational costs
-  [ObjectType.PAYROLL]:             [Relation.SETTLES, Relation.RETRACTS],
-  [ObjectType.SERVICE_FEE]:         [Relation.SETTLES, Relation.RETRACTS],
-  [ObjectType.INFRASTRUCTURE_COST]: [Relation.SETTLES, Relation.RETRACTS],
-  [ObjectType.TAX]:                 [Relation.SETTLES, Relation.RETRACTS],
+  //
+  // These four admitted only SETTLES until the obligation-recognition work, on the classification
+  // that an operational cost is a cash-basis fact. That rule was too strong: closing a payroll and
+  // receiving an invoice are external observable facts that create an obligation before any money
+  // moves, so the position can legitimately be originated. ORIGINATES was added deliberately — and
+  // only ORIGINATES: a recognition stated at the wrong amount is corrected by RETRACTS plus a new
+  // recognition, so ADJUSTS would buy nothing and would let a cost drift without a trace.
+  [ObjectType.PAYROLL]:             [Relation.ORIGINATES, Relation.SETTLES, Relation.RETRACTS],
+  [ObjectType.SERVICE_FEE]:         [Relation.ORIGINATES, Relation.SETTLES, Relation.RETRACTS],
+  [ObjectType.INFRASTRUCTURE_COST]: [Relation.ORIGINATES, Relation.SETTLES, Relation.RETRACTS],
+  [ObjectType.TAX]:                 [Relation.ORIGINATES, Relation.SETTLES, Relation.RETRACTS],
 
   // Contextual objects — only REFERENCES is valid; enforced by step 9 in InvariantPolicy
   [ObjectType.CONTRACT]:         [Relation.REFERENCES],
@@ -150,6 +157,8 @@ export const REASON_EFFECT_MATRIX: Partial<
   [ReasonType.THIRD_PARTY_PAYMENT]: [EconomicEffect.CASH_OUT],
   [ReasonType.TAX_PAYMENT]: [EconomicEffect.CASH_OUT],
   [ReasonType.INCENTIVE_PAYMENT]: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH],
+  // Recognizing an obligation moves no money — the payment that settles it is a separate fact.
+  [ReasonType.OBLIGATION_RECOGNITION]: [EconomicEffect.NON_CASH],
 
   // Governança — corrections are always bookkeeping entries (no cash movement)
   [ReasonType.MANUAL_CORRECTION]: [EconomicEffect.NON_CASH],
@@ -199,6 +208,8 @@ export const REASON_RELATION_MATRIX: Partial<
   [ReasonType.THIRD_PARTY_PAYMENT]: [Relation.ORIGINATES, Relation.SETTLES],
   [ReasonType.TAX_PAYMENT]: [Relation.SETTLES],
   [ReasonType.INCENTIVE_PAYMENT]: [Relation.ORIGINATES, Relation.SETTLES],
+  // A recognition only ever originates an obligation — the twin of COMMISSION_ACCRUAL.
+  [ReasonType.OBLIGATION_RECOGNITION]: [Relation.ORIGINATES],
 
   // Governança — corrections fully reverse or partially adjust a prior entry
   [ReasonType.MANUAL_CORRECTION]: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],

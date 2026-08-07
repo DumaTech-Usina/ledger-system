@@ -17,8 +17,9 @@ export function serializeDashboard(summary: DashboardSummary) {
     cashOut:         summary.cashOut.toString(),
     netCash:         Money_unitsToString(netCashAbs, summary.currency),
     netCashNegative: summary.netCashUnits < 0n,
-    openExposure:    summary.openExposure.toString(),
-    capitalAtRisk:   summary.capitalAtRisk.toString(),
+    openExposure:        summary.openExposure.toString(),
+    openPayableExposure: summary.openPayableExposure.toString(),
+    capitalAtRisk:       summary.capitalAtRisk.toString(),
 
     // Zone 2
     cashInByType: serializeMoneyMap(summary.cashInByType),

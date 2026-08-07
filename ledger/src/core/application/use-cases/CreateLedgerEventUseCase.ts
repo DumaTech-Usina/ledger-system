@@ -4,7 +4,7 @@ import { LedgerEventObject } from "../../domain/entities/LedgerEconomicObject";
 import { LedgerEvent } from "../../domain/entities/LedgerEvent";
 import { LedgerEventParty } from "../../domain/entities/LedgerEventParty";
 import { EVENT_CONTRACTS } from "../../domain/contracts/EventContract";
-import { retractedEventIds } from "../dtos/retractionUtils";
+import { foldObjectTotals, retractedEventIds } from "../dtos/retractionUtils";
 import { Relation } from "../../domain/enums/Relation";
 import { EventHash } from "../../domain/value-objects/EventHash";
 import { EventId } from "../../domain/value-objects/EventId";
@@ -92,37 +92,42 @@ export class CreateLedgerEventUseCase {
       }
     }
 
-    const hasSettlesRelation = command.objects.some((o) => o.relation === Relation.SETTLES);
+    // ── Conservation (Pillar 1): nothing closes more than was opened ─────────────
+    //
+    // Measured on the POSITION, not on one origin event. Until this was corrected the guard compared
+    // against `originEvent.amount` and only ran when the command carried a relatedEventId, which left
+    // two holes: a settlement with no lineage was never checked at all, and a position opened by more
+    // than one event — or whose origination was retracted and reissued — was measured against the
+    // wrong baseline. Both are reachable, and the second became routine once obligations could be
+    // recognized and corrected.
+    //
+    // The objectId is the position (see refinamento_de_valor.md §2.1), so the objectId is what this
+    // reads. Retracted events are excluded by the same fold every projection uses, so the guard and
+    // the read paths can never disagree about what stands.
+    for (const object of command.objects) {
+      if (object.relation !== Relation.SETTLES) continue;
 
-    if (originEvent && hasSettlesRelation) {
-      const existing = await this.repository.findByRelatedEventId(command.relatedEventId!);
-      const settlements = existing.filter((e) =>
-        e.getObjects().some((o) => o.relation === Relation.SETTLES),
+      const positionEvents = await this.repository.findByObjectId(object.objectId);
+      const { originatedUnits, closedUnits, hasReversal } = foldObjectTotals(
+        positionEvents,
+        object.objectId,
       );
 
-      // Conservation is measured against what still STANDS. A settlement that was retracted never
-      // happened, so counting it here would make the ledger refuse the true fact that replaces it —
-      // which is exactly the failure the rectification exists to remove.
-      //
-      // A retraction points at the settlement, not at the origin, so it is not among `existing`:
-      // one hop finds the retractions, a second finds any that were themselves retracted. Depth 1
-      // guarantees there is no third. The fold itself stays in retractedEventIds — one rule, one
-      // place, so the projection and this guard can never disagree about what stands.
-      const firstHop = (
-        await Promise.all(settlements.map((e) => this.repository.findByRelatedEventId(e.id.value)))
-      ).flat();
-      const secondHop = (
-        await Promise.all(firstHop.map((e) => this.repository.findByRelatedEventId(e.id.value)))
-      ).flat();
-      const retracted = retractedEventIds([...firstHop, ...secondHop]);
+      // A reversed position has no baseline left to conserve: a reversal voids the arithmetic rather
+      // than subtracting from it, which is why the projection reports "reversed" before reading any
+      // figure. Measuring against a baseline the book has already voided would refuse the very facts
+      // that follow a reversal — an acknowledgement replacing a receipt that never happened.
+      if (hasReversal) continue;
 
-      const alreadySettled = settlements
-        .filter((e) => !retracted.has(e.id.value))
-        .reduce((acc, e) => acc + e.amount.toUnits(), 0n);
+      // No origination on record means no baseline to exceed — not a baseline of zero. A cash-basis
+      // expense settles a position nothing ever opened, and an orphan's origination is unknown
+      // rather than absent. Refusing either would reject a true fact to satisfy a rule.
+      if (originatedUnits === 0n) continue;
 
-      if (alreadySettled + money.toUnits() > originEvent.amount.toUnits()) {
+      if (closedUnits + money.toUnits() > originatedUnits) {
+        const outstanding = Money.fromUnits(originatedUnits - closedUnits, money.currency);
         throw new Error(
-          `Over-settlement: total settled would exceed origin amount of ${originEvent.amount.toString()}`,
+          `Over-settlement: the outstanding balance of ${object.objectId} is ${outstanding.toString()}`,
         );
       }
     }

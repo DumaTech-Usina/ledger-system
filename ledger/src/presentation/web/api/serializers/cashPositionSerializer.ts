@@ -13,6 +13,7 @@ export function serializeCashPosition(summary: CashPositionSummary) {
     totalCashOut:       summary.totalCashOut.toString(),
     netCashFlow:        `${sign}${netMoney.toString()}`,
     openReceivables:    summary.openReceivables.toString(),
+    openPayables:       summary.openPayables.toString(),
     contingentExposure: summary.contingentExposure.toString(),
     currency:           summary.currency,
     asOf:               summary.asOf.toISOString(),

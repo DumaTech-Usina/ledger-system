@@ -113,7 +113,10 @@ export function classifyError(message: string): RejectionDetail {
     return detail(RejectionCode.DUPLICATE, "duplicate", undefined, "This entry was already recorded.");
   }
   if (/Over-settlement/i.test(message)) {
-    const limit = message.match(/origin amount of\s*(.+?)\s*$/i)?.[1];
+    // The guard measures the position, so the limit it reports IS the outstanding balance — which
+    // is what `detail` has always said. Before the guard was corrected it reported the origin
+    // event's amount, and the two disagreed whenever the position had been partly settled.
+    const limit = message.match(/outstanding balance of \S+ is\s*(.+?)\s*$/i)?.[1];
     return detail(RejectionCode.OVER_SETTLEMENT, "input", "amount", "The amount exceeds the outstanding balance.", limit ? { limit } : undefined);
   }
   if (/amount cannot be zero/i.test(message)) {

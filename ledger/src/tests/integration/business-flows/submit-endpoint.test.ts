@@ -226,12 +226,23 @@ describe("SubmitCandidateUseCase (User App submit endpoint)", () => {
     const { submit } = build();
     const expected = await submit.execute(commissionExpected("intent:exp3"), "intent:exp3");
     const originId = expected.status === "accepted" ? expected.ledgerReference : "";
-    // Origin is 1000.00; settling 1500.00 exceeds it.
+    // The receipt names the SAME position the expected opened — 1000.00 originated, 1500.00 claimed.
+    //
+    // Sharing the objectId is what makes this over-settlement rather than two unrelated facts:
+    // conservation is measured on the position, so a receipt that minted its own objectId would be
+    // settling something nothing ever originated, which the ledger admits (a cash-basis fact).
+    // Lineage alone does not make two events one position — that is the other axis, and it is the
+    // producer's assertion.
     const outcome = await submit.execute(
-      commissionReceived("intent:over", { relatedEventId: originId, amount: "1500.00", parties: [
-        { partyId: "party-usina", role: PartyRole.PAYEE, direction: Direction.IN, amount: "1500.00" },
-        { partyId: "operator-1", role: PartyRole.BENEFICIARY, direction: Direction.NEUTRAL, amount: "1500.00" },
-      ] }),
+      commissionReceived("intent:over", {
+        relatedEventId: originId,
+        amount: "1500.00",
+        objects: [{ objectId: "intent:exp3:obj", objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES }],
+        parties: [
+          { partyId: "party-usina", role: PartyRole.PAYEE, direction: Direction.IN, amount: "1500.00" },
+          { partyId: "operator-1", role: PartyRole.BENEFICIARY, direction: Direction.NEUTRAL, amount: "1500.00" },
+        ],
+      }),
       "intent:over",
     );
     expect(outcome.status).toBe("rejected");

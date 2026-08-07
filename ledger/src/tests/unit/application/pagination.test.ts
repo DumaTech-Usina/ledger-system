@@ -205,3 +205,37 @@ describe("InMemoryStagingRepository.findPaginated", () => {
     expect(result.page).toBe(3);
   });
 });
+
+/**
+ * sortBy and sortOrder became readable from the query string so a consumer can walk the book by
+ * recordedAt — "what was written since I last looked". They reach the repository as a column name
+ * and an order direction, so normalization is the boundary where an unrecognized value has to stop.
+ */
+describe("normalizePageOptions — sort whitelist", () => {
+  it("keeps the two sort columns the model admits", () => {
+    expect(normalizePageOptions({ sortBy: "recordedAt" }).sortBy).toBe("recordedAt");
+    expect(normalizePageOptions({ sortBy: "occurredAt" }).sortBy).toBe("occurredAt");
+  });
+
+  it("keeps both order directions", () => {
+    expect(normalizePageOptions({ sortOrder: "ASC" }).sortOrder).toBe("ASC");
+    expect(normalizePageOptions({ sortOrder: "DESC" }).sortOrder).toBe("DESC");
+  });
+
+  it("drops a sort column it does not admit, rather than passing it on", () => {
+    expect(normalizePageOptions({ sortBy: "amount" as never }).sortBy).toBeUndefined();
+    expect(normalizePageOptions({ sortBy: "" as never }).sortBy).toBeUndefined();
+  });
+
+  it("drops an order direction it does not admit — this one is interpolated downstream", () => {
+    expect(normalizePageOptions({ sortOrder: "ASC; DROP TABLE ledger_events" as never }).sortOrder)
+      .toBeUndefined();
+    expect(normalizePageOptions({ sortOrder: "asc" as never }).sortOrder).toBeUndefined();
+  });
+
+  it("omits both keys entirely when nothing was asked for", () => {
+    const options = normalizePageOptions({ page: 2, limit: 10 });
+    expect("sortBy" in options).toBe(false);
+    expect("sortOrder" in options).toBe(false);
+  });
+});

@@ -196,6 +196,20 @@ describe("read — the public contract makes the correction legible", () => {
     expect(payload.openBalance).toBe("285.00");
   });
 
+  it("the detail route names the kind of position, so it agrees with the listing about the same object", async () => {
+    const { ledgerRepo, submit, positions } = build();
+    accepted(await submit.execute(advance(), "intent:adv-api"));
+
+    const detail = serializePositionSummary((await positions.summarize(OBJ))!);
+    const { data } = await ledgerRepo.findPositionAggregates({ limit: 200 });
+    const listed = positions.aggregateToListItem(data.find((a) => a.objectId === OBJ)!);
+
+    expect(detail.objectType).toBe(ObjectType.ADVANCE);
+    // Until this was published the two routes disagreed: the listing carried the type and the
+    // detail did not, so a consumer opening a position by id had no way to know what it was.
+    expect(detail.objectType).toBe(listed.objectType);
+  });
+
   it("the settlement's causal origin is exposed too — relatedEventId is not retraction-only", async () => {
     const { submit, positions } = build();
     const advanceId = accepted(await submit.execute(advance(), "intent:adv-api"));

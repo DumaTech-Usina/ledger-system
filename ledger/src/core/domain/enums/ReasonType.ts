@@ -34,6 +34,10 @@ export enum ReasonType {
   TAX_PAYMENT = "tax_payment",
   INCENTIVE_PAYMENT = "incentive_payment",
 
+  /** An external fact established an obligation the usina owes: an invoice issued against it, a
+   *  payroll closed, a tax assessed. The cause of an OBLIGATION_RECOGNIZED. */
+  OBLIGATION_RECOGNITION = "obligation_recognition",
+
   /** Neutral baseline cause: an ordinary payment with no special circumstance (the zero-point of
    *  the causal axis). Specialized causes replace it when they apply. */
   ORDINARY_SETTLEMENT = "ordinary_settlement",

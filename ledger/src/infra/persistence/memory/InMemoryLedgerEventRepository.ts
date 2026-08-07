@@ -208,6 +208,11 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
         const agg = aggMap.get(oid)!;
         eventIdsByObject.get(oid)!.add(event.id.value);
 
+        // Mirrors MAX(o.object_type) in the SQL aggregate. An objectId named with more than one
+        // objectType is legitimate — continuity is asserted, never validated — but the two read
+        // paths must resolve it identically, and store order is not a rule.
+        if (obj.objectType > agg.objectType) agg.objectType = obj.objectType;
+
         // Mirrors the SQL aggregate: carry the orphan's declared unresolved lineage into the
         // aggregate so both read paths can tell "unknown origination" from "no origination".
         const reason = event.getReason();

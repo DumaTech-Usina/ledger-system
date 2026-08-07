@@ -121,6 +121,34 @@ describe("OBJECT_RELATION_MATRIX", () => {
       Relation.RETRACTS,
     ]);
   });
+
+  it.each([
+    ObjectType.PAYROLL,
+    ObjectType.SERVICE_FEE,
+    ObjectType.INFRASTRUCTURE_COST,
+    ObjectType.TAX,
+  ])(
+    "%s can be originated: an obligation exists once an external fact establishes it, before it is paid",
+    (objectType) => {
+      expect(OBJECT_RELATION_MATRIX[objectType]).toEqual([
+        Relation.ORIGINATES,
+        Relation.SETTLES,
+        Relation.RETRACTS,
+      ]);
+    },
+  );
+
+  it.each([
+    ObjectType.PAYROLL,
+    ObjectType.SERVICE_FEE,
+    ObjectType.INFRASTRUCTURE_COST,
+    ObjectType.TAX,
+  ])(
+    "%s still refuses ADJUSTS — a mis-stated obligation is corrected by RETRACTS plus a new recognition",
+    (objectType) => {
+      expect(OBJECT_RELATION_MATRIX[objectType]).not.toContain(Relation.ADJUSTS);
+    },
+  );
 });
 
 describe("REASON_EFFECT_MATRIX", () => {

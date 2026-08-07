@@ -110,9 +110,16 @@ export class PositionProjectionService {
   // ─── private ────────────────────────────────────────────────────────────────
 
   private project(objectId: string, events: LedgerEvent[]): PositionSummary {
-    const objectType = events
+    // SQL twin: findPositionAggregates resolves an objectId to MAX(o.object_type). The ledger does
+    // not police continuity (an objectId is the producer's assertion), so one position may end up
+    // named with more than one objectType — a payment that settled a cost and a recognition that
+    // later originated it as a payable. What must never happen is the read paths disagreeing about
+    // which type it is, so all three settle the tie the same way.
+    const namedTypes = events
       .flatMap((e) => e.getObjects())
-      .find((o) => o.objectId.value === objectId)!.objectType;
+      .filter((o) => o.objectId.value === objectId)
+      .map((o) => o.objectType);
+    const objectType = namedTypes.reduce((max, t) => (t > max ? t : max));
 
     const currency = events[0].amount.currency;
 

@@ -34,6 +34,10 @@ export function serializePositionSummary(summary: PositionSummary) {
   const retracted = retractedEventIds(summary.events);
   return {
     objectId:        summary.objectId,
+    // Resolved, not stored: an objectId may be named with more than one objectType and the
+    // aggregates settle the tie with MAX. Published here so the detail route and the list route
+    // answer the same thing about the same object — until now only the list did.
+    objectType:      summary.objectType,
     status:          summary.status,
     outcome:         summary.outcome,
     currency,

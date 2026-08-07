@@ -59,11 +59,8 @@ export class DashboardService {
     const netCashUnits = cashInUnits - cashOutUnits;
 
     // ── Current-state position metrics ───────────────────────────────────────
-    const { openExposureUnits, capitalAtRiskUnits } = computeCapitalMetrics(
-      allAggs,
-      currency,
-      Date.now() - THIRTY_DAYS_MS,
-    );
+    const { openExposureUnits, capitalAtRiskUnits, openPayableExposureUnits } =
+      computeCapitalMetrics(allAggs, currency, Date.now() - THIRTY_DAYS_MS);
 
     const attentionAggs: PositionAggregate[] = [];
     for (const agg of allAggs) {
@@ -74,8 +71,9 @@ export class DashboardService {
       }
     }
 
-    const openExposure  = Money.fromUnits(openExposureUnits,  currency);
-    const capitalAtRisk = Money.fromUnits(capitalAtRiskUnits, currency);
+    const openExposure        = Money.fromUnits(openExposureUnits,        currency);
+    const capitalAtRisk       = Money.fromUnits(capitalAtRiskUnits,       currency);
+    const openPayableExposure = Money.fromUnits(openPayableExposureUnits, currency);
 
     // ── Attention positions: sorted oldest-origination first ─────────────────
     attentionAggs.sort((a, b) => {
@@ -94,6 +92,7 @@ export class DashboardService {
       cashOut,
       netCashUnits,
       openExposure,
+      openPayableExposure,
       capitalAtRisk,
       cashInByType,
       cashOutByType,

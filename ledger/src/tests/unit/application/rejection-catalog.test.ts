@@ -73,9 +73,17 @@ describe("classifyError — invariant/application stage", () => {
   });
 
   it("Over-settlement → OVER_SETTLEMENT · input · amount, with a safe limit hint", () => {
-    const r = classifyError("Over-settlement: total settled would exceed origin amount of 500.00");
+    const r = classifyError("Over-settlement: the outstanding balance of intent:adv-1 is 285.00");
     expect(r).toMatchObject({ code: RejectionCode.OVER_SETTLEMENT, category: "input", field: "amount" });
-    expect(r.hint?.limit).toBe("500.00");
+    // The hint IS the outstanding balance now, which is what `detail` always claimed. The guard
+    // measures the position, so it finally knows that number; before, it reported the origin
+    // event's amount and the two disagreed on any partly settled position.
+    expect(r.hint?.limit).toBe("285.00");
+  });
+
+  it("the objectId in an over-settlement message never leaks into the hint", () => {
+    const r = classifyError("Over-settlement: the outstanding balance of intent:adv-1 is 285.00");
+    expect(JSON.stringify(r.hint)).not.toContain("intent:adv-1");
   });
 
   it("amount cannot be zero → AMOUNT_INVALID · input · amount", () => {

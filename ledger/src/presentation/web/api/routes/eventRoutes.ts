@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { LedgerEventRepository } from "../../../../core/application/repositories/LedgerEventRepository";
 import { Relation } from "../../../../core/domain/enums/Relation";
-import { normalizePageOptions } from "../../../../core/application/dtos/Pagination";
+import { normalizePageOptions, PageOptions } from "../../../../core/application/dtos/Pagination";
 import { retractedEventIds } from "../../../../core/application/dtos/retractionUtils";
 import { serializeEvent } from "../serializers/eventSerializer";
 
@@ -30,9 +30,14 @@ export function eventRoutes(ledgerRepo: LedgerEventRepository): Router {
 
   router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // sortBy/sortOrder are passed through so a consumer can read the book by recordedAt — "what
+      // was written since I last looked", which occurredAt cannot answer because a fact may be
+      // recorded long after it happened. normalizePageOptions drops anything it does not admit.
       const options = normalizePageOptions({
         page: parseInt(req.query.page as string, 10) || undefined,
         limit: parseInt(req.query.limit as string, 10) || undefined,
+        sortBy: req.query.sortBy as PageOptions["sortBy"],
+        sortOrder: req.query.sortOrder as PageOptions["sortOrder"],
       });
       const { data: events, total, page, limit, totalPages } =
         await ledgerRepo.findPaginated(options);

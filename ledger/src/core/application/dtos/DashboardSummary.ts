@@ -18,8 +18,17 @@ export interface DashboardSummary {
    */
   netCashUnits: bigint;
 
-  /** Sum of all open balances across every position — current state, not period-scoped. */
+  /**
+   * Sum of open balances for positions where Usina is the creditor — what is owed TO it.
+   * Current state, not period-scoped. Never includes obligations; see openPayableExposure.
+   */
   openExposure: Money;
+  /**
+   * Sum of open balances for recognized obligations Usina has not yet paid — what it owes.
+   * Current state, not period-scoped. Kept apart from openExposure on purpose: the two run in
+   * opposite directions and a combined total would assert nothing.
+   */
+  openPayableExposure: Money;
   /**
    * Sum of open balances for positions with no settlement at all whose
    * origination date is older than 30 days — current state, not period-scoped.

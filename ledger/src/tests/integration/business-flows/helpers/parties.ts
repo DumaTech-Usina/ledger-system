@@ -4,6 +4,7 @@ export const USINA    = "usina-platform";
 export const BROKER   = "broker-001";
 export const OPERATOR = "operator-health-001";
 export const TAX_AUTH = "receita-federal";
+export const SUPPLIER = "supplier-001";
 
 export const reporter = () => ({
   reporterType: ReporterType.SYSTEM,

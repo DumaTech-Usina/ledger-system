@@ -34,3 +34,53 @@ export function retractedEventIds(events: readonly LedgerEvent[]): Set<string> {
   }
   return retracted;
 }
+
+/** What one position's standing events add up to, in minor units. */
+export interface ObjectTotals {
+  /** Sum of ORIGINATES — the baseline the position was opened with. Zero means no baseline exists. */
+  originatedUnits: bigint;
+  /** Sum of SETTLES and ADJUSTS — everything that closes against the baseline. */
+  closedUnits: bigint;
+  /**
+   * Whether a standing REVERSES is on record. A reversal subtracts from no total — it voids the
+   * position's arithmetic outright, which is why `derivePositionStatus` returns "reversed" before
+   * looking at any figure. Anything measuring the baseline must respect the same precedence.
+   */
+  hasReversal: boolean;
+}
+
+/**
+ * Folds the events of ONE economic object into the two totals conservation is measured with.
+ *
+ * A fourth expression of the rule the projection, the in-memory aggregate and the SQL aggregate all
+ * express — deliberately so, because the write path cannot depend on a read service, and because it
+ * needs only two of the numbers those produce. `ADJUSTS` counts as closing, exactly as
+ * `derivePositionStatus` treats it: `totalClosed = totalSettled + totalAdjusted`.
+ *
+ * Pinned against the projection by `object-totals-equivalence.test.ts` — a duplicated rule needs a
+ * test that fixes the copies against each other, and this one has four.
+ */
+export function foldObjectTotals(
+  events: readonly LedgerEvent[],
+  objectId: string,
+): ObjectTotals {
+  const retracted = retractedEventIds(events);
+  let originatedUnits = 0n;
+  let closedUnits = 0n;
+  let hasReversal = false;
+
+  for (const event of events) {
+    if (retracted.has(event.id.value)) continue;
+    const units = event.amount.toUnits();
+
+    for (const object of event.getObjects()) {
+      if (object.objectId.value !== objectId) continue;
+      if (object.relation === Relation.ORIGINATES) originatedUnits += units;
+      else if (object.relation === Relation.SETTLES || object.relation === Relation.ADJUSTS) {
+        closedUnits += units;
+      } else if (object.relation === Relation.REVERSES) hasReversal = true;
+    }
+  }
+
+  return { originatedUnits, closedUnits, hasReversal };
+}

@@ -1,3 +1,4 @@
+import { USINA_PAYABLE_OBJECT_TYPES } from "../../domain/policies/CashPositionPolicy";
 import { PositionAggregate } from "./PositionAggregate";
 import { PositionStatus } from "./PositionSummary";
 
@@ -30,20 +31,34 @@ export function openBalanceUnitsOf(agg: PositionAggregate): bigint | null {
     : agg.totalOriginatedUnits - totalClosed;
 }
 
+/**
+ * Folds the open balances into the two exposures the book keeps apart.
+ *
+ * `openExposure` measures what is owed TO Usina; `openPayableExposure` what Usina owes. They are
+ * never added together — the sum would be a number without a meaning. Obligations became summable
+ * at all only with OBLIGATION_RECOGNIZED; before it nothing originated a payable position, so
+ * every aggregate fell into the first total by default.
+ */
 export function computeCapitalMetrics(
   aggs: PositionAggregate[],
   currency: string,
   riskCutoffMs: number,
-): { openExposureUnits: bigint; capitalAtRiskUnits: bigint } {
+): { openExposureUnits: bigint; capitalAtRiskUnits: bigint; openPayableExposureUnits: bigint } {
   const riskCutoff = new Date(riskCutoffMs);
   let openExposureUnits = 0n;
   let capitalAtRiskUnits = 0n;
+  let openPayableExposureUnits = 0n;
   for (const agg of aggs) {
     if (agg.currency !== currency || agg.hasReversal) continue;
     const openBalance = openBalanceUnitsOf(agg);
     // An unknown exposure is not a zero exposure — it is simply not summable. Adding it as zero
     // would understate the book; it is left out and surfaced by the position's own status.
     if (openBalance === null) continue;
+    if (USINA_PAYABLE_OBJECT_TYPES.has(agg.objectType)) {
+      // What Usina owes is not capital at risk: the risk of an unpaid obligation is the creditor's.
+      openPayableExposureUnits += openBalance;
+      continue;
+    }
     openExposureUnits += openBalance;
     if (
       openBalance > 0n &&
@@ -55,5 +70,5 @@ export function computeCapitalMetrics(
       capitalAtRiskUnits += openBalance;
     }
   }
-  return { openExposureUnits, capitalAtRiskUnits };
+  return { openExposureUnits, capitalAtRiskUnits, openPayableExposureUnits };
 }

@@ -1,5 +1,6 @@
 import {
   USINA_CONTINGENT_OBJECT_TYPES,
+  USINA_PAYABLE_OBJECT_TYPES,
   USINA_RECEIVABLE_OBJECT_TYPES,
 } from "../../domain/policies/CashPositionPolicy";
 import { Money } from "../../domain/value-objects/Money";
@@ -11,12 +12,14 @@ export class CashPositionService {
 
   async summarize(): Promise<CashPositionSummary> {
     const { totalCashIn, totalCashOut, currency } = await this.computeRealizedFlows();
-    const { openReceivables, contingentExposure } = await this.computePositionTotals(currency);
+    const { openReceivables, openPayables, contingentExposure } =
+      await this.computePositionTotals(currency);
 
     return {
       totalCashIn,
       totalCashOut,
       openReceivables,
+      openPayables,
       contingentExposure,
       currency,
       asOf: new Date(),
@@ -38,22 +41,26 @@ export class CashPositionService {
 
   private async computePositionTotals(currency: string): Promise<{
     openReceivables: Money;
+    openPayables: Money;
     contingentExposure: Money;
   }> {
     const rows = await this.repo.aggregateOpenBalancesByObjectType();
 
     let openReceivables    = Money.zero(currency);
+    let openPayables       = Money.zero(currency);
     let contingentExposure = Money.zero(currency);
 
     for (const { objectType, openBalanceUnits, currency: rowCurrency } of rows) {
       const amount = Money.fromUnits(openBalanceUnits, rowCurrency);
       if (USINA_RECEIVABLE_OBJECT_TYPES.has(objectType)) {
         openReceivables = openReceivables.add(amount);
+      } else if (USINA_PAYABLE_OBJECT_TYPES.has(objectType)) {
+        openPayables = openPayables.add(amount);
       } else if (USINA_CONTINGENT_OBJECT_TYPES.has(objectType)) {
         contingentExposure = contingentExposure.add(amount);
       }
     }
 
-    return { openReceivables, contingentExposure };
+    return { openReceivables, openPayables, contingentExposure };
   }
 }

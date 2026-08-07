@@ -4,6 +4,7 @@ import { makeRef } from "./helpers/ref";
 import { BROKER, USINA, reporter } from "./helpers/parties";
 import { commissionExpected, commissionReceived } from "./helpers/commands/commission-commands";
 import { advancePayment, advanceSettlement } from "./helpers/commands/advance-commands";
+import { obligationRecognized } from "./helpers/commands/obligation-commands";
 import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { CashPositionService } from "../../../core/application/services/CashPositionService";
 import { CreateLedgerEventCommand } from "../../../core/application/dtos/CreateLedgerEventInput";
@@ -113,6 +114,11 @@ beforeAll(async () => {
   // CASH_OUT 1500 — a cash-basis expense.
   await run(outboundPayment("payable:cash-eq", "1500.00"));
 
+  // NON_CASH 45000 — an obligation recognized and not yet paid. It carries a large amount on
+  // purpose: if any cash path ever started counting recognitions, every equivalence below breaks
+  // loudly rather than drifting by a plausible-looking figure.
+  await run(obligationRecognized(ref, "payroll:cash-eq", "45000.00"));
+
   // Two NON_CASH corrections on a separate position: neither may touch cash.
   const reversedOrigin = await run(commissionExpected(ref, "com-recv:corrected", "400.00"));
   await run(commissionReceived(ref, "com-recv:corrected", reversedOrigin.id.value, "400.00"));
@@ -179,6 +185,19 @@ describe("EQ-5 — every cash aggregation path agrees with the event stream", ()
     const stats = await repo.aggregateClosureStats(DAY_ZERO, FAR_FUTURE, "BRL");
     expect(stats.totalSettledUnits).toBe(totalSettled);
     expect(stats.cashInSettledUnits).toBe(cashInSettled);
+  });
+});
+
+describe("REGRESSION PIN — recognizing an obligation never moves cash", () => {
+  it("an OBLIGATION_RECOGNIZED appears in no cash total: the payment that follows is a separate fact", async () => {
+    const events = await repo.findAll();
+    const recognitions = events.filter((e) => e.eventType === EventType.OBLIGATION_RECOGNIZED);
+    expect(recognitions.length).toBe(1);
+    expect(recognitions[0].economicEffect).toBe(EconomicEffect.NON_CASH);
+    expect(recognitions[0].amount.toString()).toBe("45000.00");
+
+    const agg = await repo.aggregateCashFlows();
+    expect(agg.cashOutUnits).toBe(200000n); // unchanged by the 45000 obligation
   });
 });
 
