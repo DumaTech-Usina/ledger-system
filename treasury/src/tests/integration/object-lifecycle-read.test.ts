@@ -8,6 +8,7 @@ import { InMemoryLedgerSimulator } from "../../infra/ledger-sim/InMemoryLedgerSi
 import { GetObjectLifecycleUseCase } from "../../core/application/use-cases/GetObjectLifecycle";
 import { GetBookExposureUseCase } from "../../core/application/use-cases/GetBookExposure";
 import { ListPositionsUseCase } from "../../core/application/use-cases/ListPositions";
+import { ListPayablePositionsUseCase } from "../../core/application/use-cases/ListPayablePositions";
 import { dashboardRoutes } from "../../presentation/web/api/routes/dashboardRoutes";
 import { GetTreasuryDashboardUseCase } from "../../core/application/use-cases/GetTreasuryDashboard";
 import type { PositionLifecycle } from "../../core/application/dtos/LedgerReadModels";
@@ -207,6 +208,7 @@ describe("GET /api/dashboard/positions/:objectId", () => {
         new GetObjectLifecycleUseCase(read),
         new GetBookExposureUseCase(read),
         new ListPositionsUseCase(read),
+        new ListPayablePositionsUseCase(read),
       ),
     );
   }

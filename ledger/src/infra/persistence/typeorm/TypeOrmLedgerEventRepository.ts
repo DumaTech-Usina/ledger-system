@@ -211,7 +211,9 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
           BOOL_OR(e.reason_type = 'unknown_origin' AND e.reason_requires_followup)                      AS has_unresolved_lineage,
           COUNT(DISTINCT e.id)                                                                           AS event_count,
           MAX(e.occurred_at)                                                                             AS last_event_at,
-          MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at
+          MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at,
+          MIN(e.recorded_at)                                                                             AS created_at,
+          MIN(CASE WHEN o.relation = 'originates' THEN e.due_at ELSE NULL END)                         AS due_at
         FROM ledger_events e
         JOIN ledger_event_objects o ON o.event_id = e.id
         WHERE ${notRetracted('e')}
@@ -229,8 +231,20 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     const dataParams = [...filterParams, limit, offset];
     const pLimit  = filterParams.length + 1;
     const pOffset = filterParams.length + 2;
+    // Default: newest position first, by when it entered the book (MIN recorded_at) — defined for
+    // every position, unlike originated_at. `dueAt` serves the listings that ask about deadlines.
+    //
+    // Both keys are interpolated from a closed set, never from the query string: the route maps an
+    // unrecognised value back to the default before it reaches here, so nothing user-supplied is ever
+    // spliced into SQL. object_id breaks ties so paging is stable — two positions created inside the
+    // same import share a recorded_at, and an unstable sort lets a row appear on two pages or none.
+    const sortColumn = options.sortBy === "dueAt" ? "due_at" : "created_at";
+    const sortDir = options.sortOrder === "ASC" ? "ASC" : "DESC";
+    // NULLS LAST in both directions on purpose. A position with no stated due date is not the most
+    // urgent thing in the book, and Postgres would otherwise sort nulls first on ASC.
+    const nullsClause = sortColumn === "due_at" ? " NULLS LAST" : "";
     const rows: Record<string, unknown>[] = await this.repo.manager.query(
-      `${cteSql} SELECT * FROM aggs ${whereClause} ORDER BY last_event_at DESC LIMIT $${pLimit} OFFSET $${pOffset}`,
+      `${cteSql} SELECT * FROM aggs ${whereClause} ORDER BY ${sortColumn} ${sortDir}${nullsClause}, object_id DESC LIMIT $${pLimit} OFFSET $${pOffset}`,
       dataParams,
     );
 
@@ -250,6 +264,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       eventCount:           parseInt(row.event_count as string, 10),
       lastEventAt:          new Date(row.last_event_at as string),
       originatedAt:         row.originated_at ? new Date(row.originated_at as string) : null,
+      createdAt:            new Date(row.created_at as string),
+      dueAt:                row.due_at ? new Date(row.due_at as string) : null,
     }));
 
     return { data, total, page, limit, totalPages };
@@ -406,7 +422,9 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
         BOOL_OR(e.reason_type = 'unknown_origin' AND e.reason_requires_followup)                       AS has_unresolved_lineage,
         COUNT(DISTINCT e.id)                                                                           AS event_count,
         MAX(e.occurred_at)                                                                             AS last_event_at,
-        MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at
+        MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at,
+        MIN(e.recorded_at)                                                                             AS created_at,
+        MIN(CASE WHEN o.relation = 'originates' THEN e.due_at ELSE NULL END)                         AS due_at
       FROM ledger_events e
       JOIN ledger_event_objects o ON o.event_id = e.id
       WHERE ${notRetracted('e')}
@@ -430,6 +448,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       eventCount:           parseInt(row.event_count as string, 10),
       lastEventAt:          new Date(row.last_event_at as string),
       originatedAt:         row.originated_at ? new Date(row.originated_at as string) : null,
+      createdAt:            new Date(row.created_at as string),
+      dueAt:                row.due_at ? new Date(row.due_at as string) : null,
     }));
   }
 
@@ -518,6 +538,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     model.occurredAt = event.occurredAt;
     model.recordedAt = event.recordedAt;
     model.sourceAt = event.sourceAt;
+    model.dueAt = event.dueAt;
     model.amountUnits = event.amount.toUnits();
     model.amountCurrency = event.amount.currency;
     model.description = event.description;
@@ -611,6 +632,9 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       occurredAt: row.occurredAt,
       recordedAt: row.recordedAt,
       sourceAt: row.sourceAt,
+      // Null for every event recorded before the due-date field existed — which is exactly right:
+      // those obligations never stated terms to this book, and a backfill would invent them.
+      dueAt: row.dueAt ?? null,
       amount: Money.fromUnits(row.amountUnits!, row.amountCurrency),
       description: row.description,
       source: new EventSource(row.sourceSystem, row.sourceReference),

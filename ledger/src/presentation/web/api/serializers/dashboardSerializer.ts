@@ -19,6 +19,12 @@ export function serializeDashboard(summary: DashboardSummary) {
     netCashNegative: summary.netCashUnits < 0n,
     openExposure:        summary.openExposure.toString(),
     openPayableExposure: summary.openPayableExposure.toString(),
+    // The three parts openPayableExposure splits into. Published separately, never merged: a reader
+    // that ignores them sees exactly the total it saw before, and one that reads them can tell what
+    // is late from what is merely owed — including the part the book has no due date for.
+    overduePayable:      summary.overduePayable.toString(),
+    upcomingPayable:     summary.upcomingPayable.toString(),
+    undatedPayable:      summary.undatedPayable.toString(),
     capitalAtRisk:       summary.capitalAtRisk.toString(),
 
     // Zone 2

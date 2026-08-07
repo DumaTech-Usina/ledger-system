@@ -23,6 +23,12 @@ export function serializePositionListItem(item: PositionListItem) {
     eventCount:     item.eventCount,
     lastEventAt:    item.lastEventAt,
     originatedAt:   item.originatedAt ?? null,
+    // When the position entered the book, and the key the listing is ordered by. Additive: no
+    // published field changes meaning, and consumers that ignore it read exactly what they read before.
+    createdAt:      item.createdAt,
+    // Null — never a substituted date — when no origination stated terms. A consumer must be able to
+    // tell "due yesterday" from "we were never told", because only one of them is a late payment.
+    dueAt:          item.dueAt ?? null,
   };
 }
 

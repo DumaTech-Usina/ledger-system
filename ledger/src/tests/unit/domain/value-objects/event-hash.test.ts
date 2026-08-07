@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EventHash } from "../../../../core/domain/value-objects/EventHash";
+import { LedgerEvent } from "../../../../core/domain/entities/LedgerEvent";
+import { makeValidProps } from "../../../fixtures";
 
 describe("EventHash", () => {
   describe("generateCanonical", () => {
@@ -109,6 +111,78 @@ describe("EventHash", () => {
       expect(EventHash.generateCanonical({ ...base, ref: "A" }).value).not.toBe(
         EventHash.generateCanonical({ ...base, ref: "B" }).value,
       );
+    });
+  });
+
+  /**
+   * The canonical form is the shape of the book's tamper evidence, and it is not free to drift.
+   *
+   * `canonicalize` sorts the key set, so ADDING a field changes the digest of every event recorded
+   * afterwards — including events that leave the new field null. That is what happened when `dueAt`
+   * was introduced (LedgerDueDateProposal.md §3, ratified option (a)): events stored before it keep
+   * their hashes, because `reconstitute` never re-hashes, so the book carries two canonical forms
+   * with a deploy as the boundary.
+   *
+   * That is a defensible one-off. What is not defensible is it happening again unnoticed, leaving a
+   * chain nobody can verify because nobody wrote down where the boundaries are. These two tests are
+   * the tripwire: the first pins the algorithm, the second pins the field set the event actually
+   * hashes. A future field makes them red, and the red is the invitation to record the boundary.
+   */
+  describe("canonical form (pinned — a change here splits the chain)", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("pins the digest of a fixed canonical payload — guards canonicalize() itself", () => {
+      // Values are frozen; the assertion is the algorithm, not the data.
+      const payload = {
+        id: "evt-canonical-pin",
+        amount: "1000.00",
+        dueAt: null,
+        occurredAt: "2024-02-15T00:00:00.000Z",
+        objects: [{ objectId: "obj-1", objectType: "payable", relation: "originates" }],
+      };
+
+      expect(EventHash.generateCanonical(payload).value).toBe(
+        "f8904f93357fe8f2d67f558d3ae00620ed82db588bc2bff7881cf4a7ac812ff1",
+      );
+    });
+
+    it("pins the exact field set LedgerEvent.create hashes — a new field must be a deliberate act", () => {
+      const spy = vi.spyOn(EventHash, "generateCanonical");
+
+      LedgerEvent.create(makeValidProps());
+
+      const hashed = spy.mock.calls[0][0] as Record<string, unknown>;
+
+      expect(Object.keys(hashed).sort()).toEqual([
+        "amount",
+        "description",
+        "dueAt",
+        "economicEffect",
+        "eventType",
+        "id",
+        "normalization",
+        "objects",
+        "occurredAt",
+        "parties",
+        "previousHash",
+        "reason",
+        "recordedAt",
+        "relatedEventId",
+        "reporter",
+        "source",
+        "sourceAt",
+      ]);
+    });
+
+    it("an event that states a due date does not hash like one that leaves it unknown", () => {
+      // The whole reason dueAt is inside the hash: otherwise these two would be indistinguishable,
+      // and a due date could be moved after the fact without breaking anything.
+      const withDue = EventHash.generateCanonical({ id: "e", dueAt: "2026-09-30T00:00:00.000Z" });
+      const withoutDue = EventHash.generateCanonical({ id: "e", dueAt: null });
+
+      expect(withDue.value).not.toBe(withoutDue.value);
     });
   });
 });

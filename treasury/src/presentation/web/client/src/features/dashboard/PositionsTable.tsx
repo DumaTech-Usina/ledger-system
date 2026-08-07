@@ -5,7 +5,7 @@ import { Table } from "@/components/Table";
 import { RowDetailModal } from "@/features/dashboard/RowDetailModal";
 import type { AdoptedIntent } from "@/features/operations/useConversation";
 import { useLanguage } from "@/i18n/i18n";
-import { formatMoney } from "@/utils/format";
+import { formatDate, formatMoney } from "@/utils/format";
 import type { PositionItem } from "@/types/dashboard";
 
 const PAGE_SIZE = 10;
@@ -25,6 +25,7 @@ export function PositionsTable({
   canRectify = false,
   onOperationStarted,
   paginate = true,
+  showDueDate = false,
 }: {
   positions: PositionItem[];
   currency: string;
@@ -36,6 +37,12 @@ export function PositionsTable({
    * again here would page a page.
    */
   paginate?: boolean;
+  /**
+   * Adds the due-date column. Off by default: most positions are not obligations and have no due
+   * date, and a column that is empty for nearly every row reads as missing data rather than as a
+   * question that does not apply.
+   */
+  showDueDate?: boolean;
 }) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
@@ -56,13 +63,14 @@ export function PositionsTable({
             <Table.HeaderCell>{t.dashboard.table.type}</Table.HeaderCell>
             <Table.HeaderCell>{t.dashboard.table.status}</Table.HeaderCell>
             <Table.HeaderCell>{t.dashboard.table.openBalance}</Table.HeaderCell>
+            {showDueDate && <Table.HeaderCell>{t.positions.dueOn}</Table.HeaderCell>}
             <Table.HeaderCell aria-hidden />
           </Table.Row>
         </Table.Head>
         <Table.Body>
           {positions.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={4} className="text-center text-muted">
+              <Table.Cell colSpan={showDueDate ? 5 : 4} className="text-center text-muted">
                 {t.common.noRecords}
               </Table.Cell>
             </Table.Row>
@@ -77,6 +85,13 @@ export function PositionsTable({
                 <Table.Cell mono className={p.openBalance === null ? "text-muted" : undefined}>
                   {p.openBalance === null ? t.common.unknown : formatMoney(p.openBalance, p.currency || currency)}
                 </Table.Cell>
+                {/* A missing due date is a fact about the document that originated the obligation,
+                    not a blank cell — it says so in words rather than looking like absent data. */}
+                {showDueDate && (
+                  <Table.Cell className={p.dueAt === null ? "text-muted" : undefined}>
+                    {p.dueAt === null ? t.positions.noDueDate : formatDate(p.dueAt)}
+                  </Table.Cell>
+                )}
                 <Table.Cell>
                   <button
                     type="button"

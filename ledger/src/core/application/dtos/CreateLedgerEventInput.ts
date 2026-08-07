@@ -15,6 +15,10 @@ export interface CreateLedgerEventCommand {
   occurredAt: Date;
   sourceAt?: Date | null;
 
+  /** When the originated obligation falls due, as stated by the fact that established it.
+   *  Only for contracts with `admitsDueAt`, and only alongside an ORIGINATES. Absent = unknown. */
+  dueAt?: Date | null;
+
   amount: string;
   currency: string;
 

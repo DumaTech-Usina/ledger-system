@@ -7,7 +7,6 @@ const UNAVAILABLE: TreasuryDashboard = {
   cashPosition: null,
   movements: null,
   positions: null,
-  classificationHealth: null,
   partyNames: {},
 };
 

@@ -244,5 +244,36 @@ export class InvariantPolicy {
         );
       }
     }
+
+    // ===============================
+    // 1️⃣3️⃣ A due date belongs to an obligation being originated
+    // ===============================
+    //
+    // `dueAt` states when what this event originates falls due. Two things follow, and both are
+    // structural rather than policy:
+    //
+    //  - only a contract that says so may carry one (`admitsDueAt`), so the exception is granted in
+    //    one declared place instead of being assumed wherever a date happens to fit;
+    //  - a due date without an ORIGINATES is a date attached to nothing. A payment does not fall
+    //    due — the obligation it settles does, and that date lives on the event that created it.
+    //
+    // Deliberately one-directional: absence is never an error. An obligation whose terms were not
+    // stated is recorded without a due date, and the projection reports it as unknown rather than
+    // inventing one. Requiring it here would gate a real fact on information that may not exist.
+
+    if (props.dueAt) {
+      if (!contract.admitsDueAt) {
+        throw new Error(
+          `Event type ${props.eventType} cannot carry a dueAt: only an event that originates an obligation falls due`,
+        );
+      }
+
+      const originating = props.objects.some((o) => o.relation === Relation.ORIGINATES);
+      if (!originating) {
+        throw new Error(
+          "A dueAt requires an object with relation ORIGINATES: a due date belongs to the obligation being originated",
+        );
+      }
+    }
   }
 }

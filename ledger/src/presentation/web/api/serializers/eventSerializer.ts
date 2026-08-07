@@ -10,6 +10,8 @@ export function serializeEvent(event: LedgerEvent) {
     economicEffect: event.economicEffect,
     occurredAt: event.occurredAt,
     recordedAt: event.recordedAt,
+    /** Null on every event that does not originate an obligation, and on those that stated no terms. */
+    dueAt: event.dueAt,
     amount: event.amount.toString(),
     currency: event.amount.currency,
     description: event.description,

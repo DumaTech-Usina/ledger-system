@@ -39,6 +39,11 @@ export class LedgerEventModel {
   @Column({ name: 'source_at', type: 'timestamptz', nullable: true })
   sourceAt!: Date | null;
 
+  /** When the obligation this event originates falls due. Null = terms not stated (never "no due date
+   *  because we assumed one"). Indexed partially — only rows that carry one are ever ordered by it. */
+  @Column({ name: 'due_at', type: 'timestamptz', nullable: true })
+  dueAt!: Date | null;
+
   /** Money.units stored as bigint — see bigintTransformer for the pg ↔ JS bridge */
   @Column({
     name: 'amount_units',

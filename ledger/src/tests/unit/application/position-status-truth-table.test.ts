@@ -111,6 +111,8 @@ const toAggregate = (row: Row): PositionAggregate => ({
   eventCount: 1,
   lastEventAt: new Date("2025-01-01"),
   originatedAt: row.totalOriginated > 0n ? new Date("2025-01-01") : null,
+  createdAt: new Date("2025-01-01"),
+  dueAt: null,
 });
 
 describe("EQ-4 — position status truth table (TypeScript side)", () => {

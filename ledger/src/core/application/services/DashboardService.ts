@@ -59,8 +59,16 @@ export class DashboardService {
     const netCashUnits = cashInUnits - cashOutUnits;
 
     // ── Current-state position metrics ───────────────────────────────────────
-    const { openExposureUnits, capitalAtRiskUnits, openPayableExposureUnits } =
-      computeCapitalMetrics(allAggs, currency, Date.now() - THIRTY_DAYS_MS);
+    // `asOf` is passed explicitly rather than left to default: overdue is a reading of the chain at a
+    // moment, and the moment belongs to the caller of the fold, not to the fold.
+    const {
+      openExposureUnits,
+      capitalAtRiskUnits,
+      openPayableExposureUnits,
+      overduePayableUnits,
+      upcomingPayableUnits,
+      undatedPayableUnits,
+    } = computeCapitalMetrics(allAggs, currency, Date.now() - THIRTY_DAYS_MS, new Date());
 
     const attentionAggs: PositionAggregate[] = [];
     for (const agg of allAggs) {
@@ -74,6 +82,9 @@ export class DashboardService {
     const openExposure        = Money.fromUnits(openExposureUnits,        currency);
     const capitalAtRisk       = Money.fromUnits(capitalAtRiskUnits,       currency);
     const openPayableExposure = Money.fromUnits(openPayableExposureUnits, currency);
+    const overduePayable      = Money.fromUnits(overduePayableUnits,      currency);
+    const upcomingPayable     = Money.fromUnits(upcomingPayableUnits,     currency);
+    const undatedPayable      = Money.fromUnits(undatedPayableUnits,      currency);
 
     // ── Attention positions: sorted oldest-origination first ─────────────────
     attentionAggs.sort((a, b) => {
@@ -93,6 +104,9 @@ export class DashboardService {
       netCashUnits,
       openExposure,
       openPayableExposure,
+      overduePayable,
+      upcomingPayable,
+      undatedPayable,
       capitalAtRisk,
       cashInByType,
       cashOutByType,

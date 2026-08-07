@@ -30,6 +30,15 @@ export interface DashboardSummary {
    */
   openPayableExposure: Money;
   /**
+   * The three parts `openPayableExposure` splits into, by what the establishing fact said about
+   * timing. They sum to it and are never merged: "we owe 100" answers a different question from
+   * "40 of it was due last week". `undatedPayable` is the honest remainder — obligations whose terms
+   * were never stated — and belongs to neither of the other two.
+   */
+  overduePayable: Money;
+  upcomingPayable: Money;
+  undatedPayable: Money;
+  /**
    * Sum of open balances for positions with no settlement at all whose
    * origination date is older than 30 days — current state, not period-scoped.
    */

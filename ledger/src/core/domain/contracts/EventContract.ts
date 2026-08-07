@@ -396,5 +396,9 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
       ReasonType.LATE_AWARENESS,         // ...and only came to be known after it was already paid
     ],
     minConfidence: ConfidenceLevel.MEDIUM,
+
+    // The only event type that originates something the usina owes, so the only one whose external
+    // fact can state a due date. Optional: an obligation recognized without stated terms is ordinary.
+    admitsDueAt: true,
   },
 };

@@ -7,6 +7,8 @@ export interface StagingRecord {
 
   occurredAt?: string;
   sourceAt?: string | null;
+  /** When the originated obligation falls due, as the establishing document stated it (ISO date). */
+  dueAt?: string | null;
 
   amount?: string;
   currency?: string;

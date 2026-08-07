@@ -104,6 +104,7 @@ export class StagingPostingJob implements StagingMessageHandler {
       economicEffect: record.economicEffect as EconomicEffect,
       occurredAt: new Date(record.occurredAt),
       sourceAt: record.sourceAt ? new Date(record.sourceAt) : null,
+      dueAt: record.dueAt ? new Date(record.dueAt) : null,
       amount: record.amount,
       currency: record.currency,
       description: record.description ?? null,

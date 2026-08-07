@@ -172,4 +172,43 @@ describe("PositionProjectionService.summarizePaginated()", () => {
     expect(pos.openBalance!.toString()).toBe("0.00");
     expect(pos.status).toBe("fully_settled");
   });
+
+  // `recordedAt` is stamped with `new Date()` at creation, so positions minted inside the same
+  // millisecond are genuinely tied. The pause buys distinct recording times, which is what these
+  // two tests are about — the tiebreaker is exercised by neither.
+  const tick = () => new Promise((resolve) => setTimeout(resolve, 2));
+
+  it("U13 — the listing comes back newest-created first", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(loanOrigination(ref, "loan-u13-first", "100.00"));
+    await tick();
+    await run(loanOrigination(ref, "loan-u13-second", "100.00"));
+    await tick();
+    await run(loanOrigination(ref, "loan-u13-third", "100.00"));
+
+    const result = await svc(ledgerRepo).summarizePaginated({});
+
+    expect(result.data.map((p) => p.objectId)).toEqual([
+      "loan-u13-third",
+      "loan-u13-second",
+      "loan-u13-first",
+    ]);
+  });
+
+  it("U14 — a new event on an old position does not move it to the top: creation is not last activity", async () => {
+    const { ledgerRepo, run } = setup();
+    const old = await run(loanOrigination(ref, "loan-u14-old", "1000.00"));
+    await tick();
+    await run(loanOrigination(ref, "loan-u14-new", "100.00"));
+    await tick();
+    // The oldest position gets the most recent event. Under the previous `last_event_at` ordering
+    // this alone put it first; under creation ordering it stays where it entered the book.
+    await run(
+      loanRepayment(ref, "loan-u14-old", old.id.value, EconomicEffect.CASH_IN, Relation.SETTLES, ReasonType.LOAN_REPAYMENT, "400.00"),
+    );
+
+    const result = await svc(ledgerRepo).summarizePaginated({});
+
+    expect(result.data.map((p) => p.objectId)).toEqual(["loan-u14-new", "loan-u14-old"]);
+  });
 });

@@ -90,7 +90,27 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   }
 
   async findPositionAggregates(options: PositionAggregateOptions): Promise<Page<PositionAggregate>> {
-    let results = [...this.buildAggregateMap().values()];
+    // Matches the SQL adapter's ORDER BY, including NULLS LAST on dueAt. Until this sort existed the
+    // page came back in aggregate-map insertion order, so the two read paths answered the same
+    // question with different orders — and paging over an unordered set is not paging.
+    const ascending = options.sortOrder === "ASC";
+    let results = [...this.buildAggregateMap().values()].sort((a, b) => {
+      let primary: number;
+      if (options.sortBy === "dueAt") {
+        // A position with no stated due date sorts last in both directions — it is not the most
+        // urgent thing in the book, and an unknown at the top of a list about time reads as an answer.
+        if (a.dueAt === null || b.dueAt === null) {
+          primary = a.dueAt === b.dueAt ? 0 : a.dueAt === null ? 1 : -1;
+          return primary !== 0 ? primary : b.objectId.localeCompare(a.objectId);
+        }
+        primary = ascending ? a.dueAt.getTime() - b.dueAt.getTime() : b.dueAt.getTime() - a.dueAt.getTime();
+      } else {
+        primary = ascending
+          ? a.createdAt.getTime() - b.createdAt.getTime()
+          : b.createdAt.getTime() - a.createdAt.getTime();
+      }
+      return primary !== 0 ? primary : b.objectId.localeCompare(a.objectId);
+    });
 
     if (options.objectType) {
       results = results.filter((a) => a.objectType === options.objectType);
@@ -201,6 +221,8 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
             eventCount: 0,
             lastEventAt: new Date(0),
             originatedAt: null,
+            createdAt: event.recordedAt,
+            dueAt: null,
           });
           eventIdsByObject.set(oid, new Set());
         }
@@ -226,6 +248,11 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
             if (agg.originatedAt === null || occurredAt < agg.originatedAt) {
               agg.originatedAt = occurredAt;
             }
+            // Mirrors MIN(due_at) FILTER (relation = 'originates') in the SQL aggregate. Read only
+            // here: a settlement carries no due date, and the invariant refuses one on it.
+            if (event.dueAt !== null && (agg.dueAt === null || event.dueAt < agg.dueAt)) {
+              agg.dueAt = event.dueAt;
+            }
             break;
           case Relation.SETTLES:
             agg.totalSettledUnits += units;
@@ -245,6 +272,9 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
         }
 
         if (occurredAt > agg.lastEventAt) agg.lastEventAt = occurredAt;
+        // Mirrors MIN(e.recorded_at) in the SQL aggregate: store order is not a rule, so the
+        // earliest recording wins regardless of the order events were appended in.
+        if (event.recordedAt < agg.createdAt) agg.createdAt = event.recordedAt;
       }
     }
 
