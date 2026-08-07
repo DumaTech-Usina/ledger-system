@@ -81,6 +81,12 @@ export interface PositionLifecycleEvent {
    * NOT derive this: the Ledger publishes it, so both sides can never disagree about what stands.
    */
   retracted: boolean;
+  /**
+   * The Ledger's own flag that this entry leaves something pending. On a withdrawal it is what says
+   * the correction is not finished — the corrected entry has not been recorded yet. Derived state is
+   * never stored: whether it is STILL pending is answered by looking at what has landed since.
+   */
+  requiresFollowup: boolean;
 }
 
 /**
@@ -90,6 +96,12 @@ export interface PositionLifecycleEvent {
  */
 export interface PositionLifecycle {
   objectId: string;
+  /**
+   * The kind of position. Resolved by the Ledger across the object's events, not stored — an
+   * objectId may be named with more than one type and the aggregates settle the tie the same way.
+   * Published on the detail route so it agrees with the list route, which has always carried it.
+   */
+  objectType: string;
   status: string;
   outcome: string;
   currency: string;
@@ -116,6 +128,15 @@ export interface LedgerEventRef {
   description: string | null;
   relatedEventId: string | null;
   objects: { objectId: string; objectType: string; relation: string }[];
+  /**
+   * Who took part in the fact, as the Ledger recorded it. Needed to describe a correction without
+   * asking the user to re-state what the book already knows — and read-only for that purpose: the
+   * counterparty of a corrected entry is never edited, because changing who took part changes which
+   * fact it is, not how it was measured.
+   */
+  parties: { partyId: string; role: string; direction: string; amount: string | null }[];
+  /** Where the fact came from. `reference` is what ties an event back to the intent that produced it. */
+  source: { system: string; reference: string };
 }
 
 /**

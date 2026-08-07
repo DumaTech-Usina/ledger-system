@@ -81,6 +81,11 @@ export interface PositionLifecycleEvent {
    * this; treasury never derives it.
    */
   retracted: boolean;
+  /**
+   * The Ledger's own flag that this entry leaves something pending. On a withdrawal it says the
+   * correction is not finished — the corrected entry has not been recorded yet.
+   */
+  requiresFollowup: boolean;
 }
 
 /**
@@ -90,6 +95,8 @@ export interface PositionLifecycleEvent {
  */
 export interface PositionLifecycle {
   objectId: string;
+  /** The kind of position, resolved by the Ledger across the object's events. */
+  objectType: string;
   status: string;
   outcome: string;
   currency: string;

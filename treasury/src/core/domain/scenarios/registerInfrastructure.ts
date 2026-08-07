@@ -17,6 +17,8 @@ export const registerInfrastructure: Scenario = {
     { key: "amount", type: SlotType.MONEY, prompt: "What is the amount?", required: true },
     { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it paid?", required: true },
+    // Optional continuity: the obligation this payment closes, when it was recognized beforehand.
+    { key: "objectRef", type: SlotType.STRING, prompt: "Which recognized obligation does this pay?", required: false },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
   keywords: { "pt-BR": ["infraestrutura", "infra", "hospedagem"] },

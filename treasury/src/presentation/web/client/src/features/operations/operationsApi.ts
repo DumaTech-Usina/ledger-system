@@ -13,6 +13,9 @@ import type {
   SettlementCandidatesResult,
   StartIntentResult,
   SubmitIntentResult,
+  PositionActionsResult,
+  StartPositionActionResult,
+  RectifyResult,
 } from "@/types/operations";
 
 /** The identity route answers a refused decision with 422 and this body — the user's to fix. */
@@ -61,6 +64,29 @@ export const operationsApi = {
    * operator points at the entry, and the amount and object are read from the Ledger's own record
    * of it — so a correction can never disagree with what it corrects.
    */
-  rectify: (input: { targetEventId: string; description?: string }) =>
-    apiPost<SubmitIntentResult | ApiErrorBody>("/api/conversation/rectify", input),
+  rectify: (input: {
+    targetEventId: string;
+    description?: string;
+    /**
+     * Present when the entry happened but was mis-measured. Two facts are then recorded — the
+     * withdrawal and the corrected entry — never an edit. Only the fields a correction may restate
+     * are sent; the rest is carried over from what the Ledger holds.
+     */
+    corrected?: { amount?: string; occurredAt?: string };
+  }) => apiPost<RectifyResult | ApiErrorBody>("/api/conversation/rectify", input),
+
+  /**
+   * What can be recorded about a position. Derived server-side from the Ledger's algebra crossed
+   * with what treasury can produce — never a list kept here, which is how the old hardcoded set of
+   * rectifiable kinds came to drift from the backend that owned it.
+   */
+  positionActions: (objectId: string) =>
+    apiGet<PositionActionsResult>(`/api/conversation/positions/${encodeURIComponent(objectId)}/actions`),
+
+  /** Opens a conversation already bound to this position, on the action the operator chose. */
+  startPositionAction: (objectId: string, scenarioId: string, variantChoice?: string) =>
+    apiPost<StartPositionActionResult | ApiErrorBody>(
+      `/api/conversation/positions/${encodeURIComponent(objectId)}/start`,
+      { scenarioId, variantChoice },
+    ),
 };

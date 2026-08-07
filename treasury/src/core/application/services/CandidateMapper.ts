@@ -77,6 +77,38 @@ interface ScenarioMapping {
    * contract admits UNKNOWN_ORIGIN (COMMISSION_RECEIVED). Absent ⇒ the origin slot must be required.
    */
   orphan?: { reasonType: string; reasonText: string };
+  /**
+   * Which positions the continuity slot should offer. `open` (the default) offers what a settlement
+   * could still move. `unoriginated` offers the opposite shape — positions already settled that
+   * nothing ever originated — which is what a recognition arriving after the payment points at.
+   */
+  continuityMode?: "open" | "unoriginated";
+  /**
+   * When the continuity slot IS filled, the fact is being recorded about something already on the
+   * book, so its cause is not the plain one: the knowledge arrived late. Swaps the reason the same
+   * way `orphan` does for a missing lineage. Absent ⇒ the reason never varies with continuity.
+   */
+  retroactive?: { reasonType: string; reasonText: string };
+  /**
+   * Answer key whose presence marks the emitted event as awaiting a follow-up fact
+   * (`reason.requiresFollowup`). Used by a correction that intends to reissue: the retraction says,
+   * in the Ledger's own vocabulary, that it is not the end of the story. A retraction that stands
+   * alone — the only thing treasury can do for an entry it cannot reissue — leaves it false.
+   */
+  followupSlot?: string;
+  /**
+   * Whether the counterparty is NECESSARILY the same party the position was opened with, so an
+   * action started from that position can carry it over instead of asking again.
+   *
+   * Absent (the default) means ASK. Inheriting by default would be wrong and quietly so: a
+   * commission is received from an operator and then split — to a partner, to several people, to
+   * pay a fee. Those are different events with different counterparties, and carrying the operator
+   * across would produce a record that is valid and false.
+   *
+   * True only where the identity follows from the economics: a settlement of an advance is paid by
+   * whoever received it.
+   */
+  inheritsCounterparty?: boolean;
 }
 
 /** The CASH_IN settlement mold: the usina receives (amount on the payee), the counterparty is neutral. */
@@ -91,6 +123,16 @@ const cashOutParties: PartyTemplate[] = [
   { who: "counterparty", role: "payee", direction: "neutral" },
 ];
 
+/**
+ * The NON_CASH obligation mold: nobody moves money, so no leg carries a direction or an amount —
+ * the Ledger rejects a non-cash event whose parties sum to anything. The pair still names who owes
+ * and who is owed, which is the whole point of recognizing the obligation.
+ */
+const obligationParties: PartyTemplate[] = [
+  { who: "usina", role: "payer", direction: "neutral" },
+  { who: "counterparty", role: "payee", direction: "neutral" },
+];
+
 const MAPPINGS: Record<string, ScenarioMapping> = {
   register_payment: {
     eventType: "outbound_payment",
@@ -100,6 +142,7 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     objects: [{ objectType: "payable", relation: "settles" }],
     reasonType: "ordinary_settlement",
     reasonText: "Ordinary settlement of a payable",
+    objectIdSlot: "objectRef",
   },
   register_payroll: {
     eventType: "payroll_payment",
@@ -109,6 +152,12 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     objects: [{ objectType: "payroll", relation: "settles" }],
     reasonType: "payroll_payment",
     reasonText: "Payroll payment",
+    // Since OBLIGATION_RECOGNIZED, a payroll CAN have been recognized before it was paid, so the
+    // payment may legitimately close an existing obligation instead of minting a fresh position.
+    objectIdSlot: "objectRef",
+    // Paying a recognized payroll goes to whoever the obligation is owed to — the same party the
+    // recognition named. Asking again would invite a typo into a fact the book already holds.
+    inheritsCounterparty: true,
   },
   register_infrastructure: {
     eventType: "infrastructure_expense",
@@ -118,6 +167,7 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     objects: [{ objectType: "infrastructure_cost", relation: "settles" }],
     reasonType: "infrastructure_expense",
     reasonText: "Infrastructure expense",
+    objectIdSlot: "objectRef",
   },
   register_penalty: {
     eventType: "penalty_payment",
@@ -238,6 +288,8 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     reasonText: "Advance recovery",
     relatedEventSlot: "origin",
     objectIdSlot: "objectRef",
+    // The party settling an advance or a loan is the one that received it.
+    inheritsCounterparty: true,
   },
   // ── Rectification ──────────────────────────────────────────────────────────────────────────────
   // Declares that a previously recorded event never corresponded to the world. RETRACTS names the
@@ -264,6 +316,7 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     },
     relatedEventSlot: "target",
     objectIdSlot: "objectRef",
+    followupSlot: "reissue",
   },
 
   // Loan repayment SETTLES the loan a LOAN_ORIGINATION originated. Origin is required.
@@ -276,6 +329,49 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     reasonType: "loan_repayment",
     reasonText: "Loan repayment",
     relatedEventSlot: "origin",
+    // The party settling an advance or a loan is the one that received it.
+    inheritsCounterparty: true,
+  },
+
+  /**
+   * Recognizing an obligation ORIGINATES the position a later payment settles. NON_CASH: nothing
+   * moves, so no party carries a direction or an amount.
+   *
+   * Serves both orders of arrival from one mapping. Leave `objectRef` empty and a new position is
+   * minted — recognize now, pay later. Fill it with the position of a payment already recorded and
+   * the recognition originates THAT one, which is the reverse order: the payment came first and
+   * what established it was only identified afterwards. `retroactive` is what makes the candidate
+   * say so, instead of presenting late knowledge as ordinary knowledge.
+   *
+   * No `relatedEventSlot`: a recognition is not caused by the payment it explains. Pointing its
+   * lineage at the payment would assert a causality that runs backwards. The two facts meet on the
+   * position, which is exactly what objectId is for.
+   */
+  register_obligation_recognition: {
+    eventType: "obligation_recognized",
+    economicEffect: "non_cash",
+    counterpartySlot: "payee",
+    parties: obligationParties,
+    objects: [{ objectType: "payable", relation: "originates" }],
+    reasonType: "obligation_recognition",
+    reasonText: "Obligation established by an external fact",
+    // The kind of obligation is the object, not the event type — the economics are identical.
+    variants: {
+      selectorSlot: "kind",
+      byChoice: {
+        payroll: { objectType: "payroll" },
+        service: { objectType: "service_fee" },
+        infrastructure: { objectType: "infrastructure_cost" },
+        tax: { objectType: "tax" },
+        other: { objectType: "payable" },
+      },
+    },
+    objectIdSlot: "objectRef",
+    continuityMode: "unoriginated",
+    retroactive: {
+      reasonType: "late_awareness",
+      reasonText: "Obligation identified after the payment was already recorded",
+    },
   },
 };
 
@@ -297,10 +393,23 @@ export const UNIDENTIFIED_COUNTERPARTY = "counterparty not identified";
  * Multi-object mappings are excluded on purpose: their ids are minted one per object, and selecting
  * a single position could only speak for one of them.
  */
-export function continuityObjectType(scenarioId: string): string | undefined {
+export function continuityObjectType(
+  scenarioId: string,
+  answers: Record<string, string> = {},
+): string | undefined {
   const mapping = MAPPINGS[scenarioId];
   if (!mapping?.objectIdSlot || mapping.objects.length !== 1) return undefined;
-  return mapping.objects[0].objectType;
+
+  // The branch decides the object, so it decides the question too. Reading the base template here
+  // would ask about a kind of position this scenario is not going to originate: a payroll
+  // recognition would list payables, and the paid payroll being pointed at would never appear.
+  if (!mapping.variants) return mapping.objects[0].objectType;
+
+  const choice = answers[mapping.variants.selectorSlot];
+  const override = choice === undefined ? undefined : mapping.variants.byChoice[choice];
+  // Branch not chosen yet: there is no single kind to ask about, and guessing one would offer the
+  // wrong list. Nothing is offered until the answer that settles it exists.
+  return override?.objectType ?? (override ? mapping.objects[0].objectType : undefined);
 }
 
 /** The answer key a scenario carries its continuity assertion in. */
@@ -308,9 +417,171 @@ export function continuitySlot(scenarioId: string): string | undefined {
   return MAPPINGS[scenarioId]?.objectIdSlot;
 }
 
+/**
+ * Which shape of position the scenario's continuity question is about. A settlement asks about
+ * positions still open; a recognition asks about the opposite — positions already settled that
+ * nothing ever originated, which is what it would be supplying the origination for.
+ */
+export function continuityMode(scenarioId: string): "open" | "unoriginated" {
+  return MAPPINGS[scenarioId]?.continuityMode ?? "open";
+}
+
 /** The answer key a scenario carries its lineage assertion in. */
 export function lineageSlot(scenarioId: string): string | undefined {
   return MAPPINGS[scenarioId]?.relatedEventSlot;
+}
+
+/** The answer key a scenario carries its counterparty in, and whether it may be carried over. */
+export function counterpartySlot(scenarioId: string): string | undefined {
+  return MAPPINGS[scenarioId]?.counterpartySlot;
+}
+
+export function inheritsCounterparty(scenarioId: string): boolean {
+  return MAPPINGS[scenarioId]?.inheritsCounterparty === true;
+}
+
+/** The CHOICE key a scenario branches on, when it has variants. */
+export function variantSlot(scenarioId: string): string | undefined {
+  return MAPPINGS[scenarioId]?.variants?.selectorSlot;
+}
+
+/** One tuple treasury knows how to produce, as a scenario would emit it. */
+export interface ProducibleTuple {
+  scenarioId: string;
+  eventType: string;
+  objectType: string;
+  relation: string;
+  /** The choice that selects this branch, when the scenario has variants. */
+  variantChoice?: string;
+  /**
+   * True when recording this ALSO touches a position other than the one named here — the scenario
+   * emits more than one object, each getting its own id. A commission split settles the pool and
+   * opens what the usina now owes a partner; the interface has to say so rather than presenting it
+   * as evolving the position the operator started from.
+   *
+   * The Ledger's contracts cannot answer this: they list the object types an event MAY name without
+   * saying whether they are alternatives or companions. The mapping knows, because it is the thing
+   * that decides how many objects to emit.
+   */
+  touchesOtherPositions: boolean;
+}
+
+/**
+ * Everything treasury can currently record, enumerated one tuple at a time.
+ *
+ * The Ledger's algebra says what is LEGAL; this says what treasury can actually produce, which is a
+ * subset and always will be. Crossing the two is how the interface offers actions without anyone
+ * writing a list of them — the list is the intersection, computed, and it changes on its own when
+ * either side changes.
+ *
+ * Variants are expanded rather than collapsed: a scenario that branches into a payroll and a tax
+ * obligation offers two different things to two different positions, and folding them into one
+ * entry would lose exactly the distinction the offer is made of.
+ */
+export function producibleTuples(): ProducibleTuple[] {
+  const tuples: ProducibleTuple[] = [];
+
+  for (const [scenarioId, m] of Object.entries(MAPPINGS)) {
+    const branches: { choice?: string; override: TupleOverride }[] = m.variants
+      ? Object.entries(m.variants.byChoice).map(([choice, override]) => ({ choice, override }))
+      : [{ override: {} }];
+
+    for (const { choice, override } of branches) {
+      // The override targets the object being varied; variant scenarios are single-object by
+      // construction, so the rest are carried through untouched.
+      m.objects.forEach((object, index) => {
+        const objectType = index === 0 ? override.objectType ?? object.objectType : object.objectType;
+        const relation = index === 0 ? override.relation ?? object.relation : object.relation;
+        tuples.push({
+          scenarioId,
+          eventType: m.eventType,
+          objectType,
+          relation,
+          touchesOtherPositions: m.objects.length > 1,
+          ...(choice ? { variantChoice: choice } : {}),
+        });
+      });
+    }
+  }
+
+  return tuples;
+}
+
+/** What it takes to record the corrected entry again, or why treasury cannot. */
+export type ReissuePlan =
+  | { reissuable: true; scenarioId: string; answers: { key: string; value: string }[] }
+  | { reissuable: false; reason: "no_scenario" | "ambiguous_variant" | "is_a_correction" };
+
+/**
+ * Rebuilds the answers that would produce a recorded entry again — the inverse of `build`.
+ *
+ * Read from the Ledger's own record of the entry, never from the intent that produced it: intents
+ * do not survive a restart and, more importantly, an intent says what someone meant while the event
+ * says what was written. A correction has to be about what was written.
+ *
+ * Only the fields the correction may change are left to the caller (D5/D10: amount, date,
+ * description). Everything else is carried over exactly, which is what keeps a reissue from
+ * silently becoming a different fact — the counterparty above all, since changing who took part
+ * changes which fact it is.
+ */
+export function planReissue(
+  event: {
+    eventType: string;
+    economicEffect: string;
+    amount: string;
+    currency: string;
+    occurredAt: string;
+    description: string | null;
+    relatedEventId: string | null;
+    objects: { objectId: string; objectType: string; relation: string }[];
+    parties: { partyId: string; role: string; direction: string; amount: string | null }[];
+  },
+  usinaPartyId: string,
+): ReissuePlan {
+  const entry = Object.entries(MAPPINGS).find(([, m]) => m.eventType === event.eventType);
+  if (!entry) return { reissuable: false, reason: "no_scenario" };
+  const [scenarioId, m] = entry;
+
+  // A correction of a correction is not a thing: the Ledger caps retraction depth, and "reissue the
+  // retraction" has no meaning — what would be reissued is the entry underneath it.
+  if (m.objects.some((o) => o.relation === "retracts")) {
+    return { reissuable: false, reason: "is_a_correction" };
+  }
+
+  const moved = event.objects.find((o) => o.relation !== "references");
+  const answers: { key: string; value: string }[] = [
+    { key: "amount", value: event.amount },
+    { key: "currency", value: event.currency },
+    { key: "occurredAt", value: event.occurredAt },
+  ];
+
+  if (event.description) answers.push({ key: "description", value: event.description });
+
+  // The variant is recovered by asking which choice would have produced this object. A choice that
+  // no override distinguishes — or several that do — means treasury cannot tell which branch was
+  // taken, and guessing would reissue a different tuple than the one being corrected.
+  if (m.variants) {
+    const matching = Object.entries(m.variants.byChoice).filter(([, override]) =>
+      (override.objectType === undefined || override.objectType === moved?.objectType) &&
+      (override.relation === undefined || override.relation === moved?.relation) &&
+      (override.economicEffect === undefined || override.economicEffect === event.economicEffect),
+    );
+    if (matching.length !== 1) return { reissuable: false, reason: "ambiguous_variant" };
+    answers.push({ key: m.variants.selectorSlot, value: matching[0][0] });
+  }
+
+  if (m.counterpartySlot) {
+    const counterparty = event.parties.find((p) => p.partyId !== usinaPartyId);
+    if (counterparty) answers.push({ key: m.counterpartySlot, value: counterparty.partyId });
+  }
+  if (m.objectIdSlot && moved) {
+    answers.push({ key: m.objectIdSlot, value: moved.objectId });
+  }
+  if (m.relatedEventSlot && event.relatedEventId) {
+    answers.push({ key: m.relatedEventSlot, value: event.relatedEventId });
+  }
+
+  return { reissuable: true, scenarioId, answers };
 }
 
 export class CandidateMapper {
@@ -367,6 +638,16 @@ export class CandidateMapper {
     // as before. Treasury never verifies the asserted id exists: like lineage, that is the Ledger's
     // business, and an unknown position is a legitimate state, not a reason to refuse the fact.
     const assertedObjectId = m.objectIdSlot ? a[m.objectIdSlot]?.trim() || undefined : undefined;
+
+    // Continuity that points at something already on the book means this fact is being recorded
+    // after the one it explains. That is a different cause, and the candidate says so rather than
+    // presenting late knowledge as ordinary knowledge. Applied before the unidentified-counterparty
+    // note below, which appends to whichever reason text ends up standing.
+    if (assertedObjectId && m.retroactive) {
+      reasonType = m.retroactive.reasonType;
+      reasonText = m.retroactive.reasonText;
+    }
+
     const objects = objectTemplates.map((o) => ({
       objectId: assertedObjectId ?? (objectTemplates.length === 1 ? sourceReference : `${sourceReference}:${o.objectType}`),
       objectType: o.objectType,
@@ -387,6 +668,13 @@ export class CandidateMapper {
     if (parties.some((party) => unidentifiedParties.has(party.partyId))) {
       requiresFollowup = true;
       reasonText = `${reasonText} · ${UNIDENTIFIED_COUNTERPARTY}`;
+    }
+
+    // A correction that intends to reissue says so on the retraction itself, in the Ledger's own
+    // vocabulary. Nothing is stored to be flipped later: the pending state is derived by asking
+    // whether a standing fact has since landed on the position (see `pendingReissue`).
+    if (m.followupSlot && (a[m.followupSlot]?.trim() ?? "") !== "") {
+      requiresFollowup = true;
     }
 
     return {

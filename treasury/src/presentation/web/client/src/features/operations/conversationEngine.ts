@@ -212,8 +212,17 @@ export function shouldFallbackToDirectAnswer(askedSlotKey: string | null, result
 export function offerablePositions(
   candidates: SettlementCandidate[],
   slot: SlotDefinition | null,
+  slots: { continuity?: string; lineage?: string } = {},
 ): SettlementCandidate[] {
-  if (!slot || slot.type !== "event_ref") return [];
+  if (!slot) return [];
+
+  // A continuity question asks which position this fact moves. Every candidate can answer it,
+  // including one the Ledger holds no origination for — which is exactly what a recognition is
+  // being offered: a payment already recorded, waiting for what established it.
+  if (slots.continuity && slot.key === slots.continuity) return candidates;
+
+  // A lineage question asks which fact caused this one, and only an origination can answer it.
+  if (slot.type !== "event_ref") return [];
   return slot.required ? candidates.filter((c) => c.originEventId !== null) : candidates;
 }
 

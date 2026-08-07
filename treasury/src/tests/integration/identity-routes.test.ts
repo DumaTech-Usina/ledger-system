@@ -20,6 +20,9 @@ import { DecideIdentityUseCase } from "../../core/application/use-cases/DecideId
 import { RecordPartyAttributeUseCase } from "../../core/application/use-cases/RecordPartyAttribute";
 import { ListIncompletePartiesUseCase } from "../../core/application/use-cases/ListIncompleteParties";
 import { ListSettlementCandidatesUseCase } from "../../core/application/use-cases/ListSettlementCandidates";
+import { ListPositionActionsUseCase } from "../../core/application/use-cases/ListPositionActions";
+import { StartPositionActionUseCase } from "../../core/application/use-cases/StartPositionAction";
+import { algebra } from "../fixtures/algebra";
 import { StubLedgerReadAdapter } from "../../infra/ledger-read/StubLedgerReadAdapter";
 import { Role } from "../../core/domain/enums/Role";
 import { PartyAttributeKey } from "../../core/domain/value-objects/PartyAttribute";
@@ -88,11 +91,22 @@ function harness() {
         applyAnswers,
         submitIntent,
         clock,
+        PARTY.USINA,
       ),
       new DecideIdentityUseCase(intents, parties, clock, ids, audit),
       new RecordPartyAttributeUseCase(parties, clock, audit),
       new ListIncompletePartiesUseCase(directory),
       new ListSettlementCandidatesUseCase(intents, new StubLedgerReadAdapter(), directory),
+      // This suite exercises identity, not the position entry point; the stub Ledger holds no
+      // positions, so both of these answer "nothing" — which is the honest wiring for it.
+      new ListPositionActionsUseCase(new StubLedgerReadAdapter(), algebra()),
+      new StartPositionActionUseCase(
+        new StubLedgerReadAdapter() as never,
+        new StubLedgerReadAdapter() as never,
+        startIntent,
+        applyAnswers,
+        PARTY.USINA,
+      ),
     ),
   );
   return { app, parties, directory };

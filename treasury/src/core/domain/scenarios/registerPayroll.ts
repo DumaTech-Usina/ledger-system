@@ -17,6 +17,10 @@ export const registerPayroll: Scenario = {
     { key: "amount", type: SlotType.MONEY, prompt: "What is the payroll amount?", required: true },
     { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was payroll paid?", required: true },
+    // Optional continuity: the obligation this payment closes, when the payroll was recognized
+    // before it was paid. Never required — a payroll paid without a prior recognition is the
+    // ordinary cash-basis fact this scenario has always recorded.
+    { key: "objectRef", type: SlotType.STRING, prompt: "Which recognized obligation does this pay?", required: false },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
   keywords: { "pt-BR": ["folha", "salario", "salarios", "empregados", "funcionarios"] },

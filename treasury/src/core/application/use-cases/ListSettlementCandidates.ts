@@ -1,4 +1,9 @@
-import { continuityObjectType, continuitySlot, lineageSlot } from "../services/CandidateMapper";
+import {
+  continuityMode,
+  continuityObjectType,
+  continuitySlot,
+  lineageSlot,
+} from "../services/CandidateMapper";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
 import type { PositionLookupPort } from "../ports/PositionLookupPort";
@@ -45,21 +50,25 @@ export class ListSettlementCandidatesUseCase {
     const intent = await this.intents.findById(intentId);
     if (!intent) throw new Error(`Unknown intent: ${intentId}`);
 
-    const objectType = continuityObjectType(intent.scenarioId);
+    const objectType = continuityObjectType(intent.scenarioId, intent.answers);
     const slots = {
       continuity: continuitySlot(intent.scenarioId),
       lineage: lineageSlot(intent.scenarioId),
     };
     if (!objectType) return { slots: {}, candidates: [] };
 
-    // A position whose origination was rectified is not an advance waiting to be recovered: the
-    // Ledger still lists it as `open` (status is derived from a zero origination, not from the
-    // retraction), so the standing origination is what tells the two apart. Offering it would show
-    // a figure of zero next to a date the correction removed, and a selection would point the new
-    // fact's lineage at an event that never happened.
-    const found = (await this.positions.openPositions(objectType)).filter(
-      (c) => c.originatedAt !== null,
-    );
+    // Which shape of position this scenario's question is about is declared by the mapping, never
+    // inferred. A settlement asks "which open position does this close"; a recognition asks the
+    // mirror question, "which already-paid position was this what established".
+    const found =
+      continuityMode(intent.scenarioId) === "unoriginated"
+        ? await this.positions.unoriginatedPositions(objectType)
+        : // A position whose origination was rectified is not an advance waiting to be recovered: the
+          // Ledger still lists it as `open` (status is derived from a zero origination, not from the
+          // retraction), so the standing origination is what tells the two apart. Offering it would show
+          // a figure of zero next to a date the correction removed, and a selection would point the new
+          // fact's lineage at an event that never happened.
+          (await this.positions.openPositions(objectType)).filter((c) => c.originatedAt !== null);
     const names = await this.nameCounterparties(found.map((c) => c.counterpartyId));
 
     return {

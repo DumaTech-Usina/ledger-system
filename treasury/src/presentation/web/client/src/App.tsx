@@ -8,10 +8,19 @@ import { PositionsPage } from "@/features/dashboard/PositionsPage";
 import { IntentsPage } from "@/features/intents/IntentsPage";
 import { useLanguage } from "@/i18n/i18n";
 import type { Role } from "@/types/auth";
+import type { AdoptedIntent } from "@/features/operations/useConversation";
 
 export function App() {
   const { status, user, login, logout, justLoggedIn, clearJustLoggedIn } = useAuth();
   const [activeNav, setActiveNav] = useState("operations");
+  /**
+   * A conversation opened from a position, waiting to be adopted by the operations page.
+   *
+   * It lives here because it crosses two sections: it is created in Positions and consumed in
+   * Operations. Cleared as soon as it is handed over, so returning to Operations later never
+   * re-opens an operation the user already finished or abandoned.
+   */
+  const [adopted, setAdopted] = useState<AdoptedIntent | null>(null);
   const { t } = useLanguage();
 
   const navItems = [
@@ -58,12 +67,24 @@ export function App() {
       {activeNav === "intents" ? (
         <IntentsPage />
       ) : activeNav === "positions" ? (
-        <PositionsPage canRectify={user.permissions.includes("intent:submit")} />
+        <PositionsPage
+          canRectify={user.permissions.includes("intent:submit")}
+          onOperationStarted={(intent) => {
+            setAdopted(intent);
+            setActiveNav("operations");
+          }}
+        />
       ) : activeNav === "operations" ? (
         // `justLoggedIn` flips true in the same render as `status`/`user` (login() batches all
         // three), so OperationsPage never sees a stale `showIntro=false` on its first render —
         // that one-render gap was what let the heading/chat lock in as "already visible" earlier.
-        <OperationsPage user={user} showIntro={justLoggedIn} onIntroDone={clearJustLoggedIn} />
+        <OperationsPage
+          user={user}
+          showIntro={justLoggedIn}
+          onIntroDone={clearJustLoggedIn}
+          adopt={adopted}
+          onAdopted={() => setAdopted(null)}
+        />
       ) : (
         <DashboardPage onNavigateToOperations={() => setActiveNav("operations")} />
       )}

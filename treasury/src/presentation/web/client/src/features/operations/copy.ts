@@ -18,6 +18,11 @@ export const scenarioCopy: Record<string, { title: string; description: string }
     title: "Registrar pagamento de multa",
     description: "Registrar uma multa ou penalidade paga pela usina (saída de caixa).",
   },
+  register_obligation_recognition: {
+    title: "Reconhecer obrigação a pagar",
+    description:
+      "Registrar algo que a usina passou a dever por um fato externo — nota emitida, folha fechada, imposto apurado — antes de pagar. Não move caixa. Serve também quando o pagamento já foi registrado e só depois se identificou o que o originou.",
+  },
   register_incentive: {
     title: "Registrar pagamento de incentivo",
     description: "Registrar um incentivo ou bônus pago pela usina a um corretor ou parceiro (saída de caixa).",
@@ -68,6 +73,16 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor do pagamento?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data o pagamento foi feito?",
+    objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
+    description: "Uma breve descrição (opcional).",
+  },
+  register_obligation_recognition: {
+    kind: "Que tipo de obrigação é esta?",
+    payee: "A quem a usina deve?",
+    amount: "Qual é o valor devido?",
+    currency: "Qual é a moeda?",
+    occurredAt: "Em que data a obrigação foi estabelecida (emissão da nota, fechamento da folha)?",
+    objectRef: "Esta obrigação já foi paga? Se sim, qual pagamento ela explica? (opcional)",
     description: "Uma breve descrição (opcional).",
   },
   register_payroll: {
@@ -75,6 +90,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor da folha?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data a folha foi paga?",
+    objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
     description: "Uma breve descrição (opcional).",
   },
   register_infrastructure: {
@@ -82,6 +98,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi pago?",
+    objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
     description: "Uma breve descrição (opcional).",
   },
   register_penalty: {
@@ -212,6 +229,8 @@ export const identityCopy = {
  * only ever appears when there is something real to choose from.
  */
 export const positionCopy = {
+  /** Opens a conversation the operator started from a position, naming what it is about. */
+  opened: (label: string) => `Vamos registrar um novo fato sobre ${label}. Já sei o que a posição podia responder — falta o que só você sabe.`,
   prompt: "Escolha qual delas está sendo quitada:",
   /** Always present: the list is an offer, never a gate. Typing still works. */
   notListed: "Não está na lista",

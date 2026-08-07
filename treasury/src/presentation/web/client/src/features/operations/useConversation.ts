@@ -29,7 +29,20 @@ import type {
   SlotDefinition,
 } from "@/types/operations";
 
-export function useConversation() {
+/**
+ * A conversation the operator opened from a position rather than from the action list. The intent
+ * already exists — the position answered what it could — so the chat adopts it instead of starting
+ * one, and picks up at the first question still unanswered.
+ */
+export interface AdoptedIntent {
+  intentId: string;
+  scenarioId: string;
+  state: DialogState;
+  /** How to name the position on screen, so the operator never loses sight of what this is about. */
+  positionLabel: string;
+}
+
+export function useConversation(adopt?: AdoptedIntent | null) {
   const typingHidden = useTypingAnimationDisabled();
   const [scenarios, setScenarios] = useState<ScenarioSummary[] | null>(null);
   const [scenarioId, setScenarioId] = useState<string | null>(null);
@@ -199,6 +212,45 @@ export function useConversation() {
     },
     [clearQueue, push, refreshLifecycle, advance],
   );
+
+  /**
+   * Adopts a conversation opened from a position. Same machine as `selectScenario` — the difference
+   * is only that the intent and its first state already exist, because the position supplied every
+   * answer it could before the operator was asked anything.
+   *
+   * Runs once per adoption — `adopt` is the identity, and it only changes when a different
+   * conversation is handed over. The body is written to be safe to repeat: it clears the queue and
+   * the thread before it writes anything, so a second run rebuilds the same opening rather than
+   * doubling it. That matters because StrictMode runs every effect twice in development, and this
+   * is the only entry point set up inside an effect — skipping the second pass would leave the
+   * reveal loop half-torn-down, with the thread frozen on the greeting.
+   */
+  useEffect(() => {
+    if (!adopt) return;
+
+    const copy = scenarioCopy[adopt.scenarioId];
+    setScenarioId(adopt.scenarioId);
+    setScenarioTitle(copy?.title ?? adopt.scenarioId);
+    setPickingError(null);
+    clearQueue();
+    setStream([]);
+    setLifecycle(null);
+    setPhase("conversation");
+    setIntentId(adopt.intentId);
+    // The ref is normally synced during render, which has not happened yet inside this effect —
+    // and `advance` below reads it to open the preview when the position left nothing to ask.
+    intentIdRef.current = adopt.intentId;
+    answeredSlotsRef.current = {};
+
+    push(withId({ kind: "bot", text: positionCopy.opened(adopt.positionLabel) }));
+    refreshLifecycle(adopt.intentId);
+    advance(adopt.state, undefined, adopt.scenarioId);
+    // Keyed on the intent, not on the object: a caller may rebuild `adopt` on every render, and
+    // re-running then would clear a conversation already in progress — or loop. The callbacks are
+    // left out for the same reason, since they are re-created as unrelated state moves; everything
+    // the opening needs is read from `adopt` itself, so a stale one cannot produce a stale opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adopt?.intentId]);
 
   const answer = useCallback(
     async (value: string) => {
@@ -376,12 +428,15 @@ export function useConversation() {
    */
   useEffect(() => {
     const id = intentIdRef.current;
-    if (!id || !currentSlot || currentSlot.type !== "event_ref") return;
+    // Two kinds of question can be answered by pointing at a position: the lineage one (EVENT_REF)
+    // and the continuity one, which is carried by a plain string slot. Which string slot that is
+    // comes back with the candidates, so the engine — not this effect — decides whether to offer.
+    if (!id || !currentSlot || (currentSlot.type !== "event_ref" && currentSlot.type !== "string")) return;
 
     let cancelled = false;
     operationsApi.settlementCandidates(id).then(({ ok, data }) => {
       if (cancelled || !ok) return;
-      const offerable = offerablePositions(data.candidates, currentSlot);
+      const offerable = offerablePositions(data.candidates, currentSlot, data.slots);
       if (offerable.length === 0) return;
       push(withId({ kind: "positions", slots: data.slots, candidates: offerable }));
     });

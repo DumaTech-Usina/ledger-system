@@ -1,15 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { useLanguage } from "@/i18n/i18n";
-import { rectifiability } from "@/features/dashboard/lifecycleEngine";
+import { pendingCorrection, rectifiability } from "@/features/dashboard/lifecycleEngine";
 import { useObjectLifecycle } from "@/features/dashboard/useObjectLifecycle";
 import { operationsApi } from "@/features/operations/operationsApi";
 import { formatDate, formatDateTime, formatMoney } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import type { PositionLifecycleEvent } from "@/types/dashboard";
+import type { RectifyResult } from "@/types/operations";
 
 /**
  * The life of one economic object, as the Ledger projects it. The order on screen is the Ledger's
@@ -20,17 +21,27 @@ import type { PositionLifecycleEvent } from "@/types/dashboard";
  */
 export function ObjectLifecycleTimeline({
   objectId,
-  objectType,
   canRectify = false,
 }: {
   objectId: string;
-  /** Undefined when the position was opened by id: no row supplied its type. */
-  objectType?: string;
   canRectify?: boolean;
 }) {
   const { t } = useLanguage();
   const state = useObjectLifecycle(objectId);
   const [failure, setFailure] = useState<string | null>(null);
+  // What the Ledger's algebra admits here, fetched once. Undefined while in flight — and that is
+  // deliberately not "nothing": the correction stays offered until the server says otherwise.
+  const [actions, setActions] = useState<readonly { relation: string }[] | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    operationsApi.positionActions(objectId).then(({ ok, data }) => {
+      if (!cancelled && ok) setActions(data.actions);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [objectId]);
 
   if (state.kind === "loading") {
     return <p className="px-5 py-6 text-sm text-muted">{t.common.loading}</p>;
@@ -43,6 +54,9 @@ export function ObjectLifecycleTimeline({
   }
 
   const { lifecycle } = state;
+  // Derived from the chain the Ledger published, never from state treasury kept: a withdrawal that
+  // declared a sequel and has not received one.
+  const pending = pendingCorrection(lifecycle.events);
 
   return (
     <div className="px-5 py-5">
@@ -73,13 +87,24 @@ export function ObjectLifecycleTimeline({
         </Banner>
       )}
 
+      {pending && canRectify && (
+        <PendingCorrectionNotice
+          targetEventId={pending.targetEventId}
+          onDone={() => {
+            setFailure(null);
+            state.reload();
+          }}
+          onFailure={setFailure}
+        />
+      )}
+
       <ol className="mt-5 border-t border-line pt-4">
         {lifecycle.events.map((event, index) => (
           <TimelineEvent
             key={event.eventId}
             event={event}
             last={index === lifecycle.events.length - 1}
-            rectify={rectifiability(event, objectType)}
+            rectify={rectifiability(event, actions)}
             canRectify={canRectify}
             onRectified={() => {
               setFailure(null);
@@ -222,9 +247,30 @@ function TimelineEvent({
 }
 
 /**
- * Confirms one rectification. It asks for a single thing — what established the error — because
- * everything else about the correction is read from the Ledger's record of the entry being
- * corrected, never from a second typing.
+ * Reports what a correction produced, in the caller's language. Returns null when it went through.
+ *
+ * A half-done correction is not an error and is not phrased as one: the withdrawal is recorded and
+ * true, and what is missing is the entry that replaces it. The position keeps offering to finish.
+ */
+function correctionProblem(result: RectifyResult, t: ReturnType<typeof useLanguage>["t"]): string | null {
+  if (result.notReissuable) return t.dashboard.lifecycle.pendingNotReissuable;
+  if (result.reissueIncomplete) {
+    return t.dashboard.lifecycle.pendingIncomplete.replace("{slot}", result.reissueIncomplete.missingSlot);
+  }
+  return null;
+}
+
+/**
+ * Confirms one correction.
+ *
+ * Two things can be wrong with a recorded entry, and they are different facts. Either it never
+ * happened — it is withdrawn and that is the end of it — or it happened and was mis-measured, in
+ * which case the true figure has to be recorded as its own entry. The Ledger has no relation that
+ * restates an amount, so the second is always two events, and the form says so rather than looking
+ * like an edit.
+ *
+ * Counterparty and kind are deliberately absent: changing who took part changes WHICH fact it is,
+ * not how it was measured, and that is a new operation rather than a correction.
  */
 function RectifyForm({
   eventId,
@@ -238,20 +284,37 @@ function RectifyForm({
   onFailure: (message: string) => void;
 }) {
   const { t } = useLanguage();
+  const [restating, setRestating] = useState(false);
   const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState("");
+  const [occurredAt, setOccurredAt] = useState("");
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
     setSaving(true);
+    const corrected = restating
+      ? {
+          // Only what was actually filled is sent. A blank field is not a restatement of the field
+          // to nothing — it means the operator left that one alone.
+          ...(amount.trim() ? { amount: amount.trim() } : {}),
+          ...(occurredAt.trim() ? { occurredAt: new Date(occurredAt).toISOString() } : {}),
+        }
+      : undefined;
+
     const { ok, data } = await operationsApi.rectify({
       targetEventId: eventId,
       description: description.trim() || undefined,
+      ...(corrected && Object.keys(corrected).length > 0 ? { corrected } : {}),
     });
     setSaving(false);
+
     if (!ok) {
       onFailure(data && "error" in data ? data.error : t.dashboard.lifecycle.unavailable);
       return;
     }
+
+    const problem = data && !("error" in data) ? correctionProblem(data, t) : null;
+    if (problem) onFailure(problem);
     onDone();
   };
 
@@ -259,6 +322,40 @@ function RectifyForm({
     <div className="mt-3 rounded-2xl border border-line bg-ink/[0.03] p-3.5 dark:bg-white/5">
       <p className="text-[13px] font-semibold text-ink">{t.dashboard.lifecycle.rectifyTitle}</p>
       <p className="mt-1 text-[12px] text-muted">{t.dashboard.lifecycle.rectifyExplain}</p>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        <ModeButton active={!restating} disabled={saving} onClick={() => setRestating(false)}>
+          {t.dashboard.lifecycle.rectifyModeWithdraw}
+        </ModeButton>
+        <ModeButton active={restating} disabled={saving} onClick={() => setRestating(true)}>
+          {t.dashboard.lifecycle.rectifyModeRestate}
+        </ModeButton>
+      </div>
+
+      {restating && (
+        <>
+          <p className="mt-3 text-[12px] text-muted">{t.dashboard.lifecycle.rectifyRestateHint}</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <Input
+              label={t.dashboard.lifecycle.rectifyAmount}
+              value={amount}
+              inputMode="decimal"
+              placeholder="450.00"
+              disabled={saving}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+            <Input
+              label={t.dashboard.lifecycle.rectifyDate}
+              type="date"
+              value={occurredAt}
+              disabled={saving}
+              onChange={(event) => setOccurredAt(event.target.value)}
+            />
+          </div>
+          <p className="mt-2 text-[11px] text-muted">{t.dashboard.lifecycle.rectifyLockedNote}</p>
+        </>
+      )}
+
       <div className="mt-3">
         <Input
           label={t.dashboard.lifecycle.rectifyDescription}
@@ -275,6 +372,81 @@ function RectifyForm({
           {t.dashboard.lifecycle.rectifyCancel}
         </Button>
       </div>
+    </div>
+  );
+}
+
+function ModeButton({
+  active,
+  disabled,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        "rounded-full border px-3 py-1.5 text-[12px] font-semibold transition",
+        active
+          ? "border-ink bg-ink text-paper"
+          : "border-line text-muted hover:border-ink/40 hover:text-ink",
+        disabled && "cursor-not-allowed opacity-60",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * Says that a correction was interrupted, and offers to finish it.
+ *
+ * Deliberately not a badge, a counter or a blocker: the withdrawal on record is true, and the book
+ * is honest — it is simply incomplete. Resuming reopens the same correction on the entry that was
+ * withdrawn, which is the one the corrected figure belongs to.
+ */
+function PendingCorrectionNotice({
+  targetEventId,
+  onDone,
+  onFailure,
+}: {
+  targetEventId: string;
+  onDone: () => void;
+  onFailure: (message: string) => void;
+}) {
+  const { t } = useLanguage();
+  const [resuming, setResuming] = useState(false);
+
+  return (
+    <div className="mt-4 rounded-2xl border border-warn/40 bg-warn/[0.06] p-3.5">
+      <p className="text-[13px] font-semibold text-ink">{t.dashboard.lifecycle.pendingTitle}</p>
+      <p className="mt-1 text-[12px] text-muted">{t.dashboard.lifecycle.pendingExplain}</p>
+
+      {resuming ? (
+        <RectifyForm
+          eventId={targetEventId}
+          onClose={() => setResuming(false)}
+          onDone={() => {
+            setResuming(false);
+            onDone();
+          }}
+          onFailure={onFailure}
+        />
+      ) : (
+        <div className="mt-3">
+          <Button variant="warn" onClick={() => setResuming(true)}>
+            {t.dashboard.lifecycle.pendingResume}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

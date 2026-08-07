@@ -361,6 +361,36 @@ describe("offerablePositions", () => {
     expect(offerablePositions([], eventRef)).toEqual([]);
   });
 
+  describe("the continuity question", () => {
+    const objectRef: SlotDefinition = {
+      key: "objectRef",
+      type: "string",
+      prompt: "Which payment does this explain?",
+      required: false,
+    };
+    const slots = { continuity: "objectRef" };
+
+    it("offers a position with no origination — that is precisely what a recognition points at", () => {
+      expect(offerablePositions([withoutOrigin], objectRef, slots)).toEqual([withoutOrigin]);
+    });
+
+    it("asks which position this fact moves, so an origination is never a requirement", () => {
+      expect(offerablePositions([withOrigin, withoutOrigin], objectRef, slots)).toEqual([
+        withOrigin,
+        withoutOrigin,
+      ]);
+    });
+
+    it("stays silent on a plain string question that is not the continuity slot", () => {
+      const description: SlotDefinition = { key: "description", type: "string", prompt: "A note?", required: false };
+      expect(offerablePositions([withOrigin, withoutOrigin], description, slots)).toEqual([]);
+    });
+
+    it("without a declared continuity slot, a string question offers nothing", () => {
+      expect(offerablePositions([withOrigin], objectRef)).toEqual([]);
+    });
+  });
+
   describe("positionAnswers", () => {
     it("asserts both axes from one selection", () => {
       expect(positionAnswers(withOrigin, { continuity: "objectRef", lineage: "origin" })).toEqual([

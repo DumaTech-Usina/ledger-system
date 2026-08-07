@@ -23,6 +23,8 @@ import type { DecideIdentityUseCase } from "../../../core/application/use-cases/
 import type { RecordPartyAttributeUseCase } from "../../../core/application/use-cases/RecordPartyAttribute";
 import type { ListIncompletePartiesUseCase } from "../../../core/application/use-cases/ListIncompleteParties";
 import type { ListSettlementCandidatesUseCase } from "../../../core/application/use-cases/ListSettlementCandidates";
+import type { ListPositionActionsUseCase } from "../../../core/application/use-cases/ListPositionActions";
+import type { StartPositionActionUseCase } from "../../../core/application/use-cases/StartPositionAction";
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
 
@@ -41,6 +43,10 @@ export interface ServerDeps {
   recordPartyAttribute: RecordPartyAttributeUseCase;
   listIncompleteParties: ListIncompletePartiesUseCase;
   listSettlementCandidates: ListSettlementCandidatesUseCase;
+  listPositionActions: ListPositionActionsUseCase;
+  startPositionAction: StartPositionActionUseCase;
+  /** Forgets the positions a successful write touched. Composition, never domain. */
+  forgetPositions?: (objectIds: readonly string[]) => void;
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
@@ -79,6 +85,9 @@ export function createServer(deps: ServerDeps) {
       deps.recordPartyAttribute,
       deps.listIncompleteParties,
       deps.listSettlementCandidates,
+      deps.listPositionActions,
+      deps.startPositionAction,
+      deps.forgetPositions,
     ),
   );
   app.use(

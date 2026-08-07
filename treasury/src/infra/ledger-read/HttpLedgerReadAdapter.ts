@@ -1,6 +1,7 @@
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
 import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
+import type { LedgerEventFeedPort, RecordedEvent } from "../../core/application/ports/LedgerEventFeedPort";
 import type { PositionCandidate, PositionLookupPort } from "../../core/application/ports/PositionLookupPort";
 import type {
   BookExposure,
@@ -15,6 +16,7 @@ import type {
 /** The Ledger's position-detail payload, as `serializePositionSummary` emits it. */
 interface LedgerPositionDetail {
   objectId: string;
+  objectType: string;
   status: string;
   outcome: string;
   currency: string;
@@ -33,6 +35,7 @@ interface LedgerPositionDetail {
     description: string | null;
     relatedEventId: string | null;
     retracted?: boolean;
+    reason?: { type: string; requiresFollowup?: boolean } | null;
     parties?: Array<{ partyId: string; role: string; direction: string }>;
     objects: Array<{ objectId: string; relation: string }>;
   }>;
@@ -43,7 +46,7 @@ interface LedgerPositionDetail {
  * timeout so a slow/hung Ledger can't hang a treasury request.
  */
 export class HttpLedgerReadAdapter
-  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort
+  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort, LedgerEventFeedPort
 {
   constructor(
     private readonly baseUrl: string,
@@ -193,6 +196,37 @@ export class HttpLedgerReadAdapter
   }
 
   /**
+   * Positions already settled that nothing ever originated — a payment recorded on its own.
+   *
+   * The Ledger has no status for this shape: `open` covers both "originated, nothing claimed yet"
+   * and "settled, nothing originated", which is the documented ambiguity in the status vocabulary.
+   * The two are told apart by `totalOriginated`, the field the Ledger already publishes and the
+   * same discriminator its own aggregates use. Filtering a published field is reading; no figure is
+   * recomputed here.
+   *
+   * `unknown_origin` positions are deliberately not fetched: those declare that an origination
+   * exists and is not known, which is a different state from none having been recorded.
+   */
+  async unoriginatedPositions(objectType: string, limit = 20): Promise<PositionCandidate[]> {
+    const page = await this.positions({ objectType, status: "open", limit: limit * 2 });
+    const items = page.data
+      .filter((item) => Number(item.totalOriginated) === 0 && item.eventCount > 0)
+      .slice(0, limit);
+
+    return items.map((item) => ({
+      objectId: item.objectId,
+      objectType: item.objectType,
+      // Nothing originated it, so there is no origination to name — and none is invented.
+      originEventId: null,
+      counterpartyId: null,
+      totalOriginated: item.totalOriginated,
+      openBalance: item.openBalance,
+      currency: item.currency,
+      originatedAt: null,
+    }));
+  }
+
+  /**
    * The life of one economic object, from the Ledger's own position projection. The event order is
    * the Ledger's (recordedAt ascending) and is passed through untouched; each event is trimmed to
    * the fields treasury displays, plus the relation it declares for THIS object.
@@ -203,6 +237,7 @@ export class HttpLedgerReadAdapter
 
     return {
       objectId: raw.objectId,
+      objectType: raw.objectType,
       status: raw.status,
       outcome: raw.outcome,
       currency: raw.currency,
@@ -224,8 +259,33 @@ export class HttpLedgerReadAdapter
         // Absent only against a Ledger that has no rectification at all — where nothing can be
         // retracted, so `false` states a fact rather than filling a gap with a default.
         retracted: e.retracted === true,
+        requiresFollowup: e.reason?.requiresFollowup === true,
       })),
     };
+  }
+
+  /**
+   * What was written to the Ledger most recently — by RECORDING order, not by when it happened.
+   *
+   * `sortBy=recordedAt` is the whole point: a fact may be recorded long after it occurred, so an
+   * occurrence-ordered read cannot answer "what is new since I last looked". The Ledger validates
+   * both parameters against a whitelist, so an unrecognised value falls back rather than travelling.
+   */
+  async recentlyRecorded(limit: number, page = 1): Promise<RecordedEvent[]> {
+    const q = new URLSearchParams({
+      sortBy: "recordedAt",
+      sortOrder: "DESC",
+      limit: String(limit),
+      page: String(page),
+    });
+    const raw = await this.get<{
+      data: Array<{ id: string; objects?: Array<{ objectId: string }> }>;
+    }>(`/api/events?${q.toString()}`);
+
+    return (raw.data ?? []).map((event) => ({
+      eventId: event.id,
+      objectIds: [...new Set((event.objects ?? []).map((o) => o.objectId))],
+    }));
   }
 
   /**
@@ -243,6 +303,8 @@ export class HttpLedgerReadAdapter
       description: string | null;
       relatedEventId: string | null;
       objects: Array<{ objectId: string; objectType: string; relation: string }>;
+      parties: Array<{ partyId: string; role: string; direction: string; amount: string | null }>;
+      source: { system: string; reference: string };
     }>(`/api/events/${encodeURIComponent(eventId)}`);
     if (!raw) return null;
 
@@ -260,6 +322,13 @@ export class HttpLedgerReadAdapter
         objectType: o.objectType,
         relation: o.relation,
       })),
+      parties: (raw.parties ?? []).map((p) => ({
+        partyId: p.partyId,
+        role: p.role,
+        direction: p.direction,
+        amount: p.amount ?? null,
+      })),
+      source: { system: raw.source?.system ?? "", reference: raw.source?.reference ?? "" },
     };
   }
 }

@@ -219,6 +219,54 @@ export interface SubmitIntentResult {
   candidate: Candidate;
 }
 
+/**
+ * What a correction produced. A withdrawal alone yields `retraction` only; a restatement yields both.
+ *
+ * The three other fields are the honest failures, and each says something different:
+ * `notReissuable` — nothing was written, because the entry cannot be recorded again;
+ * `reissueIncomplete` — the withdrawal stands and the corrected entry could not be described from
+ * the record alone, so the correction is HALF DONE and the position will say so;
+ * a `retraction` that was not accepted — nothing else was attempted.
+ */
+export interface RectifyResult {
+  retraction?: SubmitIntentResult;
+  reissue?: SubmitIntentResult;
+  notReissuable?: "no_scenario" | "ambiguous_variant" | "is_a_correction";
+  reissueIncomplete?: { missingSlot: string };
+}
+
+/** One thing the operator can record about a position, derived from the Ledger's own algebra. */
+export interface PositionAction {
+  scenarioId: string;
+  eventType: string;
+  relation: string;
+  variantChoice?: string;
+  /**
+   * True when recording this ALSO touches a position other than this one — a commission split
+   * settles nothing here, it opens what the usina now owes a partner. The screen has to say which
+   * of the two is happening instead of presenting both as "evolving this position".
+   */
+  touchesOtherPositions: boolean;
+  /** Orders the list. An action is never hidden for being unlikely — the Ledger decides validity. */
+  likely: boolean;
+}
+
+export interface PositionActionsResult {
+  objectId: string;
+  objectType: string;
+  /** False when the algebra does not declare this kind — unknown, not "nothing allowed". */
+  known: boolean;
+  actions: PositionAction[];
+}
+
+/** A conversation opened from a position, already knowing what the position could answer. */
+export interface StartPositionActionResult {
+  intentId: string;
+  state: DialogState;
+  /** The answer keys the position supplied, so the screen can show what it already knows. */
+  prefilled: string[];
+}
+
 export type IntentStatus =
   | "draft"
   | "gathering"

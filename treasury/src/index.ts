@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import { env } from "./config/env";
 import { createServer } from "./presentation/web/api/server";
 import { InMemoryIntentRepository } from "./infra/persistence/InMemoryIntentRepository";
@@ -17,6 +18,7 @@ import type { LedgerReadPort } from "./core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "./core/application/ports/PositionLifecyclePort";
 import type { PositionLookupPort } from "./core/application/ports/PositionLookupPort";
 import type { LedgerEventLookupPort } from "./core/application/ports/LedgerEventLookupPort";
+import type { LedgerEventFeedPort } from "./core/application/ports/LedgerEventFeedPort";
 import type { SlotExtractionPort } from "./core/application/ports/SlotExtractionPort";
 import { ScryptPasswordHasher } from "./infra/auth/ScryptPasswordHasher";
 import { InMemorySessionStore } from "./infra/auth/InMemorySessionStore";
@@ -41,6 +43,11 @@ import { DecideIdentityUseCase } from "./core/application/use-cases/DecideIdenti
 import { RecordPartyAttributeUseCase } from "./core/application/use-cases/RecordPartyAttribute";
 import { ListIncompletePartiesUseCase } from "./core/application/use-cases/ListIncompleteParties";
 import { ListSettlementCandidatesUseCase } from "./core/application/use-cases/ListSettlementCandidates";
+import { ListPositionActionsUseCase } from "./core/application/use-cases/ListPositionActions";
+import { StartPositionActionUseCase } from "./core/application/use-cases/StartPositionAction";
+import { LedgerAlgebra, type LedgerAlgebraSnapshot } from "./core/application/services/LedgerAlgebra";
+import { PositionSnapshot } from "./core/application/services/PositionSnapshot";
+import { SnapshotRefresher } from "./core/application/services/SnapshotRefresher";
 import { GetIntentUseCase } from "./core/application/use-cases/GetIntent";
 import { ListIntentsUseCase } from "./core/application/use-cases/ListIntents";
 
@@ -79,6 +86,20 @@ async function bootstrap(): Promise<void> {
 
   const applyAnswers = new ApplyAnswersUseCase(intentRepo, clock, audit, partyDirectory);
 
+  // ── Navigation snapshot ──────────────────────────────────────────────────────
+  // A discardable copy of positions the Ledger already answered with, filled lazily and rebuilt by
+  // nothing at boot. It exists to make navigating faster and is never the source of an answer: no
+  // figure it holds is published, and the import barrier keeps it out of every write path.
+  const positionSnapshot = new PositionSnapshot(() => clock.now());
+
+  // ── The Ledger's algebra ─────────────────────────────────────────────────────
+  // A build artifact exported from the Ledger's own domain modules, read once. Treasury derives
+  // what may touch a position from this instead of keeping a list of its own — the lists it kept
+  // before drifted, silently, every time the Ledger widened a matrix.
+  const ledgerAlgebra = new LedgerAlgebra(
+    JSON.parse(readFileSync(env.LEDGER_ALGEBRA_PATH, "utf8")) as LedgerAlgebraSnapshot,
+  );
+
   // Slot extraction (the LLM boundary), selected by env.EXTRACTION_MODE. Only the deterministic stub
   // exists today; a real-model adapter becomes another case here with no change to core.
   let extractor: SlotExtractionPort;
@@ -115,7 +136,11 @@ async function bootstrap(): Promise<void> {
   // ── Ledger integration (mode-selected) ─────────────────────────────────────
   let submission: CandidateSubmissionPort;
   // The same adapter serves both read boundaries in every mode; only the demo ones lack lifecycles.
-  let ledgerRead: LedgerReadPort & PositionLifecyclePort & LedgerEventLookupPort & PositionLookupPort;
+  let ledgerRead: LedgerReadPort &
+    PositionLifecyclePort &
+    LedgerEventLookupPort &
+    PositionLookupPort &
+    Partial<LedgerEventFeedPort>;
   if (env.LEDGER_MODE === "simulate") {
     // One in-memory fake Ledger for BOTH submit + reads → the full create→dashboard loop works.
     const simulator = new InMemoryLedgerSimulator();
@@ -144,7 +169,7 @@ async function bootstrap(): Promise<void> {
   );
   const getObjectLifecycle = new GetObjectLifecycleUseCase(ledgerRead);
   const getBookExposure = new GetBookExposureUseCase(ledgerRead);
-  const listPositions = new ListPositionsUseCase(ledgerRead);
+  const listPositions = new ListPositionsUseCase(ledgerRead, (positions) => positionSnapshot.remember(positions));
 
   const startIntent = new StartIntentUseCase(intentRepo, clock, ids, audit);
   const submitIntent = new SubmitIntentUseCase(
@@ -184,11 +209,25 @@ async function bootstrap(): Promise<void> {
       applyAnswers,
       submitIntent,
       clock,
+      env.USINA_PARTY_ID,
     ),
     decideIdentity: new DecideIdentityUseCase(intentRepo, partyRepo, clock, ids, audit),
     recordPartyAttribute: new RecordPartyAttributeUseCase(partyRepo, clock, audit),
     listIncompleteParties: new ListIncompletePartiesUseCase(partyDirectory),
     listSettlementCandidates: new ListSettlementCandidatesUseCase(intentRepo, ledgerRead, partyDirectory),
+    // The algebra is a build artifact of the Ledger, read once at boot. A snapshot this build
+    // cannot read is refused loudly here rather than producing a silently empty offer.
+    listPositionActions: new ListPositionActionsUseCase(ledgerRead, ledgerAlgebra),
+    forgetPositions: (objectIds: readonly string[]) => {
+      for (const objectId of objectIds) positionSnapshot.invalidate(objectId);
+    },
+    startPositionAction: new StartPositionActionUseCase(
+      ledgerRead,
+      ledgerRead,
+      startIntent,
+      applyAnswers,
+      env.USINA_PARTY_ID,
+    ),
     getIntent: new GetIntentUseCase(intentRepo, audit),
     listIntents: new ListIntentsUseCase(intentRepo),
   });
@@ -198,8 +237,31 @@ async function bootstrap(): Promise<void> {
     console.log(`Environment: ${env.LEDGER_MODE}`);
   });
 
+  // ── Keeping the snapshot honest ──────────────────────────────────────────────
+  // Treasury only knows about its own writes; the staging pipeline and the workers write to the
+  // same book. This walks what was RECORDED since the last sweep and forgets the positions those
+  // events touched. One request when nothing changed, which is the common case.
+  const refresher = ledgerRead.recentlyRecorded
+    ? new SnapshotRefresher(ledgerRead as LedgerEventFeedPort, positionSnapshot)
+    : null;
+  const sweep = async () => {
+    if (!refresher) return;
+    try {
+      const { invalidated, gaveUp } = await refresher.refresh();
+      if (gaveUp) console.warn("[snapshot] too far behind to catch up precisely — cleared");
+      else if (invalidated.length > 0) console.log(`[snapshot] forgot ${invalidated.length} position(s)`);
+    } catch {
+      // A Ledger that cannot be reached leaves the snapshot as it is. Stale entries only cost
+      // ordering; failing the process over a cache would be the tail wagging the dog.
+    }
+  };
+  void sweep();
+  const sweepTimer = setInterval(sweep, env.SNAPSHOT_REFRESH_MINUTES * 60_000);
+  sweepTimer.unref();
+
   const shutdown = (signal: string) => {
     console.log(`${signal} received — shutting down`);
+    clearInterval(sweepTimer);
     server.close(() => process.exit(0));
   };
   process.on("SIGTERM", () => shutdown("SIGTERM"));

@@ -13,6 +13,7 @@ import { registerCommissionReceived } from "./registerCommissionReceived";
 import { registerAdvanceSettlement } from "./registerAdvanceSettlement";
 import { registerRectification } from "./registerRectification";
 import { registerLoanRepayment } from "./registerLoanRepayment";
+import { registerObligationRecognition } from "./registerObligationRecognition";
 
 /**
  * A business intention, defined declaratively as an ordered set of slots. Adding a scenario
@@ -51,6 +52,7 @@ const REGISTRY: Record<string, Scenario> = {
   [registerAdvanceSettlement.id]: registerAdvanceSettlement,
   [registerRectification.id]: registerRectification,
   [registerLoanRepayment.id]: registerLoanRepayment,
+  [registerObligationRecognition.id]: registerObligationRecognition,
 };
 
 export function getScenario(id: string): Scenario | undefined {

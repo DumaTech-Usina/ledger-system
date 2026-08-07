@@ -25,14 +25,6 @@ export function hasOutstandingBalance(position: Pick<PositionItem, "openBalance"
   return position.openBalance !== null && Number(position.openBalance) > 0;
 }
 
-/**
- * Object kinds treasury can describe a correction of. Mirrored from the backend's
- * `SUPPORTED_OBJECT_TYPES` in `core/application/use-cases/SubmitRectification.ts` — the authority
- * is there, and this copy exists only so the interface can explain the limit before a round-trip
- * instead of after a 400. Widen the backend first; this list follows.
- */
-export const RECTIFIABLE_OBJECT_TYPES = ["advance", "loan", "commission_receivable"] as const;
-
 export type Rectifiability =
   | { available: true }
   /** `unsupported` — treasury cannot describe a correction of this kind of position yet.
@@ -43,17 +35,72 @@ export type Rectifiability =
 /**
  * Whether this event can be rectified from this position's timeline.
  *
- * `objectType` is undefined when the position was opened by id, where no row supplied its type.
- * Unknown is not the same as unsupported — the Ledger's own stance — so the action stays offered
- * and the backend answers. Refusing on missing information would treat an absence as a fact.
+ * Until this was derived, the answer was a hardcoded list of object kinds copied from the backend
+ * — one rule in two places, kept in step by discipline, and the very shape this work set out to
+ * remove. It now comes from the position's admissible actions, which the server derives from the
+ * Ledger's own algebra; widening a matrix in the Ledger reaches this screen with nothing edited.
+ *
+ * The object type is no longer a parameter: it decided the answer only while the answer was a list
+ * of types. Keeping it would suggest it still informs something.
+ *
+ * Absence still means offer, not refuse. `actions` undefined — still loading — is unknown, and
+ * unknown is not unsupported: that is the Ledger's own stance, and refusing on missing information
+ * would treat an absence as a fact.
  */
 export function rectifiability(
   event: Pick<PositionLifecycleEvent, "relation">,
-  objectType: string | undefined,
+  /**
+   * What the server said can be recorded about this position — derived from the Ledger's algebra
+   * crossed with what treasury can produce. Undefined while it is still loading, which is not the
+   * same as "nothing": the action stays offered and the backend answers.
+   */
+  actions?: readonly { relation: string }[],
 ): Rectifiability {
   if (event.relation === "references") return { available: false, reason: "contextual" };
-  if (objectType !== undefined && !RECTIFIABLE_OBJECT_TYPES.includes(objectType as never)) {
+  if (actions && !actions.some((action) => action.relation === "retracts")) {
     return { available: false, reason: "unsupported" };
   }
   return { available: true };
+}
+
+/** A correction that was started and not finished, as the position itself reveals it. */
+export interface PendingCorrection {
+  retractionEventId: string;
+  targetEventId: string;
+}
+
+/**
+ * Whether this position is halfway through a correction.
+ *
+ * A correction records two facts — the withdrawal and the corrected entry — and there is no
+ * transaction across them, so it can be interrupted between the two. The book is then honest but
+ * incomplete: the withdrawal stands, the replacement does not, and the position reads as though
+ * nothing was ever originated.
+ *
+ * Nothing is stored to track this. The withdrawal declares it expects a sequel (`requiresFollowup`,
+ * set at creation and inside the hash), and whether it is STILL pending is derived: it is pending
+ * exactly while no standing entry has landed on the position after it. The moment the corrected
+ * entry is recorded the condition stops holding on its own.
+ *
+ * Mirrors `PendingCorrection.ts` on the server, which answers the same question for the same reason.
+ * The rule lives twice because both sides need it without a round trip; the two must not drift.
+ */
+export function pendingCorrection(
+  events: readonly PositionLifecycleEvent[],
+): PendingCorrection | null {
+  const standing = events.filter((event) => !event.retracted);
+
+  for (let i = standing.length - 1; i >= 0; i--) {
+    const event = standing[i];
+    const awaiting =
+      event.relation === "retracts" && event.requiresFollowup && event.relatedEventId !== null;
+    if (!awaiting) continue;
+
+    const replaced = standing.slice(i + 1).some((later) => later.relation !== "retracts");
+    return replaced
+      ? null
+      : { retractionEventId: event.eventId, targetEventId: event.relatedEventId! };
+  }
+
+  return null;
 }

@@ -3,6 +3,7 @@ import { Badge } from "@/components/Badge";
 import { Pagination } from "@/components/Pagination";
 import { Table } from "@/components/Table";
 import { RowDetailModal } from "@/features/dashboard/RowDetailModal";
+import type { AdoptedIntent } from "@/features/operations/useConversation";
 import { useLanguage } from "@/i18n/i18n";
 import { formatMoney } from "@/utils/format";
 import type { PositionItem } from "@/types/dashboard";
@@ -22,11 +23,14 @@ export function PositionsTable({
   positions,
   currency,
   canRectify = false,
+  onOperationStarted,
   paginate = true,
 }: {
   positions: PositionItem[];
   currency: string;
   canRectify?: boolean;
+  /** Hands a conversation opened from a position over to the operations page. */
+  onOperationStarted?: (intent: AdoptedIntent) => void;
   /**
    * Off when the caller already asked the Ledger for one page and owns the pager itself. Slicing
    * again here would page a page.
@@ -95,6 +99,7 @@ export function PositionsTable({
           position={selected}
           currency={currency}
           canRectify={canRectify}
+          onOperationStarted={onOperationStarted}
           onClose={() => setSelected(null)}
         />
       )}

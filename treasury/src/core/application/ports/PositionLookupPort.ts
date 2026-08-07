@@ -38,4 +38,16 @@ export interface PositionLookupPort {
    * Ledger's own over-settlement guard would then refuse.
    */
   openPositions(objectType: string, limit?: number): Promise<PositionCandidate[]>;
+
+  /**
+   * Positions of `objectType` that were settled but that nothing ever originated — the shape a
+   * payment leaves behind when it is recorded on its own. These are what a recognition arriving
+   * after the payment would be supplying the missing origination for.
+   *
+   * The mirror image of {@link openPositions}: there, the origination stands and the settlement is
+   * still owed; here, the settlement stands and the origination was never recorded. A position
+   * whose origination is merely UNKNOWN is not in this list — "we know one exists and cannot name
+   * it" is a different state from "none was ever recorded", and only the Ledger may collapse them.
+   */
+  unoriginatedPositions(objectType: string, limit?: number): Promise<PositionCandidate[]>;
 }

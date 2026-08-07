@@ -185,6 +185,11 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
     return [];
   }
 
+  /** Same as above: a demo book offers nothing to point a recognition at. */
+  async unoriginatedPositions(): Promise<PositionCandidate[]> {
+    return [];
+  }
+
 
   /**
    * No book to measure. Zeroes here would claim a healthy book rather than an absent one, so the

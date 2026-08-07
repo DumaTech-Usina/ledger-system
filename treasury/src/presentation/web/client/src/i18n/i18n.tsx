@@ -117,6 +117,20 @@ export interface Translations {
       rectifyCancel: string;
       rectifyUnsupported: string;
       rectifyContextual: string;
+      rectifyModeWithdraw: string;
+      rectifyModeRestate: string;
+      rectifyAmount: string;
+      rectifyDate: string;
+      rectifyRestateHint: string;
+      rectifyLockedNote: string;
+      pendingTitle: string;
+      pendingExplain: string;
+      pendingResume: string;
+      pendingIncomplete: string;
+      pendingNotReissuable: string;
+      actionsTitle: string;
+      actionsHint: string;
+      actionOpensAnother: string;
     };
     hero: {
       badge: string;
@@ -257,6 +271,25 @@ const ptBR: Translations = {
       rectifyCancel: "Cancelar",
       rectifyUnsupported: "Retificação ainda não disponível para este tipo de posição.",
       rectifyContextual: "Este evento não movimenta esta posição.",
+      rectifyModeWithdraw: "Não aconteceu",
+      rectifyModeRestate: "Aconteceu, com outro valor ou data",
+      rectifyAmount: "Valor correto",
+      rectifyDate: "Data correta",
+      rectifyRestateHint:
+        "Serão gravados dois fatos: a retirada do lançamento errado e o lançamento correto, sobre a mesma posição. Nada é editado.",
+      rectifyLockedNote:
+        "Contraparte e tipo não mudam aqui: trocar quem participou muda qual é o fato, não como ele foi medido.",
+      pendingTitle: "Correção pela metade",
+      pendingExplain:
+        "O lançamento errado foi retirado, mas o correto ainda não foi gravado. A posição fica sem base até isso ser concluído.",
+      pendingResume: "Concluir correção",
+      pendingIncomplete:
+        "Não foi possível descrever o lançamento correto a partir do registro — falta informar: {slot}.",
+      pendingNotReissuable:
+        "O Treasury não sabe registrar este tipo de lançamento novamente. Nada foi gravado; só a retirada está disponível.",
+      actionsTitle: "Registrar novo fato",
+      actionsHint: "A conversa começa já sabendo de qual posição se trata.",
+      actionOpensAnother: "(abre outra posição)",
     },
     hero: {
       badge: "Fluxo financeiro",
@@ -356,6 +389,7 @@ const ptBR: Translations = {
     ledger_correction: "Correção de lançamento",
     commission_expected: "Comissão prevista",
     outbound_payment: "Pagamento efetuado",
+    obligation_recognized: "Obrigação reconhecida",
   },
 };
 
@@ -476,6 +510,25 @@ const en: Translations = {
       rectifyCancel: "Cancel",
       rectifyUnsupported: "Rectifying this kind of position isn't supported yet.",
       rectifyContextual: "This event doesn't move this position.",
+      rectifyModeWithdraw: "It never happened",
+      rectifyModeRestate: "It happened, with a different amount or date",
+      rectifyAmount: "Correct amount",
+      rectifyDate: "Correct date",
+      rectifyRestateHint:
+        "Two facts will be recorded: the withdrawal of the wrong entry and the correct entry, on the same position. Nothing is edited.",
+      rectifyLockedNote:
+        "Counterparty and kind don't change here: changing who took part changes which fact it is, not how it was measured.",
+      pendingTitle: "Correction half done",
+      pendingExplain:
+        "The wrong entry was withdrawn, but the correct one hasn't been recorded yet. The position has no baseline until this is finished.",
+      pendingResume: "Finish correction",
+      pendingIncomplete:
+        "The correct entry couldn't be described from the record — this is still needed: {slot}.",
+      pendingNotReissuable:
+        "Treasury can't record this kind of entry again. Nothing was written; only the withdrawal is available.",
+      actionsTitle: "Record a new fact",
+      actionsHint: "The conversation opens already knowing which position this is about.",
+      actionOpensAnother: "(opens another position)",
     },
     hero: {
       badge: "Financial flow",
@@ -571,6 +624,7 @@ const en: Translations = {
     ledger_correction: "Ledger correction",
     commission_expected: "Commission expected",
     outbound_payment: "Outbound payment",
+    obligation_recognized: "Obligation recognized",
   },
 };
 

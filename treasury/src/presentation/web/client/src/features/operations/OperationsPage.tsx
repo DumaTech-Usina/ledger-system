@@ -6,7 +6,7 @@ import { ScenarioGrid } from "@/features/operations/ScenarioGrid";
 import { ChatStream } from "@/features/operations/ChatStream";
 import { Composer } from "@/features/operations/Composer";
 import { OperationsShell } from "@/features/operations/OperationsShell";
-import { useConversation } from "@/features/operations/useConversation";
+import { useConversation, type AdoptedIntent } from "@/features/operations/useConversation";
 import { slotPrompt } from "@/features/operations/conversationEngine";
 import { suggestScenarios } from "@/features/operations/scenarioSuggestions";
 import { cn } from "@/utils/cn";
@@ -16,6 +16,10 @@ export interface OperationsPageProps {
   user: User;
   showIntro: boolean;
   onIntroDone: () => void;
+  /** A conversation opened from a position, to be adopted instead of started here. */
+  adopt?: AdoptedIntent | null;
+  /** Called once the adoption has been taken up, so it is never replayed. */
+  onAdopted?: () => void;
 }
 
 // "big" and "hidden" share the same (enlarged, centered) transform — only opacity/blur differ
@@ -25,7 +29,7 @@ type QuestionPhase = "hidden" | "big" | "docked";
 
 const SKIP_INTRO_KEY = "treasury.skipLoginIntro";
 
-export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageProps) {
+export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted }: OperationsPageProps) {
   const canCreate = user.permissions.includes("intent:create");
 
   // Read once, at mount — a preference set mid-animation shouldn't retroactively cancel a play
@@ -73,7 +77,13 @@ export function OperationsPage({ user, showIntro, onIntroDone }: OperationsPageP
     restart,
     answeredSlots,
     saveEdits,
-  } = useConversation();
+  } = useConversation(adopt);
+
+  // Hand-off is one-way: once the conversation has taken the intent, the app forgets it, so coming
+  // back to this page later opens the ordinary picker rather than an operation already dealt with.
+  useEffect(() => {
+    if (adopt && onAdopted) onAdopted();
+  }, [adopt, onAdopted]);
 
   const introTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 

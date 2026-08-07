@@ -28,6 +28,10 @@ export const registerRectification: Scenario = {
     { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the error established?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "What established the error (document, reconciliation)?", required: false },
+    // Marks the withdrawal as awaiting the entry that replaces it, so a correction interrupted
+    // halfway can be recognised and resumed. Derived, never asked: a withdrawal that stands alone
+    // leaves it blank.
+    { key: "reissue", type: SlotType.STRING, prompt: "Whether a corrected entry is to follow.", required: false },
   ],
   keywords: { "pt-BR": ["retificar", "retificacao", "corrigir", "estava errado"] },
 };

@@ -27,7 +27,13 @@ import { PARTY, partyDirectory } from "../fixtures/parties";
 
 const clock: Clock = { now: () => "2026-08-05T00:00:00.000Z" };
 
-/** The entry that was keyed as 250 and never happened. */
+/**
+ * The entry that was keyed as 250 and never happened.
+ *
+ * Shaped as `serializeEvent` publishes it, parties and source included. Those two are not used by
+ * the correction today, but the fake must not answer with less than the real Ledger does — a mirror
+ * that drifts is how a DTO stops being a mirror.
+ */
 const WRONG_EVENT = {
   id: "evt-wrong",
   eventType: "advance_settlement",
@@ -38,6 +44,11 @@ const WRONG_EVENT = {
   description: "Advance recovery",
   relatedEventId: "evt-advance",
   objects: [{ objectId: "intent:adv-1", objectType: "advance", relation: "settles" }],
+  parties: [
+    { partyId: PARTY.USINA, role: "payee", direction: "in", amount: "250.00" },
+    { partyId: PARTY.BROKER, role: "beneficiary", direction: "neutral", amount: "250.00" },
+  ],
+  source: { system: "integration", reference: "intent:abc-123" },
 };
 
 let ledger: Server;
@@ -57,6 +68,18 @@ beforeAll(async () => {
     if (req.method === "GET" && path === "/api/events/evt-batch") {
       // An entry that only REFERENCES a contextual object: it moved no position.
       res.end(JSON.stringify({ ...WRONG_EVENT, id: "evt-batch", objects: [{ objectId: "batch-1", objectType: "settlement_batch", relation: "references" }] }));
+      return;
+    }
+    if (req.method === "GET" && path === "/api/events/evt-legacy-party") {
+      // The counterparty is free text from before the Directory existed.
+      res.end(JSON.stringify({
+        ...WRONG_EVENT,
+        id: "evt-legacy-party",
+        parties: [
+          { partyId: PARTY.USINA, role: "payee", direction: "in", amount: "250.00" },
+          { partyId: "Zeta Distribuidora S/A", role: "beneficiary", direction: "neutral", amount: "250.00" },
+        ],
+      }));
       return;
     }
     if (req.method === "GET" && path === "/api/events/evt-payable") {
@@ -110,6 +133,7 @@ function wire() {
       applyAnswers,
       submitIntent,
       clock,
+      PARTY.USINA,
     ),
   };
 }
@@ -189,13 +213,13 @@ describe("the payload Treasury produces for a rectification", () => {
 describe("the HTTP round trip", () => {
   it("an accepted rectification leaves the intent accepted, with the Ledger's reference", async () => {
     const { rectify, repo } = wire();
-    const result = await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo" });
+    const { retraction } = await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo" });
 
-    expect(result.status).toBe("accepted");
-    expect(result.intentStatus).toBe(IntentStatus.ACCEPTED);
-    expect(result.ledgerReference).toBe("evt-fix");
+    expect(retraction!.status).toBe("accepted");
+    expect(retraction!.intentStatus).toBe(IntentStatus.ACCEPTED);
+    expect(retraction!.ledgerReference).toBe("evt-fix");
 
-    const intent = await repo.findById(result.intentId);
+    const intent = await repo.findById(retraction!.intentId);
     expect(intent?.status).toBe(IntentStatus.ACCEPTED);
     expect(intent?.scenarioId).toBe("register_rectification");
   });
@@ -213,9 +237,9 @@ describe("the errors the Ledger returns reach the caller as a contract", () => {
       },
     };
 
-    const result = await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo" });
-    expect(result.intentStatus).toBe(IntentStatus.REJECTED);
-    expect(result.rejections?.[0].category).toBe("duplicate");
+    const { retraction } = await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo" });
+    expect(retraction!.intentStatus).toBe(IntentStatus.REJECTED);
+    expect(retraction!.rejections?.[0].category).toBe("duplicate");
   });
 
   it("a lineage rejection routes back to the slot that names the corrected entry", async () => {
@@ -229,9 +253,9 @@ describe("the errors the Ledger returns reach the caller as a contract", () => {
       },
     };
 
-    const result = await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo" });
-    expect(result.intentStatus).toBe(IntentStatus.AWAITING_CORRECTION);
-    expect(result.correction?.slots).toEqual(["target"]);
+    const { retraction } = await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo" });
+    expect(retraction!.intentStatus).toBe(IntentStatus.AWAITING_CORRECTION);
+    expect(retraction!.correction?.slots).toEqual(["target"]);
   });
 });
 
@@ -252,5 +276,125 @@ describe("what Treasury refuses to build", () => {
     const { rectify } = wire();
     await expect(rectify.execute({ targetEventId: "evt-payable", userId: "cfo" })).rejects.toThrow(/not supported yet/i);
     expect(submitted).toHaveLength(0);
+  });
+});
+
+/**
+ * Restating an entry — the correction that says what the figure REALLY was.
+ *
+ * The Ledger has no relation that restates an amount (`ADJUSTS` closes a position rather than
+ * reopening its baseline), so the faithful sequence is two events: withdraw the entry, then record
+ * the true one on the same position. Nothing is rewritten; the wrong figure stays in the chain,
+ * marked retracted, and stops counting.
+ */
+describe("restating an entry — withdraw, then record what actually happened", () => {
+  it("emits both events, withdrawal first", async () => {
+    const { rectify } = wire();
+    const result = await rectify.execute({
+      targetEventId: "evt-wrong",
+      userId: "cfo",
+      description: "bank statement 08/2026",
+      corrected: { amount: "450.00" },
+    });
+
+    expect(result.retraction!.status).toBe("accepted");
+    expect(result.reissue!.status).toBe("accepted");
+    expect(submitted).toHaveLength(2);
+
+    // The order is a safety decision: a failure after the first leaves the book understating, which
+    // is visible, rather than double-counting, which is a false number nobody notices.
+    expect(submitted[0].eventType).toBe("ledger_correction");
+    expect(submitted[1].eventType).toBe("advance_settlement");
+  });
+
+  it("the withdrawal restates the figure as recorded; the new figure belongs to the entry replacing it", async () => {
+    const { rectify } = wire();
+    await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo", corrected: { amount: "450.00" } });
+
+    expect(submitted[0].amount).toBe("250.00"); // what is being withdrawn
+    expect(submitted[1].amount).toBe("450.00"); // what actually happened
+  });
+
+  it("both events land on the same position — that is what makes them one correction", async () => {
+    const { rectify } = wire();
+    await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo", corrected: { amount: "450.00" } });
+
+    expect(submitted[0].objects[0].objectId).toBe("intent:adv-1");
+    expect(submitted[1].objects[0].objectId).toBe("intent:adv-1");
+    expect(submitted[1].objects[0].relation).toBe("settles");
+  });
+
+  it("the reissue carries over everything the correction may not change", async () => {
+    const { rectify } = wire();
+    await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo", corrected: { amount: "450.00" } });
+
+    const reissue = submitted[1];
+    // Counterparty above all: changing who took part changes WHICH fact it is, not how it was measured.
+    expect(reissue.parties.some((p) => p.partyId === PARTY.BROKER)).toBe(true);
+    expect(reissue.relatedEventId).toBe("evt-advance"); // lineage preserved
+    expect(reissue.currency).toBe("BRL");
+    // Untouched by the correction, so carried over from the record rather than moved silently.
+    expect(reissue.occurredAt).toBe("2026-07-09T00:00:00.000Z");
+  });
+
+  it("the withdrawal declares that a sequel is expected, so an interrupted correction is recognisable", async () => {
+    const { rectify } = wire();
+    await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo", corrected: { amount: "450.00" } });
+
+    expect(submitted[0].reason.requiresFollowup).toBe(true);
+  });
+
+  it("a plain withdrawal declares no sequel", async () => {
+    const { rectify } = wire();
+    await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo" });
+
+    expect(submitted).toHaveLength(1);
+    expect(submitted[0].reason.requiresFollowup).toBe(false);
+  });
+
+  it("a correction may restate the date as well", async () => {
+    const { rectify } = wire();
+    await rectify.execute({
+      targetEventId: "evt-wrong",
+      userId: "cfo",
+      corrected: { occurredAt: "2026-07-15T00:00:00.000Z" },
+    });
+
+    expect(submitted[1].occurredAt).toBe("2026-07-15T00:00:00.000Z");
+    expect(submitted[1].amount).toBe("250.00"); // untouched
+  });
+
+  it("when the withdrawal is refused, no corrected entry is attempted", async () => {
+    const { rectify } = wire();
+    nextOutcome = {
+      status: 200,
+      body: { status: "rejected", reason: "already retracted", rejections: [{ code: "DUPLICATE", category: "duplicate", detail: "x" }] },
+    };
+
+    const result = await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo", corrected: { amount: "450.00" } });
+
+    expect(result.reissue).toBeUndefined();
+    expect(submitted).toHaveLength(1);
+  });
+});
+
+describe("restating an entry — when the record alone is not enough", () => {
+  it("says the correction is half done rather than submitting something incomplete", async () => {
+    const { rectify } = wire();
+    // A legacy entry whose counterparty is free text the Directory never knew. The PARTY answer is
+    // deliberately not recorded — an unresolvable mention is asked about, never invented — so the
+    // corrected entry cannot be described from the record alone.
+    const result = await rectify.execute({
+      targetEventId: "evt-legacy-party",
+      userId: "cfo",
+      corrected: { amount: "450.00" },
+    });
+
+    expect(result.retraction!.status).toBe("accepted");
+    expect(result.reissue).toBeUndefined();
+    expect(result.reissueIncomplete).toEqual({ missingSlot: "payer" });
+    // The withdrawal stands and declared a sequel, so the position will surface the unfinished work.
+    expect(submitted).toHaveLength(1);
+    expect(submitted[0].reason.requiresFollowup).toBe(true);
   });
 });

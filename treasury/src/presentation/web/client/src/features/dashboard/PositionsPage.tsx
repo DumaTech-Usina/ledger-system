@@ -1,3 +1,4 @@
+import type { AdoptedIntent } from "@/features/operations/useConversation";
 import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -71,7 +72,14 @@ function OpenPositionById({ canRectify }: { canRectify: boolean }) {
  * are not meant to reconcile: a recovered advance moves cash AND closes a position, a payroll moves
  * cash and closes nothing, an accrued commission opens a position and moves no cash at all.
  */
-export function PositionsPage({ canRectify = false }: { canRectify?: boolean }) {
+export function PositionsPage({
+  canRectify = false,
+  onOperationStarted,
+}: {
+  canRectify?: boolean;
+  /** Hands a conversation opened from a position over to the operations page. */
+  onOperationStarted?: (intent: AdoptedIntent) => void;
+}) {
   const { data, loading } = useDashboard();
   const { exposure } = useBookExposure();
   const { page, setPage, result: positionsPage, loading: listLoading } = usePositionsPage();
@@ -186,7 +194,12 @@ export function PositionsPage({ canRectify = false }: { canRectify?: boolean }) 
                 closeLabel={t.common.close}
                 className="max-w-6xl"
               >
-                <PositionsTable positions={outstanding} currency={cashPosition.currency} canRectify={canRectify} />
+                <PositionsTable
+                  positions={outstanding}
+                  currency={cashPosition.currency}
+                  canRectify={canRectify}
+                  onOperationStarted={onOperationStarted}
+                />
               </Modal>
 
               {/* Every position the overview returns, including the ones with nothing outstanding —
@@ -209,6 +222,7 @@ export function PositionsPage({ canRectify = false }: { canRectify?: boolean }) 
                         positions={positionsPage.data}
                         currency={cashPosition.currency}
                         canRectify={canRectify}
+                        onOperationStarted={onOperationStarted}
                         paginate={false}
                       />
                       <Pagination page={page} totalPages={positionsPage.totalPages} onPageChange={setPage} />

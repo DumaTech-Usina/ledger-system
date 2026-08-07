@@ -28,7 +28,15 @@ export interface ListPositionsResult {
  * figures computed over the same filters.
  */
 export class ListPositionsUseCase {
-  constructor(private readonly ledger: LedgerReadPort) {}
+  constructor(
+    private readonly ledger: LedgerReadPort,
+    /**
+     * Remembers what this page answered with, so opening one of these positions can paint before
+     * the Ledger replies. Optional: the listing works identically without it, because the snapshot
+     * is never the source of the answer — only a head start on it.
+     */
+    private readonly remember: (positions: PositionsPage["data"]) => void = () => {},
+  ) {}
 
   async execute(input: ListPositionsInput = {}): Promise<ListPositionsResult> {
     try {
@@ -38,6 +46,7 @@ export class ListPositionsUseCase {
         status: input.status,
         objectType: input.objectType,
       });
+      this.remember(page.data);
       return { available: true, page };
     } catch {
       return { available: false, page: null };
