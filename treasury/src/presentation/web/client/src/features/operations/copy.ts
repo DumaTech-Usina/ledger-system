@@ -221,6 +221,11 @@ export const identityCopy = {
   justificationCancel: "Voltar",
   /** Shown when the slot is open again: retyping is always a way out. */
   retype: "Ou escreva outro nome na caixa abaixo.",
+  /**
+   * Editing has no next question to fall back on. When a retyped counterparty doesn't resolve, the
+   * backend records nothing — so the field says so, instead of the card failing without a reason.
+   */
+  unresolvedEdit: "Não reconheci essa contraparte. Escreva o nome como está cadastrado.",
 };
 
 /**

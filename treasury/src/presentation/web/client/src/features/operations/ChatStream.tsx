@@ -4,7 +4,7 @@ import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { Banner } from "@/components/Banner";
 import { Input } from "@/components/Input";
-import { formatDate, formatMoney } from "@/utils/format";
+import { formatDate, formatDocument, formatMoney } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { typingDurationMs } from "@/features/operations/typing";
 import { useTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
@@ -17,7 +17,11 @@ import {
   statusLabels,
   submitCopy,
 } from "@/features/operations/copy";
-import type { IdentityOption, StreamItem } from "@/features/operations/conversationEngine";
+import {
+  editableAnswers,
+  type IdentityOption,
+  type StreamItem,
+} from "@/features/operations/conversationEngine";
 import type {
   EnrichmentSuggestion,
   PreviewIntentResult,
@@ -705,10 +709,14 @@ function EnrichmentOffer({
   }
 
   const isType = suggestion.attribute === "type";
+  // CPF/CNPJ is the one attribute with a shape worth showing while it's typed — the separators tell
+  // the operator which of the two they're entering, and where they are in it.
+  const isDocument = suggestion.attribute === "document";
+  const question = enrichmentCopy.question(suggestion.displayName, suggestion.attribute);
 
   return (
     <div className="mt-4 border-t border-line pt-4">
-      <p className="text-[13px] text-muted">{enrichmentCopy.question(suggestion.displayName, suggestion.attribute)}</p>
+      <p className="text-[13px] text-muted">{question}</p>
 
       {isType ? (
         <div className="mt-2.5 flex flex-wrap gap-2">
@@ -725,18 +733,25 @@ function EnrichmentOffer({
           ))}
         </div>
       ) : (
-        <div className="mt-2.5 flex flex-wrap items-end gap-2">
-          <Input
-            value={value}
-            disabled={disabled || saving}
-            onChange={(e) => setValue(e.target.value)}
-            className="min-w-0 flex-1"
-          />
+        // `Input` renders its own wrapper, so the growing flex child has to be that wrapper — sizing
+        // the inner field alone leaves it at its intrinsic width and strands the button mid-row.
+        <div className="mt-2.5 flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <Input
+              value={value}
+              disabled={disabled || saving}
+              aria-label={question}
+              inputMode={isDocument ? "numeric" : undefined}
+              placeholder={isDocument ? "000.000.000-00" : undefined}
+              onChange={(e) => setValue(isDocument ? formatDocument(e.target.value) : e.target.value)}
+              className={cn("w-full", isDocument && "tabular")}
+            />
+          </div>
           <button
             type="button"
             disabled={disabled || saving || value.trim() === ""}
             onClick={() => record(value.trim())}
-            className="h-10 rounded-full border border-line bg-panel-solid px-3.5 text-xs font-semibold text-ink transition hover:border-accent disabled:opacity-50 disabled:pointer-events-none"
+            className="h-10 shrink-0 rounded-full border border-line bg-panel-solid px-3.5 text-[13px] font-semibold text-ink transition hover:border-accent disabled:opacity-50 disabled:pointer-events-none"
           >
             {enrichmentCopy.save}
           </button>
@@ -784,19 +799,25 @@ function ConfirmCard({
   const [showDetails, setShowDetails] = useState(false);
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
+  // What the form was seeded with, which is not the same as `preview.answers` — a PARTY slot shows a
+  // name where the answer holds an id. Diffing against what was on screen is what keeps an untouched
+  // field untouched; diffing against the raw answers would read every party field as edited.
+  const [baseline, setBaseline] = useState<Record<string, string>>({});
   const [fieldError, setFieldError] = useState<{ key: string; message: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const slots = Object.values(answeredSlots);
 
   const startEditing = () => {
-    setValues({ ...preview.answers });
+    const seeded = editableAnswers(preview.answers, answeredSlots, preview.partyNames);
+    setBaseline(seeded);
+    setValues(seeded);
     setFieldError(null);
     setEditing(true);
   };
 
   const saveEdits = async () => {
-    const changed = Object.fromEntries(Object.entries(values).filter(([key, value]) => preview.answers[key] !== value));
+    const changed = Object.fromEntries(Object.entries(values).filter(([key, value]) => baseline[key] !== value));
     if (Object.keys(changed).length === 0) {
       setEditing(false);
       return;

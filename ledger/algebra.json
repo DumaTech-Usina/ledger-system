@@ -1,0 +1,875 @@
+{
+  "version": 1,
+  "objectNature": {
+    "advance": "positional",
+    "bonus": "positional",
+    "campaign": "contextual",
+    "chargeback": "positional",
+    "commission_entitlement": "positional",
+    "commission_payable": "positional",
+    "commission_pool": "positional",
+    "commission_receivable": "positional",
+    "contingent_claim": "positional",
+    "contract": "contextual",
+    "dispute": "positional",
+    "incentive": "positional",
+    "infrastructure_cost": "positional",
+    "installment": "contextual",
+    "loan": "positional",
+    "payable": "positional",
+    "payroll": "positional",
+    "penalty": "positional",
+    "proposal": "contextual",
+    "receivable": "positional",
+    "service_fee": "positional",
+    "settlement_batch": "contextual",
+    "tax": "positional"
+  },
+  "objectRelations": {
+    "advance": [
+      "originates",
+      "adjusts",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "bonus": [
+      "originates",
+      "settles",
+      "retracts"
+    ],
+    "campaign": [
+      "references"
+    ],
+    "chargeback": [
+      "originates",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "commission_entitlement": [
+      "originates",
+      "adjusts",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "commission_payable": [
+      "originates",
+      "adjusts",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "commission_pool": [
+      "adjusts",
+      "reverses",
+      "retracts"
+    ],
+    "commission_receivable": [
+      "originates",
+      "adjusts",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "contingent_claim": [
+      "originates",
+      "adjusts",
+      "reverses",
+      "retracts"
+    ],
+    "contract": [
+      "references"
+    ],
+    "dispute": [
+      "originates",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "incentive": [
+      "originates",
+      "adjusts",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "infrastructure_cost": [
+      "originates",
+      "settles",
+      "retracts"
+    ],
+    "installment": [
+      "references"
+    ],
+    "loan": [
+      "originates",
+      "adjusts",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "payable": [
+      "originates",
+      "adjusts",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "payroll": [
+      "originates",
+      "settles",
+      "retracts"
+    ],
+    "penalty": [
+      "originates",
+      "adjusts",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "proposal": [
+      "references"
+    ],
+    "receivable": [
+      "originates",
+      "adjusts",
+      "settles",
+      "reverses",
+      "retracts"
+    ],
+    "service_fee": [
+      "originates",
+      "settles",
+      "retracts"
+    ],
+    "settlement_batch": [
+      "references"
+    ],
+    "tax": [
+      "originates",
+      "settles",
+      "retracts"
+    ]
+  },
+  "effectRelations": {
+    "cash_in": [
+      "originates",
+      "settles"
+    ],
+    "cash_internal": [
+      "adjusts"
+    ],
+    "cash_out": [
+      "originates",
+      "settles"
+    ],
+    "contingent": [
+      "originates",
+      "adjusts"
+    ],
+    "non_cash": [
+      "originates",
+      "adjusts",
+      "settles",
+      "reverses",
+      "retracts"
+    ]
+  },
+  "reasonEffects": {
+    "advance_payment": [
+      "cash_out",
+      "non_cash",
+      "cash_in"
+    ],
+    "chargeback": [
+      "cash_out",
+      "non_cash"
+    ],
+    "commission_accrual": [
+      "non_cash"
+    ],
+    "commission_payment": [
+      "cash_in"
+    ],
+    "commission_split": [
+      "cash_internal",
+      "cash_out"
+    ],
+    "commission_waiver": [
+      "non_cash"
+    ],
+    "data_reconciliation": [
+      "non_cash"
+    ],
+    "debt_restructuring": [
+      "non_cash"
+    ],
+    "direct_commission_payment_authorized": [
+      "cash_in",
+      "non_cash"
+    ],
+    "dispute_opened": [
+      "contingent"
+    ],
+    "incentive_payment": [
+      "cash_out",
+      "non_cash"
+    ],
+    "infrastructure_expense": [
+      "cash_out"
+    ],
+    "late_identified_commission": [
+      "non_cash"
+    ],
+    "loan_origination": [
+      "cash_out"
+    ],
+    "loan_repayment": [
+      "cash_in"
+    ],
+    "loan_repayment_via_commission": [
+      "non_cash",
+      "cash_internal"
+    ],
+    "loss_recognition": [
+      "non_cash"
+    ],
+    "manual_correction": [
+      "non_cash"
+    ],
+    "obligation_recognition": [
+      "non_cash"
+    ],
+    "ordinary_settlement": [
+      "cash_out"
+    ],
+    "payroll_payment": [
+      "cash_out"
+    ],
+    "penalty_payment": [
+      "cash_out"
+    ],
+    "penalty_recognition": [
+      "contingent",
+      "non_cash"
+    ],
+    "tax_payment": [
+      "cash_out"
+    ],
+    "third_party_payment": [
+      "cash_out"
+    ]
+  },
+  "reasonRelations": {
+    "advance_payment": [
+      "originates",
+      "adjusts",
+      "settles"
+    ],
+    "chargeback": [
+      "originates",
+      "settles"
+    ],
+    "commission_accrual": [
+      "originates"
+    ],
+    "commission_payment": [
+      "settles"
+    ],
+    "commission_split": [
+      "adjusts",
+      "settles",
+      "originates"
+    ],
+    "commission_waiver": [
+      "settles",
+      "reverses"
+    ],
+    "data_reconciliation": [
+      "reverses",
+      "adjusts",
+      "retracts"
+    ],
+    "debt_restructuring": [
+      "adjusts"
+    ],
+    "direct_commission_payment_authorized": [
+      "settles"
+    ],
+    "dispute_opened": [
+      "originates"
+    ],
+    "incentive_payment": [
+      "originates",
+      "settles"
+    ],
+    "infrastructure_expense": [
+      "settles"
+    ],
+    "late_identified_commission": [
+      "originates",
+      "adjusts"
+    ],
+    "loan_origination": [
+      "originates"
+    ],
+    "loan_repayment": [
+      "settles"
+    ],
+    "loan_repayment_via_commission": [
+      "settles",
+      "adjusts"
+    ],
+    "loss_recognition": [
+      "originates",
+      "settles"
+    ],
+    "manual_correction": [
+      "reverses",
+      "adjusts",
+      "retracts"
+    ],
+    "obligation_recognition": [
+      "originates"
+    ],
+    "ordinary_settlement": [
+      "settles"
+    ],
+    "payroll_payment": [
+      "settles"
+    ],
+    "penalty_payment": [
+      "settles"
+    ],
+    "penalty_recognition": [
+      "originates"
+    ],
+    "tax_payment": [
+      "settles"
+    ],
+    "third_party_payment": [
+      "originates",
+      "settles"
+    ]
+  },
+  "contracts": {
+    "advance_payment": {
+      "economicEffects": [
+        "cash_out",
+        "non_cash"
+      ],
+      "objects": [
+        {
+          "objectType": "advance",
+          "relations": [
+            "originates",
+            "adjusts",
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "advance_payment"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "advance_settlement": {
+      "economicEffects": [
+        "cash_in",
+        "non_cash"
+      ],
+      "objects": [
+        {
+          "objectType": "advance",
+          "relations": [
+            "settles",
+            "adjusts"
+          ]
+        }
+      ],
+      "reasons": [
+        "advance_payment",
+        "loss_recognition",
+        "debt_restructuring"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": true,
+      "allowedOriginTypes": [
+        "advance_payment"
+      ]
+    },
+    "commission_expected": {
+      "economicEffects": [
+        "non_cash"
+      ],
+      "objects": [
+        {
+          "objectType": "commission_receivable",
+          "relations": [
+            "originates"
+          ]
+        }
+      ],
+      "reasons": [
+        "commission_accrual",
+        "commission_payment",
+        "late_identified_commission"
+      ],
+      "minConfidence": "medium",
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "commission_received": {
+      "economicEffects": [
+        "cash_in"
+      ],
+      "objects": [
+        {
+          "objectType": "commission_receivable",
+          "relations": [
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "commission_payment",
+        "direct_commission_payment_authorized",
+        "unknown_origin"
+      ],
+      "minConfidence": "medium",
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": true,
+      "allowedOriginTypes": [
+        "commission_expected"
+      ]
+    },
+    "commission_split": {
+      "economicEffects": [
+        "cash_out",
+        "cash_internal"
+      ],
+      "objects": [
+        {
+          "objectType": "commission_pool",
+          "relations": [
+            "adjusts",
+            "settles"
+          ]
+        },
+        {
+          "objectType": "commission_payable",
+          "relations": [
+            "originates",
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "commission_split"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "commission_waiver": {
+      "economicEffects": [
+        "non_cash"
+      ],
+      "objects": [
+        {
+          "objectType": "commission_entitlement",
+          "relations": [
+            "settles",
+            "reverses"
+          ]
+        }
+      ],
+      "reasons": [
+        "commission_waiver"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "direct_payment_acknowledged": {
+      "economicEffects": [
+        "non_cash"
+      ],
+      "objects": [
+        {
+          "objectType": "commission_receivable",
+          "relations": [
+            "settles"
+          ]
+        },
+        {
+          "objectType": "commission_entitlement",
+          "relations": [
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "late_awareness",
+        "direct_commission_payment_authorized"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "incentive_payment": {
+      "economicEffects": [
+        "cash_out",
+        "non_cash"
+      ],
+      "objects": [
+        {
+          "objectType": "incentive",
+          "relations": [
+            "originates",
+            "settles"
+          ]
+        },
+        {
+          "objectType": "bonus",
+          "relations": [
+            "originates",
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "incentive_payment"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "infrastructure_expense": {
+      "economicEffects": [
+        "cash_out"
+      ],
+      "objects": [
+        {
+          "objectType": "infrastructure_cost",
+          "relations": [
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "infrastructure_expense"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "ledger_correction": {
+      "economicEffects": [
+        "non_cash"
+      ],
+      "objects": [
+        {
+          "objectType": "commission_receivable",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "commission_payable",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "commission_entitlement",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "commission_pool",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "loan",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "advance",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "receivable",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "payable",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "penalty",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "chargeback",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "incentive",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "bonus",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "payroll",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "service_fee",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "infrastructure_cost",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        },
+        {
+          "objectType": "tax",
+          "relations": [
+            "reverses",
+            "adjusts",
+            "retracts"
+          ]
+        }
+      ],
+      "reasons": [
+        "manual_correction",
+        "data_reconciliation",
+        "late_awareness"
+      ],
+      "minConfidence": "high",
+      "requiresPreviousHash": true,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "loan_origination": {
+      "economicEffects": [
+        "cash_out"
+      ],
+      "objects": [
+        {
+          "objectType": "loan",
+          "relations": [
+            "originates"
+          ]
+        }
+      ],
+      "reasons": [
+        "loan_origination"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "loan_repayment": {
+      "economicEffects": [
+        "cash_in",
+        "non_cash"
+      ],
+      "objects": [
+        {
+          "objectType": "loan",
+          "relations": [
+            "settles",
+            "adjusts"
+          ]
+        }
+      ],
+      "reasons": [
+        "loan_repayment",
+        "loan_repayment_via_commission",
+        "debt_restructuring"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": true,
+      "allowedOriginTypes": [
+        "loan_origination"
+      ]
+    },
+    "obligation_recognized": {
+      "economicEffects": [
+        "non_cash"
+      ],
+      "objects": [
+        {
+          "objectType": "payroll",
+          "relations": [
+            "originates"
+          ]
+        },
+        {
+          "objectType": "service_fee",
+          "relations": [
+            "originates"
+          ]
+        },
+        {
+          "objectType": "infrastructure_cost",
+          "relations": [
+            "originates"
+          ]
+        },
+        {
+          "objectType": "tax",
+          "relations": [
+            "originates"
+          ]
+        },
+        {
+          "objectType": "payable",
+          "relations": [
+            "originates"
+          ]
+        }
+      ],
+      "reasons": [
+        "obligation_recognition",
+        "late_awareness"
+      ],
+      "minConfidence": "medium",
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "outbound_payment": {
+      "economicEffects": [
+        "cash_out"
+      ],
+      "objects": [
+        {
+          "objectType": "payable",
+          "relations": [
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "ordinary_settlement"
+      ],
+      "minConfidence": "medium",
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "payroll_payment": {
+      "economicEffects": [
+        "cash_out"
+      ],
+      "objects": [
+        {
+          "objectType": "payroll",
+          "relations": [
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "payroll_payment"
+      ],
+      "minConfidence": "medium",
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "penalty_payment": {
+      "economicEffects": [
+        "cash_out"
+      ],
+      "objects": [
+        {
+          "objectType": "penalty",
+          "relations": [
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "penalty_payment"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    }
+  }
+}

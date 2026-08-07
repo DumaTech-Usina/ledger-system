@@ -140,6 +140,11 @@ export interface Translations {
       balanceLabel: string;
       viewAll: string;
       allMovementsTitle: string;
+      chartTitle: string;
+      chartLabel: string;
+      chartInflow: string;
+      chartOutflow: string;
+      chartBalance: string;
     };
   };
   /** Keyed by the domain enum's raw string value (e.g. CashEffect, ObjectType). */
@@ -299,6 +304,11 @@ const ptBR: Translations = {
       balanceLabel: "Saldo do dia",
       viewAll: "Ver fluxo completo",
       allMovementsTitle: "Fluxo completo",
+      chartTitle: "Fluxo diário",
+      chartLabel: "Entradas e saídas por dia, com a evolução do saldo em caixa",
+      chartInflow: "Entradas",
+      chartOutflow: "Saídas",
+      chartBalance: "Saldo",
     },
   },
   cashEffect: {
@@ -538,6 +548,11 @@ const en: Translations = {
       balanceLabel: "Daily balance",
       viewAll: "View full flow",
       allMovementsTitle: "Full flow",
+      chartTitle: "Daily flow",
+      chartLabel: "Cash in and cash out per day, with the running cash balance",
+      chartInflow: "Cash in",
+      chartOutflow: "Cash out",
+      chartBalance: "Balance",
     },
   },
   cashEffect: {

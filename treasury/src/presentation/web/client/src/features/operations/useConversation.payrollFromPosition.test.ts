@@ -138,7 +138,7 @@ describe("registering a payment from a recognized position", () => {
       const card = result.current.stream.find((item) => item.kind === "confirm");
       expect(card).toBeDefined();
       // The card the user confirms is the operation they just described, not an empty shell.
-      expect((card as { preview: typeof previewPayload }).preview.candidate.amount).toBe("1000.00");
+      expect((card as unknown as { preview: typeof previewPayload }).preview.candidate.amount).toBe("1000.00");
     });
   });
 });

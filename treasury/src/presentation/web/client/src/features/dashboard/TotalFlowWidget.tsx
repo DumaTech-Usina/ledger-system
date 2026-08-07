@@ -2,41 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
-import { verticalBarPath } from "@/features/dashboard/chart-utils";
+import { CashFlowChart } from "@/features/dashboard/CashFlowChart";
 import { MovementsTable } from "@/features/dashboard/MovementsTable";
 import { formatTemplate, useLanguage } from "@/i18n/i18n";
 import { formatDate, formatMoney } from "@/utils/format";
 import type { CashPosition, CashMovement } from "@/types/dashboard";
-
-const VIEW_W = 480;
-const BAR_AREA_H = 64;
-const VIEW_H = BAR_AREA_H;
-const BAR_RADIUS = 3;
-
-/** Cumulative closing balance per day (running cash_in − cash_out), relative to the start of `movements`. */
-function buildDailyClosingBalance(movements: CashMovement[]): { date: string; total: number }[] {
-  const byDay = new Map<string, number>();
-  for (const m of movements) {
-    if (m.effect !== "cash_in" && m.effect !== "cash_out") continue;
-    const day = m.occurredAt.slice(0, 10);
-    const amount = Number(m.amount);
-    if (Number.isNaN(amount)) continue;
-    const signed = m.effect === "cash_in" ? amount : -amount;
-    byDay.set(day, (byDay.get(day) ?? 0) + signed);
-  }
-  const sortedDays = [...byDay.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  let running = 0;
-  return sortedDays.map(([date, net]) => {
-    running += net;
-    return { date, total: running };
-  });
-}
-
-function formatDayLabel(day: string, locale: string): string {
-  const d = new Date(`${day}T00:00:00Z`);
-  if (Number.isNaN(d.getTime())) return day;
-  return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", timeZone: "UTC" }).format(d);
-}
 
 export function TotalFlowWidget({
   movements,
@@ -50,30 +20,15 @@ export function TotalFlowWidget({
   partyNames?: Record<string, string>;
   onNavigateToOperations?: () => void;
 }) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const h = t.dashboard.hero;
-  const locale = language === "pt-BR" ? "pt-BR" : "en-US";
-  const [hovered, setHovered] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   const totalCashIn = Number(cashPosition.totalCashIn);
   const netIsPositive = !cashPosition.netCashFlow.trim().startsWith("-");
 
-  const daily = buildDailyClosingBalance(movements);
-  const maxAbs = Math.max(1, ...daily.map((d) => Math.abs(d.total)));
-  const slot = daily.length > 0 ? VIEW_W / daily.length : VIEW_W;
-  const barWidth = Math.min(20, slot * 0.5);
-  const baselineY = BAR_AREA_H / 2;
-  const scale = baselineY / maxAbs;
-
-  const bars = daily.map((d, i) => {
-    const x = i * slot + (slot - barWidth) / 2;
-    const tipY = baselineY - d.total * scale;
-    return { ...d, x, centerX: x + barWidth / 2, tipY, isPositive: d.total >= 0 };
-  });
-
-  const active = hovered !== null ? bars[hovered] : null;
+  const hasFlow = movements.some((m) => m.effect === "cash_in" || m.effect === "cash_out");
   const dayMovements = selectedDay ? movements.filter((m) => m.occurredAt.slice(0, 10) === selectedDay) : [];
 
   return (
@@ -98,13 +53,14 @@ export function TotalFlowWidget({
         <span className="text-muted">{h.netLabel}:</span> {formatMoney(cashPosition.netCashFlow, cashPosition.currency)}
       </p>
 
-      {bars.length > 0 && (
-        <div className="mt-auto pt-4">
-          <div className="flex justify-end">
+      {hasFlow && (
+        <div className="mt-auto pt-6">
+          <div className="flex items-end justify-between gap-3">
+            <p className="text-[13px] font-semibold text-muted">{h.chartTitle}</p>
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="inline-flex items-center gap-1 text-[12px] font-medium text-muted transition hover:text-accent"
+              className="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium text-muted transition hover:text-accent"
             >
               {h.viewAll}
               <svg viewBox="0 0 12 12" fill="none" className="size-3">
@@ -112,60 +68,8 @@ export function TotalFlowWidget({
               </svg>
             </button>
           </div>
-          <div className="relative mt-2">
-            <svg
-              viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-              className="w-full"
-              role="img"
-              aria-label={`${h.balanceLabel}: ${formatMoney(totalCashIn, cashPosition.currency)}`}
-            >
-              <line x1={0} y1={baselineY} x2={VIEW_W} y2={baselineY} stroke="var(--color-line)" strokeWidth={1} />
-              {bars.map((b, i) => (
-                <g
-                  key={b.date}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`${formatDayLabel(b.date, locale)} · ${h.balanceLabel}: ${formatMoney(b.total, cashPosition.currency)}`}
-                  className="cursor-pointer outline-none"
-                  onMouseEnter={() => setHovered(i)}
-                  onMouseLeave={() => setHovered(null)}
-                  onFocus={() => setHovered(i)}
-                  onBlur={() => setHovered(null)}
-                  onClick={() => setSelectedDay(b.date)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      setSelectedDay(b.date);
-                    }
-                  }}
-                >
-                  <rect x={b.x - 2} y={0} width={barWidth + 4} height={BAR_AREA_H} fill="transparent" />
-                  <path
-                    d={verticalBarPath(b.x, barWidth, baselineY, b.tipY, BAR_RADIUS)}
-                    fill={b.isPositive ? "var(--color-ok)" : "var(--color-bad)"}
-                    className="transition-opacity"
-                    opacity={hovered === null || hovered === i ? 1 : 0.55}
-                  />
-                </g>
-              ))}
-            </svg>
-
-            {active && (
-              <div
-                className="pointer-events-none absolute z-10 rounded-lg border border-line bg-panel-solid px-2.5 py-1.5 text-center shadow-glass"
-                style={{
-                  left: `${(active.centerX / VIEW_W) * 100}%`,
-                  top: `calc(${(active.tipY / VIEW_H) * 100}% - 8px)`,
-                  transform: "translate(-50%, -100%)",
-                }}
-              >
-                <p className="whitespace-nowrap text-[10px] text-muted">{h.balanceLabel}</p>
-                <p className={`tabular whitespace-nowrap text-[12px] font-semibold ${active.isPositive ? "text-ok" : "text-bad"}`}>
-                  {formatMoney(active.total, cashPosition.currency)}
-                </p>
-                <p className="whitespace-nowrap text-[10px] text-muted">{formatDayLabel(active.date, locale)}</p>
-              </div>
-            )}
+          <div className="mt-3">
+            <CashFlowChart movements={movements} currency={cashPosition.currency} onSelectDay={setSelectedDay} />
           </div>
         </div>
       )}

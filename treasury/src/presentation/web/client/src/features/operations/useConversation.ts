@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { operationsApi } from "@/features/operations/operationsApi";
-import { positionCopy, scenarioCopy, translateMessage } from "@/features/operations/copy";
+import { identityCopy, positionCopy, scenarioCopy, translateMessage } from "@/features/operations/copy";
 import { typingDurationMs } from "@/features/operations/typing";
 import { useTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
 import { formatMoney } from "@/utils/format";
@@ -8,6 +8,7 @@ import {
   decideAdvance,
   decideClassification,
   decideSubmitOutcome,
+  identityWasRecorded,
   interpretationMessages,
   offerablePositions,
   pendingIdentity,
@@ -512,6 +513,13 @@ export function useConversation(adopt?: AdoptedIntent | null) {
         if (data.error) {
           setBusy(false);
           return { ok: false as const, error: { key, message: translateMessage(data.error.message) } };
+        }
+        // A retyped counterparty the Directory could not pin to exactly one party was not recorded,
+        // leaving the slot blank — the preview below would then fail with nothing to explain it.
+        // Naming it on the field is the only place the user can act on it.
+        if (data.identity && !identityWasRecorded(data.identity)) {
+          setBusy(false);
+          return { ok: false as const, error: { key, message: identityCopy.unresolvedEdit } };
         }
       }
       const { ok, data: preview } = await operationsApi.preview(id);

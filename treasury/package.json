@@ -4,7 +4,7 @@
   "description": "User App — human-facing interaction/intent context for the Ledger ecosystem",
   "type": "commonjs",
   "scripts": {
-    "dev": "trap 'kill 0' EXIT; npm run dev:backend & npm run dev:client & wait",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:client\"",
     "dev:backend": "tsx watch src/index.ts",
     "dev:client": "npm --prefix src/presentation/web/client run dev",
     "start": "node dist/index.js",
@@ -20,6 +20,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "concurrently": "^10.0.4",
     "@types/express": "^4.17.21",
     "@types/node": "^25.3.3",
     "tsx": "^4.21.0",

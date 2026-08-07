@@ -114,6 +114,39 @@ export function decideAdvance(
 }
 
 /**
+ * The recorded answers as the operator should see them again when they reopen them to edit.
+ *
+ * A PARTY slot holds a canonical PartyId. That is correct to store and is what crosses into the
+ * Ledger — but it is not what the operator said, so putting it straight back into the field shows
+ * them a stranger where they named a counterparty. The Directory's own name for that id goes in
+ * instead. An id the Directory does not know stays an id: inventing a label for an unknown party
+ * would be a claim the system cannot support, and the confirmation card makes the same choice.
+ *
+ * Only PARTY slots are touched — every other answer is already stored exactly as it was given.
+ */
+export function editableAnswers(
+  answers: Record<string, string>,
+  slotsByKey: Record<string, SlotDefinition>,
+  partyNames: Record<string, string>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(answers).map(([key, value]) => [
+      key,
+      slotsByKey[key]?.type === "party" ? partyNames[value] ?? value : value,
+    ]),
+  );
+}
+
+/**
+ * Whether a PARTY answer was actually written. Only an exact resolution is — a similarity hit,
+ * an ambiguous mention and an unknown one all leave the slot blank, which the guided dialog answers
+ * by asking the question again. A path with no next question to fall back on has to check.
+ */
+export function identityWasRecorded(outcome: IdentityOutcome): boolean {
+  return outcome.resolution.kind === "resolved" && !outcome.resolution.needsConfirmation;
+}
+
+/**
  * What to offer for a PARTY answer the Directory could not turn into exactly one known party.
  *
  * Returns null when there is nothing to ask: an exact resolution is already recorded, so the dialog
@@ -125,7 +158,7 @@ export function decideAdvance(
  */
 export function identityDecision(outcome: IdentityOutcome, slot: SlotDefinition | undefined): NewMessage | null {
   const { resolution } = outcome;
-  if (resolution.kind === "resolved" && !resolution.needsConfirmation) return null;
+  if (identityWasRecorded(outcome)) return null;
 
   const mention = resolution.mention.text;
   const options: IdentityOption[] = [];

@@ -3,7 +3,9 @@ import {
   decideAdvance,
   decideClassification,
   decideSubmitOutcome,
+  editableAnswers,
   identityDecision,
+  identityWasRecorded,
   interpretationMessages,
   offerablePositions,
   pendingIdentity,
@@ -407,6 +409,66 @@ describe("offerablePositions", () => {
 
     it("sends nothing for a scenario that declares neither key", () => {
       expect(positionAnswers(withOrigin, {})).toEqual([]);
+    });
+  });
+
+  describe("editableAnswers", () => {
+    const payee: SlotDefinition = { key: "payee", type: "party", prompt: "A quem a usina deve?", required: true };
+    const amount: SlotDefinition = { key: "amount", type: "money", prompt: "Qual é o valor devido?", required: true };
+    const slots = { payee, amount };
+
+    it("shows the counterparty's name where the answer holds its PartyId", () => {
+      const seeded = editableAnswers(
+        { payee: "PTY-7c1a", amount: "1500.00" },
+        slots,
+        { "PTY-7c1a": "Construtora Vale" },
+      );
+      expect(seeded.payee).toBe("Construtora Vale");
+    });
+
+    it("leaves every non-PARTY answer exactly as it was recorded", () => {
+      const seeded = editableAnswers(
+        { payee: "PTY-7c1a", amount: "1500.00" },
+        slots,
+        { "PTY-7c1a": "Construtora Vale" },
+      );
+      expect(seeded.amount).toBe("1500.00");
+    });
+
+    it("keeps the id on screen when the Directory does not know the party", () => {
+      // Unknown stays unknown — a label is never invented to fill the gap.
+      const seeded = editableAnswers({ payee: "PTY-unknown" }, slots, {});
+      expect(seeded.payee).toBe("PTY-unknown");
+    });
+
+    it("never renames an answer whose slot was never asked", () => {
+      // No slot definition means no field is rendered for it either — so it must pass through whole.
+      const seeded = editableAnswers({ mystery: "PTY-7c1a" }, slots, { "PTY-7c1a": "Construtora Vale" });
+      expect(seeded.mystery).toBe("PTY-7c1a");
+    });
+  });
+
+  describe("identityWasRecorded", () => {
+    const mention: Mention = { text: "Construtora Vale", normalized: "construtora vale" };
+
+    it("is true only for an exact resolution", () => {
+      const outcome: IdentityOutcome = {
+        slot: "payee",
+        resolution: { kind: "resolved", mention, partyId: "PTY-7c1a", rule: "exact_name", score: 1, needsConfirmation: false },
+      };
+      expect(identityWasRecorded(outcome)).toBe(true);
+    });
+
+    it("is false for a similarity hit — close is not equal, and the backend recorded nothing", () => {
+      const outcome: IdentityOutcome = {
+        slot: "payee",
+        resolution: { kind: "resolved", mention, partyId: "PTY-7c1a", rule: "similarity", score: 0.9, needsConfirmation: true },
+      };
+      expect(identityWasRecorded(outcome)).toBe(false);
+    });
+
+    it("is false for a mention the Directory does not know", () => {
+      expect(identityWasRecorded({ slot: "payee", resolution: { kind: "new", mention } })).toBe(false);
     });
   });
 });
