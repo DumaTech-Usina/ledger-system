@@ -186,6 +186,7 @@ export class CreateLedgerEventUseCase {
       economicEffect: command.economicEffect,
       occurredAt: command.occurredAt,
       sourceAt: command.sourceAt ?? null,
+      dueAt: command.dueAt ?? null,
       amount: money,
       description: command.description ?? null,
       source,

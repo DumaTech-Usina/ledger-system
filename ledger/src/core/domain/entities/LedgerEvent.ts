@@ -20,6 +20,17 @@ export interface CreateLedgerEventProps {
   economicEffect: EconomicEffect;
   occurredAt: Date;
   sourceAt?: Date | null;
+  /**
+   * When the obligation this event originates falls due, as stated by the external fact that
+   * established it. Never a prediction of the ledger's own: it travels with the invoice, the closed
+   * payroll, the tax assessment — the same fact that made the obligation exist.
+   *
+   * Null is a first-class state: an obligation whose terms were not stated has no due date, which is
+   * neither "due today" nor "never due". Nothing derives one from occurredAt.
+   *
+   * Admissible only where the contract says so (`admitsDueAt`) and only on an event that ORIGINATES.
+   */
+  dueAt?: Date | null;
   amount: Money;
   description?: string | null;
   source: EventSource;
@@ -43,6 +54,7 @@ export class LedgerEvent {
     public readonly occurredAt: Date,
     public readonly recordedAt: Date,
     public readonly sourceAt: Date | null,
+    public readonly dueAt: Date | null,
     public readonly amount: Money,
     public readonly description: string | null,
     public readonly source: EventSource,
@@ -70,6 +82,7 @@ export class LedgerEvent {
     occurredAt: Date;
     recordedAt: Date;
     sourceAt: Date | null;
+    dueAt: Date | null;
     amount: Money;
     description: string | null;
     source: EventSource;
@@ -90,6 +103,7 @@ export class LedgerEvent {
       props.occurredAt,
       props.recordedAt,
       props.sourceAt,
+      props.dueAt,
       props.amount,
       props.description,
       props.source,
@@ -117,6 +131,16 @@ export class LedgerEvent {
       occurredAt: props.occurredAt.toISOString(),
       recordedAt: recordedAt.toISOString(),
       sourceAt: props.sourceAt?.toISOString() ?? null,
+      // Inside the hash on purpose. A due date changes what the event asserts — the difference
+      // between an obligation payable next month and one payable yesterday — so leaving it out would
+      // make it alterable without detection, which is the one thing the chain exists to prevent.
+      //
+      // Note this shifts the canonical form for EVERY event recorded from here on, including those
+      // with no due date: `canonicalize` sorts the key set, and a "dueAt":null pair now joins it.
+      // Events already stored are untouched (`reconstitute` never re-hashes), so the book carries two
+      // canonical forms with this deploy as the boundary — see LedgerDueDateProposal.md §3 and the
+      // pinned vector in event-hash.test.ts, which is what makes the next shift a red test.
+      dueAt: props.dueAt?.toISOString() ?? null,
       amount: props.amount.toString(),
       description: props.description ?? null,
       source: {
@@ -162,6 +186,7 @@ export class LedgerEvent {
       props.occurredAt,
       recordedAt,
       props.sourceAt ?? null,
+      props.dueAt ?? null,
       props.amount,
       props.description ?? null,
       props.source,

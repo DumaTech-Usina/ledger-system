@@ -286,6 +286,7 @@ describe("State explainability", () => {
       occurredAt: new Date("2025-05-01"),
       recordedAt: new Date(),
       sourceAt: null,
+      dueAt: null,
       amount: Money.fromDecimal("300.00", "BRL"),
       description: null,
       source: new EventSource("normalizer", "orphan-ref-e9"),

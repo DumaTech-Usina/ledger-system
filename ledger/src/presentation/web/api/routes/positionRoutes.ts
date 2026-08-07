@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { PositionProjectionService } from "../../../../core/application/services/PositionProjectionService";
-import { PositionAggregateOptions } from "../../../../core/application/dtos/PositionAggregate";
+import { PositionAggregateOptions, PositionSortKey } from "../../../../core/application/dtos/PositionAggregate";
 import { EconomicOutcome, PositionStatus } from "../../../../core/application/dtos/PositionSummary";
 import { ObjectType } from "../../../../core/domain/enums/ObjectType";
 import { serializePositionListItem, serializePositionSummary } from "../serializers/positionSerializer";
@@ -8,6 +8,10 @@ import { serializePositionListItem, serializePositionSummary } from "../serializ
 const VALID_STATUSES  = new Set<string>(["open", "partially_settled", "fully_settled", "reversed", "unknown_origin"]);
 const VALID_OUTCOMES  = new Set<string>(["gain", "partial_loss", "full_loss", "cancelled", "pending"]);
 const VALID_OBJ_TYPES = new Set<string>(Object.values(ObjectType));
+// Closed sets: the repository interpolates the sort key into SQL, so an unrecognised value must fall
+// back to the default here rather than travelling any further.
+const VALID_SORT_KEYS = new Set<string>(["createdAt", "dueAt"]);
+const VALID_SORT_ORDERS = new Set<string>(["ASC", "DESC"]);
 
 export function positionRoutes(svc: PositionProjectionService): Router {
   const router = Router();
@@ -17,6 +21,8 @@ export function positionRoutes(svc: PositionProjectionService): Router {
       const rawStatus     = req.query.status     as string | undefined;
       const rawOutcome    = req.query.outcome     as string | undefined;
       const rawObjectType = req.query.objectType  as string | undefined;
+      const rawSortBy     = req.query.sortBy      as string | undefined;
+      const rawSortOrder  = req.query.sortOrder   as string | undefined;
 
       const options: PositionAggregateOptions = {
         page:  parseInt(req.query.page  as string, 10) || undefined,
@@ -24,6 +30,8 @@ export function positionRoutes(svc: PositionProjectionService): Router {
         status:     rawStatus     && VALID_STATUSES.has(rawStatus)     ? rawStatus  as PositionStatus  : undefined,
         outcome:    rawOutcome    && VALID_OUTCOMES.has(rawOutcome)     ? rawOutcome as EconomicOutcome : undefined,
         objectType: rawObjectType && VALID_OBJ_TYPES.has(rawObjectType) ? rawObjectType as ObjectType  : undefined,
+        sortBy:     rawSortBy     && VALID_SORT_KEYS.has(rawSortBy)      ? rawSortBy as PositionSortKey : undefined,
+        sortOrder:  rawSortOrder  && VALID_SORT_ORDERS.has(rawSortOrder) ? rawSortOrder as "ASC" | "DESC" : undefined,
       };
 
       const { data, total, page, limit, totalPages } = await svc.summarizePaginated(options);

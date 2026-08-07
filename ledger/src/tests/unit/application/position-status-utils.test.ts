@@ -28,6 +28,8 @@ function makeAggregate(
     eventCount: 1,
     lastEventAt: new Date("2024-01-01"),
     originatedAt: new Date("2024-01-01"),
+    createdAt: new Date("2024-01-01"),
+    dueAt: null,
     ...overrides,
   };
 }

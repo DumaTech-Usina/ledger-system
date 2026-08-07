@@ -10,6 +10,13 @@ export interface SubmitCandidateInput {
   economicEffect: string;
   occurredAt: string;
   sourceAt?: string | null;
+  /**
+   * When the obligation this candidate originates falls due, as the establishing document stated it
+   * (ISO date). Only `obligation_recognized` admits it, and only alongside an ORIGINATES — the
+   * invariant refuses it anywhere else rather than dropping it silently. Absent means the terms were
+   * not stated, which the projection reports as unknown; nothing is derived from `occurredAt`.
+   */
+  dueAt?: string | null;
   amount: string;
   currency: string;
   description?: string | null;

@@ -160,6 +160,7 @@ describe("PositionProjectionService", () => {
         occurredAt: new Date(),
         recordedAt: new Date(),
         sourceAt: null,
+        dueAt: null,
         amount: Money.fromDecimal("700.00", "BRL"),
         description: "reversal of com-pp7",
         source: new EventSource("normalizer", "correction-pp7"),

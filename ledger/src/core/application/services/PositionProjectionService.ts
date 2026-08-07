@@ -95,6 +95,8 @@ export class PositionProjectionService {
       eventCount:      agg.eventCount,
       lastEventAt:     agg.lastEventAt,
       originatedAt:    agg.originatedAt,
+      createdAt:       agg.createdAt,
+      dueAt:           agg.dueAt,
     };
   }
 
