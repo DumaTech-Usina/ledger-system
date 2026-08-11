@@ -85,6 +85,9 @@ describe("pendingCorrection", () => {
     relatedEventId: null,
     retracted: false,
     requiresFollowup: false,
+    objects: [],
+    source: null,
+    parties: [],
     ...over,
   });
 

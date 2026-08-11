@@ -111,10 +111,25 @@ interface ScenarioMapping {
   inheritsCounterparty?: boolean;
 }
 
-/** The CASH_IN settlement mold: the usina receives (amount on the payee), the counterparty is neutral. */
+/**
+ * The CASH_IN settlement mold: the usina receives (amount on the payee), the counterparty is neutral.
+ *
+ * The counterparty's role is `payer` — the party that paid. It read `beneficiary` until this was
+ * corrected, which left a cash_in record where NO party carried `payer` at all: a reader asking
+ * "who paid?" found nobody, and `beneficiary` names the receiver, so the honest reading of the
+ * record was the opposite of the fact. `direction` could not settle it either — it says the
+ * counterparty is neutral to the usina's cash, not that it is the source of the money.
+ *
+ * `payer` is what the conversation already asks for (`counterpartySlot: "payer"` on all three
+ * scenarios that use this mold) and what the normalizer worker has always written for the same
+ * shape of fact. The two producers now agree, and the Ledger validates no role either way.
+ *
+ * Facts are immutable: this corrects what is written from here on. cash_in events recorded before
+ * it keep `beneficiary`, and no rewrite is possible or wanted.
+ */
 const cashInParties: PartyTemplate[] = [
   { who: "usina", role: "payee", direction: "in", carriesAmount: true },
-  { who: "counterparty", role: "beneficiary", direction: "neutral", carriesAmount: true },
+  { who: "counterparty", role: "payer", direction: "neutral", carriesAmount: true },
 ];
 
 /** The standard CASH_OUT expense mold: usina pays (amount on the payer), counterparty is a neutral payee. */

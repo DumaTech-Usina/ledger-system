@@ -23,6 +23,7 @@ const event = (over: Partial<PositionLifecycleEvent> = {}): PositionLifecycleEve
   requiresFollowup: false,
   objects: [],
   source: null,
+  parties: [],
   ...over,
 });
 

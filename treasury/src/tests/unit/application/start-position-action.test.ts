@@ -47,6 +47,10 @@ const lifecycle = (over: Partial<PositionLifecycle> = {}): PositionLifecycle => 
       requiresFollowup: false,
       objects: [{ objectId: "intent:adv-1", objectType: "advance", relation: "originates" }],
       source: { system: "treasury", reference: "intent:adv-1" },
+      parties: [
+        { partyId: "party-usina", role: "payer", direction: "out", amount: "500.00" },
+        { partyId: "party-broker", role: "payee", direction: "neutral", amount: null },
+      ],
     },
   ],
   origin: {
@@ -55,6 +59,10 @@ const lifecycle = (over: Partial<PositionLifecycle> = {}): PositionLifecycle => 
     occurredAt: "2026-07-01T00:00:00.000Z",
     source: { system: "treasury", reference: "intent:adv-1" },
     relatedObjects: [],
+    parties: [
+      { partyId: "party-usina", role: "payer", direction: "out", amount: "500.00" },
+      { partyId: "party-broker", role: "payee", direction: "neutral", amount: null },
+    ],
   },
   ...over,
 });

@@ -37,7 +37,21 @@ export class StubLedgerReadAdapter implements LedgerReadPort, PositionLifecycleP
       totalCashOut: "830500.00",
       netCashFlow: "+419500.00",
       openReceivables: "215000.00",
+      openPayables: "96500.00",
       contingentExposure: "48000.00",
+      // Each list sums to the total above it, as the Ledger's own composition does. A demo whose
+      // parts did not add up to its whole would teach the screen to be read wrongly.
+      openReceivablesByType: [
+        { objectType: "receivable", openBalance: "140000.00" },
+        { objectType: "advance", openBalance: "50000.00" },
+        { objectType: "loan", openBalance: "25000.00" },
+      ],
+      openPayablesByType: [
+        { objectType: "payroll", openBalance: "62000.00" },
+        { objectType: "tax", openBalance: "21500.00" },
+        { objectType: "service_fee", openBalance: "13000.00" },
+      ],
+      contingentExposureByType: [{ objectType: "dispute", openBalance: "48000.00" }],
       currency: "BRL",
       asOf: new Date().toISOString(),
     };

@@ -3,12 +3,37 @@
  * are owned by treasury (no Ledger code is imported). Money values are the Ledger's raw decimal
  * strings (e.g. "1250000.00"); treasury only formats them for display, never recomputes them.
  */
+/**
+ * One line of what an open-balance total is made of: the balance held by a single kind of object.
+ * A kind with nothing outstanding is absent from the list, never present as zero.
+ */
+export interface OpenBalanceByObjectType {
+  objectType: string;
+  openBalance: string;
+}
+
 export interface CashPosition {
   totalCashIn: string;
   totalCashOut: string;
   netCashFlow: string; // signed, e.g. "+419500.00"
   openReceivables: string;
+  /**
+   * Recognized obligations not yet paid — what the book says is committed to leave. Never netted
+   * against `openReceivables`, and never against the cash figures above: the two are different folds
+   * over the same events and a total mixing them would mean nothing.
+   */
+  openPayables?: string;
   contingentExposure: string;
+  /**
+   * What each of the three totals is made of, by kind of object. Optional because a Ledger that
+   * predates the field publishes no composition — which is "not told", not "made of nothing".
+   *
+   * Treasury never sums these: the totals beside them are the Ledger's own fold over the same rows.
+   * They are here to be shown, grouped and ordered — never to be added up into a figure.
+   */
+  openReceivablesByType?: OpenBalanceByObjectType[];
+  openPayablesByType?: OpenBalanceByObjectType[];
+  contingentExposureByType?: OpenBalanceByObjectType[];
   currency: string;
   asOf: string;
 }
@@ -123,6 +148,15 @@ export interface PositionLifecycleEvent {
    * contract id, the intent that produced it). Null only against a Ledger that publishes no source.
    */
   source: { system: string; reference: string } | null;
+  /**
+   * Who took part in the fact, as the Ledger recorded them — the counterparty of this event, and
+   * the role and direction that say which side each one was on.
+   *
+   * Empty when the event named none: a fact may legitimately be recorded with a single party, or
+   * with none, and an empty list is that absence rather than an unknown. Ids only; a display name
+   * is treasury's own knowledge and travels beside the payload, never inside this mirror.
+   */
+  parties: { partyId: string; role: string; direction: string; amount: string | null }[];
 }
 
 /**
@@ -149,6 +183,12 @@ export interface PositionOriginRef {
    * a reference that is unknown.
    */
   relatedObjects: { objectId: string; objectType: string; relation: string }[];
+  /**
+   * Who the position is WITH: the parties of the origination that still stands, with their roles.
+   * Empty when the origination named none — never filled in from a later event, which would answer
+   * a question about the origination with a fact about something else.
+   */
+  parties: { partyId: string; role: string; direction: string; amount: string | null }[];
 }
 
 /**

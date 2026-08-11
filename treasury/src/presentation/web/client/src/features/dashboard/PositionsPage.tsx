@@ -4,6 +4,7 @@ import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Input } from "@/components/Input";
 import { Modal } from "@/components/Modal";
+import { CompositionList } from "@/features/dashboard/CompositionList";
 import { ObjectLifecycleTimeline } from "@/features/dashboard/ObjectLifecycleTimeline";
 import { PositionsTable } from "@/features/dashboard/PositionsTable";
 import { hasOutstandingBalance } from "@/features/dashboard/lifecycleEngine";
@@ -87,6 +88,8 @@ export function PositionsPage({
   const [showOutstanding, setShowOutstanding] = useState(false);
   /** Which payable drill-down is open, if any. The three lists share one modal. */
   const [openPayables, setOpenPayables] = useState<"upcoming" | "overdue" | "undated" | null>(null);
+  /** Whether the commitments card's composition is open. */
+  const [showCommitments, setShowCommitments] = useState(false);
 
   return (
     <div className="space-y-8">
@@ -156,6 +159,33 @@ export function PositionsPage({
                         : t.common.unknown}
                     </p>
                     <p className="mt-1 text-[11px] text-muted">{t.positions.capitalAtRiskNote}</p>
+                  </Card>
+
+                  {/* The total the three cards beside this one split by timing — read here by
+                      NATURE instead: how much of what is committed is payroll, tax, service. The
+                      two axes are published separately and never crossed, so neither answer can be
+                      mistaken for the other. */}
+                  <Card
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setShowCommitments(true)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setShowCommitments(true);
+                      }
+                    }}
+                    className="transition hover:bg-ink/6 dark:hover:bg-white/8"
+                  >
+                    <p className="text-[13px] font-semibold text-muted">{t.positions.commitments}</p>
+                    <p className="tabular mt-1.5 text-2xl font-semibold text-ink">
+                      {/* Absent against a Ledger that does not publish it — shown as unknown, never
+                          as zero, which would state that nothing is owed. */}
+                      {cashPosition.openPayables
+                        ? formatMoney(cashPosition.openPayables, cashPosition.currency)
+                        : t.common.unknown}
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted">{t.positions.commitmentsNote}</p>
                   </Card>
 
                   {/* What is expected to LEAVE the company, split by what the book knows about
@@ -238,6 +268,25 @@ export function PositionsPage({
                 </p>
               </section>
 
+              {/* The composition of what is committed. Its own modal rather than a section inside
+                  the timing drill-downs: those answer "when", this answers "of what", and the whole
+                  point of publishing the two axes apart is that neither absorbs the other. */}
+              <Modal
+                open={showCommitments}
+                onClose={() => setShowCommitments(false)}
+                title={t.positions.commitments}
+                closeLabel={t.common.close}
+                className="max-w-lg"
+              >
+                <div className="px-1">
+                  <p className="pb-1 text-[12px] font-semibold text-muted">{t.positions.composition}</p>
+                  <CompositionList
+                    lines={cashPosition.openPayablesByType}
+                    currency={cashPosition.currency}
+                  />
+                </div>
+              </Modal>
+
               <Modal
                 open={showOutstanding}
                 onClose={() => setShowOutstanding(false)}
@@ -245,6 +294,16 @@ export function PositionsPage({
                 closeLabel={t.common.close}
                 className="max-w-6xl"
               >
+                {/* The composition covers the WHOLE book; the table below is the overview's slice.
+                    They answer different questions, so the composition is not derived from the rows
+                    beneath it — it comes from the Ledger's own fold, like the figure on the card. */}
+                <div className="border-b border-line px-1 pb-3">
+                  <p className="pb-1 text-[12px] font-semibold text-muted">{t.positions.composition}</p>
+                  <CompositionList
+                    lines={cashPosition.openReceivablesByType}
+                    currency={cashPosition.currency}
+                  />
+                </div>
                 <PositionsTable
                   positions={outstanding}
                   currency={cashPosition.currency}

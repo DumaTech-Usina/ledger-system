@@ -1,5 +1,16 @@
-import { CashPositionSummary } from "../../../../core/application/dtos/CashPositionSummary";
+import {
+  CashPositionSummary,
+  OpenBalanceByObjectType,
+} from "../../../../core/application/dtos/CashPositionSummary";
 import { Money } from "../../../../core/domain/value-objects/Money";
+
+/** Each total's composition. Additive: the totals themselves keep the values they always had. */
+function serializeComposition(lines: OpenBalanceByObjectType[]) {
+  return lines.map((line) => ({
+    objectType: line.objectType,
+    openBalance: line.openBalance.toString(),
+  }));
+}
 
 export function serializeCashPosition(summary: CashPositionSummary) {
   const inUnits  = summary.totalCashIn.toUnits();
@@ -15,6 +26,10 @@ export function serializeCashPosition(summary: CashPositionSummary) {
     openReceivables:    summary.openReceivables.toString(),
     openPayables:       summary.openPayables.toString(),
     contingentExposure: summary.contingentExposure.toString(),
+    // What each total is made of. A consumer that ignores these reads exactly what it read before.
+    openReceivablesByType:    serializeComposition(summary.openReceivablesByType),
+    openPayablesByType:       serializeComposition(summary.openPayablesByType),
+    contingentExposureByType: serializeComposition(summary.contingentExposureByType),
     currency:           summary.currency,
     asOf:               summary.asOf.toISOString(),
   };

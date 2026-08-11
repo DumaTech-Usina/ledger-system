@@ -45,6 +45,15 @@ export interface Translations {
     dueOn: string;
     noDueDate: string;
     truncatedList: string;
+    /** The total the composition below decomposes: what the book says is committed to leave. */
+    commitments: string;
+    commitmentsNote: string;
+    /** What a total is made of, by kind of object — the Ledger's own rows, one step before the fold. */
+    composition: string;
+    /** The Ledger published no composition. Never rendered as "nothing outstanding". */
+    compositionUnknown: string;
+    /** It published one and it is empty: nothing of that kind is outstanding. */
+    compositionEmpty: string;
   };
   intents: {
     heading: string;
@@ -189,6 +198,11 @@ const ptBR: Translations = {
     dueOn: "Vence em",
     noDueDate: "Sem vencimento informado",
     truncatedList: "A lista abaixo mostra apenas as primeiras posições. Os valores acima consideram o livro inteiro.",
+    commitments: "Compromissos reconhecidos",
+    commitmentsNote: "O que a Usina deve por obrigações já reconhecidas e ainda não pagas.",
+    composition: "Composição por natureza",
+    compositionUnknown: "O livro não informou a composição deste total.",
+    compositionEmpty: "Nada em aberto nesta natureza.",
     total: "{count} posições",
   },
   intents: {
@@ -429,6 +443,11 @@ const en: Translations = {
     dueOn: "Due",
     noDueDate: "No due date stated",
     truncatedList: "The list below shows only the first positions. The figures above cover the whole book.",
+    commitments: "Recognized commitments",
+    commitmentsNote: "What Usina owes on obligations already recognized and not yet paid.",
+    composition: "Composition by kind",
+    compositionUnknown: "The book did not publish this total's composition.",
+    compositionEmpty: "Nothing outstanding of this kind.",
     total: "{count} positions",
   },
   intents: {
