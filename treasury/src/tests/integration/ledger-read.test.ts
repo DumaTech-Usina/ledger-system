@@ -26,7 +26,18 @@ beforeAll(async () => {
       }));
     } else if (path === "/api/cash-movements") {
       res.end(JSON.stringify({
-        items: [{ eventId: "e1", occurredAt: "2026-07-09T00:00:00.000Z", effect: "cash_in", amount: "1000.00", sourceReference: "charge:1", counterparty: PARTY.OPERATOR, description: "x" }],
+        items: [{
+          eventId: "e1", eventType: "commission_received",
+          occurredAt: "2026-07-09T00:00:00.000Z", recordedAt: "2026-07-09T01:00:00.000Z",
+          effect: "cash_in", amount: "1000.00",
+          sourceReference: "charge:1", sourceSystem: "treasury",
+          objects: [{ objectId: "charge:1", objectType: "charge", relation: "settles" }],
+          parties: [
+            { partyId: PARTY.USINA, role: "recipient", direction: "in", amount: "1000.00" },
+            { partyId: PARTY.OPERATOR, role: "payer", direction: "neutral", amount: null },
+          ],
+          counterparty: PARTY.OPERATOR, description: "x",
+        }],
         nextCursor: null, hasMore: false,
       }));
     } else if (path === "/api/positions") {
@@ -77,10 +88,30 @@ describe("GetTreasuryDashboardUseCase", () => {
   it("names the counterparties on screen, without touching the movements themselves", async () => {
     const uc = new GetTreasuryDashboardUseCase(new HttpLedgerReadAdapter(baseUrl), PARTY.USINA, partyDirectory());
     const d = await uc.execute();
-    expect(d.partyNames).toEqual({ [PARTY.OPERATOR]: PARTY_DISPLAY_NAMES[PARTY.OPERATOR] });
+    // Every party the movement now carries, named beside it — never inside it.
+    expect(d.partyNames).toEqual({
+      [PARTY.USINA]: PARTY_DISPLAY_NAMES[PARTY.USINA],
+      [PARTY.OPERATOR]: PARTY_DISPLAY_NAMES[PARTY.OPERATOR],
+    });
     // The movement stays the Ledger's own shape: an id, never a name.
     expect(d.movements?.[0].counterparty).toBe(PARTY.OPERATOR);
     expect(d.movements?.[0]).not.toHaveProperty("counterpartyName");
+  });
+
+  it("passes through what a movement is about — the fact, its objects, its whole cast", async () => {
+    const mv = await new HttpLedgerReadAdapter(baseUrl).cashMovements({ partyId: PARTY.USINA });
+    const [movement] = mv.items;
+
+    // `effect` said the economic nature and never which fact the movement was part of.
+    expect(movement.eventType).toBe("commission_received");
+    expect(movement.sourceSystem).toBe("treasury");
+    expect(movement.objects).toEqual([{ objectId: "charge:1", objectType: "charge", relation: "settles" }]);
+    expect(movement.parties?.map((p) => [p.partyId, p.direction])).toEqual([
+      [PARTY.USINA, "in"],
+      [PARTY.OPERATOR, "neutral"],
+    ]);
+    // The field that was already published keeps meaning what it meant.
+    expect(movement.counterparty).toBe(PARTY.OPERATOR);
   });
 
   it("leaves a party the Directory does not know absent, so its id stays on screen", async () => {

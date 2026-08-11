@@ -72,7 +72,15 @@ export class GetTreasuryDashboardUseCase {
    * to ids rather than taking the whole dashboard with it. Names are legibility, not truth.
    */
   private async nameCounterparties(movements: CashMovement[]): Promise<Record<string, string>> {
-    const ids = [...new Set(movements.map((m) => m.counterparty).filter((id): id is string => id !== null))];
+    const ids = [
+      ...new Set(
+        movements
+          // Every party the movements now carry, not only the counterparty: the same map serves
+          // both, and a party the Directory does not know stays absent from it either way.
+          .flatMap((m) => [m.counterparty, ...(m.parties ?? []).map((p) => p.partyId)])
+          .filter((id): id is string => id !== null && id !== undefined),
+      ),
+    ];
     if (ids.length === 0) return {};
 
     try {

@@ -15,11 +15,28 @@ export interface CashPosition {
 
 export interface CashMovement {
   eventId: string;
+  /**
+   * Which fact the movement is part of. Optional because a Ledger that predates the field simply
+   * does not publish it — absent means "not told", which is why nothing is substituted for it.
+   */
+  eventType?: string;
   occurredAt: string;
   recordedAt: string;
   effect: string; // cash_in | cash_out | cash_internal | non_cash | contingent
   amount: string;
   sourceReference: string;
+  /** The system the reference belongs to. Same optionality, same reason, as `eventType`. */
+  sourceSystem?: string | null;
+  /**
+   * The positions and documents the movement names, with the relation declared for each. Absent
+   * against an older Ledger; an empty array is a different statement — the event named no object.
+   */
+  objects?: { objectId: string; objectType: string; relation: string }[];
+  /**
+   * Everyone who took part in the fact. `counterparty` below is one of them and keeps its meaning;
+   * this publishes the rest, with the role, direction and per-party amount the Ledger recorded.
+   */
+  parties?: { partyId: string; role: string; direction: string; amount: string | null }[];
   counterparty: string | null;
   description: string | null;
 }
@@ -94,6 +111,44 @@ export interface PositionLifecycleEvent {
    * never stored: whether it is STILL pending is answered by looking at what has landed since.
    */
   requiresFollowup: boolean;
+  /**
+   * Every object the event names, not only the one being read. The siblings are the contextual
+   * references — the proposal, the contract, the installment — that say what the fact was about.
+   * Passed through as the Ledger publishes them; `relation` above stays the one declared for the
+   * requested objectId, so neither field changes what it always meant.
+   */
+  objects: { objectId: string; objectType: string; relation: string }[];
+  /**
+   * Where the fact came from: the external system and its own identifier for it (proposal number,
+   * contract id, the intent that produced it). Null only against a Ledger that publishes no source.
+   */
+  source: { system: string; reference: string } | null;
+}
+
+/**
+ * The contextual references of the origination that STILL STANDS for a position — what document,
+ * contract or proposal it refers to.
+ *
+ * Selected from the published events, never from the detail's own `origin` block: that block is
+ * extracted before the retraction fold, so it keeps naming an event a rectification already declared
+ * never happened. The selection rule is the same one the settlement candidates use, and it is
+ * written once so the two can never drift apart.
+ *
+ * Null when no origination stands — which is a legitimate state (a cash-basis position never had
+ * one, and a retracted one no longer does), and is never filled in from a retracted event.
+ */
+export interface PositionOriginRef {
+  eventId: string;
+  eventType: string;
+  occurredAt: string;
+  /** The external system and its identifier for the fact — the "número de origem" of the position. */
+  source: { system: string; reference: string } | null;
+  /**
+   * The other objects the origination named beside this position: proposal, contract, installment.
+   * Empty when it named none — the origination referred to nothing else, which is not the same as
+   * a reference that is unknown.
+   */
+  relatedObjects: { objectId: string; objectType: string; relation: string }[];
 }
 
 /**
@@ -118,6 +173,8 @@ export interface PositionLifecycle {
   openBalance: string | null;
   eventCount: number;
   events: PositionLifecycleEvent[];
+  /** What the standing origination refers to. Null when none stands — never inferred from elsewhere. */
+  origin: PositionOriginRef | null;
 }
 
 /**

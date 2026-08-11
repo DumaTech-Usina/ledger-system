@@ -30,6 +30,7 @@ import { AuthService } from "./core/application/services/AuthService";
 import { CandidateMapper } from "./core/application/services/CandidateMapper";
 import { GetTreasuryDashboardUseCase } from "./core/application/use-cases/GetTreasuryDashboard";
 import { GetObjectLifecycleUseCase } from "./core/application/use-cases/GetObjectLifecycle";
+import { GetLedgerEventUseCase } from "./core/application/use-cases/GetLedgerEvent";
 import { GetBookExposureUseCase } from "./core/application/use-cases/GetBookExposure";
 import { ListPositionsUseCase } from "./core/application/use-cases/ListPositions";
 import { ListPayablePositionsUseCase } from "./core/application/use-cases/ListPayablePositions";
@@ -169,6 +170,7 @@ async function bootstrap(): Promise<void> {
     partyDirectory,
   );
   const getObjectLifecycle = new GetObjectLifecycleUseCase(ledgerRead);
+  const getLedgerEvent = new GetLedgerEventUseCase(ledgerRead);
   const getBookExposure = new GetBookExposureUseCase(ledgerRead);
   const listPositions = new ListPositionsUseCase(ledgerRead, (positions) => positionSnapshot.remember(positions));
   const listPayablePositions = new ListPayablePositionsUseCase(ledgerRead);
@@ -189,6 +191,7 @@ async function bootstrap(): Promise<void> {
     sessionTtlSeconds,
     getDashboard,
     getObjectLifecycle,
+    getLedgerEvent,
     getBookExposure,
     listPositions,
     listPayablePositions,

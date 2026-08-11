@@ -4,6 +4,7 @@ import type { GetObjectLifecycleUseCase } from "../../../../core/application/use
 import type { GetBookExposureUseCase } from "../../../../core/application/use-cases/GetBookExposure";
 import type { ListPositionsUseCase } from "../../../../core/application/use-cases/ListPositions";
 import type { ListPayablePositionsUseCase } from "../../../../core/application/use-cases/ListPayablePositions";
+import type { GetLedgerEventUseCase } from "../../../../core/application/use-cases/GetLedgerEvent";
 
 /** Authorization-filtered display of Ledger truth. Read-only; degrades gracefully if Ledger is down. */
 export function dashboardRoutes(
@@ -12,6 +13,7 @@ export function dashboardRoutes(
   getBookExposure: GetBookExposureUseCase,
   listPositions: ListPositionsUseCase,
   listPayablePositions: ListPayablePositionsUseCase,
+  getLedgerEvent: GetLedgerEventUseCase,
 ): Router {
   const router = Router();
 
@@ -70,6 +72,22 @@ export function dashboardRoutes(
         return;
       }
       res.json(lifecycle);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // One event, as the Ledger recorded it. This is what makes an eventId actionable: a movement or a
+  // lifecycle entry carries the id, and until now there was nowhere to resolve it. 404 means the
+  // Ledger knows no such event — never that the event did not happen.
+  router.get("/events/:eventId", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const event = await getLedgerEvent.execute(req.params.eventId);
+      if (!event) {
+        res.status(404).json({ error: "Event not found" });
+        return;
+      }
+      res.json(event);
     } catch (err) {
       next(err);
     }

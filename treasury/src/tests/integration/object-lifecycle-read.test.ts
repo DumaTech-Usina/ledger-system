@@ -9,9 +9,10 @@ import { GetObjectLifecycleUseCase } from "../../core/application/use-cases/GetO
 import { GetBookExposureUseCase } from "../../core/application/use-cases/GetBookExposure";
 import { ListPositionsUseCase } from "../../core/application/use-cases/ListPositions";
 import { ListPayablePositionsUseCase } from "../../core/application/use-cases/ListPayablePositions";
+import { GetLedgerEventUseCase } from "../../core/application/use-cases/GetLedgerEvent";
 import { dashboardRoutes } from "../../presentation/web/api/routes/dashboardRoutes";
 import { GetTreasuryDashboardUseCase } from "../../core/application/use-cases/GetTreasuryDashboard";
-import type { PositionLifecycle } from "../../core/application/dtos/LedgerReadModels";
+import type { PositionLifecycle, LedgerEventRef } from "../../core/application/dtos/LedgerReadModels";
 import { PARTY, partyDirectory } from "../fixtures/parties";
 
 /**
@@ -41,7 +42,12 @@ const advanceLifecycle = {
       id: "evt-1", eventType: "advance_payment", economicEffect: "cash_out",
       occurredAt: "2026-07-02T00:00:00.000Z", recordedAt: "2026-07-02T10:00:00.000Z",
       amount: "500.00", currency: "BRL", description: "Advance disbursement",
-      objects: [{ objectId: "intent:intent-A", objectType: "advance", relation: "originates" }],
+      objects: [
+        { objectId: "intent:intent-A", objectType: "advance", relation: "originates" },
+        // The context the audit asked for: what document this position refers to.
+        { objectId: "proposal:PRP-77", objectType: "proposal", relation: "references" },
+      ],
+      source: { system: "treasury", reference: "PRP-77" },
       relatedEventId: null, retracted: false,
       hash: "h1", previousHash: null,
     },
@@ -98,6 +104,28 @@ beforeAll(async () => {
           },
           { ...advanceLifecycle.events[2], id: "evt-right", amount: "215.00" },
         ],
+      }));
+    } else if (path === "/api/positions/advance:origin-retracted") {
+      // The origination itself was retracted. The Ledger's own `origin` block still names it —
+      // it is extracted before the retraction fold — so this is what tells whether Treasury reads
+      // the block or the standing events.
+      res.end(JSON.stringify({
+        ...advanceLifecycle,
+        objectId: "advance:origin-retracted",
+        status: "unknown_origin",
+        events: [
+          { ...advanceLifecycle.events[0], retracted: true },
+          advanceLifecycle.events[1],
+        ],
+      }));
+    } else if (path === "/api/events/evt-1") {
+      res.end(JSON.stringify({
+        id: "evt-1", eventType: "advance_payment", economicEffect: "cash_out",
+        amount: "500.00", currency: "BRL", occurredAt: "2026-07-02T00:00:00.000Z",
+        description: "Advance disbursement", relatedEventId: null,
+        objects: [{ objectId: "intent:intent-A", objectType: "advance", relation: "originates" }],
+        parties: [{ partyId: "party:usina", role: "payer", direction: "out", amount: "500.00" }],
+        source: { system: "treasury", reference: "PRP-77" },
       }));
     } else if (path === "/api/positions/receivable:orphan") {
       // A position the Ledger settled but whose origination it does not know: it publishes no
@@ -180,6 +208,39 @@ describe("HttpLedgerReadAdapter — position lifecycle", () => {
     expect(life.openBalance).toBe("285.00");
   });
 
+  it("carries the contextual references of each event — what it named and where it came from", async () => {
+    const life = (await new HttpLedgerReadAdapter(baseUrl).lifecycle("intent:intent-A"))!;
+
+    // Every object the origination named, not only the position being read.
+    expect(life.events[0].objects).toEqual([
+      { objectId: "intent:intent-A", objectType: "advance", relation: "originates" },
+      { objectId: "proposal:PRP-77", objectType: "proposal", relation: "references" },
+    ]);
+    expect(life.events[0].source).toEqual({ system: "treasury", reference: "PRP-77" });
+  });
+
+  it("names what the standing origination refers to — the document, not a recomputed figure", async () => {
+    const life = (await new HttpLedgerReadAdapter(baseUrl).lifecycle("intent:intent-A"))!;
+
+    expect(life.origin).toEqual({
+      eventId: "evt-1",
+      eventType: "advance_payment",
+      occurredAt: "2026-07-02T00:00:00.000Z",
+      source: { system: "treasury", reference: "PRP-77" },
+      // The siblings only: the position itself is the subject of the read, not a related object.
+      relatedObjects: [{ objectId: "proposal:PRP-77", objectType: "proposal", relation: "references" }],
+    });
+  });
+
+  it("a retracted origination refers to nothing — the Ledger's stale origin block is not read", async () => {
+    const life = (await new HttpLedgerReadAdapter(baseUrl).lifecycle("advance:origin-retracted"))!;
+
+    // The Ledger still publishes origin.eventId = "evt-1" on this payload; treasury answers null
+    // because no origination stands. The event itself remains in the history.
+    expect(life.origin).toBeNull();
+    expect(life.events.map((e) => e.retracted)).toEqual([true, false]);
+  });
+
   it("the demo adapters answer null — they do not project lifecycles", async () => {
     expect(await new StubLedgerReadAdapter().lifecycle("intent:intent-A")).toBeNull();
     expect(await new InMemoryLedgerSimulator().lifecycle("intent:intent-A")).toBeNull();
@@ -209,6 +270,7 @@ describe("GET /api/dashboard/positions/:objectId", () => {
         new GetBookExposureUseCase(read),
         new ListPositionsUseCase(read),
         new ListPayablePositionsUseCase(read),
+        new GetLedgerEventUseCase(read),
       ),
     );
   }
@@ -243,9 +305,39 @@ describe("GET /api/dashboard/positions/:objectId", () => {
     expect(body.events.find((e) => e.relation === "retracts")!.relatedEventId).toBe("evt-2");
   });
 
+  it("serves what the position refers to — the audit's question, answerable in one read", async () => {
+    const res = await fetch(`${apiUrl}/api/dashboard/positions/${encodeURIComponent("intent:intent-A")}`);
+    const body = (await res.json()) as PositionLifecycle;
+
+    expect(body.origin?.source).toEqual({ system: "treasury", reference: "PRP-77" });
+    expect(body.origin?.relatedObjects.map((o) => o.objectType)).toEqual(["proposal"]);
+    expect(body.events[0].objects.map((o) => o.objectId)).toContain("proposal:PRP-77");
+  });
+
   it("answers 404 for an object the Ledger does not know", async () => {
     const res = await fetch(`${apiUrl}/api/dashboard/positions/${encodeURIComponent("intent:nope")}`);
     expect(res.status).toBe(404);
     expect(((await res.json()) as { error: string }).error).toBe("Position not found");
+  });
+
+  // The eventId a movement or a lifecycle carries had nowhere to be resolved: the record existed on
+  // treasury's read boundary and no route published it.
+  it("resolves an eventId to the Ledger's own record of the event", async () => {
+    const res = await fetch(`${apiUrl}/api/dashboard/events/evt-1`);
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as LedgerEventRef;
+    expect(body.eventId).toBe("evt-1");
+    expect(body.eventType).toBe("advance_payment");
+    expect(body.amount).toBe("500.00");
+    expect(body.objects).toEqual([{ objectId: "intent:intent-A", objectType: "advance", relation: "originates" }]);
+    expect(body.parties[0].partyId).toBe("party:usina");
+    expect(body.source).toEqual({ system: "treasury", reference: "PRP-77" });
+  });
+
+  it("an event the Ledger does not know is a 404 — not an empty record", async () => {
+    const res = await fetch(`${apiUrl}/api/dashboard/events/evt-nope`);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toBe("Event not found");
   });
 });

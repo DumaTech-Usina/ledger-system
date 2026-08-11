@@ -45,8 +45,17 @@ const lifecycle = (over: Partial<PositionLifecycle> = {}): PositionLifecycle => 
       relatedEventId: null,
       retracted: false,
       requiresFollowup: false,
+      objects: [{ objectId: "intent:adv-1", objectType: "advance", relation: "originates" }],
+      source: { system: "treasury", reference: "intent:adv-1" },
     },
   ],
+  origin: {
+    eventId: "evt-origin",
+    eventType: "advance_payment",
+    occurredAt: "2026-07-01T00:00:00.000Z",
+    source: { system: "treasury", reference: "intent:adv-1" },
+    relatedObjects: [],
+  },
   ...over,
 });
 

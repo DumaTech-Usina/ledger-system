@@ -31,6 +31,7 @@ const position = (over: Partial<PositionLifecycle> = {}): PositionLifecycle => (
   openBalance: "300.00",
   eventCount: 2,
   events: [],
+  origin: null,
   ...over,
 });
 

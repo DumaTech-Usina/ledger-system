@@ -34,16 +34,30 @@ export class CashEventListingService {
   }
 
   private toMovement(event: LedgerEvent): CashMovement {
+    const parties = event.getParties();
     return {
       eventId: event.id.value,
+      eventType: event.eventType,
       occurredAt: event.occurredAt,
       recordedAt: event.recordedAt,
       effect: event.economicEffect as "cash_in" | "cash_out",
       amount: event.amount,
       sourceReference: event.source.reference ?? null,
+      sourceSystem: event.source.system ?? null,
+      objects: event.getObjects().map((o) => ({
+        objectId: o.objectId.value,
+        objectType: o.objectType,
+        relation: o.relation,
+      })),
+      parties: parties.map((p) => ({
+        partyId: p.partyId.value,
+        role: p.role,
+        direction: p.direction,
+        amount: p.amount,
+      })),
       // For a cash movement the usina is the party that moves cash (IN/OUT); the counterparty is
       // therefore the NEUTRAL party.
-      counterparty: event.getParties().find((p) => p.direction === Direction.NEUTRAL)?.partyId.value ?? null,
+      counterparty: parties.find((p) => p.direction === Direction.NEUTRAL)?.partyId.value ?? null,
       description: event.description,
     };
   }

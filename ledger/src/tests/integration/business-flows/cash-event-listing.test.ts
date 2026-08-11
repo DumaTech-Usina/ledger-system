@@ -3,9 +3,12 @@ import { setup } from "./helpers/setup";
 import { makeRef } from "./helpers/ref";
 import { loanOrigination, loanRepayment } from "./helpers/commands/loan-commands";
 import { commissionExpected, commissionReceived, commissionSplit, commissionWaiver, receivedFor } from "./helpers/commands/commission-commands";
-import { USINA } from "./helpers/parties";
+import { BROKER, USINA } from "./helpers/parties";
 import { CashEventListingService } from "../../../core/application/services/CashEventListingService";
+import { Direction } from "../../../core/domain/enums/Direction";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
+import { EventType } from "../../../core/domain/enums/EventType";
+import { ObjectType } from "../../../core/domain/enums/ObjectType";
 import { Relation } from "../../../core/domain/enums/Relation";
 import { ReasonType } from "../../../core/domain/enums/ReasonType";
 
@@ -128,5 +131,34 @@ describe("CashEventListingService — integration", () => {
 
     expect(allItems).toHaveLength(10);
     expect(new Set(allItems).size).toBe(10);
+  });
+
+  it("CLI5 — a movement says which fact it is part of, what it names, and who took part", async () => {
+    const { ledgerRepo, run } = setup();
+    const svc = new CashEventListingService(ledgerRepo);
+
+    const received = await receivedFor(run, ref, "cli5-com", "1000.00");
+
+    const [movement] = (await svc.list({ partyId: USINA, limit: 50 })).items;
+
+    // `effect` is the economic nature and never said which fact the movement belongs to.
+    expect(movement.eventId).toBe(received.id.value);
+    expect(movement.eventType).toBe(EventType.COMMISSION_RECEIVED);
+
+    // Which position — and therefore which document — the movement belongs to.
+    expect(movement.objects).toEqual([
+      { objectId: "cli5-com", objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.SETTLES },
+    ]);
+
+    // The whole cast, with role and direction. `counterparty` keeps naming the NEUTRAL party.
+    expect(movement.parties.map((p) => [p.partyId, p.direction])).toEqual([
+      [USINA, Direction.IN],
+      [BROKER, Direction.NEUTRAL],
+    ]);
+    expect(movement.counterparty).toBe(BROKER);
+
+    // The reference travelled without the system that issues it; both are published now.
+    expect(movement.sourceSystem).toBe("normalizer");
+    expect(movement.sourceReference).not.toBeNull();
   });
 });

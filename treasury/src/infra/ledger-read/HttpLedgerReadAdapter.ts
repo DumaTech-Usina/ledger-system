@@ -10,6 +10,7 @@ import type {
   PositionsPage,
   PositionItem,
   PositionLifecycle,
+  PositionOriginRef,
   LedgerEventRef,
 } from "../../core/application/dtos/LedgerReadModels";
 
@@ -37,8 +38,30 @@ interface LedgerPositionDetail {
     retracted?: boolean;
     reason?: { type: string; requiresFollowup?: boolean } | null;
     parties?: Array<{ partyId: string; role: string; direction: string }>;
-    objects: Array<{ objectId: string; relation: string }>;
+    objects: Array<{ objectId: string; objectType?: string; relation: string }>;
+    source?: { system: string; reference: string };
   }>;
+}
+
+type LedgerDetailEvent = LedgerPositionDetail["events"][number];
+
+/**
+ * The origination that still STANDS for an object, out of a position detail's published events.
+ *
+ * One rule, one place: the settlement offer and the position detail both need it, and two copies of
+ * a selection rule are two chances to disagree about which origination a position has. Retracted
+ * events are excluded here rather than downstream — a rectification that took an origination back
+ * out must not keep answering for the position anywhere.
+ */
+function standingOrigination(
+  events: readonly LedgerDetailEvent[] | undefined,
+  objectId: string,
+): LedgerDetailEvent | undefined {
+  return (events ?? []).find(
+    (e) =>
+      e.retracted !== true &&
+      e.objects?.some((o) => o.objectId === objectId && o.relation === "originates"),
+  );
 }
 
 /**
@@ -192,11 +215,7 @@ export class HttpLedgerReadAdapter
     );
 
     return items.map((item, i) => {
-      const originating = (details[i]?.events ?? []).find(
-        (e) =>
-          e.retracted !== true &&
-          e.objects?.some((o) => o.objectId === item.objectId && o.relation === "originates"),
-      );
+      const originating = standingOrigination(details[i]?.events, item.objectId);
       return {
         objectId: item.objectId,
         objectType: item.objectType,
@@ -250,6 +269,10 @@ export class HttpLedgerReadAdapter
    * The life of one economic object, from the Ledger's own position projection. The event order is
    * the Ledger's (recordedAt ascending) and is passed through untouched; each event is trimmed to
    * the fields treasury displays, plus the relation it declares for THIS object.
+   *
+   * Each event also carries the contextual references the Ledger publishes about it — every object
+   * it names and where the fact came from — which is what makes "what document does this position
+   * refer to" answerable without a second read. They are passed through, never interpreted.
    */
   async lifecycle(objectId: string): Promise<PositionLifecycle | null> {
     const raw = await this.getOrNull<LedgerPositionDetail>(`/api/positions/${encodeURIComponent(objectId)}`);
@@ -280,7 +303,42 @@ export class HttpLedgerReadAdapter
         // retracted, so `false` states a fact rather than filling a gap with a default.
         retracted: e.retracted === true,
         requiresFollowup: e.reason?.requiresFollowup === true,
+        objects: (e.objects ?? []).map((o) => ({
+          objectId: o.objectId,
+          // The Ledger publishes the type on every object of an event; "" only against one that
+          // does not, and an empty type is shown as the absence it is — never guessed from the id.
+          objectType: o.objectType ?? "",
+          relation: o.relation,
+        })),
+        source: e.source ? { system: e.source.system, reference: e.source.reference } : null,
       })),
+      origin: this.originOf(raw, objectId),
+    };
+  }
+
+  /**
+   * What the position's standing origination refers to. Read from `events[]` — where the Ledger
+   * publishes `retracted` per event — and NOT from the detail's own `origin` block, which is
+   * extracted before the retraction fold and keeps naming an event a rectification already undid.
+   *
+   * Nothing is computed: the fields are the originating event's own, copied across. Null when no
+   * origination stands, which the reader must be able to tell from one that stands with no context.
+   */
+  private originOf(raw: LedgerPositionDetail, objectId: string): PositionOriginRef | null {
+    const originating = standingOrigination(raw.events, objectId);
+    if (!originating) return null;
+
+    return {
+      eventId: originating.id,
+      eventType: originating.eventType,
+      occurredAt: originating.occurredAt,
+      source: originating.source
+        ? { system: originating.source.system, reference: originating.source.reference }
+        : null,
+      // The siblings only — the position itself is already the subject of the read.
+      relatedObjects: (originating.objects ?? [])
+        .filter((o) => o.objectId !== objectId)
+        .map((o) => ({ objectId: o.objectId, objectType: o.objectType ?? "", relation: o.relation })),
     };
   }
 

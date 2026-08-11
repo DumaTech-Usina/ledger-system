@@ -21,6 +21,8 @@ const event = (over: Partial<PositionLifecycleEvent> = {}): PositionLifecycleEve
   relatedEventId: null,
   retracted: false,
   requiresFollowup: false,
+  objects: [],
+  source: null,
   ...over,
 });
 
@@ -35,6 +37,7 @@ const lifecycle = (events: PositionLifecycleEvent[]): PositionLifecycle => ({
   openBalance: "0.00",
   eventCount: events.length,
   events,
+  origin: null,
 });
 
 const origination = event({ eventId: "evt-origin" });
