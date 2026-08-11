@@ -3,13 +3,15 @@ import { Badge } from "@/components/Badge";
 import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
+import { ObjectChip, SourceRef } from "@/features/dashboard/FactContext";
 import { useLanguage } from "@/i18n/i18n";
-import { pendingCorrection, rectifiability } from "@/features/dashboard/lifecycleEngine";
+import { CopyableId } from "@/components/CopyableId";
+import { pendingCorrection, rectifiability, relatedEventOf } from "@/features/dashboard/lifecycleEngine";
 import { useObjectLifecycle } from "@/features/dashboard/useObjectLifecycle";
 import { operationsApi } from "@/features/operations/operationsApi";
 import { formatDate, formatDateTime, formatMoney } from "@/utils/format";
 import { cn } from "@/utils/cn";
-import type { PositionLifecycleEvent } from "@/types/dashboard";
+import type { PositionLifecycleEvent, PositionOriginRef } from "@/types/dashboard";
 import type { RectifyResult } from "@/types/operations";
 
 /**
@@ -44,13 +46,13 @@ export function ObjectLifecycleTimeline({
   }, [objectId]);
 
   if (state.kind === "loading") {
-    return <p className="px-5 py-6 text-sm text-muted">{t.common.loading}</p>;
+    return <p className="px-6 py-6 text-sm text-muted">{t.common.loading}</p>;
   }
   if (state.kind === "unknown") {
-    return <p className="px-5 py-6 text-sm text-muted">{t.dashboard.lifecycle.unknownObject}</p>;
+    return <p className="px-6 py-6 text-sm text-muted">{t.dashboard.lifecycle.unknownObject}</p>;
   }
   if (state.kind === "unavailable") {
-    return <p className="px-5 py-6 text-sm text-muted">{t.dashboard.lifecycle.unavailable}</p>;
+    return <p className="px-6 py-6 text-sm text-muted">{t.dashboard.lifecycle.unavailable}</p>;
   }
 
   const { lifecycle } = state;
@@ -59,11 +61,15 @@ export function ObjectLifecycleTimeline({
   const pending = pendingCorrection(lifecycle.events);
 
   return (
-    <div className="px-5 py-5">
+    <div className="px-6 py-6">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant="neutral">{t.positionStatus[lifecycle.status] ?? lifecycle.status}</Badge>
+        {/* Same rule as everywhere else: an unrecognised status is named as such, with the Ledger's
+            own word kept in the tooltip. */}
+        <Badge variant="neutral" title={lifecycle.status}>
+          {t.positionStatus[lifecycle.status] ?? t.common.unrecognizedStatus}
+        </Badge>
         <Badge variant="neutral">{t.positionOutcome[lifecycle.outcome] ?? lifecycle.outcome}</Badge>
-        <span className="tabular text-[11px] text-muted">{lifecycle.objectId}</span>
+        <CopyableId value={lifecycle.objectId} className="ml-auto" />
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line pt-4 sm:grid-cols-4">
@@ -80,6 +86,8 @@ export function ObjectLifecycleTimeline({
         />
         <Figure label={t.dashboard.lifecycle.events} value={String(lifecycle.eventCount)} />
       </dl>
+
+      <StandingOrigin origin={lifecycle.origin} />
 
       {failure && (
         <Banner variant="bad" className="mt-4">
@@ -103,6 +111,8 @@ export function ObjectLifecycleTimeline({
           <TimelineEvent
             key={event.eventId}
             event={event}
+            objectId={lifecycle.objectId}
+            relatedEvent={relatedEventOf(lifecycle.events, event.relatedEventId)}
             last={index === lifecycle.events.length - 1}
             rectify={rectifiability(event, actions)}
             canRectify={canRectify}
@@ -118,17 +128,71 @@ export function ObjectLifecycleTimeline({
   );
 }
 
+/**
+ * What this position refers to: the fact that originated it and the documents that fact named.
+ *
+ * The server selects it from the events with the retracted ones excluded, so a rectification that
+ * took an origination back does not keep answering here. Null is a legitimate state — a cash-basis
+ * position never had an origination, and a retracted one no longer does — and it is said in words
+ * rather than left blank, because a blank block reads as data that failed to load.
+ */
+function StandingOrigin({ origin }: { origin: PositionOriginRef | null }) {
+  const { t } = useLanguage();
+
+  if (!origin) {
+    return (
+      <p className="mt-4 border-t border-line pt-4 text-[13px] text-muted">
+        {t.dashboard.lifecycle.noStandingOrigin}
+      </p>
+    );
+  }
+
+  return (
+    <section className="mt-4 border-t border-line pt-4">
+      <p className="text-[12px] font-bold uppercase tracking-[0.03em] text-muted">
+        {t.dashboard.lifecycle.originTitle}
+      </p>
+      <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-[13.5px] font-semibold text-ink">
+          {t.eventType[origin.eventType] ?? origin.eventType}
+        </span>
+        <span className="tabular text-[12px] text-muted">{formatDate(origin.occurredAt)}</span>
+        {/* Null against a Ledger that publishes no source — then nothing is shown rather than a
+            placeholder that would look like an origin nobody can trace. */}
+        {origin.source && <SourceRef source={origin.source} />}
+      </div>
+
+      {/* The documents the origination named beside this position. Empty means it named none, which
+          is not an absence of information — so nothing is said about it. */}
+      {origin.relatedObjects.length > 0 && (
+        <>
+          <p className="mt-3 text-[12px] font-bold uppercase tracking-[0.03em] text-muted">
+            {t.dashboard.lifecycle.originReferences}
+          </p>
+          <ul className="divide-y divide-line">
+            {origin.relatedObjects.map((object) => (
+              <ObjectChip key={`${object.objectId}-${object.relation}`} object={object} />
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+  );
+}
+
 function Figure({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
     <div>
-      <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</dt>
-      <dd className={cn("tabular mt-0.5 text-[13px]", muted ? "text-muted" : "text-ink")}>{value}</dd>
+      <dt className="text-[12px] font-bold uppercase tracking-[0.03em] text-muted">{label}</dt>
+      <dd className={cn("tabular mt-1 text-[14px] font-medium", muted ? "text-muted" : "text-ink")}>{value}</dd>
     </div>
   );
 }
 
 function TimelineEvent({
   event,
+  objectId,
+  relatedEvent,
   last,
   rectify,
   canRectify,
@@ -136,6 +200,10 @@ function TimelineEvent({
   onFailure,
 }: {
   event: PositionLifecycleEvent;
+  /** The position being read — what tells this event's own object apart from the ones it references. */
+  objectId: string;
+  /** The event `relatedEventId` names, when this position's history contains it. */
+  relatedEvent: PositionLifecycleEvent | null;
   last: boolean;
   rectify: ReturnType<typeof rectifiability>;
   canRectify: boolean;
@@ -145,6 +213,8 @@ function TimelineEvent({
   const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [rectifying, setRectifying] = useState(false);
+
+  const siblings = event.objects.filter((object) => object.objectId !== objectId);
 
   const copyId = async () => {
     await navigator.clipboard.writeText(event.eventId);
@@ -193,6 +263,18 @@ function TimelineEvent({
           <p className="mt-1.5 text-[12px] text-muted">{t.dashboard.lifecycle.retractedNote}</p>
         )}
 
+        {/* The other objects this event named — the proposal, the contract, the installment that say
+            what the fact was about. Only the siblings: the position being read is already the
+            subject of this screen. Nothing is said when it named none, since naming this one is not
+            the same as naming nothing. */}
+        {siblings.length > 0 && (
+          <ul className="mt-1.5 divide-y divide-line">
+            {siblings.map((object) => (
+              <ObjectChip key={`${object.objectId}-${object.relation}`} object={object} />
+            ))}
+          </ul>
+        )}
+
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
           <button
             type="button"
@@ -202,11 +284,31 @@ function TimelineEvent({
           >
             {copied ? t.dashboard.lifecycle.copied : event.eventId}
           </button>
-          {event.relatedEventId && (
-            <span className="tabular">
-              {t.dashboard.lifecycle.relatedEvent}: {event.relatedEventId}
-            </span>
-          )}
+          {/* Where the fact came from, beside the id that identifies it here. */}
+          {event.source && <SourceRef source={event.source} />}
+          {/* The event this one speaks about, named rather than pointed at. A bare id says a
+              correction happened without saying what it corrected; this says which fact, for how
+              much, and when — which is the whole point of publishing the link. */}
+          {event.relatedEventId &&
+            (relatedEvent ? (
+              <span>
+                {t.dashboard.lifecycle.relatedEvent}:{" "}
+                <span className="font-semibold text-ink">
+                  {t.eventType[relatedEvent.eventType] ?? relatedEvent.eventType}
+                </span>{" "}
+                <span className="tabular">
+                  {formatMoney(relatedEvent.amount, relatedEvent.currency)} ·{" "}
+                  {formatDate(relatedEvent.occurredAt)}
+                </span>
+              </span>
+            ) : (
+              // Outside this position's history, so there is nothing here to resolve it against.
+              // Said in words: an unresolved id would read as a lookup that failed.
+              <span className="inline-flex items-center gap-1.5">
+                {t.dashboard.lifecycle.relatedElsewhere}
+                <CopyableId value={event.relatedEventId} widths="max-w-[10ch] sm:max-w-none" />
+              </span>
+            ))}
           {canRectify &&
             (rectify.available ? (
               <button

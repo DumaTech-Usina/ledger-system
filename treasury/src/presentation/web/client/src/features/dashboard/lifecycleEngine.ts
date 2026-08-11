@@ -63,6 +63,29 @@ export function rectifiability(
   return { available: true };
 }
 
+/**
+ * The event a `relatedEventId` points at, when it is one this position's own history contains.
+ *
+ * `relatedEventId` is the event THIS event speaks about — the assertion a rectification retracts, or
+ * the causal origin of a settlement. On screen it is otherwise a bare id, which tells a reader that
+ * a correction happened without telling them WHAT it corrected. Resolving it is what turns the
+ * chain into an audit trail.
+ *
+ * It is resolved against the events already on hand and nothing is fetched: a rectification normally
+ * retracts an event of the position being read, so the answer is almost always right here. Null
+ * means one of two things the CALLER can tell apart by looking at `relatedEventId` itself — there
+ * was no related event, or there was one and it belongs to a position this screen is not showing.
+ * The second must be said out loud rather than rendered as an unresolved id, because a reader cannot
+ * otherwise tell a missing lookup from a missing event.
+ */
+export function relatedEventOf(
+  events: readonly PositionLifecycleEvent[],
+  relatedEventId: string | null,
+): PositionLifecycleEvent | null {
+  if (relatedEventId === null) return null;
+  return events.find((event) => event.eventId === relatedEventId) ?? null;
+}
+
 /** A correction that was started and not finished, as the position itself reveals it. */
 export interface PendingCorrection {
   retractionEventId: string;

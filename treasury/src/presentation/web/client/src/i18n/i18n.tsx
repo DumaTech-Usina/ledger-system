@@ -22,6 +22,14 @@ export interface Translations {
     next: string;
     pageOf: string;
     viewDetails: string;
+    copyId: string;
+    copied: string;
+    /**
+     * A status the Ledger published that this app has no name for — a vocabulary it has not been
+     * taught yet, not a position in a bad state. The raw value stays in the tooltip: the reader
+     * still needs to be able to report WHAT the book said.
+     */
+    unrecognizedStatus: string;
     /** For a figure the Ledger cannot derive. Never rendered as zero — the two mean different things. */
     unknown: string;
   };
@@ -74,6 +82,8 @@ export interface Translations {
     table: {
       date: string;
       recordedDate: string;
+      /** The object's own id, as the Ledger keys it — what an audit is traced by. */
+      id: string;
       type: string;
       amount: string;
       counterparty: string;
@@ -83,12 +93,42 @@ export interface Translations {
       document: string;
       cashInColumn: string;
       cashOutColumn: string;
+      /** The cash balance standing right after the movement on that row. */
+      balanceColumn: string;
       /** Reads as a question a person would ask, not as a field name. */
       whatHappened: string;
+    };
+    /** The context a fact carries: what it touched, who took part, where it came from. */
+    fact: {
+      whatItTouched: string;
+      /** The event named no object. Distinct from the Ledger not publishing them at all. */
+      touchedNothing: string;
+      objectsNotPublished: string;
+      /** Column headings. Every value in these tables needs one — see FactContext. */
+      record: string;
+      relation: string;
+      participant: string;
+      role: string;
+      direction: string;
+      whoTookPart: string;
+      /** The event recorded no party. Distinct from the Ledger not publishing parties at all. */
+      noParties: string;
+      partiesNotPublished: string;
+      /** Marks, inside the full cast, the one the movement already calls its counterparty. */
+      counterpartyTag: string;
+      origin: string;
+      /** The Ledger published the object without a type — shown as the absence it is. */
+      untypedObject: string;
+      openObject: string;
+      backToMovement: string;
     };
     lifecycle: {
       tabSummary: string;
       tabLifecycle: string;
+      originTitle: string;
+      /** No origination stands: a cash-basis position, or one whose origination was retracted. */
+      noStandingOrigin: string;
+      originReferences: string;
       /** The Ledger knows no such object — distinct from "this object has no events". */
       unknownObject: string;
       unavailable: string;
@@ -98,6 +138,8 @@ export interface Translations {
       occurredOn: string;
       recordedOn: string;
       relatedEvent: string;
+      /** The related event belongs to a position this screen is not showing — said, not left as a bare id. */
+      relatedElsewhere: string;
       copyEventId: string;
       copied: string;
       retracted: string;
@@ -148,6 +190,10 @@ export interface Translations {
   positionStatus: Record<string, string>;
   /** What an event declares about the object it names — the axis that makes a history readable. */
   eventRelation: Record<string, string>;
+  /** What a party was in the fact: payer, payee, intermediary, beneficiary, platform. */
+  partyRole: Record<string, string>;
+  /** Which way the money went for that party — what makes a fact readable as from-whom/to-whom. */
+  partyDirection: Record<string, string>;
   positionOutcome: Record<string, string>;
   /** The intent lifecycle inside the User App — distinct from the Ledger's fact lifecycle. */
   intentStatus: Record<string, string>;
@@ -164,11 +210,14 @@ const ptBR: Translations = {
     next: "Próxima",
     pageOf: "Página {page} de {total}",
     viewDetails: "Ver detalhes",
+    copyId: "Copiar id",
+    copied: "Copiado",
+    unrecognizedStatus: "Status não reconhecido",
     unknown: "Desconhecido",
   },
   nav: {
     operations: "Operações",
-    dashboards: "Caixa",
+    dashboards: "Dashboard",
     positions: "Posições",
     intents: "Minhas operações",
   },
@@ -217,7 +266,7 @@ const ptBR: Translations = {
     collapse: "Recolher",
   },
   dashboard: {
-    heading: "Caixa",
+    heading: "Dashboard",
     subheading: "Quanto dinheiro entrou e saiu, e quando. Somente leitura, obtido do Ledger.",
     unavailable: "Não foi possível carregar os dados do Ledger no momento.",
     cashIn: "Entradas de caixa",
@@ -230,6 +279,7 @@ const ptBR: Translations = {
     table: {
       date: "Data",
       recordedDate: "Data do registro",
+      id: "Id",
       type: "Tipo",
       amount: "Valor",
       counterparty: "Contraparte",
@@ -239,10 +289,32 @@ const ptBR: Translations = {
       document: "Número do documento",
       cashInColumn: "Entradas",
       cashOutColumn: "Saídas",
+      balanceColumn: "Saldo",
       whatHappened: "O que aconteceu",
+    },
+    fact: {
+      whatItTouched: "Posições e documentos",
+      touchedNothing: "Esta movimentação não cita nenhuma posição ou documento.",
+      objectsNotPublished: "O Ledger não informou as posições e documentos desta movimentação.",
+      record: "Registro",
+      relation: "Relação",
+      participant: "Participante",
+      role: "Papel",
+      direction: "Direção",
+      whoTookPart: "Participantes",
+      noParties: "Esta movimentação não registrou participantes.",
+      partiesNotPublished: "O Ledger não informou os participantes desta movimentação.",
+      counterpartyTag: "contraparte",
+      origin: "Origem",
+      untypedObject: "Tipo não informado",
+      openObject: "Abrir posição",
+      backToMovement: "Voltar para a movimentação",
     },
     lifecycle: {
       tabSummary: "Resumo",
+      originTitle: "Originado por",
+      noStandingOrigin: "Nenhuma originação vigente para esta posição.",
+      originReferences: "Refere-se a",
       tabLifecycle: "Ciclo de vida",
       unknownObject: "O Ledger não conhece esta posição. Isso não afirma que nada aconteceu com ela.",
       unavailable: "Não foi possível carregar o ciclo de vida agora.",
@@ -252,6 +324,7 @@ const ptBR: Translations = {
       occurredOn: "Ocorreu em",
       recordedOn: "Registrado em",
       relatedEvent: "Evento relacionado",
+      relatedElsewhere: "Evento relacionado — de outra posição",
       copyEventId: "Copiar id do evento",
       copied: "Copiado",
       retracted: "Retratado",
@@ -325,6 +398,18 @@ const ptBR: Translations = {
     reverses: "Estorna",
     references: "Referencia",
     retracts: "Retrata",
+  },
+  partyRole: {
+    payer: "Pagador",
+    payee: "Recebedor",
+    intermediary: "Intermediário",
+    beneficiary: "Beneficiário",
+    platform: "Plataforma",
+  },
+  partyDirection: {
+    out: "Saiu",
+    in: "Entrou",
+    neutral: "Sem movimento",
   },
   intentStatus: {
     draft: "Rascunho",
@@ -404,11 +489,14 @@ const en: Translations = {
     next: "Next",
     pageOf: "Page {page} of {total}",
     viewDetails: "View details",
+    copyId: "Copy id",
+    copied: "Copied",
+    unrecognizedStatus: "Unrecognized status",
     unknown: "Unknown",
   },
   nav: {
     operations: "Operations",
-    dashboards: "Cash",
+    dashboards: "Dashboard",
     positions: "Positions",
     intents: "My entries",
   },
@@ -470,6 +558,7 @@ const en: Translations = {
     table: {
       date: "Date",
       recordedDate: "Recorded date",
+      id: "Id",
       type: "Type",
       amount: "Amount",
       counterparty: "Counterparty",
@@ -479,10 +568,32 @@ const en: Translations = {
       document: "Document number",
       cashInColumn: "Cash in",
       cashOutColumn: "Cash out",
+      balanceColumn: "Balance",
       whatHappened: "What happened",
+    },
+    fact: {
+      whatItTouched: "Positions and documents",
+      touchedNothing: "This movement names no position or document.",
+      objectsNotPublished: "The Ledger didn't state this movement's positions and documents.",
+      record: "Record",
+      relation: "Relation",
+      participant: "Participant",
+      role: "Role",
+      direction: "Direction",
+      whoTookPart: "Participants",
+      noParties: "This movement recorded no party.",
+      partiesNotPublished: "The Ledger didn't state this movement's parties.",
+      counterpartyTag: "counterparty",
+      origin: "Source",
+      untypedObject: "Type not stated",
+      openObject: "Open position",
+      backToMovement: "Back to the movement",
     },
     lifecycle: {
       tabSummary: "Summary",
+      originTitle: "Originated by",
+      noStandingOrigin: "No standing origination for this position.",
+      originReferences: "Refers to",
       tabLifecycle: "Lifecycle",
       unknownObject: "The Ledger knows no such position. That doesn't assert nothing happened to it.",
       unavailable: "Couldn't load the lifecycle right now.",
@@ -492,6 +603,7 @@ const en: Translations = {
       occurredOn: "Occurred on",
       recordedOn: "Recorded on",
       relatedEvent: "Related event",
+      relatedElsewhere: "Related event — from another position",
       copyEventId: "Copy event id",
       copied: "Copied",
       retracted: "Retracted",
@@ -564,6 +676,18 @@ const en: Translations = {
     reverses: "Reverses",
     references: "References",
     retracts: "Retracts",
+  },
+  partyRole: {
+    payer: "Payer",
+    payee: "Payee",
+    intermediary: "Intermediary",
+    beneficiary: "Beneficiary",
+    platform: "Platform",
+  },
+  partyDirection: {
+    out: "Out",
+    in: "In",
+    neutral: "No movement",
   },
   intentStatus: {
     draft: "Draft",

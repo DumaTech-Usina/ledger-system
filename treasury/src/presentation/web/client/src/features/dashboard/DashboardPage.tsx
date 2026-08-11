@@ -161,14 +161,25 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
                     </p>
                   </div>
                 </div>
-                <MovementsTable movements={movements} currency={cashPosition.currency} partyNames={data.partyNames} />
+                {/* Every movement, in one run — the only shape a balance can be read down. */}
+                <MovementsTable
+                  movements={movements}
+                  currency={cashPosition.currency}
+                  partyNames={data.partyNames}
+                  showBalance
+                />
               </Modal>
 
 
               <section className="space-y-4">
                 <h3 className="font-display text-[15px] font-semibold text-ink">{t.dashboard.recentMovements}</h3>
                 <Card padding="none">
-                  <MovementsTable movements={movements} currency={cashPosition.currency} partyNames={data.partyNames} />
+                  <MovementsTable
+                    movements={movements}
+                    currency={cashPosition.currency}
+                    partyNames={data.partyNames}
+                    showBalance
+                  />
                 </Card>
               </section>
 

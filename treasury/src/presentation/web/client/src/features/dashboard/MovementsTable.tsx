@@ -1,24 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pagination } from "@/components/Pagination";
 import { Table } from "@/components/Table";
 import { RowDetailModal } from "@/features/dashboard/RowDetailModal";
+import { runningBalances } from "@/features/dashboard/cashBalance";
 import { useLanguage } from "@/i18n/i18n";
-import { cn } from "@/utils/cn";
 import { formatDate, formatMoney } from "@/utils/format";
 import type { CashMovement } from "@/types/dashboard";
 
 const PAGE_SIZE = 10;
-
-/**
- * The amount with the direction written into it. Money out reads as a subtraction because that is
- * what it is; anything that isn't a cash movement carries no sign, since it moved no cash.
- */
-function signedAmount(movement: CashMovement, currency: string): string {
-  const value = formatMoney(movement.amount, currency);
-  if (movement.effect === "cash_in") return `+${value}`;
-  if (movement.effect === "cash_out") return `−${value}`;
-  return value;
-}
 
 function EyeIcon() {
   return (
@@ -34,12 +23,37 @@ export interface MovementsTableProps {
   currency: string;
   /** partyId → display name. A party absent here keeps its id: unknown is shown as unknown. */
   partyNames?: Record<string, string>;
+  /**
+   * Adds the running cash-balance column. Off by default, and deliberately so: a balance only means
+   * something over a complete run of movements. On a list filtered to one direction — the cash-in
+   * and cash-out drill-downs — it would accumulate half the story and read as the cash balance,
+   * which it would not be.
+   */
+  showBalance?: boolean;
+  /**
+   * What the balance stood at before the first of these movements. Zero is right when the list
+   * starts at the beginning of the book; a caller holding a later window must say where it opened.
+   */
+  openingBalance?: string;
 }
 
-export function MovementsTable({ movements, currency, partyNames = {} }: MovementsTableProps) {
+export function MovementsTable({
+  movements,
+  currency,
+  partyNames = {},
+  showBalance = false,
+  openingBalance = "0",
+}: MovementsTableProps) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<CashMovement | null>(null);
+
+  // Over the whole list, never the visible page: a balance is what everything before it adds up to,
+  // so paging must not restart the accumulation.
+  const balances = useMemo(
+    () => (showBalance ? runningBalances(movements, openingBalance) : null),
+    [movements, openingBalance, showBalance],
+  );
 
   useEffect(() => {
     setPage(1);
@@ -61,14 +75,18 @@ export function MovementsTable({ movements, currency, partyNames = {} }: Movemen
             <Table.HeaderCell>{t.dashboard.table.date}</Table.HeaderCell>
             <Table.HeaderCell>{t.dashboard.table.whatHappened}</Table.HeaderCell>
             <Table.HeaderCell>{t.dashboard.table.counterparty}</Table.HeaderCell>
-            <Table.HeaderCell className="text-right">{t.dashboard.table.amount}</Table.HeaderCell>
+            <Table.HeaderCell className="text-right">{t.dashboard.table.cashInColumn}</Table.HeaderCell>
+            <Table.HeaderCell className="text-right">{t.dashboard.table.cashOutColumn}</Table.HeaderCell>
+            {showBalance && (
+              <Table.HeaderCell className="text-right">{t.dashboard.table.balanceColumn}</Table.HeaderCell>
+            )}
             <Table.HeaderCell aria-hidden />
           </Table.Row>
         </Table.Head>
         <Table.Body>
           {movements.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={5} className="text-center text-muted">
+              <Table.Cell colSpan={showBalance ? 7 : 6} className="text-center text-muted">
                 {t.common.noRecords}
               </Table.Cell>
             </Table.Row>
@@ -80,20 +98,32 @@ export function MovementsTable({ movements, currency, partyNames = {} }: Movemen
                 </Table.Cell>
                 <Table.Cell className="text-ink">{describe(m)}</Table.Cell>
                 <Table.Cell className="text-muted">{nameOf(m.counterparty)}</Table.Cell>
-                {/* One signed column instead of two half-empty ones. The sign carries the direction,
-                    so the meaning survives without colour — and every effect gets a figure, rather
-                    than the non-cash ones rendering an empty row. */}
-                <Table.Cell
-                  mono
-                  className={cn(
-                    "text-right font-semibold",
-                    m.effect === "cash_in" && "text-ok",
-                    m.effect === "cash_out" && "text-bad",
-                    m.effect !== "cash_in" && m.effect !== "cash_out" && "text-muted",
-                  )}
-                >
-                  {signedAmount(m, currency)}
+                {/* Direction as position: a movement lands in the column that matches what it did
+                    to the cash, and the other side stays empty. A movement that moved no cash —
+                    cash_internal, non_cash, contingent — fills neither, and its figure is in the
+                    detail behind the row; putting it in one of these columns would state that money
+                    came in or went out when none did. */}
+                <Table.Cell mono className="text-right font-semibold text-ok">
+                  {m.effect === "cash_in" ? formatMoney(m.amount, currency) : ""}
                 </Table.Cell>
+                <Table.Cell mono className="text-right font-semibold text-bad">
+                  {m.effect === "cash_out" ? formatMoney(m.amount, currency) : ""}
+                </Table.Cell>
+                {/* The cash balance standing right after this movement. Unknown rather than blank
+                    when it could not be derived — a blank would read as zero cash. */}
+                {showBalance && (
+                  <Table.Cell
+                    mono
+                    className={`text-right font-semibold ${
+                      balances?.get(m.eventId) == null ? "text-muted" : "text-ink"
+                    }`}
+                  >
+                    {(() => {
+                      const balance = balances?.get(m.eventId);
+                      return balance == null ? t.common.unknown : formatMoney(balance, currency);
+                    })()}
+                  </Table.Cell>
+                )}
                 <Table.Cell>
                   <button
                     type="button"

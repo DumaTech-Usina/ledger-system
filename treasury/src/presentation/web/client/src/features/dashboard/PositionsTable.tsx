@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
+import { CopyableId } from "@/components/CopyableId";
 import { Pagination } from "@/components/Pagination";
 import { Table } from "@/components/Table";
 import { RowDetailModal } from "@/features/dashboard/RowDetailModal";
@@ -18,6 +19,7 @@ function EyeIcon() {
     </svg>
   );
 }
+
 
 export function PositionsTable({
   positions,
@@ -64,13 +66,16 @@ export function PositionsTable({
             <Table.HeaderCell>{t.dashboard.table.status}</Table.HeaderCell>
             <Table.HeaderCell>{t.dashboard.table.openBalance}</Table.HeaderCell>
             {showDueDate && <Table.HeaderCell>{t.positions.dueOn}</Table.HeaderCell>}
+            {/* Last: the id identifies the row, it does not describe it. Reading starts from what
+                the position IS and ends at the key you carry away from it. */}
+            <Table.HeaderCell>{t.dashboard.table.id}</Table.HeaderCell>
             <Table.HeaderCell aria-hidden />
           </Table.Row>
         </Table.Head>
         <Table.Body>
           {positions.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={showDueDate ? 5 : 4} className="text-center text-muted">
+              <Table.Cell colSpan={showDueDate ? 6 : 5} className="text-center text-muted">
                 {t.common.noRecords}
               </Table.Cell>
             </Table.Row>
@@ -78,8 +83,13 @@ export function PositionsTable({
             pageRows.map((p) => (
               <Table.Row key={p.objectId}>
                 <Table.Cell className="text-muted">{t.objectType[p.objectType] ?? p.objectType}</Table.Cell>
+                {/* A status this app has no name for is said to be unrecognised, not printed raw —
+                    but the Ledger's own word stays in the tooltip, because a reader who reports the
+                    gap needs to be able to say WHAT the book published. */}
                 <Table.Cell>
-                  <Badge variant="neutral">{t.positionStatus[p.status] ?? p.status}</Badge>
+                  <Badge variant="neutral" title={p.status}>
+                    {t.positionStatus[p.status] ?? t.common.unrecognizedStatus}
+                  </Badge>
                 </Table.Cell>
                 {/* A null balance is an unknown origination, not a zero — the two must never look alike. */}
                 <Table.Cell mono className={p.openBalance === null ? "text-muted" : undefined}>
@@ -92,6 +102,9 @@ export function PositionsTable({
                     {p.dueAt === null ? t.positions.noDueDate : formatDate(p.dueAt)}
                   </Table.Cell>
                 )}
+                <Table.Cell>
+                  <CopyableId value={p.objectId} />
+                </Table.Cell>
                 <Table.Cell>
                   <button
                     type="button"

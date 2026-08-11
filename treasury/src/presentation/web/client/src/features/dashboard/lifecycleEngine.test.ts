@@ -1,6 +1,31 @@
 import { describe, it, expect } from "vitest";
-import { hasOutstandingBalance, pendingCorrection, rectifiability } from "@/features/dashboard/lifecycleEngine";
+import {
+  hasOutstandingBalance,
+  pendingCorrection,
+  rectifiability,
+  relatedEventOf,
+} from "@/features/dashboard/lifecycleEngine";
 import type { PositionLifecycleEvent } from "@/types/dashboard";
+
+const eventFixture = (over: Partial<PositionLifecycleEvent> = {}): PositionLifecycleEvent => ({
+  eventId: "evt-1",
+  eventType: "advance_payment",
+  economicEffect: "cash_out",
+  relation: "originates",
+  amount: "400.00",
+  currency: "BRL",
+  occurredAt: "2026-07-01T00:00:00.000Z",
+  recordedAt: "2026-07-01T00:00:00.000Z",
+  description: null,
+  relatedEventId: null,
+  retracted: false,
+  requiresFollowup: false,
+  // The contextual references the Ledger publishes about the event. Empty here because neither
+  // function under test reads them — both decide on the retraction chain alone.
+  objects: [],
+  source: null,
+  ...over,
+});
 
 describe("rectifiability", () => {
   it("offers the correction for a supported position", () => {
@@ -71,22 +96,27 @@ describe("hasOutstandingBalance", () => {
   });
 });
 
-describe("pendingCorrection", () => {
-  const event = (over: Partial<PositionLifecycleEvent> = {}): PositionLifecycleEvent => ({
-    eventId: "evt-1",
-    eventType: "advance_payment",
-    economicEffect: "cash_out",
-    relation: "originates",
-    amount: "400.00",
-    currency: "BRL",
-    occurredAt: "2026-07-01T00:00:00.000Z",
-    recordedAt: "2026-07-01T00:00:00.000Z",
-    description: null,
-    relatedEventId: null,
-    retracted: false,
-    requiresFollowup: false,
-    ...over,
+describe("relatedEventOf", () => {
+  const target = eventFixture({ eventId: "evt-origin" });
+  const retraction = eventFixture({ eventId: "evt-retract", relatedEventId: "evt-origin" });
+
+  it("names the event a retraction speaks about when this history holds it", () => {
+    expect(relatedEventOf([target, retraction], retraction.relatedEventId)).toBe(target);
   });
+
+  it("answers null when the related event belongs to another position", () => {
+    // The caller tells this apart from "no related event" by looking at relatedEventId itself, and
+    // says so on screen — an unresolved id would read as a lookup that failed.
+    expect(relatedEventOf([retraction], "evt-somewhere-else")).toBeNull();
+  });
+
+  it("answers null when the event speaks about nothing", () => {
+    expect(relatedEventOf([target, retraction], null)).toBeNull();
+  });
+});
+
+describe("pendingCorrection", () => {
+  const event = eventFixture;
 
   const origination = event({ eventId: "evt-origin", retracted: true });
   const withdrawal = event({
