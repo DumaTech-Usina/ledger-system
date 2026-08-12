@@ -25,6 +25,83 @@ export function hasOutstandingBalance(position: Pick<PositionItem, "openBalance"
   return position.openBalance !== null && Number(position.openBalance) > 0;
 }
 
+/** The Badge tones the lifecycle uses. Kept as a type so a mapping cannot invent a variant. */
+export type Tone = "neutral" | "accent" | "ok" | "bad" | "warn";
+
+/**
+ * The colour of a step in an object's life, by what the step DID to the position.
+ *
+ * Colour here is information, not decoration: every pill rendered in one grey left the reader
+ * counting rows to find where the object actually stands. The axis is the relation the event
+ * declares, which is the same axis that makes the sequence readable at all.
+ *
+ * - `originates` opens the position — accent, the live beginning.
+ * - `settles` closes against it — ok, the outcome the book is aiming at.
+ * - `adjusts` changes a figure that already stood — warn: something moved after the fact.
+ * - `reverses` / `retracts` take value or an assertion back out — bad, and deliberately the same
+ *   tone, because from the position's side both are a subtraction of something previously recorded.
+ * - `references` touches nothing here — neutral, and it must not compete with the steps that do.
+ */
+export function relationTone(relation: string | null): Tone {
+  switch (relation) {
+    case "originates":
+      return "accent";
+    case "settles":
+      return "ok";
+    case "adjusts":
+      return "warn";
+    case "reverses":
+    case "retracts":
+      return "bad";
+    default:
+      // `references`, and any relation this app has not been taught: neutral states no opinion,
+      // which is the only honest colour for a step whose meaning is unknown.
+      return "neutral";
+  }
+}
+
+/**
+ * The colour of where the position stands now.
+ *
+ * `unknown_origin` is deliberately NOT `bad`: the Ledger saw a settlement and not what was
+ * originated, which is a gap in what the book was told, not a position in trouble. Colouring it as
+ * a problem would accuse a record of something the book never said.
+ */
+export function statusTone(status: string): Tone {
+  switch (status) {
+    case "open":
+      return "accent";
+    case "partially_settled":
+      return "warn";
+    case "fully_settled":
+      return "ok";
+    case "reversed":
+      return "bad";
+    default:
+      return "neutral";
+  }
+}
+
+/**
+ * The colour of how the position ended. `pending` is accent rather than warn — still running is not
+ * yet a problem — and a loss is coloured as one because that is what it is.
+ */
+export function outcomeTone(outcome: string): Tone {
+  switch (outcome) {
+    case "gain":
+      return "ok";
+    case "partial_loss":
+      return "warn";
+    case "full_loss":
+      return "bad";
+    case "pending":
+      return "accent";
+    default:
+      // `cancelled`, and anything unrecognised: it ended without a verdict to colour.
+      return "neutral";
+  }
+}
+
 export type Rectifiability =
   | { available: true }
   /** `unsupported` — treasury cannot describe a correction of this kind of position yet.

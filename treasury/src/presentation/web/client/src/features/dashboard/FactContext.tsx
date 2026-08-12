@@ -133,6 +133,7 @@ export function FactParties({
   counterparty,
   currency,
   className,
+  heading = true,
 }: {
   /** Undefined when the Ledger does not publish parties at all — not the same as none having taken part. */
   parties: EventPartyRef[] | undefined;
@@ -142,18 +143,24 @@ export function FactParties({
   counterparty?: string | null;
   currency: string;
   className?: string;
+  /**
+   * Off inside a repeating list — a position's timeline shows this per event, and the same heading
+   * ten times down a column is noise. The column headings stay either way: they are what stops a
+   * value from being unlabelled, which the heading never did.
+   */
+  heading?: boolean;
 }) {
   const { t } = useLanguage();
 
   return (
     <section className={className}>
-      <SectionLabel>{t.dashboard.fact.whoTookPart}</SectionLabel>
+      {heading && <SectionLabel>{t.dashboard.fact.whoTookPart}</SectionLabel>}
       {parties === undefined ? (
         <Absence>{t.dashboard.fact.partiesNotPublished}</Absence>
       ) : parties.length === 0 ? (
         <Absence>{t.dashboard.fact.noParties}</Absence>
       ) : (
-        <div className="mt-2">
+        <div className={heading ? "mt-2" : undefined}>
           <Table.Root>
             <Table.Head>
               <Table.Row>

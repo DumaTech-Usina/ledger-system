@@ -338,6 +338,98 @@ describe("CashPositionService", () => {
     expect(result.openReceivables.toString()).toBe("2000.00");
   });
 
+  /**
+   * The composition of each total. It is not a second derivation: these are the very rows the
+   * totals are folded over, published one step earlier instead of discarded. What has to hold —
+   * and what these pin — is that the parts and the whole can never tell different stories.
+   */
+  describe("composition by object type", () => {
+    async function recognizeObligation(
+      repo: InMemoryLedgerEventRepository,
+      objectId: string,
+      objectType: ObjectType,
+      amount: string,
+    ) {
+      const uc = new CreateLedgerEventUseCase(repo, new NoOpAuditLogger());
+      return uc.execute(makeValidCommand({
+        sourceReference: ref(),
+        eventType: EventType.OBLIGATION_RECOGNIZED,
+        economicEffect: EconomicEffect.NON_CASH,
+        amount,
+        objects: [{ objectId, objectType, relation: Relation.ORIGINATES }],
+        parties: [
+          { partyId: "usina",    role: PartyRole.PAYER, direction: Direction.NEUTRAL },
+          { partyId: "supplier", role: PartyRole.PAYEE, direction: Direction.NEUTRAL },
+        ],
+        reason: { type: ReasonType.OBLIGATION_RECOGNITION, description: "obligation", confidence: ConfidenceLevel.HIGH, requiresFollowup: false },
+      }));
+    }
+
+    it("CP15 — each list sums exactly to the total it decomposes", async () => {
+      const repo = new InMemoryLedgerEventRepository();
+      await recognizeObligation(repo, "obj-cp15-payroll", ObjectType.PAYROLL, "4000.00");
+      await recognizeObligation(repo, "obj-cp15-tax", ObjectType.TAX, "1500.00");
+      await createLoan(repo, "obj-cp15-loan", "2000.00");
+      await createAdvance(repo, "obj-cp15-adv", "700.00");
+
+      const result = await makeSvc(repo).summarize();
+
+      const sum = (lines: { openBalance: { toUnits(): bigint } }[]) =>
+        lines.reduce((total, line) => total + line.openBalance.toUnits(), 0n);
+
+      expect(sum(result.openPayablesByType)).toBe(result.openPayables.toUnits());
+      expect(sum(result.openReceivablesByType)).toBe(result.openReceivables.toUnits());
+      expect(sum(result.contingentExposureByType)).toBe(result.contingentExposure.toUnits());
+    });
+
+    it("CP16 — names what the commitment is made of, heaviest first", async () => {
+      const repo = new InMemoryLedgerEventRepository();
+      await recognizeObligation(repo, "obj-cp16-payroll", ObjectType.PAYROLL, "4000.00");
+      await recognizeObligation(repo, "obj-cp16-tax", ObjectType.TAX, "1500.00");
+      await recognizeObligation(repo, "obj-cp16-fee", ObjectType.SERVICE_FEE, "900.00");
+
+      const result = await makeSvc(repo).summarize();
+
+      expect(result.openPayables.toString()).toBe("6400.00");
+      expect(result.openPayablesByType.map((l) => [l.objectType, l.openBalance.toString()])).toEqual([
+        [ObjectType.PAYROLL, "4000.00"],
+        [ObjectType.TAX, "1500.00"],
+        [ObjectType.SERVICE_FEE, "900.00"],
+      ]);
+    });
+
+    it("CP17 — a kind with nothing outstanding is absent, never a zero line", async () => {
+      const repo = new InMemoryLedgerEventRepository();
+      await recognizeObligation(repo, "obj-cp17-payroll", ObjectType.PAYROLL, "4000.00");
+
+      const result = await makeSvc(repo).summarize();
+
+      expect(result.openPayablesByType.map((l) => l.objectType)).toEqual([ObjectType.PAYROLL]);
+      // Nothing receivable was recorded at all: an empty list, which is what "nothing outstanding"
+      // looks like — and it agrees with the total above it.
+      expect(result.openReceivablesByType).toEqual([]);
+      expect(result.openReceivables.toString()).toBe("0.00");
+    });
+
+    it("CP18 — a type in no policy set stays out of every list, as it stays out of every total", async () => {
+      const repo = new InMemoryLedgerEventRepository();
+      const uc = new CreateLedgerEventUseCase(repo, new NoOpAuditLogger());
+      await uc.execute(makeExpectedCommand({
+        sourceReference: ref(),
+        amount: "1000.00",
+        objects: [{ objectId: "obj-cp18-com", objectType: ObjectType.COMMISSION_RECEIVABLE, relation: Relation.ORIGINATES }],
+      }));
+
+      const result = await makeSvc(repo).summarize();
+
+      // COMMISSION_RECEIVABLE belongs to none of the three sets. The composition does not repair
+      // that — it reports the same book the totals report, which is the point.
+      expect(result.openReceivablesByType).toEqual([]);
+      expect(result.openPayablesByType).toEqual([]);
+      expect(result.contingentExposureByType).toEqual([]);
+    });
+  });
+
   it("CP14 — asOf field is within ~1 second of now", async () => {
     const repo = new InMemoryLedgerEventRepository();
     const before = Date.now();

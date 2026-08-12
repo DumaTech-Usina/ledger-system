@@ -53,6 +53,15 @@ export interface Translations {
     dueOn: string;
     noDueDate: string;
     truncatedList: string;
+    /** The total the composition below decomposes: what the book says is committed to leave. */
+    commitments: string;
+    commitmentsNote: string;
+    /** What a total is made of, by kind of object — the Ledger's own rows, one step before the fold. */
+    composition: string;
+    /** The Ledger published no composition. Never rendered as "nothing outstanding". */
+    compositionUnknown: string;
+    /** It published one and it is empty: nothing of that kind is outstanding. */
+    compositionEmpty: string;
   };
   intents: {
     heading: string;
@@ -111,7 +120,11 @@ export interface Translations {
       role: string;
       direction: string;
       whoTookPart: string;
-      /** The event recorded no party. Distinct from the Ledger not publishing parties at all. */
+      /**
+       * The event recorded no party — distinct from the Ledger not publishing parties at all. Both
+       * are worded without a subject: the same block serves a cash movement and a position's own
+       * events, and neither sentence should name one of them.
+       */
       noParties: string;
       partiesNotPublished: string;
       /** Marks, inside the full cast, the one the movement already calls its counterparty. */
@@ -238,6 +251,11 @@ const ptBR: Translations = {
     dueOn: "Vence em",
     noDueDate: "Sem vencimento informado",
     truncatedList: "A lista abaixo mostra apenas as primeiras posições. Os valores acima consideram o livro inteiro.",
+    commitments: "Compromissos reconhecidos",
+    commitmentsNote: "O que a Usina deve por obrigações já reconhecidas e ainda não pagas.",
+    composition: "Composição por natureza",
+    compositionUnknown: "O livro não informou a composição deste total.",
+    compositionEmpty: "Nada em aberto nesta natureza.",
     total: "{count} posições",
   },
   intents: {
@@ -302,8 +320,8 @@ const ptBR: Translations = {
       role: "Papel",
       direction: "Direção",
       whoTookPart: "Participantes",
-      noParties: "Esta movimentação não registrou participantes.",
-      partiesNotPublished: "O Ledger não informou os participantes desta movimentação.",
+      noParties: "Nenhum participante registrado.",
+      partiesNotPublished: "O Ledger não informou os participantes.",
       counterpartyTag: "contraparte",
       origin: "Origem",
       untypedObject: "Tipo não informado",
@@ -391,13 +409,23 @@ const ptBR: Translations = {
     // The Ledger saw a settlement but not what was originated — never to be read as zero.
     unknown_origin: "Origem desconhecida",
   },
+  /*
+   * Nouns, not verbs, and deliberately not participles.
+   *
+   * The verb form ("Liquida") is grammatically right — the event is the subject — but a pill carries
+   * no subject, so it reads as a fragment. The participle would be worse: "Liquidado" and
+   * "Estornado" already name where the POSITION stands in `positionStatus`, and reusing them here
+   * would put the same word on two badges that answer different questions.
+   *
+   * The noun names the kind of step, which is what this column actually holds.
+   */
   eventRelation: {
-    originates: "Origina",
-    adjusts: "Ajusta",
-    settles: "Liquida",
-    reverses: "Estorna",
-    references: "Referencia",
-    retracts: "Retrata",
+    originates: "Originação",
+    adjusts: "Ajuste",
+    settles: "Liquidação",
+    reverses: "Estorno",
+    references: "Referência",
+    retracts: "Retratação",
   },
   partyRole: {
     payer: "Pagador",
@@ -517,6 +545,11 @@ const en: Translations = {
     dueOn: "Due",
     noDueDate: "No due date stated",
     truncatedList: "The list below shows only the first positions. The figures above cover the whole book.",
+    commitments: "Recognized commitments",
+    commitmentsNote: "What Usina owes on obligations already recognized and not yet paid.",
+    composition: "Composition by kind",
+    compositionUnknown: "The book did not publish this total's composition.",
+    compositionEmpty: "Nothing outstanding of this kind.",
     total: "{count} positions",
   },
   intents: {
@@ -581,8 +614,8 @@ const en: Translations = {
       role: "Role",
       direction: "Direction",
       whoTookPart: "Participants",
-      noParties: "This movement recorded no party.",
-      partiesNotPublished: "The Ledger didn't state this movement's parties.",
+      noParties: "No party recorded.",
+      partiesNotPublished: "The Ledger didn't state the parties.",
       counterpartyTag: "counterparty",
       origin: "Source",
       untypedObject: "Type not stated",
@@ -669,13 +702,14 @@ const en: Translations = {
     reversed: "Reversed",
     unknown_origin: "Unknown origin",
   },
+  /** Nouns here too, and for the same reason — see the pt-BR block above. */
   eventRelation: {
-    originates: "Originates",
-    adjusts: "Adjusts",
-    settles: "Settles",
-    reverses: "Reverses",
-    references: "References",
-    retracts: "Retracts",
+    originates: "Origination",
+    adjusts: "Adjustment",
+    settles: "Settlement",
+    reverses: "Reversal",
+    references: "Reference",
+    retracts: "Retraction",
   },
   partyRole: {
     payer: "Payer",

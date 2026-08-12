@@ -3,10 +3,18 @@ import { Badge } from "@/components/Badge";
 import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
-import { ObjectChip, SourceRef } from "@/features/dashboard/FactContext";
+import { FactParties, ObjectChip, SourceRef } from "@/features/dashboard/FactContext";
 import { useLanguage } from "@/i18n/i18n";
 import { CopyableId } from "@/components/CopyableId";
-import { pendingCorrection, rectifiability, relatedEventOf } from "@/features/dashboard/lifecycleEngine";
+import {
+  outcomeTone,
+  pendingCorrection,
+  rectifiability,
+  relatedEventOf,
+  relationTone,
+  statusTone,
+  type Tone,
+} from "@/features/dashboard/lifecycleEngine";
 import { useObjectLifecycle } from "@/features/dashboard/useObjectLifecycle";
 import { operationsApi } from "@/features/operations/operationsApi";
 import { formatDate, formatDateTime, formatMoney } from "@/utils/format";
@@ -65,10 +73,14 @@ export function ObjectLifecycleTimeline({
       <div className="flex flex-wrap items-center gap-2">
         {/* Same rule as everywhere else: an unrecognised status is named as such, with the Ledger's
             own word kept in the tooltip. */}
-        <Badge variant="neutral" title={lifecycle.status}>
+        {/* Where it stands, and how it ended — two different questions, so two different tones
+            rather than one grey pair the reader has to read word by word. */}
+        <Badge variant={statusTone(lifecycle.status)} dot title={lifecycle.status}>
           {t.positionStatus[lifecycle.status] ?? t.common.unrecognizedStatus}
         </Badge>
-        <Badge variant="neutral">{t.positionOutcome[lifecycle.outcome] ?? lifecycle.outcome}</Badge>
+        <Badge variant={outcomeTone(lifecycle.outcome)} dot>
+          {t.positionOutcome[lifecycle.outcome] ?? lifecycle.outcome}
+        </Badge>
         <CopyableId value={lifecycle.objectId} className="ml-auto" />
       </div>
 
@@ -87,7 +99,11 @@ export function ObjectLifecycleTimeline({
         <Figure label={t.dashboard.lifecycle.events} value={String(lifecycle.eventCount)} />
       </dl>
 
-      <StandingOrigin origin={lifecycle.origin} />
+      <StandingOrigin
+        origin={lifecycle.origin}
+        partyNames={lifecycle.partyNames}
+        currency={lifecycle.currency}
+      />
 
       {failure && (
         <Banner variant="bad" className="mt-4">
@@ -112,6 +128,7 @@ export function ObjectLifecycleTimeline({
             key={event.eventId}
             event={event}
             objectId={lifecycle.objectId}
+            partyNames={lifecycle.partyNames}
             relatedEvent={relatedEventOf(lifecycle.events, event.relatedEventId)}
             last={index === lifecycle.events.length - 1}
             rectify={rectifiability(event, actions)}
@@ -136,7 +153,15 @@ export function ObjectLifecycleTimeline({
  * position never had an origination, and a retracted one no longer does — and it is said in words
  * rather than left blank, because a blank block reads as data that failed to load.
  */
-function StandingOrigin({ origin }: { origin: PositionOriginRef | null }) {
+function StandingOrigin({
+  origin,
+  partyNames,
+  currency,
+}: {
+  origin: PositionOriginRef | null;
+  partyNames: Record<string, string>;
+  currency: string;
+}) {
   const { t } = useLanguage();
 
   if (!origin) {
@@ -176,9 +201,28 @@ function StandingOrigin({ origin }: { origin: PositionOriginRef | null }) {
           </ul>
         </>
       )}
+
+      {/* Who the position is WITH — read from the origination that still stands, so a rectified one
+          never keeps answering for it. This is the "from whom, to whom" the cash screen has had all
+          along, now on the side of the book that says what is owed. */}
+      <FactParties
+        parties={origin.parties}
+        partyNames={partyNames}
+        currency={currency}
+        className="mt-4"
+      />
     </section>
   );
 }
+
+/** The rail marker's fill per tone — the same scale the badges use, as a solid dot. */
+const RAIL_DOT: Record<Tone, string> = {
+  neutral: "bg-muted",
+  accent: "bg-accent dark:bg-secondary",
+  ok: "bg-ok",
+  bad: "bg-bad",
+  warn: "bg-warn",
+};
 
 function Figure({ label, value, muted }: { label: string; value: string; muted?: boolean }) {
   return (
@@ -192,6 +236,7 @@ function Figure({ label, value, muted }: { label: string; value: string; muted?:
 function TimelineEvent({
   event,
   objectId,
+  partyNames,
   relatedEvent,
   last,
   rectify,
@@ -202,6 +247,8 @@ function TimelineEvent({
   event: PositionLifecycleEvent;
   /** The position being read — what tells this event's own object apart from the ones it references. */
   objectId: string;
+  /** partyId → display name, resolved once for the whole life and shared by every event in it. */
+  partyNames: Record<string, string>;
   /** The event `relatedEventId` names, when this position's history contains it. */
   relatedEvent: PositionLifecycleEvent | null;
   last: boolean;
@@ -226,11 +273,14 @@ function TimelineEvent({
     <li className="relative flex gap-3 pb-6 last:pb-0">
       {/* The rail carries the chain's order, which is the one thing this list must never lose. */}
       {!last && <span aria-hidden className="absolute left-[5px] top-3 h-full w-px bg-line" />}
+      {/* The marker carries the same tone as the step's badge, so the rail itself reads as a
+          progression instead of a column of identical dots. A retracted step goes grey: it stays in
+          the sequence, but colouring it as a live step would say it still counts. */}
       <span
         aria-hidden
         className={cn(
           "relative mt-1.5 size-2.5 flex-shrink-0 rounded-full",
-          event.retracted ? "bg-muted/50" : "bg-accent",
+          event.retracted ? "bg-muted/50" : RAIL_DOT[relationTone(event.relation)],
         )}
       />
 
@@ -239,8 +289,12 @@ function TimelineEvent({
           <span className="text-[13.5px] font-semibold text-ink">
             {t.eventType[event.eventType] ?? event.eventType}
           </span>
+          {/* The step's own colour, by what it did to this position. A retracted step keeps its
+              tone but is dimmed by the wrapper — it still happened, it just no longer counts. */}
           {event.relation && (
-            <Badge variant="neutral">{t.eventRelation[event.relation] ?? event.relation}</Badge>
+            <Badge variant={relationTone(event.relation)} dot>
+              {t.eventRelation[event.relation] ?? event.relation}
+            </Badge>
           )}
           {event.retracted && <Badge variant="warn">{t.dashboard.lifecycle.retracted}</Badge>}
           <span className="tabular ml-auto text-[13px] font-semibold text-ink">
@@ -273,6 +327,20 @@ function TimelineEvent({
               <ObjectChip key={`${object.objectId}-${object.relation}`} object={object} />
             ))}
           </ul>
+        )}
+
+        {/* Who took part in THIS entry. Shown per event, not only on the origination, because they
+            are not always the same people: an advance can be originated with one party and settled
+            by another, and a history that showed only the first would hide that. Omitted when the
+            entry named nobody — there is no absence to report on a list that is simply empty. */}
+        {event.parties.length > 0 && (
+          <FactParties
+            parties={event.parties}
+            partyNames={partyNames}
+            currency={event.currency}
+            className="mt-2.5"
+            heading={false}
+          />
         )}
 
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">

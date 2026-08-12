@@ -1,7 +1,12 @@
 import { type HTMLAttributes } from "react";
 import { cn } from "@/utils/cn";
 
-type Variant = "neutral" | "ok" | "bad" | "warn";
+/**
+ * `accent` is the "this is live / this is the beginning" tone, distinct from `ok` (it closed well)
+ * and `warn` (it needs attention). A lifecycle needs a colour for "in progress" that does not read
+ * as either a success or a problem.
+ */
+type Variant = "neutral" | "accent" | "ok" | "bad" | "warn";
 
 export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
   variant?: Variant;
@@ -11,6 +16,9 @@ export interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 
 const variantClasses: Record<Variant, string> = {
   neutral: "bg-ink/6 text-muted dark:bg-white/8",
+  // Dark mode swaps the ink, not the fill: --color-accent stays a deep blue in the dark theme and
+  // would sink into the tint, so the lighter --color-secondary carries the text there.
+  accent: "bg-accent-soft text-accent dark:text-secondary",
   ok: "bg-ok-soft text-ok",
   bad: "bg-bad-soft text-bad",
   warn: "bg-warn-soft text-warn",
@@ -18,6 +26,7 @@ const variantClasses: Record<Variant, string> = {
 
 const dotClasses: Record<Variant, string> = {
   neutral: "bg-muted",
+  accent: "bg-accent",
   ok: "bg-ok",
   bad: "bg-bad",
   warn: "bg-warn",

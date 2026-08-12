@@ -1,9 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   hasOutstandingBalance,
+  outcomeTone,
   pendingCorrection,
   rectifiability,
   relatedEventOf,
+  relationTone,
+  statusTone,
 } from "@/features/dashboard/lifecycleEngine";
 import type { PositionLifecycleEvent } from "@/types/dashboard";
 
@@ -24,6 +27,7 @@ const eventFixture = (over: Partial<PositionLifecycleEvent> = {}): PositionLifec
   // function under test reads them — both decide on the retraction chain alone.
   objects: [],
   source: null,
+  parties: [],
   ...over,
 });
 
@@ -93,6 +97,40 @@ describe("hasOutstandingBalance", () => {
 
   it("does not count an unknown origination — an unknown is never folded into a total", () => {
     expect(hasOutstandingBalance({ openBalance: null })).toBe(false);
+  });
+});
+
+describe("lifecycle tones", () => {
+  it("gives each step of a life its own colour", () => {
+    // The point of the mapping: a reader must be able to find where the object stands without
+    // reading every pill, which a single grey made impossible.
+    const tones = ["originates", "settles", "adjusts", "references"].map(relationTone);
+    expect(new Set(tones).size).toBe(4);
+  });
+
+  it("colours the two ways of taking something back the same", () => {
+    // From the position's side both subtract something previously recorded.
+    expect(relationTone("reverses")).toBe("bad");
+    expect(relationTone("retracts")).toBe("bad");
+  });
+
+  it("stays neutral about a step it has no opinion on", () => {
+    // A relation this app was never taught must not be coloured as good or bad.
+    expect(relationTone("some_new_relation")).toBe("neutral");
+    expect(relationTone(null)).toBe("neutral");
+  });
+
+  it("does not colour an unknown origination as a problem", () => {
+    // The book was not told what was originated. That is a gap in the record, not a position in
+    // trouble, and colouring it red would accuse it of something nobody said.
+    expect(statusTone("unknown_origin")).toBe("neutral");
+    expect(statusTone("reversed")).toBe("bad");
+  });
+
+  it("separates still-running from settled and from lost", () => {
+    expect(outcomeTone("pending")).toBe("accent");
+    expect(outcomeTone("gain")).toBe("ok");
+    expect(outcomeTone("full_loss")).toBe("bad");
   });
 });
 

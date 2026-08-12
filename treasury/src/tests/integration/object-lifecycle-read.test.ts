@@ -5,7 +5,7 @@ import express from "express";
 import { HttpLedgerReadAdapter } from "../../infra/ledger-read/HttpLedgerReadAdapter";
 import { StubLedgerReadAdapter } from "../../infra/ledger-read/StubLedgerReadAdapter";
 import { InMemoryLedgerSimulator } from "../../infra/ledger-sim/InMemoryLedgerSimulator";
-import { GetObjectLifecycleUseCase } from "../../core/application/use-cases/GetObjectLifecycle";
+import { GetObjectLifecycleUseCase, type ObjectLifecycleView } from "../../core/application/use-cases/GetObjectLifecycle";
 import { GetBookExposureUseCase } from "../../core/application/use-cases/GetBookExposure";
 import { ListPositionsUseCase } from "../../core/application/use-cases/ListPositions";
 import { ListPayablePositionsUseCase } from "../../core/application/use-cases/ListPayablePositions";
@@ -13,7 +13,7 @@ import { GetLedgerEventUseCase } from "../../core/application/use-cases/GetLedge
 import { dashboardRoutes } from "../../presentation/web/api/routes/dashboardRoutes";
 import { GetTreasuryDashboardUseCase } from "../../core/application/use-cases/GetTreasuryDashboard";
 import type { PositionLifecycle, LedgerEventRef } from "../../core/application/dtos/LedgerReadModels";
-import { PARTY, partyDirectory } from "../fixtures/parties";
+import { PARTY, PARTY_DISPLAY_NAMES, partyDirectory } from "../fixtures/parties";
 
 /**
  * Makes the life of ONE economic object observable through Treasury's API. Nothing is projected
@@ -48,6 +48,12 @@ const advanceLifecycle = {
         { objectId: "proposal:PRP-77", objectType: "proposal", relation: "references" },
       ],
       source: { system: "treasury", reference: "PRP-77" },
+      // Who the position is with. The Ledger has always published this; the lifecycle route used
+      // to drop it, so a reader could see what the position referred to and not with whom.
+      parties: [
+        { partyId: PARTY.USINA, role: "payer", direction: "out", amount: "500.00" },
+        { partyId: PARTY.BROKER, role: "payee", direction: "neutral", amount: null },
+      ],
       relatedEventId: null, retracted: false,
       hash: "h1", previousHash: null,
     },
@@ -229,7 +235,32 @@ describe("HttpLedgerReadAdapter — position lifecycle", () => {
       source: { system: "treasury", reference: "PRP-77" },
       // The siblings only: the position itself is the subject of the read, not a related object.
       relatedObjects: [{ objectId: "proposal:PRP-77", objectType: "proposal", relation: "references" }],
+      parties: [
+        { partyId: PARTY.USINA, role: "payer", direction: "out", amount: "500.00" },
+        { partyId: PARTY.BROKER, role: "payee", direction: "neutral", amount: null },
+      ],
     });
+  });
+
+  it("names who the position is with — the counterparty, without a second read", async () => {
+    const life = (await new HttpLedgerReadAdapter(baseUrl).lifecycle("intent:intent-A"))!;
+
+    expect(life.events[0].parties).toEqual([
+      { partyId: PARTY.USINA, role: "payer", direction: "out", amount: "500.00" },
+      { partyId: PARTY.BROKER, role: "payee", direction: "neutral", amount: null },
+    ]);
+    // And on the position itself, read from the origination that still stands.
+    expect(life.origin?.parties.map((p) => [p.partyId, p.role])).toEqual([
+      [PARTY.USINA, "payer"],
+      [PARTY.BROKER, "payee"],
+    ]);
+  });
+
+  it("an event that named no party carries an empty list — absence, not an unknown", async () => {
+    // A settlement recorded with no party at all is a legitimate record, and the mirror says so
+    // rather than omitting the field and leaving the reader to guess which it was.
+    const life = (await new HttpLedgerReadAdapter(baseUrl).lifecycle("intent:intent-A"))!;
+    expect(life.events[1].parties).toEqual([]);
   });
 
   it("a retracted origination refers to nothing — the Ledger's stale origin block is not read", async () => {
@@ -266,7 +297,7 @@ describe("GET /api/dashboard/positions/:objectId", () => {
       "/api/dashboard",
       dashboardRoutes(
         new GetTreasuryDashboardUseCase(read, PARTY.USINA, partyDirectory()),
-        new GetObjectLifecycleUseCase(read),
+        new GetObjectLifecycleUseCase(read, partyDirectory()),
         new GetBookExposureUseCase(read),
         new ListPositionsUseCase(read),
         new ListPayablePositionsUseCase(read),
@@ -312,6 +343,25 @@ describe("GET /api/dashboard/positions/:objectId", () => {
     expect(body.origin?.source).toEqual({ system: "treasury", reference: "PRP-77" });
     expect(body.origin?.relatedObjects.map((o) => o.objectType)).toEqual(["proposal"]);
     expect(body.events[0].objects.map((o) => o.objectId)).toContain("proposal:PRP-77");
+  });
+
+  it("serves the counterparty and its readable name, in one read", async () => {
+    const res = await fetch(`${apiUrl}/api/dashboard/positions/${encodeURIComponent("intent:intent-A")}`);
+    const body = (await res.json()) as ObjectLifecycleView;
+
+    expect(body.origin?.parties.find((p) => p.partyId !== PARTY.USINA)?.partyId).toBe(PARTY.BROKER);
+    // Names travel BESIDE the mirror, never inside it: the events keep publishing ids.
+    expect(body.partyNames[PARTY.BROKER]).toBe(PARTY_DISPLAY_NAMES[PARTY.BROKER]);
+    expect(body.events[0].parties[0]).not.toHaveProperty("displayName");
+  });
+
+  it("keeps the Ledger's projection when no name can be resolved — ids stay on screen", async () => {
+    const read = new HttpLedgerReadAdapter(baseUrl);
+    // No Directory at all: the same answer a Directory that does not know the party would give.
+    const view = (await new GetObjectLifecycleUseCase(read).execute("intent:intent-A"))!;
+
+    expect(view.partyNames).toEqual({});
+    expect(view.origin?.parties.map((p) => p.partyId)).toEqual([PARTY.USINA, PARTY.BROKER]);
   });
 
   it("answers 404 for an object the Ledger does not know", async () => {

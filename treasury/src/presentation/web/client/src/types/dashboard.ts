@@ -1,9 +1,28 @@
+/**
+ * One line of what an open-balance total is made of. A kind of object with nothing outstanding is
+ * absent from the list — never present as a zero line.
+ */
+export interface OpenBalanceByObjectType {
+  objectType: string;
+  openBalance: string;
+}
+
 export interface CashPosition {
   totalCashIn: string;
   totalCashOut: string;
   netCashFlow: string;
   openReceivables: string;
+  /** Recognized obligations not yet paid. Never netted against the cash figures or the receivables. */
+  openPayables?: string;
   contingentExposure: string;
+  /**
+   * What each total above is made of. Absent against a Ledger that does not publish the
+   * composition, which is "not told" — distinct from an empty list, which says nothing is
+   * outstanding. The screen must keep the two apart; see `compositionState`.
+   */
+  openReceivablesByType?: OpenBalanceByObjectType[];
+  openPayablesByType?: OpenBalanceByObjectType[];
+  contingentExposureByType?: OpenBalanceByObjectType[];
   currency: string;
   asOf: string;
 }
@@ -125,40 +144,32 @@ export interface PositionLifecycleEvent {
   requiresFollowup: boolean;
   /**
    * Every object the event names, not only the one being read. The siblings are the contextual
-   * references — the proposal, the contract, the installment — that say what the fact was about.
-   * `relation` above stays the one declared for the requested objectId; neither field changes what
-   * it always meant.
-   *
-   * The parties of these events are NOT here: the Ledger publishes them, but treasury's read
-   * adapter does not carry them through, so this screen cannot say who took part in a position's
-   * events the way the movement screen can.
+   * references — proposal, contract, installment — that say what the fact was about. `relation`
+   * above stays the one declared for the requested objectId.
    */
-  objects: EventObjectRef[];
-  /**
-   * Where the fact came from: the external system and its own identifier for it (proposal number,
-   * contract id, the intent that produced it). Null only against a Ledger that publishes no source.
-   */
+  objects: { objectId: string; objectType: string; relation: string }[];
+  /** The external system and its own identifier for the fact. Null when the book publishes none. */
   source: { system: string; reference: string } | null;
+  /**
+   * Who took part, as the Ledger recorded them. Ids only — a display name is treasury's knowledge
+   * and arrives in `partyNames` beside the payload. Empty when the event named nobody, which is a
+   * legitimate record and not a gap.
+   */
+  parties: { partyId: string; role: string; direction: string; amount: string | null }[];
 }
 
 /**
- * What the origination that STILL STANDS for a position refers to — the document, contract or
- * proposal behind it.
- *
- * Selected by the server from the published events with the retracted ones excluded, so a
- * rectification that took an origination back is not still answering for the position here.
+ * What the standing origination of a position refers to, and who it is with. Selected from the
+ * events that still stand — a retracted origination answers for nothing, so this is null then.
  */
 export interface PositionOriginRef {
   eventId: string;
   eventType: string;
   occurredAt: string;
-  /** The external system and its identifier for the fact — the position's "número de origem". */
   source: { system: string; reference: string } | null;
-  /**
-   * The other objects the origination named beside this position. Empty when it named none — which
-   * is not the same as a reference that is unknown.
-   */
-  relatedObjects: EventObjectRef[];
+  /** Siblings named beside the position: proposal, contract, installment. */
+  relatedObjects: { objectId: string; objectType: string; relation: string }[];
+  parties: { partyId: string; role: string; direction: string; amount: string | null }[];
 }
 
 /**
@@ -179,12 +190,13 @@ export interface PositionLifecycle {
   openBalance: string | null;
   eventCount: number;
   events: PositionLifecycleEvent[];
-  /**
-   * What the standing origination refers to. Null when none stands — a legitimate state (a
-   * cash-basis position never had one, a retracted one no longer does) and never inferred from
-   * elsewhere, so it must be said in words rather than left blank.
-   */
+  /** What the position refers to and who it is with. Null when no origination stands. */
   origin: PositionOriginRef | null;
+  /**
+   * partyId → display name for every party named in this object's life. A party the Directory does
+   * not know is absent here and keeps its id on screen — never a label the app cannot support.
+   */
+  partyNames: Record<string, string>;
 }
 
 /**

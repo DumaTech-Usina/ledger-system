@@ -37,10 +37,22 @@ interface LedgerPositionDetail {
     relatedEventId: string | null;
     retracted?: boolean;
     reason?: { type: string; requiresFollowup?: boolean } | null;
-    parties?: Array<{ partyId: string; role: string; direction: string }>;
+    parties?: Array<{ partyId: string; role: string; direction: string; amount?: string | null }>;
     objects: Array<{ objectId: string; objectType?: string; relation: string }>;
     source?: { system: string; reference: string };
   }>;
+}
+
+/** The parties of one Ledger event, trimmed to what treasury displays. Ids only, never names. */
+function mapParties(parties: LedgerDetailEvent["parties"]) {
+  return (parties ?? []).map((p) => ({
+    partyId: p.partyId,
+    role: p.role,
+    direction: p.direction,
+    // Per-party amounts exist only where the fact split one; absent is "this leg carried no
+    // amount", which the Ledger states by omitting it rather than by writing a zero.
+    amount: p.amount ?? null,
+  }));
 }
 
 type LedgerDetailEvent = LedgerPositionDetail["events"][number];
@@ -311,6 +323,7 @@ export class HttpLedgerReadAdapter
           relation: o.relation,
         })),
         source: e.source ? { system: e.source.system, reference: e.source.reference } : null,
+        parties: mapParties(e.parties),
       })),
       origin: this.originOf(raw, objectId),
     };
@@ -339,6 +352,7 @@ export class HttpLedgerReadAdapter
       relatedObjects: (originating.objects ?? [])
         .filter((o) => o.objectId !== objectId)
         .map((o) => ({ objectId: o.objectId, objectType: o.objectType ?? "", relation: o.relation })),
+      parties: mapParties(originating.parties),
     };
   }
 

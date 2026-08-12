@@ -21,7 +21,14 @@ beforeAll(async () => {
     if (path === "/api/cash-position") {
       res.end(JSON.stringify({
         totalCashIn: "1000.00", totalCashOut: "400.00", netCashFlow: "+600.00",
-        openReceivables: "250.00", contingentExposure: "0.00", currency: "BRL",
+        openReceivables: "250.00", openPayables: "180.00", contingentExposure: "0.00",
+        openReceivablesByType: [{ objectType: "loan", openBalance: "250.00" }],
+        openPayablesByType: [
+          { objectType: "payroll", openBalance: "150.00" },
+          { objectType: "tax", openBalance: "30.00" },
+        ],
+        contingentExposureByType: [],
+        currency: "BRL",
         asOf: "2026-07-09T00:00:00.000Z",
       }));
     } else if (path === "/api/cash-movements") {
@@ -66,6 +73,20 @@ describe("HttpLedgerReadAdapter", () => {
     expect(pos.total).toBe(1);
     expect(pos.data[0]).toHaveProperty("openBalance", "1000.00");
     expect(pos.data[0]).not.toHaveProperty("allocationGap"); // trimmed to displayed fields
+  });
+
+  it("carries what each open-balance total is made of, without adding anything up", async () => {
+    const cash = await new HttpLedgerReadAdapter(baseUrl).cashPosition();
+
+    expect(cash.openPayables).toBe("180.00");
+    expect(cash.openPayablesByType).toEqual([
+      { objectType: "payroll", openBalance: "150.00" },
+      { objectType: "tax", openBalance: "30.00" },
+    ]);
+    expect(cash.openReceivablesByType).toEqual([{ objectType: "loan", openBalance: "250.00" }]);
+    // Published and empty: nothing contingent is outstanding. Distinct from absent, which would
+    // mean the book did not say — and the screen keeps the two apart.
+    expect(cash.contingentExposureByType).toEqual([]);
   });
 
   it("sends the service token as a Bearer credential when configured", async () => {

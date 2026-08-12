@@ -173,6 +173,17 @@ describe("CandidateMapper — CASH_IN settlements with lineage (Phase 6)", () =>
     expect(c.objects).toEqual([{ objectId: "intent:intent-1", objectType: "commission_receivable", relation: "settles" }]);
   });
 
+  it("a cash-in names who paid — the role, not an inference from direction", () => {
+    const c = build("register_commission_received", { ...cashInCommon, origin: "evt-expected-1" });
+
+    // The record answers "who paid?" on its own. It used to say `beneficiary` here, which named
+    // nobody as the payer and pointed at the receiver instead; a reader could only recover the
+    // answer by knowing that on a cash_in the neutral party must be the source — an inference that
+    // breaks the moment an event carries a third party.
+    expect(c.parties.find((p) => p.role === "payer")?.partyId).toBe(PARTY.OPERATOR);
+    expect(c.parties.find((p) => p.role === "payee")?.partyId).toBe(USINA);
+  });
+
   it("commission received WITHOUT an origin → explicit orphan (UNKNOWN_ORIGIN, follow-up, no relatedEventId)", () => {
     const c = build("register_commission_received", cashInCommon); // origin left empty
     expect(c.relatedEventId).toBeUndefined();

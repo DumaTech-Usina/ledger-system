@@ -169,7 +169,7 @@ async function bootstrap(): Promise<void> {
     env.USINA_PARTY_ID,
     partyDirectory,
   );
-  const getObjectLifecycle = new GetObjectLifecycleUseCase(ledgerRead);
+  const getObjectLifecycle = new GetObjectLifecycleUseCase(ledgerRead, partyDirectory);
   const getLedgerEvent = new GetLedgerEventUseCase(ledgerRead);
   const getBookExposure = new GetBookExposureUseCase(ledgerRead);
   const listPositions = new ListPositionsUseCase(ledgerRead, (positions) => positionSnapshot.remember(positions));

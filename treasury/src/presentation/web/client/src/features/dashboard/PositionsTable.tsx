@@ -4,6 +4,7 @@ import { CopyableId } from "@/components/CopyableId";
 import { Pagination } from "@/components/Pagination";
 import { Table } from "@/components/Table";
 import { RowDetailModal } from "@/features/dashboard/RowDetailModal";
+import { statusTone } from "@/features/dashboard/lifecycleEngine";
 import type { AdoptedIntent } from "@/features/operations/useConversation";
 import { useLanguage } from "@/i18n/i18n";
 import { formatDate, formatMoney } from "@/utils/format";
@@ -87,7 +88,9 @@ export function PositionsTable({
                     but the Ledger's own word stays in the tooltip, because a reader who reports the
                     gap needs to be able to say WHAT the book published. */}
                 <Table.Cell>
-                  <Badge variant="neutral" title={p.status}>
+                  {/* Same tone scale as the lifecycle timeline: a status must not change colour
+                      between the list and the history of the very same position. */}
+                  <Badge variant={statusTone(p.status)} dot title={p.status}>
                     {t.positionStatus[p.status] ?? t.common.unrecognizedStatus}
                   </Badge>
                 </Table.Cell>
