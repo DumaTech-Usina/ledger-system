@@ -9,9 +9,9 @@ import type { PositionItem } from "../dtos/LedgerReadModels";
  * Ledger's own `openPayableExposure` is folded over. The two must not drift: if they did, this
  * screen would list positions that the figure above them does not count, or vice versa.
  *
- * It lives twice because the Ledger's positions endpoint filters one object type at a time and does
- * not publish "is this a payable" as a queryable property. Duplicating the set is the smaller evil
- * against inventing a Ledger endpoint for a question the Ledger already answers in aggregate.
+ * It lives twice because the Ledger does not publish "is this a payable" as a queryable property.
+ * Duplicating the set is the smaller evil against inventing a Ledger endpoint for a question the
+ * Ledger already answers in aggregate.
  */
 const PAYABLE_OBJECT_TYPES = [
   "payable",
@@ -24,7 +24,7 @@ const PAYABLE_OBJECT_TYPES = [
 /** Statuses that can still hold an open balance. `unknown_origin` is excluded on purpose — see below. */
 const OPEN_STATUSES = ["open", "partially_settled"] as const;
 
-/** Per (type × status) request. The Ledger caps at 200; hitting it is reported, never hidden. */
+/** The Ledger's cap for one page. Hitting it is reported, never hidden. */
 const PER_QUERY_LIMIT = 200;
 
 export interface PayablePositionsResult {
@@ -63,23 +63,21 @@ export class ListPayablePositionsUseCase {
 
   async execute(asOf: Date = new Date()): Promise<PayablePositionsResult> {
     try {
-      const queries = PAYABLE_OBJECT_TYPES.flatMap((objectType) =>
-        OPEN_STATUSES.map((status) =>
-          this.ledger.positions({
-            objectType,
-            status,
-            limit: PER_QUERY_LIMIT,
-            sortBy: "dueAt",
-            sortOrder: "ASC",
-          }),
-        ),
-      );
+      // One request for the whole question. It used to be ten — five types times two statuses —
+      // because the Ledger filtered a single value at a time; now that it reads a selection as OR,
+      // asking once is both cheaper and truer: the page is a page of the payables, not ten pages
+      // stitched together, so its cap and its ordering describe the list actually shown.
+      const page = await this.ledger.positions({
+        objectType: [...PAYABLE_OBJECT_TYPES],
+        status: [...OPEN_STATUSES],
+        limit: PER_QUERY_LIMIT,
+        sortBy: "dueAt",
+        sortOrder: "ASC",
+      });
 
-      const pages = await Promise.all(queries);
-      const truncated = pages.some((page) => page.data.length >= PER_QUERY_LIMIT);
+      const truncated = page.data.length >= PER_QUERY_LIMIT;
 
-      const outstanding = pages
-        .flatMap((page) => page.data)
+      const outstanding = page.data
         // Balance, not status: a cash-basis position is reported `open` by the Ledger because
         // nothing was originated to close against, yet nothing is owed on it. A null balance is an
         // unknown origination — not zero, and not outstanding either.
@@ -95,8 +93,9 @@ export class ListPayablePositionsUseCase {
         else upcoming.push(position);
       }
 
-      // Nearest deadline first within each list. The Ledger already ordered each query, but the
-      // lists are stitched from several of them, so the order has to be re-established across them.
+      // Nearest deadline first within each list. The Ledger's own ordering already holds across the
+      // single page, and splitting it into three preserves relative order — this keeps the guarantee
+      // explicit rather than resting on the split being stable.
       const byDueDate = (a: PositionItem, b: PositionItem) =>
         new Date(a.dueAt!).getTime() - new Date(b.dueAt!).getTime();
       overdue.sort(byDueDate);

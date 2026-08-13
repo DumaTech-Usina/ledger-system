@@ -96,7 +96,7 @@ describe("ListPayablePositions", () => {
     expect(result.overdue).toEqual([]);
   });
 
-  it("asks the Ledger for the due-date order rather than sorting a page it did not choose", async () => {
+  it("asks the Ledger once, for every payable type and open status, in due-date order", async () => {
     const calls: unknown[] = [];
     const ledger = ledgerReturning([], {
       positions: async (params) => {
@@ -107,8 +107,14 @@ describe("ListPayablePositions", () => {
 
     await new ListPayablePositionsUseCase(ledger).execute(NOW);
 
-    expect(calls).toHaveLength(10); // 5 payable object types × 2 open statuses
-    expect(calls.every((c) => (c as { sortBy: string }).sortBy === "dueAt")).toBe(true);
+    // One request, not ten. The Ledger reads a selection as OR, so the five payable types and the
+    // two open statuses are one question — and the page's cap then describes the list on screen
+    // instead of ten caps describing none of it.
+    expect(calls).toHaveLength(1);
+    const [params] = calls as [{ objectType: string[]; status: string[]; sortBy: string }];
+    expect(params.objectType).toEqual(["payable", "payroll", "service_fee", "infrastructure_cost", "tax"]);
+    expect(params.status).toEqual(["open", "partially_settled"]);
+    expect(params.sortBy).toBe("dueAt");
   });
 
   it("reports truncation instead of presenting a capped list as the whole book", async () => {

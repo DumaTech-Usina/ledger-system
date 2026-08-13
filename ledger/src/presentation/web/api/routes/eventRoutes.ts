@@ -5,24 +5,23 @@ import { normalizePageOptions, PageOptions } from "../../../../core/application/
 import { retractedEventIds } from "../../../../core/application/dtos/retractionUtils";
 import { serializeEvent } from "../serializers/eventSerializer";
 
+/**
+ * Which of this page's originated objects have been settled.
+ *
+ * One repository call for the whole page. It used to be one full event read per object — a page of
+ * fifty originations meant fifty queries, each hydrating every event of an object's life, to end up
+ * with a set of ids.
+ *
+ * A settlement that a rectification retracted does not close anything, so `hasOpenPosition` and the
+ * position's own status now answer the same way about the same book. They did not before: the feed
+ * counted retracted settlements and reported a position closed while `/api/positions` reported it
+ * open.
+ */
 async function buildSettledSet(
   repo: LedgerEventRepository,
   originatedIds: Set<string>,
 ): Promise<Set<string>> {
-  const settled = new Set<string>();
-  await Promise.all(
-    [...originatedIds].map(async (objectId) => {
-      const related = await repo.findByObjectId(objectId);
-      for (const e of related) {
-        for (const obj of e.getObjects()) {
-          if (obj.relation === Relation.SETTLES && obj.objectId.value === objectId) {
-            settled.add(objectId);
-          }
-        }
-      }
-    }),
-  );
-  return settled;
+  return repo.findSettledObjectIds([...originatedIds]);
 }
 
 export function eventRoutes(ledgerRepo: LedgerEventRepository): Router {

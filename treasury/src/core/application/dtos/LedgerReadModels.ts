@@ -70,6 +70,15 @@ export interface CashMovementsPage {
   items: CashMovement[];
   nextCursor: string | null;
   hasMore: boolean;
+  /**
+   * Where this page sits among the matching movements — published only when a numbered page was
+   * asked for. Null on a keyset page, and null is NOT zero: a keyset walk never counted the set, so
+   * a 0 here would state that the book holds nothing. Optional as well, for a Ledger that predates
+   * numbered pages and therefore says nothing about any of it.
+   */
+  total?: number | null;
+  page?: number | null;
+  totalPages?: number | null;
 }
 
 export interface PositionItem {
@@ -93,6 +102,14 @@ export interface PositionItem {
    * stated terms — which is neither "due today" nor "never due", and must never be rendered as either.
    */
   dueAt: string | null;
+  /**
+   * Every party involved in the position: named by some standing event of it, in any role. Includes
+   * the usina, because the Ledger publishes what it recorded and does not know which side is ours.
+   *
+   * Null when the Ledger did not publish them — "not told", which is not the same as "nobody took
+   * part". Never rendered as an empty list.
+   */
+  parties?: readonly string[] | null;
 }
 
 export interface PositionsPage {
@@ -260,6 +277,25 @@ export interface LedgerEventRef {
  */
 export interface BookExposure {
   currency: string;
+  /**
+   * The window the Ledger folded the cash figures below over — the one it actually applied, which
+   * is its own default when none was asked for. Optional: a Ledger that publishes no period block
+   * has told us nothing about a window, which is not the same as having none.
+   */
+  period?: { from: string; to: string };
+  /**
+   * Cash that moved inside `period`. These are the CASH fold; the exposure totals below are the
+   * POSITION fold and are current-state regardless of the window. The two are published together
+   * and never added: a total mixing cash and position means nothing.
+   */
+  cashIn?: string;
+  cashOut?: string;
+  /** Unsigned; `netCashNegative` carries the direction, as the Ledger publishes it. */
+  netCash?: string;
+  netCashNegative?: boolean;
+  /** The same period cash, broken down by event type. Passed through, never re-summed. */
+  cashInByType?: Record<string, string>;
+  cashOutByType?: Record<string, string>;
   /** Sum of open balances across positions the Ledger can measure. */
   openExposure: string;
   /**

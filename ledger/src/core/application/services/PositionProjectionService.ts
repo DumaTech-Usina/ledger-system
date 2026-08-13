@@ -97,6 +97,9 @@ export class PositionProjectionService {
       originatedAt:    agg.originatedAt,
       createdAt:       agg.createdAt,
       dueAt:           agg.dueAt,
+      // Null when the read did not publish them — never [], which would claim the position has no
+      // parties at all. Only the paginated listing asks for them.
+      parties:         agg.parties ?? null,
     };
   }
 

@@ -1,4 +1,4 @@
-import { LedgerEventRepository } from "../../../core/application/repositories/LedgerEventRepository";
+import { CashMovementsQueryResult, LedgerEventRepository } from "../../../core/application/repositories/LedgerEventRepository";
 import { LedgerEvent } from "../../../core/domain/entities/LedgerEvent";
 import { Direction } from "../../../core/domain/enums/Direction";
 import { EconomicEffect } from "../../../core/domain/enums/EconomicEffect";
@@ -8,9 +8,9 @@ import { ReasonType } from "../../../core/domain/enums/ReasonType";
 import { Relation } from "../../../core/domain/enums/Relation";
 import { EventHash } from "../../../core/domain/value-objects/EventHash";
 import { Page, PageOptions, paginate } from "../../../core/application/dtos/Pagination";
-import { PositionAggregate, PositionAggregateOptions } from "../../../core/application/dtos/PositionAggregate";
+import { asList, PositionAggregate, PositionAggregateOptions } from "../../../core/application/dtos/PositionAggregate";
 import { EconomicOutcome, PositionStatus } from "../../../core/application/dtos/PositionSummary";
-import { CashMovementsPaginatedOptions } from "../../../core/application/dtos/CashStatement";
+import { CashMovementSortKey, CashMovementsPaginatedOptions } from "../../../core/application/dtos/CashStatement";
 import { derivePositionStatus, openBalanceUnitsOf } from "../../../core/application/dtos/positionUtils";
 import { retractedEventIds } from "../../../core/application/dtos/retractionUtils";
 
@@ -63,6 +63,27 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     return this.store.filter((e) => e.relatedEventId === relatedEventId);
   }
 
+  /**
+   * SQL twin: one sweep for the whole set, and the same reading — a settling relation on the id,
+   * declared by an event that still STANDS. A retracted settlement closes nothing: the
+   * rectification said it never happened, so the position is open again.
+   */
+  async findSettledObjectIds(objectIds: readonly string[]): Promise<Set<string>> {
+    const wanted = new Set(objectIds);
+    const settled = new Set<string>();
+    if (wanted.size === 0) return settled;
+    const retracted = retractedEventIds(this.store);
+    for (const event of this.store) {
+      if (retracted.has(event.id.value)) continue;
+      for (const object of event.getObjects()) {
+        if (object.relation === Relation.SETTLES && wanted.has(object.objectId.value)) {
+          settled.add(object.objectId.value);
+        }
+      }
+    }
+    return settled;
+  }
+
   async findByPartyId(partyId: string): Promise<LedgerEvent[]> {
     return this.store.filter((e) =>
       e.getParties().some((p) => p.partyId.value === partyId),
@@ -112,12 +133,34 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
       return primary !== 0 ? primary : b.objectId.localeCompare(a.objectId);
     });
 
-    if (options.objectType) {
-      results = results.filter((a) => a.objectType === options.objectType);
+    // SQL twin: `object_type = ANY(...)` and an OR of the status predicates. Several values are read
+    // as OR, and an empty selection is no filter — the same rule the SQL path applies, normalized by
+    // the same helper so the two cannot drift.
+    const objectTypes = asList(options.objectType);
+    if (objectTypes.length > 0) {
+      results = results.filter((a) => objectTypes.includes(a.objectType));
     }
-    if (options.status) {
-      const target = options.status;
-      results = results.filter((a) => derivePositionStatus(a) === target);
+    const statuses = asList(options.status);
+    if (statuses.length > 0) {
+      results = results.filter((a) => statuses.includes(derivePositionStatus(a)));
+    }
+    // SQL twin: `created_at BETWEEN`. The axis is when the position entered the book, which is
+    // defined for every position — see PositionAggregateOptions for why not originatedAt or dueAt.
+    if (options.from) {
+      const from = options.from;
+      results = results.filter((a) => a.createdAt >= from);
+    }
+    if (options.to) {
+      const to = options.to;
+      results = results.filter((a) => a.createdAt <= to);
+    }
+    // SQL twin: a semi-join on object identity. Involvement is any standing event naming the party,
+    // in any role or direction — so this needs no second, exact pass the way the others do.
+    const partyIds = asList(options.partyId);
+    if (partyIds.length > 0) {
+      results = results.filter((a) =>
+        partyIds.some((partyId) => this.partiesOfObject(a.objectId).has(partyId)),
+      );
     }
     if (options.outcome) {
       const target = options.outcome;
@@ -128,9 +171,28 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     const limit = Math.min(Math.max(1, options.limit ?? 50), 200);
     const total = results.length;
     const totalPages = Math.ceil(total / limit) || 1;
-    const data = results.slice((page - 1) * limit, page * limit);
+    // Attached for the page only, exactly as the SQL path does it.
+    const data = results
+      .slice((page - 1) * limit, page * limit)
+      .map((aggregate) => ({ ...aggregate, parties: [...this.partiesOfObject(aggregate.objectId)] }));
 
     return { data, total, page, limit, totalPages };
+  }
+
+  /**
+   * Every party named by a standing event of this object. SQL twin of `partiesOfObjects`, including
+   * the exclusion of retracted events: a party that appears only on a retracted event took part in
+   * nothing that still stands.
+   */
+  private partiesOfObject(objectId: string): Set<string> {
+    const retracted = retractedEventIds(this.store);
+    const parties = new Set<string>();
+    for (const event of this.store) {
+      if (retracted.has(event.id.value)) continue;
+      if (!event.getObjects().some((o) => o.objectId.value === objectId)) continue;
+      for (const party of event.getParties()) parties.add(party.partyId.value);
+    }
+    return parties;
   }
 
   async findAllPositionAggregates(): Promise<PositionAggregate[]> {
@@ -374,22 +436,30 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     return { cashInSettledUnits, totalSettledUnits };
   }
 
-  async findCashMovementsPaginated(options: CashMovementsPaginatedOptions): Promise<{ items: LedgerEvent[]; hasMore: boolean; nextCursor: { occurredAt: Date; id: string } | null }> {
+  async findCashMovementsPaginated(options: CashMovementsPaginatedOptions): Promise<CashMovementsQueryResult> {
     const retractedMovements = retractedEventIds(this.store);
     let filtered = this.store.filter((event) => {
       // A movement that never happened does not belong on a cash statement. The event itself is
       // still readable through the object's lifecycle — history lives there, not here.
       if (retractedMovements.has(event.id.value)) return false;
+      // SQL twin: the effect narrows the listing to one direction, and the party scopes it to a
+      // statement. Both are optional, and both must be read the same way here as in the query
+      // builder — a filter that means two things in two read paths is two filters.
+      if (options.effect && event.economicEffect !== options.effect) return false;
       if (event.economicEffect === EconomicEffect.CASH_IN) {
-        const match = event.getParties().some(
-          (p) => p.partyId.value === options.partyId && p.direction === Direction.IN,
-        );
-        if (!match) return false;
+        if (options.partyId) {
+          const match = event.getParties().some(
+            (p) => p.partyId.value === options.partyId && p.direction === Direction.IN,
+          );
+          if (!match) return false;
+        }
       } else if (event.economicEffect === EconomicEffect.CASH_OUT) {
-        const match = event.getParties().some(
-          (p) => p.partyId.value === options.partyId && p.direction === Direction.OUT,
-        );
-        if (!match) return false;
+        if (options.partyId) {
+          const match = event.getParties().some(
+            (p) => p.partyId.value === options.partyId && p.direction === Direction.OUT,
+          );
+          if (!match) return false;
+        }
       } else {
         return false;
       }
@@ -400,20 +470,48 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
       return true;
     });
 
+    // SQL twin: the chosen axis, the chosen direction, and the id breaking ties the SAME way.
+    const sortKey = options.sortBy === "recordedAt" ? "recordedAt" : "occurredAt";
+    const ascending = options.sortOrder === "ASC";
+    const axisOf = (event: LedgerEvent) =>
+      sortKey === "recordedAt" ? event.recordedAt.getTime() : event.occurredAt.getTime();
+
     filtered.sort((a, b) => {
-      const timeDiff = a.occurredAt.getTime() - b.occurredAt.getTime();
+      const timeDiff = ascending ? axisOf(a) - axisOf(b) : axisOf(b) - axisOf(a);
       if (timeDiff !== 0) return timeDiff;
-      return a.id.value < b.id.value ? -1 : a.id.value > b.id.value ? 1 : 0;
+      if (a.id.value === b.id.value) return 0;
+      const idDiff = a.id.value < b.id.value ? -1 : 1;
+      return ascending ? idDiff : -idDiff;
     });
 
+    // ── Numbered page ───────────────────────────────────────────────────────────────────────────
+    if (options.page !== undefined) {
+      const page = Math.max(1, options.page);
+      const total = filtered.length;
+      const items = filtered.slice((page - 1) * options.limit, page * options.limit);
+      return {
+        items,
+        hasMore: page * options.limit < total,
+        nextCursor: null,
+        total,
+        page,
+        totalPages: Math.ceil(total / options.limit) || 1,
+      };
+    }
+
+    // ── Keyset ──────────────────────────────────────────────────────────────────────────────────
     if (options.cursor) {
-      const { occurredAt: cursorAt, id: cursorId } = options.cursor;
+      const cursorAt = options.cursor.value.getTime();
+      const cursorId = options.cursor.id;
       filtered = filtered.filter((event) => {
-        const tEvent = event.occurredAt.getTime();
-        const tCursor = cursorAt.getTime();
-        if (tEvent > tCursor) return true;
-        if (tEvent === tCursor && event.id.value > cursorId) return true;
-        return false;
+        const at = axisOf(event);
+        // Descending continues below the cursor, ascending above it.
+        if (ascending) {
+          if (at > cursorAt) return true;
+          return at === cursorAt && event.id.value > cursorId;
+        }
+        if (at < cursorAt) return true;
+        return at === cursorAt && event.id.value < cursorId;
       });
     }
 
@@ -421,8 +519,16 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     const hasMore = taken.length > options.limit;
     const items = hasMore ? taken.slice(0, options.limit) : taken;
     const last = items.length > 0 ? items[items.length - 1] : null;
-    const nextCursor = hasMore && last ? { occurredAt: last.occurredAt, id: last.id.value } : null;
+    const nextCursor = hasMore && last
+      ? {
+          key: sortKey as CashMovementSortKey,
+          order: (ascending ? "ASC" : "DESC") as "ASC" | "DESC",
+          value: sortKey === "recordedAt" ? last.recordedAt : last.occurredAt,
+          id: last.id.value,
+        }
+      : null;
 
-    return { items, hasMore, nextCursor };
+    // Null, not zero: walking a keyset never counted the set. Same statement the SQL path makes.
+    return { items, hasMore, nextCursor, total: null, page: null, totalPages: null };
   }
 }

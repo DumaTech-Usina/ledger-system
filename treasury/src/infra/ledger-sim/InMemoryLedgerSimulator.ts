@@ -146,8 +146,12 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
     };
   }
 
-  async cashMovements(params: { partyId: string; limit?: number }): Promise<CashMovementsPage> {
-    return { items: this.movementStore.slice(0, params.limit ?? 50), nextCursor: null, hasMore: false };
+  async cashMovements(params?: { partyId?: string; effect?: string; limit?: number }): Promise<CashMovementsPage> {
+    // The direction filter is honoured so the demo does not contradict the real adapter on screen.
+    // Party and period are not: this store keys a movement per submission and holds no cast to scope
+    // by, so it answers the wider question rather than a filtered fiction.
+    const items = this.movementStore.filter((m) => !params?.effect || m.effect === params.effect);
+    return { items: items.slice(0, params?.limit ?? 50), nextCursor: null, hasMore: false };
   }
 
   async positions(params?: { limit?: number; page?: number }): Promise<PositionsPage> {

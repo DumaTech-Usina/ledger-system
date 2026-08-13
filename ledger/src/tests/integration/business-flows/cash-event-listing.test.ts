@@ -33,7 +33,7 @@ describe("CashEventListingService — integration", () => {
     expect(effects).toContain("cash_in");
   });
 
-  it("CLI2 — commission received then split: both movements in items, ordered by occurredAt", async () => {
+  it("CLI2 — commission received then split: both movements in items, newest first", async () => {
     const { ledgerRepo, run } = setup();
     const svc = new CashEventListingService(ledgerRepo);
 
@@ -44,11 +44,14 @@ describe("CashEventListingService — integration", () => {
     const page = await svc.list({ partyId: USINA, limit: 50 });
 
     expect(page.items).toHaveLength(2);
-    expect(page.items[0].effect).toBe("cash_in");   // received first chronologically
-    expect(page.items[1].effect).toBe("cash_out");  // split after
+    // A statement is read from the most recent line back, so the split (2025-03-02) comes first.
+    expect(page.items[0].effect).toBe("cash_out");
+    expect(page.items[1].effect).toBe("cash_in");
+    expect(page.items[0].occurredAt.getTime()).toBeGreaterThanOrEqual(page.items[1].occurredAt.getTime());
 
-    // Ordered by occurredAt ASC
-    expect(page.items[0].occurredAt.getTime()).toBeLessThanOrEqual(page.items[1].occurredAt.getTime());
+    // The old order is still available, now as a choice rather than as the only answer.
+    const ascending = await svc.list({ partyId: USINA, limit: 50, sortOrder: "ASC" });
+    expect(ascending.items.map((i) => i.effect)).toEqual(["cash_in", "cash_out"]);
   });
 
   it("CLI3 — period filter + cursor across pages: all pages cover exactly the period, no duplicates, no gaps", async () => {

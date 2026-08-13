@@ -1,5 +1,5 @@
 import { DataSource, Repository } from 'typeorm';
-import { LedgerEventRepository } from '../../../core/application/repositories/LedgerEventRepository';
+import { CashMovementsQueryResult, LedgerEventRepository } from '../../../core/application/repositories/LedgerEventRepository';
 import { LedgerEvent } from '../../../core/domain/entities/LedgerEvent';
 import { LedgerEventParty } from '../../../core/domain/entities/LedgerEventParty';
 import { LedgerEventObject } from '../../../core/domain/entities/LedgerEconomicObject';
@@ -25,9 +25,9 @@ import { LedgerEventModel } from './models/LedgerEventModel';
 import { LedgerEventPartyModel } from './models/LedgerEventPartyModel';
 import { LedgerEventObjectModel } from './models/LedgerEventObjectModel';
 import { Page, PageOptions } from '../../../core/application/dtos/Pagination';
-import { PositionAggregate, PositionAggregateOptions } from '../../../core/application/dtos/PositionAggregate';
+import { asList, PositionAggregate, PositionAggregateOptions } from '../../../core/application/dtos/PositionAggregate';
 import { EconomicOutcome, PositionStatus } from '../../../core/application/dtos/PositionSummary';
-import { CashMovementsPaginatedOptions } from '../../../core/application/dtos/CashStatement';
+import { CashMovementSortKey, CashMovementsPaginatedOptions } from '../../../core/application/dtos/CashStatement';
 
 /**
  * SQL twin of `derivePositionStatus` (core/application/dtos/positionUtils.ts). The two must stay in
@@ -132,6 +132,29 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     return rows.map((row) => this.toEntity(row));
   }
 
+  /**
+   * One query for the whole set, against the (object_id, relation) index — never one read per
+   * object. No entity is hydrated: the question is which ids are settled by an event that STANDS,
+   * and the answer is those ids.
+   *
+   * Retracted settlements do not count. A rectification declares that the settlement never
+   * corresponded to the world, so the position it appeared to close is open again — the same
+   * reading `foldObjectTotals` and every projection already apply. Until this guard existed, a
+   * retracted payment kept a position marked as closed on the event feed while the position's own
+   * status said otherwise, and the two answers disagreed about the same book.
+   */
+  async findSettledObjectIds(objectIds: readonly string[]): Promise<Set<string>> {
+    if (objectIds.length === 0) return new Set();
+    const rows: { object_id: string }[] = await this.repo.manager.query(
+      `SELECT DISTINCT o.object_id
+         FROM ledger_event_objects o
+         JOIN ledger_events e ON e.id = o.event_id
+        WHERE o.object_id = ANY($1) AND o.relation = 'settles' AND ${notRetracted('e')}`,
+      [[...objectIds]],
+    );
+    return new Set(rows.map((row) => row.object_id));
+  }
+
   async findByRelatedEventId(relatedEventId: string): Promise<LedgerEvent[]> {
     const rows = await this.repo.find({
       where: { relatedEventId },
@@ -184,20 +207,95 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
 
     const filterParams: unknown[] = [];
     const conditions: string[] = [];
+    /**
+     * Predicates that narrow WHICH OBJECTS are aggregated, applied before the GROUP BY.
+     *
+     * Each is an independent semi-join on object identity, and each is a SUPERSET of its exact twin
+     * in `conditions`, which still runs after the aggregation — so the answer is identical, only
+     * the work is smaller. The supersets are sound because:
+     *
+     *   MAX(object_type) ∈ S  ⟹  the object has some row whose type is in S
+     *   MIN(recorded_at) ≥ from ⟹  the object has some row recorded at or after `from`
+     *   MIN(recorded_at) ≤ to   ⟺  the object has some row recorded at or before `to`
+     *
+     * **One semi-join PER predicate, never one row satisfying all of them.** A single combined
+     * subquery would demand that the same event carry the type AND fall in the period AND name the
+     * party — three facts that belong to the object, not to one of its events. An object typed on
+     * one event and recorded early on another would vanish from a listing it belongs in, and
+     * nothing would report it: the page would simply be missing a row.
+     *
+     * What must never be done instead is filtering the ROWS that feed the aggregate: dropping a row
+     * changes the sums, and a total that reflects only the rows matching a filter is not the
+     * position's total. The narrowing is on object identity, and every surviving object is then
+     * aggregated over all of its standing events.
+     */
+    const candidateFilters: string[] = [];
+    /** A semi-join over the objects whose standing events satisfy `predicate`. */
+    const objectsWhere = (predicate: string, extraJoin = '') => `
+        o.object_id IN (
+          SELECT co.object_id
+          FROM ledger_event_objects co
+          JOIN ledger_events ce ON ce.id = co.event_id${extraJoin}
+          WHERE ${notRetracted('ce')} AND ${predicate}
+        )`;
 
-    if (options.objectType) {
-      filterParams.push(options.objectType);
-      conditions.push(`object_type = $${filterParams.length}`);
+    // ANY over an array rather than an interpolated IN list: the values stay parameters, so a
+    // selection of many types is bound exactly like a selection of one and nothing user-supplied is
+    // ever spliced into the SQL.
+    const objectTypes = asList(options.objectType);
+    if (objectTypes.length > 0) {
+      filterParams.push(objectTypes);
+      conditions.push(`object_type = ANY($${filterParams.length})`);
+      candidateFilters.push(objectsWhere(`co.object_type = ANY($${filterParams.length})`));
     }
-    if (options.status)  conditions.push(statusToSql(options.status));
+    // OR between statuses, AND against every other filter. Each statusToSql is already a complete
+    // predicate, so several of them are joined rather than re-derived — the truth table that fixes
+    // the status rule keeps governing all of them.
+    const statuses = asList(options.status);
+    if (statuses.length > 0) {
+      conditions.push(`(${statuses.map(statusToSql).join(' OR ')})`);
+    }
     if (options.outcome) conditions.push(outcomeToSql(options.outcome));
+    // The period is over created_at — when the position entered the book. See PositionAggregateOptions
+    // for why not originatedAt or dueAt: both are null for whole families of positions, and a period
+    // filter that drops them would misrepresent the book rather than scope it.
+    if (options.from) {
+      filterParams.push(options.from);
+      conditions.push(`created_at >= $${filterParams.length}`);
+      candidateFilters.push(objectsWhere(`ce.recorded_at >= $${filterParams.length}`));
+    }
+    if (options.to) {
+      filterParams.push(options.to);
+      conditions.push(`created_at <= $${filterParams.length}`);
+      candidateFilters.push(objectsWhere(`ce.recorded_at <= $${filterParams.length}`));
+    }
+    // Involvement is exactly what the semi-join expresses — some standing event of the object names
+    // the party — so unlike the others this predicate needs no exact twin after the aggregation.
+    // Role, direction and relation are deliberately not looked at: a party that took part took part.
+    const partyIds = asList(options.partyId);
+    if (partyIds.length > 0) {
+      filterParams.push(partyIds);
+      candidateFilters.push(
+        objectsWhere(
+          `cp.party_id = ANY($${filterParams.length})`,
+          `\n          JOIN ledger_event_parties cp ON cp.event_id = ce.id`,
+        ),
+      );
+    }
+    // `status` and `outcome` have no pushable twin: both are functions of the sums, which do not
+    // exist until the grouping has happened. They filter after it, as they always did.
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // With no filter there is nothing to narrow, and the clause is simply absent.
+    const candidateFilter = candidateFilters.length > 0
+      ? `AND ${candidateFilters.join(' AND ')}`
+      : '';
 
     const cteSql = `
       WITH aggs AS (
         SELECT
-          o.object_id                                                                                    AS object_id,
+          o.object_id                                                                                  AS object_id,
           MAX(o.object_type)                                                                             AS object_type,
           MAX(e.amount_currency)                                                                         AS currency,
           COALESCE(SUM(CASE WHEN o.relation = 'originates' THEN e.amount_units ELSE 0::bigint END), 0)  AS total_originated,
@@ -216,17 +314,10 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
           MIN(CASE WHEN o.relation = 'originates' THEN e.due_at ELSE NULL END)                         AS due_at
         FROM ledger_events e
         JOIN ledger_event_objects o ON o.event_id = e.id
-        WHERE ${notRetracted('e')}
+        WHERE ${notRetracted('e')} ${candidateFilter}
         GROUP BY o.object_id
       )
     `;
-
-    const [countResult] = await this.repo.manager.query(
-      `${cteSql} SELECT COUNT(*) AS total FROM aggs ${whereClause}`,
-      filterParams,
-    );
-    const total = parseInt(countResult.total as string, 10);
-    const totalPages = Math.ceil(total / limit) || 1;
 
     const dataParams = [...filterParams, limit, offset];
     const pLimit  = filterParams.length + 1;
@@ -243,8 +334,12 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     // NULLS LAST in both directions on purpose. A position with no stated due date is not the most
     // urgent thing in the book, and Postgres would otherwise sort nulls first on ASC.
     const nullsClause = sortColumn === "due_at" ? " NULLS LAST" : "";
+    // `COUNT(*) OVER ()` rather than a second query: the window is evaluated over the whole filtered
+    // set before LIMIT, so one pass yields both the page and the total it is a page of. The
+    // aggregate used to be built twice per request — once to be counted, once to be read — which
+    // doubled the most expensive read in the book for a number the same pass already knows.
     const rows: Record<string, unknown>[] = await this.repo.manager.query(
-      `${cteSql} SELECT * FROM aggs ${whereClause} ORDER BY ${sortColumn} ${sortDir}${nullsClause}, object_id DESC LIMIT $${pLimit} OFFSET $${pOffset}`,
+      `${cteSql} SELECT *, COUNT(*) OVER () AS total_rows FROM aggs ${whereClause} ORDER BY ${sortColumn} ${sortDir}${nullsClause}, object_id DESC LIMIT $${pLimit} OFFSET $${pOffset}`,
       dataParams,
     );
 
@@ -268,7 +363,60 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       dueAt:                row.due_at ? new Date(row.due_at as string) : null,
     }));
 
+    // One extra query for the PAGE, never one per row — and never a join into the aggregate above:
+    // joining parties there would repeat each event once per party and inflate every SUM, so the
+    // totals would silently grow with the size of the cast.
+    const partiesByObject = await this.partiesOfObjects(data.map((d) => d.objectId));
+    for (const aggregate of data) {
+      aggregate.parties = partiesByObject.get(aggregate.objectId) ?? [];
+    }
+
+    // The window carried the total on every row. An empty page carries none — and past the first
+    // page that is not the same as a total of zero, so the count is asked for explicitly there
+    // rather than assumed. Page one with no rows genuinely means nothing matched.
+    const total = rows.length > 0
+      ? parseInt(rows[0].total_rows as string, 10)
+      : page === 1
+        ? 0
+        : await this.countPositionAggregates(cteSql, whereClause, filterParams);
+    const totalPages = Math.ceil(total / limit) || 1;
+
     return { data, total, page, limit, totalPages };
+  }
+
+  /**
+   * Every party named by a standing event of each of these objects.
+   *
+   * Bounded by the page: the ids come from the rows already selected, so this costs one indexed
+   * lookup regardless of how big the book is. Retracted events are excluded by the same guard the
+   * projection uses — a party that only ever appeared on a retracted event did not take part in
+   * anything that still stands.
+   */
+  private async partiesOfObjects(objectIds: string[]): Promise<Map<string, string[]>> {
+    if (objectIds.length === 0) return new Map();
+    const rows: { object_id: string; parties: string[] }[] = await this.repo.manager.query(
+      `SELECT o.object_id, ARRAY_AGG(DISTINCT p.party_id) AS parties
+         FROM ledger_event_objects o
+         JOIN ledger_events e ON e.id = o.event_id
+         JOIN ledger_event_parties p ON p.event_id = e.id
+        WHERE o.object_id = ANY($1) AND ${notRetracted('e')}
+        GROUP BY o.object_id`,
+      [objectIds],
+    );
+    return new Map(rows.map((row) => [row.object_id, row.parties]));
+  }
+
+  /** How many positions match, for the rare empty page past the first. */
+  private async countPositionAggregates(
+    cteSql: string,
+    whereClause: string,
+    filterParams: unknown[],
+  ): Promise<number> {
+    const [row] = await this.repo.manager.query(
+      `${cteSql} SELECT COUNT(*) AS total FROM aggs ${whereClause}`,
+      filterParams,
+    );
+    return parseInt(row.total as string, 10);
   }
 
   async aggregateOpenBalancesByObjectType(): Promise<Array<{ objectType: ObjectType; openBalanceUnits: bigint; currency: string }>> {
@@ -489,40 +637,98 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     return rows.map((row) => this.toEntity(row));
   }
 
-  async findCashMovementsPaginated(options: CashMovementsPaginatedOptions): Promise<{ items: LedgerEvent[]; hasMore: boolean; nextCursor: { occurredAt: Date; id: string } | null }> {
+  async findCashMovementsPaginated(options: CashMovementsPaginatedOptions): Promise<CashMovementsQueryResult> {
+    // One direction when asked for it, both otherwise. The set stays closed at the two cash effects:
+    // this narrows what a statement already contained, it never reaches other effects.
+    const effects = options.effect ? [options.effect] : ['cash_in', 'cash_out'];
+    // Newest first by default: a statement is read from the most recent line back. It used to come
+    // back oldest-first, which put the eight oldest movements in the book on a dashboard block that
+    // reads as "recent" — and disagreed with findRecentCashMovements over the same events.
+    const sortKey = options.sortBy === 'recordedAt' ? 'e.recordedAt' : 'e.occurredAt';
+    const sortDir = options.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+
     const qb = this.repo
       .createQueryBuilder('e')
       .leftJoinAndSelect('e.parties', 'parties')
       .leftJoinAndSelect('e.objects', 'objects')
-      .innerJoin(
+      .where('e.economicEffect IN (:...effects)', { effects })
+      // A retracted movement never happened, so it is not part of the statement.
+      .andWhere(notRetracted('e'))
+      .orderBy(sortKey, sortDir)
+      // The id breaks ties in the SAME direction as the sort — a keyset comparison that disagreed
+      // with the ordering would skip rows sharing a timestamp, which an import produces by the dozen.
+      .addOrderBy('e.id', sortDir);
+
+    // Scoped to a party only when one was named. The join is what makes the listing that party's
+    // STATEMENT — the movement is counted for whoever moved the cash, not for whoever was merely
+    // present — so without a party there is no join to make and the book itself is the answer.
+    if (options.partyId) {
+      qb.innerJoin(
         'e.parties',
         'filterParty',
         'filterParty.partyId = :partyId AND ((e.economicEffect = \'cash_in\' AND filterParty.direction = \'in\') OR (e.economicEffect = \'cash_out\' AND filterParty.direction = \'out\'))',
         { partyId: options.partyId },
-      )
-      .where('e.economicEffect IN (:...effects)', { effects: ['cash_in', 'cash_out'] })
-      // A retracted movement never happened, so it is not part of the statement.
-      .andWhere(notRetracted('e'))
-      .orderBy('e.occurredAt', 'ASC')
-      .addOrderBy('e.id', 'ASC')
-      .take(options.limit + 1);
-
-    if (options.from) qb.andWhere('e.occurredAt >= :from', { from: options.from });
-    if (options.to)   qb.andWhere('e.occurredAt <= :to',   { to: options.to });
-    if (options.cursor) {
-      qb.andWhere(
-        '(e.occurredAt > :cursorAt OR (e.occurredAt = :cursorAt AND e.id > :cursorId))',
-        { cursorAt: options.cursor.occurredAt, cursorId: options.cursor.id },
       );
     }
 
-    const taken = await qb.getMany();
+    // The period is always over occurrence, whichever axis the listing is ordered by: "movements in
+    // January" is about when the money moved, never about when someone got around to recording it.
+    if (options.from) qb.andWhere('e.occurredAt >= :from', { from: options.from });
+    if (options.to)   qb.andWhere('e.occurredAt <= :to',   { to: options.to });
+
+    // ── Numbered page: costs a COUNT and an OFFSET, and only a caller who asked pays it ──────────
+    if (options.page !== undefined) {
+      const page = Math.max(1, options.page);
+      const [rows, total] = await qb
+        .skip((page - 1) * options.limit)
+        .take(options.limit)
+        .getManyAndCount();
+      return {
+        items: rows.map((row) => this.toEntity(row)),
+        hasMore: page * options.limit < total,
+        // A numbered page names no keyset position: mixing the two paging modes in one reply would
+        // invite a caller to continue from a cursor that does not describe where it actually is.
+        nextCursor: null,
+        total,
+        page,
+        totalPages: Math.ceil(total / options.limit) || 1,
+      };
+    }
+
+    // ── Keyset: constant cost at any depth, and no count is taken ────────────────────────────────
+    if (options.cursor) {
+      // The comparison follows the ordering. Descending continues BELOW the cursor, ascending above
+      // it — the same operator in both would re-read the page just served.
+      const op = sortDir === 'ASC' ? '>' : '<';
+      qb.andWhere(
+        `(${sortKey} ${op} :cursorAt OR (${sortKey} = :cursorAt AND e.id ${op} :cursorId))`,
+        { cursorAt: options.cursor.value, cursorId: options.cursor.id },
+      );
+    }
+
+    const taken = await qb.take(options.limit + 1).getMany();
     const hasMore = taken.length > options.limit;
     const rows = hasMore ? taken.slice(0, options.limit) : taken;
     const last = rows.length > 0 ? rows[rows.length - 1] : null;
-    const nextCursor = hasMore && last ? { occurredAt: last.occurredAt, id: last.id } : null;
+    const cursorKey = options.sortBy === 'recordedAt' ? 'recordedAt' : 'occurredAt';
+    const nextCursor = hasMore && last
+      ? {
+          key: cursorKey as CashMovementSortKey,
+          order: sortDir as 'ASC' | 'DESC',
+          value: cursorKey === 'recordedAt' ? last.recordedAt : last.occurredAt,
+          id: last.id,
+        }
+      : null;
 
-    return { items: rows.map((row) => this.toEntity(row)), hasMore, nextCursor };
+    return {
+      items: rows.map((row) => this.toEntity(row)),
+      hasMore,
+      nextCursor,
+      // Unknown, not zero: a keyset page never counted the set it is walking through.
+      total: null,
+      page: null,
+      totalPages: null,
+    };
   }
 
   // ── Mapping ──────────────────────────────────────────────────────────────

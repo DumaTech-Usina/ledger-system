@@ -33,6 +33,7 @@ import { GetObjectLifecycleUseCase } from "./core/application/use-cases/GetObjec
 import { GetLedgerEventUseCase } from "./core/application/use-cases/GetLedgerEvent";
 import { GetBookExposureUseCase } from "./core/application/use-cases/GetBookExposure";
 import { ListPositionsUseCase } from "./core/application/use-cases/ListPositions";
+import { ListCashMovementsUseCase } from "./core/application/use-cases/ListCashMovements";
 import { ListPayablePositionsUseCase } from "./core/application/use-cases/ListPayablePositions";
 import { StartIntentUseCase } from "./core/application/use-cases/StartIntent";
 import { AdvanceDialogUseCase } from "./core/application/use-cases/AdvanceDialog";
@@ -172,8 +173,11 @@ async function bootstrap(): Promise<void> {
   const getObjectLifecycle = new GetObjectLifecycleUseCase(ledgerRead, partyDirectory);
   const getLedgerEvent = new GetLedgerEventUseCase(ledgerRead);
   const getBookExposure = new GetBookExposureUseCase(ledgerRead);
-  const listPositions = new ListPositionsUseCase(ledgerRead, (positions) => positionSnapshot.remember(positions));
+  const listPositions = new ListPositionsUseCase(ledgerRead, env.USINA_PARTY_ID, (positions) =>
+    positionSnapshot.remember(positions),
+  );
   const listPayablePositions = new ListPayablePositionsUseCase(ledgerRead);
+  const listCashMovements = new ListCashMovementsUseCase(ledgerRead);
 
   const startIntent = new StartIntentUseCase(intentRepo, clock, ids, audit);
   const submitIntent = new SubmitIntentUseCase(
@@ -195,6 +199,7 @@ async function bootstrap(): Promise<void> {
     getBookExposure,
     listPositions,
     listPayablePositions,
+    listCashMovements,
     startIntent,
     advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit, partyDirectory),
     applyAnswers,

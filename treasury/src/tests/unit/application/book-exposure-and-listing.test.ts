@@ -92,7 +92,35 @@ describe("ListPositionsUseCase", () => {
   it("reports unavailable when the Ledger cannot be reached", async () => {
     const result = await new ListPositionsUseCase(
       ledger({ positions: () => Promise.reject(new Error("down")) }),
-    ).execute();
-    expect(result).toEqual({ available: false, page: null });
+      "party-usina",
+    ).execute({ partyId: ["acme"] });
+
+    // The page is unknown. What was ASKED for is not — and neither is which side is ours, so both
+    // survive the failure. Only the answer is missing.
+    expect(result).toEqual({
+      available: false,
+      page: null,
+      selectedParties: ["acme"],
+      selfPartyId: "party-usina",
+    });
+  });
+
+  it("forwards the party selection and echoes it back for the screen to highlight", async () => {
+    let asked: unknown;
+    const result = await new ListPositionsUseCase(
+      ledger({
+        positions: async (params) => {
+          asked = params;
+          return { data: [], total: 0, page: 1, limit: 20, totalPages: 1 };
+        },
+      }),
+      "party-usina",
+    ).execute({ partyId: ["acme", "banco-xpto"] });
+
+    expect((asked as { partyId: string[] }).partyId).toEqual(["acme", "banco-xpto"]);
+    // Echoed, not derived: the screen marks these among each position's parties instead of
+    // replacing them, so a position settled by a third party still shows who else took part.
+    expect(result.selectedParties).toEqual(["acme", "banco-xpto"]);
+    expect(result.selfPartyId).toBe("party-usina");
   });
 });

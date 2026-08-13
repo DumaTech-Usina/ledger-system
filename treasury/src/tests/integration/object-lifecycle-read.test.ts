@@ -9,6 +9,7 @@ import { GetObjectLifecycleUseCase, type ObjectLifecycleView } from "../../core/
 import { GetBookExposureUseCase } from "../../core/application/use-cases/GetBookExposure";
 import { ListPositionsUseCase } from "../../core/application/use-cases/ListPositions";
 import { ListPayablePositionsUseCase } from "../../core/application/use-cases/ListPayablePositions";
+import { ListCashMovementsUseCase } from "../../core/application/use-cases/ListCashMovements";
 import { GetLedgerEventUseCase } from "../../core/application/use-cases/GetLedgerEvent";
 import { dashboardRoutes } from "../../presentation/web/api/routes/dashboardRoutes";
 import { GetTreasuryDashboardUseCase } from "../../core/application/use-cases/GetTreasuryDashboard";
@@ -301,6 +302,7 @@ describe("GET /api/dashboard/positions/:objectId", () => {
         new GetBookExposureUseCase(read),
         new ListPositionsUseCase(read),
         new ListPayablePositionsUseCase(read),
+        new ListCashMovementsUseCase(read),
         new GetLedgerEventUseCase(read),
       ),
     );

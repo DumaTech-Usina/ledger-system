@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CashEventListingService } from "../../../core/application/services/CashEventListingService";
+import { CashEventListingService, CursorMismatchError } from "../../../core/application/services/CashEventListingService";
 import { InMemoryLedgerEventRepository } from "../../../infra/persistence/memory/InMemoryLedgerEventRepository";
 import { CreateLedgerEventUseCase } from "../../../core/application/use-cases/CreateLedgerEventUseCase";
 import { NoOpAuditLogger } from "../../../infra/audit/NoOpAuditLogger";
@@ -65,6 +65,29 @@ async function createNonCash(repo: InMemoryLedgerEventRepository, occurredAt: Da
     objects: [{ objectId: objId(), objectType: ObjectType.COMMISSION_ENTITLEMENT, relation: Relation.SETTLES }],
     parties: [{ partyId: "broker", role: PartyRole.BENEFICIARY, direction: Direction.NEUTRAL }],
     reason: { type: ReasonType.COMMISSION_WAIVER, description: "waiver", confidence: ConfidenceLevel.HIGH, requiresFollowup: false },
+  }));
+}
+
+/** A CASH_OUT movement, so the direction filter has both directions to tell apart. */
+async function createCashOut(
+  repo: InMemoryLedgerEventRepository,
+  occurredAt: Date,
+  partyId = USINA,
+  amount = "700.00",
+) {
+  const uc = new CreateLedgerEventUseCase(repo, new NoOpAuditLogger());
+  return uc.execute(makeValidCommand({
+    sourceReference: ref(),
+    occurredAt,
+    eventType: EventType.LOAN_ORIGINATION,
+    economicEffect: EconomicEffect.CASH_OUT,
+    amount,
+    objects: [{ objectId: objId(), objectType: ObjectType.LOAN, relation: Relation.ORIGINATES }],
+    parties: [
+      { partyId, role: PartyRole.PAYER, direction: Direction.OUT, amount },
+      { partyId: "broker", role: PartyRole.PAYEE, direction: Direction.NEUTRAL, amount },
+    ],
+    reason: { type: ReasonType.LOAN_ORIGINATION, description: "loan", confidence: ConfidenceLevel.HIGH, requiresFollowup: false },
   }));
 }
 
@@ -159,7 +182,7 @@ describe("CashEventListingService", () => {
     expect(page.nextCursor).not.toBeNull();
   });
 
-  it("CL8 — second call with nextCursor: returns next page, no overlap, ordered by occurredAt ASC", async () => {
+  it("CL8 — second call with nextCursor: returns next page, no overlap, newest first", async () => {
     const repo = new InMemoryLedgerEventRepository();
     for (let i = 0; i < 5; i++) {
       await createCashIn(repo, new Date(`2026-01-${10 + i}T00:00:00Z`));
@@ -178,10 +201,157 @@ describe("CashEventListingService", () => {
       expect(ids1.has(item.eventId)).toBe(false);
     }
 
-    // Check ordering is ASC
+    // The keyset walks in the ordering it was issued for — descending, the default.
     const allItems = [...page1.items, ...page2.items];
     for (let i = 1; i < allItems.length; i++) {
-      expect(allItems[i].occurredAt.getTime()).toBeGreaterThanOrEqual(allItems[i - 1].occurredAt.getTime());
+      expect(allItems[i].occurredAt.getTime()).toBeLessThanOrEqual(allItems[i - 1].occurredAt.getTime());
     }
+  });
+
+  it("CL9 — effect=cash_in returns only cash in; effect=cash_out only cash out", async () => {
+    const repo = new InMemoryLedgerEventRepository();
+    await createCashIn(repo, T1);
+    await createCashOut(repo, T2);
+
+    const inbound = await makeSvc(repo).list({ partyId: USINA, effect: "cash_in", limit: 10 });
+    const outbound = await makeSvc(repo).list({ partyId: USINA, effect: "cash_out", limit: 10 });
+
+    expect(inbound.items.map((i) => i.effect)).toEqual(["cash_in"]);
+    expect(outbound.items.map((i) => i.effect)).toEqual(["cash_out"]);
+  });
+
+  it("CL10 — no effect: both directions, exactly as before the filter existed", async () => {
+    const repo = new InMemoryLedgerEventRepository();
+    await createCashIn(repo, T1);
+    await createCashOut(repo, T2);
+
+    const page = await makeSvc(repo).list({ partyId: USINA, limit: 10 });
+
+    expect(page.items.map((i) => i.effect).sort()).toEqual(["cash_in", "cash_out"]);
+  });
+
+  it("CL11 — no partyId: the whole book's cash movements, not one party's statement", async () => {
+    const repo = new InMemoryLedgerEventRepository();
+    await createCashIn(repo, T1, USINA);
+    await createCashIn(repo, T2, OTHER_PARTY);
+    await createNonCash(repo, T3); // still excluded: it is not a cash movement
+
+    const scoped = await makeSvc(repo).list({ partyId: USINA, limit: 10 });
+    const whole  = await makeSvc(repo).list({ limit: 10 });
+
+    expect(scoped.items).toHaveLength(1);
+    expect(whole.items).toHaveLength(2);
+  });
+
+  it("CL13 — sortBy=recordedAt orders by entry in the book, not by when the fact happened", async () => {
+    const repo = new InMemoryLedgerEventRepository();
+    // Recorded in this order; T4 happened LAST but was written FIRST, which is exactly the case the
+    // two axes disagree about — a fact recorded long after it occurred. The pause buys distinct
+    // recording times: `recordedAt` is stamped with `new Date()`, so two events written inside the
+    // same millisecond are genuinely tied and the id, not the axis, would decide the order.
+    await createCashIn(repo, T4);
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    await createCashIn(repo, T1);
+
+    const byOccurrence = await makeSvc(repo).list({ partyId: USINA, limit: 10 });
+    const byRecording  = await makeSvc(repo).list({ partyId: USINA, limit: 10, sortBy: "recordedAt" });
+
+    expect(byOccurrence.items.map((i) => i.occurredAt.getTime())).toEqual([T4.getTime(), T1.getTime()]);
+    expect(byRecording.items.map((i) => i.occurredAt.getTime())).toEqual([T1.getTime(), T4.getTime()]);
+  });
+
+  it("CL14 — a numbered page carries total and totalPages; a keyset page carries neither", async () => {
+    const repo = new InMemoryLedgerEventRepository();
+    for (let i = 0; i < 5; i++) {
+      await createCashIn(repo, new Date(`2026-01-${10 + i}T00:00:00Z`));
+    }
+
+    const numbered = await makeSvc(repo).list({ partyId: USINA, limit: 2, page: 2 });
+    const keyset   = await makeSvc(repo).list({ partyId: USINA, limit: 2 });
+
+    expect(numbered.items).toHaveLength(2);
+    expect(numbered.total).toBe(5);
+    expect(numbered.page).toBe(2);
+    expect(numbered.totalPages).toBe(3);
+    expect(numbered.hasMore).toBe(true);
+    // A numbered page names no keyset position, and a keyset page counted nothing. Null in both
+    // directions is the honest answer — never 0, which would state that the book holds none.
+    expect(numbered.nextCursor).toBeNull();
+    expect(keyset.total).toBeNull();
+    expect(keyset.totalPages).toBeNull();
+    expect(keyset.nextCursor).not.toBeNull();
+  });
+
+  it("CL15 — the last numbered page reports no more, and pages do not overlap", async () => {
+    const repo = new InMemoryLedgerEventRepository();
+    for (let i = 0; i < 5; i++) {
+      await createCashIn(repo, new Date(`2026-01-${10 + i}T00:00:00Z`));
+    }
+
+    const page3 = await makeSvc(repo).list({ partyId: USINA, limit: 2, page: 3 });
+    const page1 = await makeSvc(repo).list({ partyId: USINA, limit: 2, page: 1 });
+
+    expect(page3.items).toHaveLength(1);
+    expect(page3.hasMore).toBe(false);
+    const first = new Set(page1.items.map((i) => i.eventId));
+    expect(page3.items.some((i) => first.has(i.eventId))).toBe(false);
+  });
+
+  it("CL16 — a cursor issued for one ordering is refused under another", async () => {
+    const repo = new InMemoryLedgerEventRepository();
+    for (let i = 0; i < 5; i++) {
+      await createCashIn(repo, new Date(`2026-01-${10 + i}T00:00:00Z`));
+    }
+
+    const page1 = await makeSvc(repo).list({ partyId: USINA, limit: 2 });
+    const cursor = page1.nextCursor!;
+
+    // Replaying it under another ordering would silently skip or repeat rows — the one failure mode
+    // a paged read cannot show on screen. It is refused instead.
+    await expect(
+      makeSvc(repo).list({ partyId: USINA, limit: 2, cursor, sortOrder: "ASC" }),
+    ).rejects.toThrow(CursorMismatchError);
+    await expect(
+      makeSvc(repo).list({ partyId: USINA, limit: 2, cursor, sortBy: "recordedAt" }),
+    ).rejects.toThrow(CursorMismatchError);
+
+    // Same ordering: continues normally.
+    const page2 = await makeSvc(repo).list({ partyId: USINA, limit: 2, cursor });
+    expect(page2.items).toHaveLength(2);
+  });
+
+  it("CL17 — a cursor wins over a page number: it is the more specific statement", async () => {
+    const repo = new InMemoryLedgerEventRepository();
+    for (let i = 0; i < 5; i++) {
+      await createCashIn(repo, new Date(`2026-01-${10 + i}T00:00:00Z`));
+    }
+
+    const page1 = await makeSvc(repo).list({ partyId: USINA, limit: 2 });
+    const continued = await makeSvc(repo).list({
+      partyId: USINA,
+      limit: 2,
+      cursor: page1.nextCursor!,
+      page: 5,
+    });
+
+    expect(continued.total).toBeNull();
+    expect(continued.items.map((i) => i.eventId)).not.toEqual(page1.items.map((i) => i.eventId));
+  });
+
+  it("CL12 — no partyId still honours period and effect", async () => {
+    const repo = new InMemoryLedgerEventRepository();
+    await createCashIn(repo, T1, OTHER_PARTY);
+    await createCashIn(repo, T3, OTHER_PARTY);
+    await createCashOut(repo, T3, OTHER_PARTY);
+
+    const page = await makeSvc(repo).list({
+      effect: "cash_in",
+      from: new Date("2026-02-01T00:00:00Z"),
+      limit: 10,
+    });
+
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0].effect).toBe("cash_in");
+    expect(page.items[0].occurredAt.getTime()).toBe(T3.getTime());
   });
 });

@@ -1,4 +1,8 @@
-import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
+import type {
+  CashMovementsQuery,
+  LedgerReadPort,
+  PositionsQuery,
+} from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
 import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
 import type { LedgerEventFeedPort, RecordedEvent } from "../../core/application/ports/LedgerEventFeedPort";
@@ -56,6 +60,12 @@ function mapParties(parties: LedgerDetailEvent["parties"]) {
 }
 
 type LedgerDetailEvent = LedgerPositionDetail["events"][number];
+
+/** A filter that admits one value or several, as the list of values to send. Empty means unset. */
+function toValues(value: string | string[] | undefined): string[] {
+  if (value === undefined) return [];
+  return (Array.isArray(value) ? value : [value]).filter((v) => v !== "");
+}
 
 /**
  * The origination that still STANDS for an object, out of a position detail's published events.
@@ -119,23 +129,36 @@ export class HttpLedgerReadAdapter
     return this.get<CashPosition>("/api/cash-position");
   }
 
-  cashMovements(params: { partyId: string; limit?: number }): Promise<CashMovementsPage> {
-    const q = new URLSearchParams({ partyId: params.partyId, limit: String(params.limit ?? 50) });
+  cashMovements(params?: CashMovementsQuery): Promise<CashMovementsPage> {
+    const q = new URLSearchParams({ limit: String(params?.limit ?? 50) });
+    // Absent, each of these is simply not sent: the Ledger then answers the unscoped question,
+    // which is a wider answer rather than a defaulted one.
+    if (params?.partyId) q.set("partyId", params.partyId);
+    if (params?.effect) q.set("effect", params.effect);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.cursor) q.set("cursor", params.cursor);
+    if (params?.page) q.set("page", String(params.page));
+    // The Ledger validates both against a closed set and refuses an unrecognised one, so a typo
+    // comes back as a 400 rather than as a listing silently ordered some other way.
+    if (params?.sortBy) q.set("sortBy", params.sortBy);
+    if (params?.sortOrder) q.set("sortOrder", params.sortOrder);
     return this.get<CashMovementsPage>(`/api/cash-movements?${q.toString()}`);
   }
 
-  async positions(params?: {
-    limit?: number;
-    page?: number;
-    status?: string;
-    objectType?: string;
-    sortBy?: string;
-    sortOrder?: string;
-  }): Promise<PositionsPage> {
+  async positions(params?: PositionsQuery): Promise<PositionsPage> {
     const q = new URLSearchParams({ limit: String(params?.limit ?? 50) });
     if (params?.page) q.set("page", String(params.page));
-    if (params?.status) q.set("status", params.status);
-    if (params?.objectType) q.set("objectType", params.objectType);
+    // Repeated parameters rather than a joined string: the Ledger accepts both, and repeating keeps
+    // a value containing a comma from being read as two selections.
+    for (const status of toValues(params?.status)) q.append("status", status);
+    for (const objectType of toValues(params?.objectType)) q.append("objectType", objectType);
+    for (const partyId of toValues(params?.partyId)) q.append("partyId", partyId);
+    if (params?.outcome) q.set("outcome", params.outcome);
+    // Passed through as written. The Ledger validates the period and refuses a malformed one — a
+    // date treasury reinterpreted would be a period the two sides no longer agree on.
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
     // The Ledger validates both against a closed set, so an unrecognised value falls back there
     // rather than travelling into its SQL.
     if (params?.sortBy) q.set("sortBy", params.sortBy);
@@ -168,18 +191,38 @@ export class HttpLedgerReadAdapter
         // Null against a Ledger that predates the due-date field, and null for any obligation whose
         // establishing fact stated no terms. Both are "not known", which is what the screen shows.
         dueAt: p.dueAt ?? null,
+        // Everyone involved, as the Ledger published them — ids only, and the usina among them.
+        // Null against a Ledger that does not publish parties: not told, which is not "nobody".
+        parties: p.parties ?? null,
       })),
     };
   }
 
   /**
-   * What the position math says about the whole book. No period is sent: the three figures read
-   * here are current-state (`findAllPositionAggregates`), and `from`/`to` would only scope cash
-   * figures treasury reads elsewhere.
+   * What the position math says about the whole book, plus the cash the Ledger folded over the
+   * requested period.
+   *
+   * The two are published side by side and never merged. The exposure figures are current-state
+   * (`findAllPositionAggregates`) and the period does not scope them — asking for last week does
+   * not make an outstanding balance smaller. The period figures are the cash fold, which is exactly
+   * what a period means. Mixing them would be the "two maths added together" error §2.2 warns about.
+   *
+   * With no period the Ledger applies its own default window (30 days), as it always did.
    */
-  async bookExposure(): Promise<BookExposure> {
+  async bookExposure(params?: { from?: string; to?: string }): Promise<BookExposure> {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    const query = q.toString();
     const raw = await this.get<{
       currency: string;
+      period?: { from: string; to: string };
+      cashIn?: string;
+      cashOut?: string;
+      netCash?: string;
+      netCashNegative?: boolean;
+      cashInByType?: Record<string, string>;
+      cashOutByType?: Record<string, string>;
       openExposure: string;
       openPayableExposure?: string;
       overduePayable?: string;
@@ -187,9 +230,19 @@ export class HttpLedgerReadAdapter
       undatedPayable?: string;
       capitalAtRisk: string;
       healthScore: BookExposure["healthScore"];
-    }>("/api/dashboard");
+    }>(`/api/dashboard${query ? `?${query}` : ""}`);
     return {
       currency: raw.currency,
+      // Passed through exactly as published, including the window the Ledger actually applied —
+      // which is what lets a screen state the period instead of assuming the one it asked for.
+      // Absent against a Ledger that publishes no period block; absent is not zero cash.
+      period: raw.period,
+      cashIn: raw.cashIn,
+      cashOut: raw.cashOut,
+      netCash: raw.netCash,
+      netCashNegative: raw.netCashNegative,
+      cashInByType: raw.cashInByType,
+      cashOutByType: raw.cashOutByType,
       openExposure: raw.openExposure,
       // Defaulted to "0.00" only for a Ledger that predates these figures — where a payable position
       // could not be originated at all, so zero is the true total rather than a stand-in for unknown.

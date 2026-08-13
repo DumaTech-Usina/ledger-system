@@ -1,4 +1,9 @@
-import { CashMovement, CashMovementPage } from "../dtos/CashStatement";
+import {
+  CashMovement,
+  CashMovementCursor,
+  CashMovementPage,
+  CashMovementSortKey,
+} from "../dtos/CashStatement";
 import { LedgerEventRepository } from "../repositories/LedgerEventRepository";
 import { LedgerEvent } from "../../domain/entities/LedgerEvent";
 import { Direction } from "../../domain/enums/Direction";
@@ -7,29 +12,45 @@ export class CashEventListingService {
   constructor(private readonly repo: LedgerEventRepository) {}
 
   async list(params: {
-    partyId: string;
+    /** Absent lists the whole book's cash movements instead of one party's statement. */
+    partyId?: string;
+    /** Absent lists both directions; a statement is both, and neither is the default. */
+    effect?: "cash_in" | "cash_out";
     from?: Date;
     to?: Date;
     limit: number;
     cursor?: string;
+    /** A numbered page. Ignored when a cursor is given — a cursor already says where it is. */
+    page?: number;
+    sortBy?: CashMovementSortKey;
+    sortOrder?: "ASC" | "DESC";
   }): Promise<CashMovementPage> {
     const limit = Math.min(Math.max(1, params.limit), 200);
-    const cursor = params.cursor ? this.decodeCursor(params.cursor) : undefined;
+    const sortBy = params.sortBy ?? "occurredAt";
+    const sortOrder = params.sortOrder ?? "DESC";
+    const cursor = params.cursor ? this.decodeCursor(params.cursor, sortBy, sortOrder) : undefined;
 
-    const { items, hasMore, nextCursor: rawCursor } = await this.repo.findCashMovementsPaginated({
+    const result = await this.repo.findCashMovementsPaginated({
       partyId: params.partyId,
+      effect: params.effect,
       from: params.from,
       to: params.to,
       limit,
+      sortBy,
+      sortOrder,
       cursor,
+      // A cursor already names a position; a page number alongside it would name a second, and the
+      // two would disagree. The cursor wins because it is the more specific statement.
+      page: cursor ? undefined : params.page,
     });
 
-    const nextCursor = rawCursor ? this.encodeCursor(rawCursor) : null;
-
     return {
-      items: items.map((e) => this.toMovement(e)),
-      nextCursor,
-      hasMore,
+      items: result.items.map((e) => this.toMovement(e)),
+      nextCursor: result.nextCursor ? this.encodeCursor(result.nextCursor) : null,
+      hasMore: result.hasMore,
+      total: result.total,
+      page: result.page,
+      totalPages: result.totalPages,
     };
   }
 
@@ -62,14 +83,59 @@ export class CashEventListingService {
     };
   }
 
-  private encodeCursor(rawCursor: { occurredAt: Date; id: string }): string {
+  /** The cursor carries the ordering it belongs to, so a later request can be checked against it. */
+  private encodeCursor(cursor: CashMovementCursor): string {
     return Buffer.from(
-      JSON.stringify({ occurredAt: rawCursor.occurredAt.toISOString(), id: rawCursor.id }),
+      JSON.stringify({
+        key: cursor.key,
+        order: cursor.order,
+        value: cursor.value.toISOString(),
+        id: cursor.id,
+      }),
     ).toString("base64");
   }
 
-  private decodeCursor(cursor: string): { occurredAt: Date; id: string } {
-    const { occurredAt, id } = JSON.parse(Buffer.from(cursor, "base64").toString("utf8"));
-    return { occurredAt: new Date(occurredAt), id };
+  /**
+   * Reads a cursor and REFUSES it when it was issued for a different ordering.
+   *
+   * Replaying a keyset position under another ordering does not fail loudly on its own — it just
+   * returns the wrong rows, silently skipping or repeating part of the list. Refusing is the only
+   * behaviour that keeps a paged read honest, so the mismatch is an error rather than a surprise.
+   *
+   * A cursor with no ordering in it predates this and is read as the old one (`occurredAt`), then
+   * checked like any other.
+   */
+  private decodeCursor(
+    cursor: string,
+    sortBy: CashMovementSortKey,
+    sortOrder: "ASC" | "DESC",
+  ): CashMovementCursor {
+    let decoded: { key?: string; order?: string; value?: string; occurredAt?: string; id?: string };
+    try {
+      decoded = JSON.parse(Buffer.from(cursor, "base64").toString("utf8"));
+    } catch {
+      throw new CursorMismatchError("Cursor is not readable");
+    }
+
+    const key = (decoded.key ?? "occurredAt") as CashMovementSortKey;
+    const order = (decoded.order ?? sortOrder) as "ASC" | "DESC";
+    const rawValue = decoded.value ?? decoded.occurredAt;
+    if (!rawValue || !decoded.id) throw new CursorMismatchError("Cursor is not readable");
+    if (key !== sortBy || order !== sortOrder) {
+      throw new CursorMismatchError(
+        `Cursor belongs to ${key} ${order}; this request asks for ${sortBy} ${sortOrder}`,
+      );
+    }
+
+    return { key, order, value: new Date(rawValue), id: decoded.id };
+  }
+}
+
+/** A cursor that does not describe the ordering being asked for. A client error, not a book error. */
+export class CursorMismatchError extends Error {
+  readonly statusCode = 400;
+  constructor(message: string) {
+    super(message);
+    this.name = "CursorMismatchError";
   }
 }

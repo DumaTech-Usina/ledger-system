@@ -13,6 +13,7 @@ import type { GetObjectLifecycleUseCase } from "../../../core/application/use-ca
 import type { GetBookExposureUseCase } from "../../../core/application/use-cases/GetBookExposure";
 import type { ListPositionsUseCase } from "../../../core/application/use-cases/ListPositions";
 import type { ListPayablePositionsUseCase } from "../../../core/application/use-cases/ListPayablePositions";
+import type { ListCashMovementsUseCase } from "../../../core/application/use-cases/ListCashMovements";
 import type { GetLedgerEventUseCase } from "../../../core/application/use-cases/GetLedgerEvent";
 import type { StartIntentUseCase } from "../../../core/application/use-cases/StartIntent";
 import type { AdvanceDialogUseCase } from "../../../core/application/use-cases/AdvanceDialog";
@@ -56,6 +57,7 @@ export interface ServerDeps {
   getBookExposure: GetBookExposureUseCase;
   listPositions: ListPositionsUseCase;
   listPayablePositions: ListPayablePositionsUseCase;
+  listCashMovements: ListCashMovementsUseCase;
   getLedgerEvent: GetLedgerEventUseCase;
 }
 
@@ -110,6 +112,7 @@ export function createServer(deps: ServerDeps) {
       deps.getBookExposure,
       deps.listPositions,
       deps.listPayablePositions,
+      deps.listCashMovements,
       deps.getLedgerEvent,
     ),
   );

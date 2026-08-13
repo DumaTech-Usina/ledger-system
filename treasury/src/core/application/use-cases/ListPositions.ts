@@ -1,18 +1,69 @@
 import type { LedgerReadPort } from "../ports/LedgerReadPort";
 import type { PositionsPage } from "../dtos/LedgerReadModels";
 
-/** Page size the positions list asks for. The Ledger caps at 200; this stays well inside it. */
+/** Default page size. The caller may ask for another; the Ledger caps at 200 either way. */
 const PAGE_SIZE = 20;
+/** The Ledger's own cap, repeated here so an absurd `per_page` is clamped rather than round-tripped. */
+const MAX_PAGE_SIZE = 200;
 
 export interface ListPositionsInput {
   page?: number;
-  status?: string;
-  objectType?: string;
+  /** Rows per page. Clamped to [1, 200]; absent keeps the default of 20. */
+  perPage?: number;
+  /** One status or several — several are read as OR by the Ledger. */
+  status?: string | string[];
+  /** One object type or several, same rule. */
+  objectType?: string | string[];
+  /** Parties the position must involve — one or several, read as OR by the Ledger. */
+  partyId?: string | string[];
+  outcome?: string;
+  /** ISO period over when the position entered the book. Validated and applied by the Ledger. */
+  from?: string;
+  to?: string;
+  /** `createdAt` (default) or `dueAt`, and the direction. Both closed sets, checked by the Ledger. */
+  sortBy?: string;
+  sortOrder?: string;
 }
 
 export interface ListPositionsResult {
   available: boolean;
   page: PositionsPage | null;
+  /**
+   * The parties this listing was filtered by, echoed back.
+   *
+   * Not a derived figure — it is the request, returned so the screen can mark WHICH of a position's
+   * parties matched without re-deriving the intersection per row, and without the caller having to
+   * remember what it asked. A position is shown whole, with everyone involved visible; the
+   * selection is highlighted among them rather than substituted for them.
+   */
+  selectedParties: string[];
+  /**
+   * Which party id is us.
+   *
+   * The Ledger publishes every party it recorded and deliberately says nothing about which side is
+   * ours — it was never told. Treasury was: it holds `usinaPartyId` in configuration, and this is
+   * where that knowledge is applied. Published rather than filtered out, so the screen can hide or
+   * mark it without a second copy of the configuration living in the client.
+   */
+  selfPartyId: string;
+}
+
+/** One value or several, as the list of values. Empty means no selection was made. */
+export function asValues(value: string | string[] | undefined): string[] {
+  if (value === undefined) return [];
+  return (Array.isArray(value) ? value : [value]).filter((v) => v !== "");
+}
+
+/**
+ * The requested page size, or the default when none was asked for.
+ *
+ * Clamped rather than forwarded raw: the Ledger caps at 200 and would answer a request for 5000
+ * with 200 without saying so, which makes the reply's `limit` disagree with the request. Clamping
+ * here keeps the page the caller is told about the page it actually gets.
+ */
+export function clampPageSize(perPage: number | undefined): number {
+  if (perPage === undefined || !Number.isFinite(perPage)) return PAGE_SIZE;
+  return Math.min(Math.max(1, Math.floor(perPage)), MAX_PAGE_SIZE);
 }
 
 /**
@@ -30,6 +81,8 @@ export interface ListPositionsResult {
 export class ListPositionsUseCase {
   constructor(
     private readonly ledger: LedgerReadPort,
+    /** Which party is us. Applied to the DISPLAY of parties, never to the filter sent to the Ledger. */
+    private readonly usinaPartyId: string = "",
     /**
      * Remembers what this page answered with, so opening one of these positions can paint before
      * the Ledger replies. Optional: the listing works identically without it, because the snapshot
@@ -42,14 +95,32 @@ export class ListPositionsUseCase {
     try {
       const page = await this.ledger.positions({
         page: input.page && input.page > 0 ? input.page : 1,
-        limit: PAGE_SIZE,
+        limit: clampPageSize(input.perPage),
         status: input.status,
         objectType: input.objectType,
+        partyId: input.partyId,
+        outcome: input.outcome,
+        from: input.from,
+        to: input.to,
+        sortBy: input.sortBy,
+        sortOrder: input.sortOrder,
       });
       this.remember(page.data);
-      return { available: true, page };
+      return {
+        available: true,
+        page,
+        selectedParties: asValues(input.partyId),
+        selfPartyId: this.usinaPartyId,
+      };
     } catch {
-      return { available: false, page: null };
+      // Unknown, not empty: the selection is still what was asked for, and the identity of our own
+      // side did not stop being true because the Ledger could not be reached.
+      return {
+        available: false,
+        page: null,
+        selectedParties: asValues(input.partyId),
+        selfPartyId: this.usinaPartyId,
+      };
     }
   }
 }

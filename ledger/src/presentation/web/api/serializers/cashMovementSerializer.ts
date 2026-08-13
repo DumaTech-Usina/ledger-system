@@ -28,5 +28,10 @@ export function serializeCashMovementPage(page: CashMovementPage) {
     })),
     nextCursor: page.nextCursor,
     hasMore:    page.hasMore,
+    // Null on a keyset page, and null is not zero: nobody counted. A consumer must be able to tell
+    // "there is no total here" from "the total is none", which is why neither is defaulted.
+    total:      page.total,
+    page:       page.page,
+    totalPages: page.totalPages,
   };
 }

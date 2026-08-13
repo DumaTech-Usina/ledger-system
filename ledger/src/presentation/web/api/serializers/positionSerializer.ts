@@ -29,6 +29,10 @@ export function serializePositionListItem(item: PositionListItem) {
     // Null — never a substituted date — when no origination stated terms. A consumer must be able to
     // tell "due yesterday" from "we were never told", because only one of them is a late payment.
     dueAt:          item.dueAt ?? null,
+    // Everyone involved in the position, as ids. Null — never [] — when the read did not publish
+    // them. The ledger does not say which of these is "us": it does not know, and a reader that
+    // does can tell them apart with knowledge the ledger never had.
+    parties:        item.parties ?? null,
   };
 }
 

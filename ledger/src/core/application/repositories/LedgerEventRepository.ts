@@ -8,7 +8,23 @@ import {
   PositionAggregate,
   PositionAggregateOptions,
 } from "../dtos/PositionAggregate";
-import { CashMovementsPaginatedOptions } from "../dtos/CashStatement";
+import { CashMovementCursor, CashMovementsPaginatedOptions } from "../dtos/CashStatement";
+
+/**
+ * One page of cash movements, in whichever mode was asked for.
+ *
+ * `nextCursor` is null on a numbered page and `total`/`page`/`totalPages` are null on a keyset one.
+ * Each null says "this mode does not answer that", which is not the same as zero or as the end of
+ * the list — a caller must be able to tell "no more pages" from "nobody counted".
+ */
+export interface CashMovementsQueryResult {
+  items: LedgerEvent[];
+  hasMore: boolean;
+  nextCursor: CashMovementCursor | null;
+  total: number | null;
+  page: number | null;
+  totalPages: number | null;
+}
 
 export interface LedgerEventRepository {
   save(event: LedgerEvent): Promise<void>;
@@ -28,6 +44,18 @@ export interface LedgerEventRepository {
 
   /** All events that were directly caused by a given event (via relatedEventId). */
   findByRelatedEventId(relatedEventId: string): Promise<LedgerEvent[]>;
+
+  /**
+   * Which of the given objects are settled — one lookup for the whole set.
+   *
+   * Exists because the alternative is reading every event of every object just to ask a yes/no
+   * question about each, which is one query per object on a page.
+   *
+   * An object counts as settled when an event that STANDS declares SETTLES on it. A retracted
+   * settlement does not count: the rectification declared that it never corresponded to the world,
+   * so the position it appeared to close is open again — the same reading every projection applies.
+   */
+  findSettledObjectIds(objectIds: readonly string[]): Promise<Set<string>>;
 
   /** All events where a given party participated. */
   findByPartyId(partyId: string): Promise<LedgerEvent[]>;
@@ -97,11 +125,7 @@ export interface LedgerEventRepository {
    */
   findCashMovementsPaginated(
     options: CashMovementsPaginatedOptions,
-  ): Promise<{
-    items: LedgerEvent[];
-    hasMore: boolean;
-    nextCursor: { occurredAt: Date; id: string } | null;
-  }>;
+  ): Promise<CashMovementsQueryResult>;
 
   /**
    * Returns all position aggregates in a single pass — no pagination, no COUNT query.

@@ -18,6 +18,7 @@
     "post:staging": "tsx src/infra/workers/consumers/post-staging.ts",
     "dev:full": "concurrently --names \"server,ingest:advance,ingest:receipt,submit:advance,submit:receipt,post:staging\" -c \"blue,green,yellow,magenta,cyan,red\" \"npm:dev:server\" \"npm:ingest:advance\" \"npm:ingest:receipt\" \"npm:submit:advance\" \"npm:submit:receipt\" \"npm:post:staging\"",
     "test:coverage": "vitest run --coverage",
+    "test:pg": "LEDGER_PG_TEST=1 vitest run src/tests/integration/persistence",
     "typeorm": "node --require tsx/cjs ./node_modules/typeorm/cli.js",
     "db:migration:generate": "npm run typeorm -- migration:generate src/infra/database/migrations/Migration -d src/infra/database/data-source.ts",
     "db:migration:run": "npm run typeorm -- migration:run -d src/infra/database/data-source.ts",

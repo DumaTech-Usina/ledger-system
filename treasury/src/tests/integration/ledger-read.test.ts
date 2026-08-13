@@ -168,6 +168,12 @@ describe("GetTreasuryDashboardUseCase", () => {
       cashPosition: null,
       movements: null,
       positions: null,
+      // Null paging, not an empty page: a zeroed page would state that the book holds nothing,
+      // where the truth is that it could not be read at all.
+      positionsPage: null,
+      movementsCursor: null,
+      movementsHasMore: false,
+      movementsPaging: null,
       classificationHealth: null,
       partyNames: {},
     });

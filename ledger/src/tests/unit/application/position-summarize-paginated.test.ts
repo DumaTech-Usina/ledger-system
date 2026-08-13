@@ -7,6 +7,10 @@ import { Relation } from "../../../core/domain/enums/Relation";
 import { advancePayment, advanceSettlement } from "../../integration/business-flows/helpers/commands/advance-commands";
 import { ledgerCorrection } from "../../integration/business-flows/helpers/commands/correction-commands";
 import { loanOrigination, loanRepayment } from "../../integration/business-flows/helpers/commands/loan-commands";
+import { obligationRecognized, payrollPayment, retractPayroll } from "../../integration/business-flows/helpers/commands/obligation-commands";
+import { BROKER, SUPPLIER, TAX_AUTH, USINA } from "../../integration/business-flows/helpers/parties";
+import { Direction } from "../../../core/domain/enums/Direction";
+import { PartyRole } from "../../../core/domain/enums/PartyRole";
 import { makeRef } from "../../integration/business-flows/helpers/ref";
 import { setup } from "../../integration/business-flows/helpers/setup";
 
@@ -210,5 +214,152 @@ describe("PositionProjectionService.summarizePaginated()", () => {
     const result = await svc(ledgerRepo).summarizePaginated({});
 
     expect(result.data.map((p) => p.objectId)).toEqual(["loan-u14-new", "loan-u14-old"]);
+  });
+
+  it("U15 — several objectTypes are read as OR, not as an impossible AND", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(loanOrigination(ref, "loan-u15", "1000.00"));
+    await run(advancePayment(ref, "adv-u15", "500.00"));
+
+    const result = await svc(ledgerRepo).summarizePaginated({
+      objectType: [ObjectType.LOAN, ObjectType.ADVANCE],
+    });
+    const ids = result.data.map((p) => p.objectId);
+
+    expect(ids).toContain("loan-u15");
+    expect(ids).toContain("adv-u15");
+  });
+
+  it("U16 — several statuses are read as OR; a status outside the selection stays out", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(loanOrigination(ref, "loan-u16-open", "1000.00"));
+    const settled = await run(loanOrigination(ref, "loan-u16-settled", "500.00"));
+    await run(loanRepayment(ref, "loan-u16-settled", settled.id.value, EconomicEffect.CASH_IN, Relation.SETTLES, ReasonType.LOAN_REPAYMENT, "500.00"));
+    const partial = await run(loanOrigination(ref, "loan-u16-partial", "800.00"));
+    await run(loanRepayment(ref, "loan-u16-partial", partial.id.value, EconomicEffect.CASH_IN, Relation.SETTLES, ReasonType.LOAN_REPAYMENT, "300.00"));
+
+    const result = await svc(ledgerRepo).summarizePaginated({ status: ["open", "fully_settled"] });
+    const ids = result.data.map((p) => p.objectId);
+
+    expect(ids).toContain("loan-u16-open");
+    expect(ids).toContain("loan-u16-settled");
+    expect(ids).not.toContain("loan-u16-partial");
+  });
+
+  it("U17 — a one-element selection answers exactly what the single value answered", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(loanOrigination(ref, "loan-u17", "1000.00"));
+    await run(advancePayment(ref, "adv-u17", "500.00"));
+
+    const single = await svc(ledgerRepo).summarizePaginated({ objectType: ObjectType.LOAN });
+    const asList = await svc(ledgerRepo).summarizePaginated({ objectType: [ObjectType.LOAN] });
+
+    expect(asList.data.map((p) => p.objectId)).toEqual(single.data.map((p) => p.objectId));
+  });
+
+  it("U18 — a period around now returns the book; a period ahead of it returns nothing", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(loanOrigination(ref, "loan-u18", "1000.00"));
+
+    const hour = 60 * 60 * 1000;
+    const around = await svc(ledgerRepo).summarizePaginated({
+      from: new Date(Date.now() - hour),
+      to: new Date(Date.now() + hour),
+    });
+    const ahead = await svc(ledgerRepo).summarizePaginated({ from: new Date(Date.now() + hour) });
+
+    expect(around.data.map((p) => p.objectId)).toContain("loan-u18");
+    expect(ahead.total).toBe(0);
+  });
+
+  it("U20 — a party is matched by INVOLVEMENT: the one who paid counts as much as the one owed", async () => {
+    const { ledgerRepo, run } = setup();
+    // Recognized against the supplier, paid by someone else entirely — a third party settling for
+    // the debtor. Both took part in this position's life.
+    await run(obligationRecognized(ref, "payroll-u20", "1000.00"));
+    await run(
+      payrollPayment(ref, "payroll-u20", "400.00", {
+        parties: [
+          { partyId: USINA, role: PartyRole.PAYER, direction: Direction.OUT, amount: "400.00" },
+          { partyId: TAX_AUTH, role: PartyRole.PAYEE, direction: Direction.NEUTRAL, amount: "400.00" },
+        ],
+      }),
+    );
+    await run(loanOrigination(ref, "loan-u20", "500.00"));
+
+    const bySupplier = await svc(ledgerRepo).summarizePaginated({ partyId: SUPPLIER });
+    const byPayer = await svc(ledgerRepo).summarizePaginated({ partyId: TAX_AUTH });
+    const byStranger = await svc(ledgerRepo).summarizePaginated({ partyId: "nobody-here" });
+
+    // The party of the origination finds it…
+    expect(bySupplier.data.map((p) => p.objectId)).toEqual(["payroll-u20"]);
+    // …and so does the party of the settlement, which is the whole point: involvement, not
+    // protagonism. A listing that only answered for the origination would hide the position from
+    // the party that actually moved the money.
+    expect(byPayer.data.map((p) => p.objectId)).toEqual(["payroll-u20"]);
+    expect(byStranger.total).toBe(0);
+  });
+
+  it("U21 — several parties are read as OR, and the whole position comes back either way", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(obligationRecognized(ref, "payroll-u21", "1000.00"));
+    await run(loanOrigination(ref, "loan-u21", "500.00"));
+
+    const result = await svc(ledgerRepo).summarizePaginated({ partyId: [SUPPLIER, BROKER] });
+
+    expect(result.data.map((p) => p.objectId).sort()).toEqual(["loan-u21", "payroll-u21"]);
+  });
+
+  it("U22 — a party that appears only on a retracted event is not involved in anything standing", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(obligationRecognized(ref, "payroll-u22", "1000.00"));
+    const payment = await run(
+      payrollPayment(ref, "payroll-u22", "400.00", {
+        parties: [
+          { partyId: USINA, role: PartyRole.PAYER, direction: Direction.OUT, amount: "400.00" },
+          { partyId: TAX_AUTH, role: PartyRole.PAYEE, direction: Direction.NEUTRAL, amount: "400.00" },
+        ],
+      }),
+    );
+    await run(retractPayroll(ref, "payroll-u22", payment.id.value, "400.00"));
+
+    const byPayer = await svc(ledgerRepo).summarizePaginated({ partyId: TAX_AUTH });
+    const bySupplier = await svc(ledgerRepo).summarizePaginated({ partyId: SUPPLIER });
+
+    // The payment never happened, so the party that only ever appeared on it took part in nothing
+    // that still stands. The origination is untouched, so the supplier still finds the position.
+    expect(byPayer.total).toBe(0);
+    expect(bySupplier.data.map((p) => p.objectId)).toEqual(["payroll-u22"]);
+  });
+
+  it("U23 — the listing publishes everyone involved, deduplicated, including our own side", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(obligationRecognized(ref, "payroll-u23", "1000.00"));
+    await run(payrollPayment(ref, "payroll-u23", "400.00"));
+
+    const result = await svc(ledgerRepo).summarizePaginated({ objectType: ObjectType.PAYROLL });
+    const position = result.data.find((p) => p.objectId === "payroll-u23")!;
+
+    // The usina is in the list: the ledger does not know which side is "us" and publishes what it
+    // recorded. Whoever reads it may know, and may hide it — that is the reader's knowledge, not
+    // the book's. USINA appears on both events and is named once.
+    expect([...position.parties!].sort()).toEqual([SUPPLIER, USINA].sort());
+  });
+
+  it("U19 — the period is over creation, so a position stays in a window its later events left", async () => {
+    const { ledgerRepo, run } = setup();
+    const loan = await run(loanOrigination(ref, "loan-u19", "1000.00"));
+    // The settlement OCCURRED years earlier than the position was recorded. A period over occurrence
+    // or last activity would move the position out of the window; the axis is when it entered the
+    // book, which no later fact can rewrite.
+    await run(loanRepayment(ref, "loan-u19", loan.id.value, EconomicEffect.CASH_IN, Relation.SETTLES, ReasonType.LOAN_REPAYMENT, "400.00"));
+
+    const hour = 60 * 60 * 1000;
+    const result = await svc(ledgerRepo).summarizePaginated({
+      from: new Date(Date.now() - hour),
+      to: new Date(Date.now() + hour),
+    });
+
+    expect(result.data.map((p) => p.objectId)).toContain("loan-u19");
   });
 });

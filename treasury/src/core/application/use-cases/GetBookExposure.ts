@@ -21,12 +21,18 @@ export interface BookExposureResult {
  * unknown, and unknown is reported as unavailable — never as zero exposure, which would read as a
  * healthy book.
  */
+export interface BookExposureInput {
+  /** ISO dates. Scope the Ledger's period cash figures only — the exposure totals are current-state. */
+  from?: string;
+  to?: string;
+}
+
 export class GetBookExposureUseCase {
   constructor(private readonly ledger: LedgerReadPort) {}
 
-  async execute(): Promise<BookExposureResult> {
+  async execute(input: BookExposureInput = {}): Promise<BookExposureResult> {
     try {
-      return { available: true, exposure: await this.ledger.bookExposure() };
+      return { available: true, exposure: await this.ledger.bookExposure(input) };
     } catch {
       return { available: false, exposure: null };
     }
