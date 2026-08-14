@@ -63,6 +63,59 @@ export interface Translations {
     /** It published one and it is empty: nothing of that kind is outstanding. */
     compositionEmpty: string;
   };
+  /** Chrome for the filter/sort controls shared by the positions and movements listings. */
+  filters: {
+    heading: string;
+    from: string;
+    to: string;
+    status: string;
+    objectType: string;
+    outcome: string;
+    allOutcomes: string;
+    effect: string;
+    allEffects: string;
+    party: string;
+    partyPlaceholder: string;
+    sortBy: string;
+    sortOrder: string;
+    sortAsc: string;
+    sortDesc: string;
+    clear: string;
+    sortCreatedAt: string;
+    sortDueAt: string;
+    sortOccurredAt: string;
+    sortRecordedAt: string;
+    /** How many are selected in a multi-select dropdown, e.g. "2 selecionados". */
+    selectedCount: string;
+    all: string;
+  };
+  /** Chrome for `DateRangePicker`: the expanded panel, its typed-date fields and its ten presets. */
+  dateRangePicker: {
+    title: string;
+    placeholder: string;
+    selectStart: string;
+    selectEnd: string;
+    apply: string;
+    cancel: string;
+    presetToday: string;
+    presetYesterday: string;
+    presetTomorrow: string;
+    presetThisWeek: string;
+    presetLastWeek: string;
+    presetThisMonth: string;
+    presetLastMonth: string;
+    presetFirstHalf: string;
+    presetSecondHalf: string;
+    presetFullYear: string;
+  };
+  /** Chrome for `DatePicker` — the single-date sibling of `dateRangePicker`. */
+  datePicker: {
+    title: string;
+    placeholder: string;
+    select: string;
+    /** The one-click shortcut beside the trigger that picks and confirms today in a single action. */
+    today: string;
+  };
   intents: {
     heading: string;
     subheading: string;
@@ -83,7 +136,15 @@ export interface Translations {
     cashOut: string;
     netFlow: string;
     positionAsOf: string;
+    /** Caption above the period picker that drives cards, chart and the movements list together. */
+    periodLabel: string;
+    /** The window the Ledger actually applied — its own default when nothing was asked for. */
+    periodApplied: string;
     recentMovements: string;
+    /** Result count for the movements listing, mirroring `positions.total`. */
+    movementsTotal: string;
+    /** The Ledger could not be reached for the movements listing specifically. */
+    movementsUnavailable: string;
     /** The figure the Ledger computes from balances, and the drill-down that matches it. */
     openPositions: string;
     /** The full list, which includes positions with nothing outstanding. */
@@ -106,6 +167,12 @@ export interface Translations {
       balanceColumn: string;
       /** Reads as a question a person would ask, not as a field name. */
       whatHappened: string;
+      /** Everyone involved in a position, not only the counterparty a filter matched. */
+      parties: string;
+      /** Marks which of a position's parties is the usina, among the full cast. */
+      selfParty: string;
+      /** The Ledger's own category for the fact — `eventType`, translated via the `eventType` map below. */
+      eventType: string;
     };
     /** The context a fact carries: what it touched, who took part, where it came from. */
     fact: {
@@ -196,6 +263,8 @@ export interface Translations {
       chartInflow: string;
       chartOutflow: string;
       chartBalance: string;
+      /** The chart/modal stopped at the page cap before the period did — said, not left implicit. */
+      truncatedNote: string;
     };
   };
   /** Keyed by the domain enum's raw string value (e.g. CashEffect, ObjectType). */
@@ -258,6 +327,54 @@ const ptBR: Translations = {
     compositionEmpty: "Nada em aberto nesta natureza.",
     total: "{count} posições",
   },
+  filters: {
+    heading: "Filtros",
+    from: "De",
+    to: "Até",
+    status: "Status",
+    objectType: "Tipo",
+    outcome: "Resultado",
+    allOutcomes: "Todos",
+    effect: "Direção",
+    allEffects: "Todas",
+    party: "Contraparte (id)",
+    partyPlaceholder: "ex.: party-acme",
+    sortBy: "Ordenar por",
+    sortOrder: "Ordem",
+    sortAsc: "Crescente",
+    sortDesc: "Decrescente",
+    clear: "Limpar filtros",
+    sortCreatedAt: "Data de entrada",
+    sortDueAt: "Vencimento",
+    sortOccurredAt: "Data do movimento",
+    sortRecordedAt: "Data de registro",
+    selectedCount: "{count} selecionados",
+    all: "Todos",
+  },
+  dateRangePicker: {
+    title: "Selecionar período",
+    placeholder: "Selecionar período",
+    selectStart: "Início",
+    selectEnd: "Fim",
+    apply: "Aplicar filtro",
+    cancel: "Cancelar",
+    presetToday: "Hoje",
+    presetYesterday: "Ontem",
+    presetTomorrow: "Amanhã",
+    presetThisWeek: "Esta semana",
+    presetLastWeek: "Semana passada",
+    presetThisMonth: "Este mês",
+    presetLastMonth: "Mês passado",
+    presetFirstHalf: "Primeiro semestre",
+    presetSecondHalf: "Segundo semestre",
+    presetFullYear: "Ano inteiro",
+  },
+  datePicker: {
+    title: "Selecionar data",
+    placeholder: "Selecionar data",
+    select: "Selecionar",
+    today: "Hoje",
+  },
   intents: {
     heading: "Minhas operações",
     subheading: "O que você registrou e o que aconteceu com cada registro.",
@@ -291,7 +408,11 @@ const ptBR: Translations = {
     cashOut: "Saídas de caixa",
     netFlow: "Fluxo líquido",
     positionAsOf: "Posição em {date}",
-    recentMovements: "Movimentações recentes",
+    periodLabel: "Período",
+    periodApplied: "Aplicado pelo Ledger: {from} – {to}",
+    recentMovements: "Movimentações",
+    movementsTotal: "{count} movimentações",
+    movementsUnavailable: "Não foi possível listar as movimentações agora.",
     openPositions: "Posições em aberto",
     allPositions: "Posições",
     table: {
@@ -309,6 +430,9 @@ const ptBR: Translations = {
       cashOutColumn: "Saídas",
       balanceColumn: "Saldo",
       whatHappened: "O que aconteceu",
+      parties: "Partes",
+      selfParty: "Usina",
+      eventType: "Tipo de evento",
     },
     fact: {
       whatItTouched: "Posições e documentos",
@@ -392,6 +516,7 @@ const ptBR: Translations = {
       chartInflow: "Entradas",
       chartOutflow: "Saídas",
       chartBalance: "Saldo",
+      truncatedNote: "Mostrando as primeiras movimentações do período. Para ver todas, use a lista de Movimentações abaixo.",
     },
   },
   cashEffect: {
@@ -552,6 +677,54 @@ const en: Translations = {
     compositionEmpty: "Nothing outstanding of this kind.",
     total: "{count} positions",
   },
+  filters: {
+    heading: "Filters",
+    from: "From",
+    to: "To",
+    status: "Status",
+    objectType: "Type",
+    outcome: "Outcome",
+    allOutcomes: "All",
+    effect: "Direction",
+    allEffects: "All",
+    party: "Counterparty (id)",
+    partyPlaceholder: "e.g. party-acme",
+    sortBy: "Sort by",
+    sortOrder: "Order",
+    sortAsc: "Ascending",
+    sortDesc: "Descending",
+    clear: "Clear filters",
+    selectedCount: "{count} selected",
+    all: "All",
+    sortCreatedAt: "Entry date",
+    sortDueAt: "Due date",
+    sortOccurredAt: "Movement date",
+    sortRecordedAt: "Recorded date",
+  },
+  dateRangePicker: {
+    title: "Select period",
+    placeholder: "Select period",
+    selectStart: "Start",
+    selectEnd: "End",
+    apply: "Apply filter",
+    cancel: "Cancel",
+    presetToday: "Today",
+    presetYesterday: "Yesterday",
+    presetTomorrow: "Tomorrow",
+    presetThisWeek: "This week",
+    presetLastWeek: "Last week",
+    presetThisMonth: "This month",
+    presetLastMonth: "Last month",
+    presetFirstHalf: "First half",
+    presetSecondHalf: "Second half",
+    presetFullYear: "Full year",
+  },
+  datePicker: {
+    title: "Select date",
+    placeholder: "Select date",
+    select: "Select",
+    today: "Today",
+  },
   intents: {
     heading: "My entries",
     subheading: "What you recorded, and what became of each record.",
@@ -585,7 +758,11 @@ const en: Translations = {
     cashOut: "Cash out",
     netFlow: "Net flow",
     positionAsOf: "Position as of {date}",
-    recentMovements: "Recent movements",
+    periodLabel: "Period",
+    periodApplied: "Applied by the Ledger: {from} – {to}",
+    recentMovements: "Movements",
+    movementsTotal: "{count} movements",
+    movementsUnavailable: "Couldn't list movements right now.",
     openPositions: "Open positions",
     allPositions: "Positions",
     table: {
@@ -603,6 +780,9 @@ const en: Translations = {
       cashOutColumn: "Cash out",
       balanceColumn: "Balance",
       whatHappened: "What happened",
+      parties: "Parties",
+      selfParty: "Usina",
+      eventType: "Event type",
     },
     fact: {
       whatItTouched: "Positions and documents",
@@ -686,6 +866,7 @@ const en: Translations = {
       chartInflow: "Cash in",
       chartOutflow: "Cash out",
       chartBalance: "Balance",
+      truncatedNote: "Showing the period's first movements. See the Movements list below for the rest.",
     },
   },
   cashEffect: {

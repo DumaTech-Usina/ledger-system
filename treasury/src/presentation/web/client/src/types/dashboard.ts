@@ -97,6 +97,11 @@ export interface PositionItem {
    * stated terms: neither "due today" nor "never due", and never rendered as either.
    */
   dueAt: string | null;
+  /**
+   * Every party involved in the position, in any role. Includes the usina — the Ledger does not know
+   * which side is ours. Null/absent when the Ledger did not publish them; never rendered as empty.
+   */
+  parties?: readonly string[] | null;
 }
 
 export interface TreasuryDashboard {
@@ -104,6 +109,11 @@ export interface TreasuryDashboard {
   cashPosition: CashPosition | null;
   movements: CashMovement[] | null;
   positions: PositionItem[] | null;
+  /**
+   * True when the `movements` block stopped at the page size rather than at the end of the period —
+   * a chart or table built from it is a prefix of the window, not the whole of it, and must say so.
+   */
+  movementsHasMore: boolean;
   /**
    * partyId → display name for the counterparties in `movements`. A party the Directory does not
    * know is absent here and keeps its id on screen — never a label treasury cannot support.
@@ -205,6 +215,24 @@ export interface PositionLifecycle {
  */
 export interface BookExposure {
   currency: string;
+  /**
+   * The window the Ledger actually folded the cash figures below over — its own default when none
+   * was asked for. Show this window, not the one requested: they are not guaranteed to match.
+   * Absent against a Ledger that predates the field, which is "not told", not "no window".
+   */
+  period?: { from: string; to: string };
+  /**
+   * Cash that moved inside `period` — a different fold than `openExposure` below, which is
+   * current-state and unaffected by the window. The two are never added together.
+   */
+  cashIn?: string;
+  cashOut?: string;
+  /** Unsigned; `netCashNegative` carries the direction. */
+  netCash?: string;
+  netCashNegative?: boolean;
+  /** The same period cash, broken down by event type. Passed through, never re-summed. */
+  cashInByType?: Record<string, string>;
+  cashOutByType?: Record<string, string>;
   openExposure: string;
   /** What Usina owes on obligations not yet paid — the total expected to leave the company. */
   openPayableExposure: string;
@@ -244,6 +272,26 @@ export interface PositionsPage {
 export interface ListPositionsResult {
   available: boolean;
   page: PositionsPage | null;
+  /** The parties this listing was filtered by, echoed back — used to highlight them in `parties`. */
+  selectedParties: string[];
+  /** Which party id is us. Used to hide or mark it among `parties`, never to filter on the way in. */
+  selfPartyId: string;
+}
+
+/** One page of cash movements, paged by the Ledger's own cursor (or a numbered page, when asked). */
+export interface CashMovementsPage {
+  items: CashMovement[];
+  nextCursor: string | null;
+  hasMore: boolean;
+  /** Published only in numbered-page mode. Null on a keyset page — never zero, which never counted. */
+  total?: number | null;
+  page?: number | null;
+  totalPages?: number | null;
+}
+
+export interface ListCashMovementsResult {
+  available: boolean;
+  page: CashMovementsPage | null;
 }
 
 /**

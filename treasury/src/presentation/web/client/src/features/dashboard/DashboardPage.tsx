@@ -1,14 +1,28 @@
 import { useState } from "react";
 import { Card } from "@/components/Card";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { Modal } from "@/components/Modal";
+import { MovementsSection } from "@/features/dashboard/MovementsSection";
 import { MovementsTable } from "@/features/dashboard/MovementsTable";
 import { TotalFlowWidget } from "@/features/dashboard/TotalFlowWidget";
+import { useBookExposure } from "@/features/dashboard/useBookExposure";
 import { useDashboard } from "@/features/dashboard/useDashboard";
 import { formatTemplate, useLanguage } from "@/i18n/i18n";
-import { formatDate, formatMoney } from "@/utils/format";
+import { formatDate, formatMoney, formatSignedMoney } from "@/utils/format";
 import type { CashMovement } from "@/types/dashboard";
 
 type DetailKind = "cashIn" | "cashOut" | "netFlow";
+
+/** Last 30 days, anchored to now — the same window `/api/dashboard/exposure` defaults to on its
+ * own, spelled out here so every block on this page asks for the identical window explicitly
+ * rather than each endpoint falling back to its own implicit default. */
+function defaultPeriod(): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(to);
+  from.setDate(from.getDate() - 30);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { from: iso(from), to: iso(to) };
+}
 
 function Stat({
   label,
@@ -50,17 +64,47 @@ function Stat({
  * Cash: how much money moved, and when. Everything here comes from the Ledger's cash math —
  * `economicEffect` × `amount` — which never reads an object. What a position owes, and whether it
  * is still open, is a different question answered by a different fold; it lives in PositionsPage.
+ *
+ * One period drives the whole page — the cards, the daily chart and the movements list below all
+ * read the same `from`/`to`, set once here. The cash figures on the cards come from the Ledger's
+ * own fold over that period (`/api/dashboard/exposure`), never summed from the movements list on
+ * screen: that list is capped, and a total derived from a capped list would silently disagree with
+ * the Ledger the moment the period outgrew the cap.
  */
 export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperations?: () => void }) {
-  const { data, loading } = useDashboard();
+  const [period, setPeriod] = useState(defaultPeriod());
+  const { data, loading } = useDashboard(period);
+  const { exposure } = useBookExposure(period);
   const { t } = useLanguage();
   const [detail, setDetail] = useState<DetailKind | null>(null);
 
+  const cashIn = exposure?.cashIn ?? null;
+  const cashOut = exposure?.cashOut ?? null;
+  const netCash = exposure?.netCash ?? null;
+  const netCashNegative = exposure?.netCashNegative ?? false;
+
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="font-display text-2xl font-semibold text-ink">{t.dashboard.heading}</h2>
-        <p className="mt-1 text-sm text-muted">{t.dashboard.subheading}</p>
+      {/* The picker sits bare — no card — so it reads as a control over the whole page rather than
+          a filter scoped to one card beneath it. */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="font-display text-2xl font-semibold text-ink">{t.dashboard.heading}</h2>
+          <p className="mt-1 text-sm text-muted">{t.dashboard.subheading}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <DateRangePicker from={period.from} to={period.to} onChange={setPeriod} align="right" />
+          {/* The window the Ledger actually applied — its own default, shown rather than the one
+              requested, in case the two ever disagree. */}
+          {exposure?.period && (
+            <p className="text-[12px] text-muted">
+              {formatTemplate(t.dashboard.periodApplied, {
+                from: formatDate(exposure.period.from),
+                to: formatDate(exposure.period.to),
+              })}
+            </p>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -82,7 +126,10 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
             <>
               <TotalFlowWidget
                 movements={movements}
-                cashPosition={cashPosition}
+                currency={cashPosition.currency}
+                netCash={netCash}
+                netCashNegative={netCashNegative}
+                movementsHasMore={data.movementsHasMore}
                 partyNames={data.partyNames}
                 onNavigateToOperations={onNavigateToOperations}
               />
@@ -91,25 +138,22 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <Stat
                     label={t.dashboard.cashIn}
-                    value={formatMoney(cashPosition.totalCashIn, cashPosition.currency)}
+                    value={cashIn !== null ? formatMoney(cashIn, cashPosition.currency) : t.common.unknown}
                     onClick={() => setDetail("cashIn")}
                   />
                   <Stat
                     label={t.dashboard.cashOut}
-                    value={formatMoney(cashPosition.totalCashOut, cashPosition.currency)}
+                    value={cashOut !== null ? formatMoney(cashOut, cashPosition.currency) : t.common.unknown}
                     tone="bad"
                     onClick={() => setDetail("cashOut")}
                   />
                   <Stat
                     label={t.dashboard.netFlow}
-                    value={formatMoney(cashPosition.netCashFlow, cashPosition.currency)}
-                    tone={cashPosition.netCashFlow.startsWith("-") ? "bad" : "ok"}
+                    value={netCash !== null ? formatSignedMoney(netCash, netCashNegative, cashPosition.currency) : t.common.unknown}
+                    tone={netCash === null ? undefined : netCashNegative ? "bad" : "ok"}
                     onClick={() => setDetail("netFlow")}
                   />
                 </div>
-                <p className="mt-3 text-[13px] text-muted">
-                  {formatTemplate(t.dashboard.positionAsOf, { date: formatDate(cashPosition.asOf) })}
-                </p>
               </section>
 
               <Modal
@@ -143,25 +187,28 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
                   <div>
                     <p className="text-[12px] font-semibold text-muted">{t.dashboard.cashIn}</p>
                     <p className="tabular mt-1 text-lg font-semibold text-ok">
-                      {formatMoney(cashPosition.totalCashIn, cashPosition.currency)}
+                      {cashIn !== null ? formatMoney(cashIn, cashPosition.currency) : t.common.unknown}
                     </p>
                   </div>
                   <div>
                     <p className="text-[12px] font-semibold text-muted">{t.dashboard.cashOut}</p>
                     <p className="tabular mt-1 text-lg font-semibold text-bad">
-                      {formatMoney(cashPosition.totalCashOut, cashPosition.currency)}
+                      {cashOut !== null ? formatMoney(cashOut, cashPosition.currency) : t.common.unknown}
                     </p>
                   </div>
                   <div>
                     <p className="text-[12px] font-semibold text-muted">{t.dashboard.netFlow}</p>
                     <p
-                      className={`tabular mt-1 text-lg font-semibold ${cashPosition.netCashFlow.startsWith("-") ? "text-bad" : "text-ok"}`}
+                      className={`tabular mt-1 text-lg font-semibold ${
+                        netCash === null ? "text-muted" : netCashNegative ? "text-bad" : "text-ok"
+                      }`}
                     >
-                      {formatMoney(cashPosition.netCashFlow, cashPosition.currency)}
+                      {netCash !== null ? formatSignedMoney(netCash, netCashNegative, cashPosition.currency) : t.common.unknown}
                     </p>
                   </div>
                 </div>
-                {/* Every movement, in one run — the only shape a balance can be read down. */}
+                {/* Every movement the Ledger returned for the period, in one run — the only shape a
+                    balance can be read down. Capped the same way the chart is; see `movementsHasMore`. */}
                 <MovementsTable
                   movements={movements}
                   currency={cashPosition.currency}
@@ -170,19 +217,7 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
                 />
               </Modal>
 
-
-              <section className="space-y-4">
-                <h3 className="font-display text-[15px] font-semibold text-ink">{t.dashboard.recentMovements}</h3>
-                <Card padding="none">
-                  <MovementsTable
-                    movements={movements}
-                    currency={cashPosition.currency}
-                    partyNames={data.partyNames}
-                    showBalance
-                  />
-                </Card>
-              </section>
-
+              <MovementsSection currency={cashPosition.currency} period={period} />
             </>
           );
         })()

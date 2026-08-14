@@ -2,8 +2,12 @@ import type { AdoptedIntent } from "@/features/operations/useConversation";
 import { useState } from "react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
+import { ClearFiltersButton } from "@/components/ClearFiltersButton";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { Input } from "@/components/Input";
 import { Modal } from "@/components/Modal";
+import { MultiSelectDropdown } from "@/components/MultiSelectDropdown";
+import { Select } from "@/components/Select";
 import { CompositionList } from "@/features/dashboard/CompositionList";
 import { ObjectLifecycleTimeline } from "@/features/dashboard/ObjectLifecycleTimeline";
 import { PositionsTable } from "@/features/dashboard/PositionsTable";
@@ -13,6 +17,7 @@ import { useBookExposure } from "@/features/dashboard/useBookExposure";
 import { usePayablePositions } from "@/features/dashboard/usePayablePositions";
 import { usePositionsPage } from "@/features/dashboard/usePositionsPage";
 import { useDashboard } from "@/features/dashboard/useDashboard";
+import { OBJECT_TYPES, POSITION_OUTCOMES, POSITION_STATUSES } from "@/features/dashboard/vocabulary";
 import { formatTemplate, useLanguage } from "@/i18n/i18n";
 import { formatDate, formatMoney } from "@/utils/format";
 
@@ -65,6 +70,115 @@ function OpenPositionById({ canRectify }: { canRectify: boolean }) {
 }
 
 /**
+ * The filters and sort behind the "Todas as posições" listing. Every control writes straight into
+ * `updateFilters`, which the hook resets to page 1 — the page a previous selection was on may not
+ * exist in the new one. The party field is the one exception: it commits on blur/Enter rather than
+ * per keystroke, since the Ledger has no name search to narrow it as the caller types.
+ */
+function PositionsFilterBar({
+  filters,
+  updateFilters,
+  clearFilters,
+}: {
+  filters: ReturnType<typeof usePositionsPage>["filters"];
+  updateFilters: ReturnType<typeof usePositionsPage>["updateFilters"];
+  clearFilters: ReturnType<typeof usePositionsPage>["clearFilters"];
+}) {
+  const { t } = useLanguage();
+  const [partyDraft, setPartyDraft] = useState(filters.partyId);
+
+  const commitParty = () => {
+    if (partyDraft.trim() !== filters.partyId) updateFilters({ partyId: partyDraft.trim() });
+  };
+
+  const hasActiveFilters =
+    filters.status.length > 0 ||
+    filters.objectType.length > 0 ||
+    filters.partyId !== "" ||
+    filters.outcome !== "" ||
+    filters.from !== "" ||
+    filters.to !== "";
+
+  return (
+    <div className="flex flex-wrap items-end gap-4 border-b border-line px-5 py-4">
+      <MultiSelectDropdown
+        label={t.filters.status}
+        placeholder={t.filters.all}
+        selectedLabel={(count) => formatTemplate(t.filters.selectedCount, { count })}
+        options={POSITION_STATUSES.map((s) => ({ value: s, label: t.positionStatus[s] ?? s }))}
+        selected={filters.status}
+        onChange={(values) => updateFilters({ status: values })}
+        className="min-w-40"
+      />
+      <MultiSelectDropdown
+        label={t.filters.objectType}
+        placeholder={t.filters.all}
+        selectedLabel={(count) => formatTemplate(t.filters.selectedCount, { count })}
+        options={OBJECT_TYPES.map((o) => ({ value: o, label: t.objectType[o] ?? o }))}
+        selected={filters.objectType}
+        onChange={(values) => updateFilters({ objectType: values })}
+        className="min-w-40"
+      />
+      <Select
+        label={t.filters.outcome}
+        value={filters.outcome}
+        onChange={(value) => updateFilters({ outcome: value })}
+        options={[
+          { value: "", label: t.filters.allOutcomes },
+          ...POSITION_OUTCOMES.map((o) => ({ value: o, label: t.positionOutcome[o] ?? o })),
+        ]}
+        className="min-w-40"
+      />
+      <Input
+        label={t.filters.party}
+        placeholder={t.filters.partyPlaceholder}
+        value={partyDraft}
+        onChange={(event) => setPartyDraft(event.target.value)}
+        onBlur={commitParty}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            commitParty();
+          }
+        }}
+        className="min-w-48"
+      />
+      <DateRangePicker
+        from={filters.from}
+        to={filters.to}
+        onChange={({ from, to }) => updateFilters({ from, to })}
+      />
+      <Select
+        label={t.filters.sortBy}
+        value={filters.sortBy}
+        onChange={(value) => updateFilters({ sortBy: value })}
+        options={[
+          { value: "createdAt", label: t.filters.sortCreatedAt },
+          { value: "dueAt", label: t.filters.sortDueAt },
+        ]}
+      />
+      <Select
+        label={t.filters.sortOrder}
+        value={filters.sortOrder}
+        onChange={(value) => updateFilters({ sortOrder: value })}
+        options={[
+          { value: "DESC", label: t.filters.sortDesc },
+          { value: "ASC", label: t.filters.sortAsc },
+        ]}
+      />
+      {hasActiveFilters && (
+        <ClearFiltersButton
+          onClick={() => {
+            setPartyDraft("");
+            clearFilters();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
  * Economic positions: what a fact left outstanding, not what it moved in cash.
  *
  * Everything here comes from the Ledger's position math — `relation` × `amount`, grouped by object
@@ -83,7 +197,17 @@ export function PositionsPage({
   const { data, loading } = useDashboard();
   const { exposure } = useBookExposure();
   const { payables } = usePayablePositions();
-  const { page, setPage, result: positionsPage, loading: listLoading } = usePositionsPage();
+  const {
+    page,
+    setPage,
+    filters,
+    updateFilters,
+    clearFilters,
+    result: positionsPage,
+    selectedParties,
+    selfPartyId,
+    loading: listLoading,
+  } = usePositionsPage();
   const { t } = useLanguage();
   const [showOutstanding, setShowOutstanding] = useState(false);
   /** Which payable drill-down is open, if any. The three lists share one modal. */
@@ -361,19 +485,23 @@ export function PositionsPage({
                   <OpenPositionById canRectify={canRectify} />
                 </div>
                 <Card padding="none">
+                  <PositionsFilterBar filters={filters} updateFilters={updateFilters} clearFilters={clearFilters} />
                   {listLoading ? (
                     <p className="px-5 py-6 text-sm text-muted">{t.common.loading}</p>
                   ) : !positionsPage ? (
                     <p className="px-5 py-6 text-sm text-muted">{t.positions.listUnavailable}</p>
                   ) : (
                     <>
-                      {/* Paged by the Ledger — the table must not slice a page again. */}
+                      {/* Paged and filtered by the Ledger — the table must not slice a page again. */}
                       <PositionsTable
                         positions={positionsPage.data}
                         currency={cashPosition.currency}
                         canRectify={canRectify}
                         onOperationStarted={onOperationStarted}
                         paginate={false}
+                        showParties
+                        selectedParties={selectedParties}
+                        selfPartyId={selfPartyId}
                       />
                       <Pagination page={page} totalPages={positionsPage.totalPages} onPageChange={setPage} />
                       <p className="px-5 pb-4 text-[12px] text-muted">

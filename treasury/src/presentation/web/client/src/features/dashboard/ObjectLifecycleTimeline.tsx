@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/Badge";
 import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
+import { DatePicker } from "@/components/DatePicker";
 import { Input } from "@/components/Input";
 import { FactParties, ObjectChip, SourceRef } from "@/features/dashboard/FactContext";
 import { useLanguage } from "@/i18n/i18n";
@@ -514,12 +515,11 @@ function RectifyForm({
               disabled={saving}
               onChange={(event) => setAmount(event.target.value)}
             />
-            <Input
+            <DatePicker
               label={t.dashboard.lifecycle.rectifyDate}
-              type="date"
               value={occurredAt}
               disabled={saving}
-              onChange={(event) => setOccurredAt(event.target.value)}
+              onChange={setOccurredAt}
             />
           </div>
           <p className="mt-2 text-[11px] text-muted">{t.dashboard.lifecycle.rectifyLockedNote}</p>

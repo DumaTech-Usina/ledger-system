@@ -136,11 +136,10 @@ export function ChatStream({
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ block: "end" });
   const showInlineChoices = currentSlot?.type === "choice" && !!currentSlot.choices?.length;
-  const showDatePicker = currentSlot?.type === "date";
 
   useEffect(() => {
     scrollToBottom();
-  }, [stream, showInlineChoices, showDatePicker]);
+  }, [stream, showInlineChoices]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -264,24 +263,8 @@ export function ChatStream({
               );
             }
             return item.status === "accepted" ? (
-              <Banner key={item.id} variant="ok" className="flex flex-wrap items-center justify-between gap-3">
-                <span>✓ Aceito pelo Ledger — referência {item.ledgerReference}</span>
-                <button
-                  type="button"
-                  onClick={onCancel}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-ok/15 px-3 py-1.5 text-xs font-semibold text-ok transition hover:bg-ok/25"
-                >
-                  <svg viewBox="0 0 20 20" fill="none" className="size-3.5">
-                    <path
-                      d="M12 4.5 6.5 10l5.5 5.5"
-                      stroke="currentColor"
-                      strokeWidth="1.6"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  Voltar para operações
-                </button>
+              <Banner key={item.id} variant="ok">
+                ✓ Aceito pelo Ledger — referência {item.ledgerReference}
               </Banner>
             ) : (
               <Banner key={item.id} variant="bad">
@@ -306,22 +289,6 @@ export function ChatStream({
               {choice}
             </button>
           ))}
-        </div>
-      )}
-
-      {showDatePicker && (
-        // Native date input: still typeable (and free text keeps working via the composer), but its
-        // built-in calendar icon gives a one-click picker instead of requiring a typed date at all.
-        <div className="flex justify-start pl-1">
-          <input
-            type="date"
-            aria-label="Escolher data"
-            disabled={busy}
-            onChange={(e) => {
-              if (e.target.value) onAnswer?.(e.target.value);
-            }}
-            className="rounded-full border border-line bg-panel-solid px-4 py-2 text-sm font-semibold text-ink shadow-sm outline-none transition hover:border-accent focus:border-accent disabled:opacity-50 disabled:pointer-events-none [color-scheme:light] dark:[color-scheme:dark]"
-          />
         </div>
       )}
 
@@ -798,6 +765,10 @@ function ConfirmCard({
   const effectPhrase = isCashIn ? "entrada de caixa prevista" : "saída de caixa a pagar";
   const [showDetails, setShowDetails] = useState(false);
   const [editing, setEditing] = useState(false);
+  // Locked in as soon as "Confirmar e enviar" is clicked — `busy` alone is not enough, since it
+  // clears again once the request settles, and this card must stay locked either way (accepted,
+  // rejected, or a correction to make): the same card is never submitted twice.
+  const [sent, setSent] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   // What the form was seeded with, which is not the same as `preview.answers` — a PARTY slot shows a
   // name where the answer holds an id. Diffing against what was on screen is what keeps an untouched
@@ -910,17 +881,30 @@ function ConfirmCard({
       )}
 
       <div className="mt-5 flex flex-col gap-2.5">
-        <Button loading={busy} onClick={onConfirm}>
-          Confirmar e enviar
+        <Button
+          loading={busy}
+          disabled={sent}
+          onClick={() => {
+            setSent(true);
+            onConfirm();
+          }}
+        >
+          {sent ? "Enviado" : "Confirmar e enviar"}
         </Button>
-        <div className="flex gap-2.5">
-          <Button variant="warn" disabled={busy} onClick={startEditing} className="flex-1">
-            Editar
+        {sent ? (
+          <Button variant="ghost" onClick={onCancel}>
+            Voltar
           </Button>
-          <Button variant="ghost" disabled={busy} onClick={onCancel} className="flex-1">
-            Cancelar
-          </Button>
-        </div>
+        ) : (
+          <div className="flex gap-2.5">
+            <Button variant="warn" disabled={busy} onClick={startEditing} className="flex-1">
+              Editar
+            </Button>
+            <Button variant="ghost" disabled={busy} onClick={onCancel} className="flex-1">
+              Cancelar
+            </Button>
+          </div>
+        )}
       </div>
     </Card>
   );

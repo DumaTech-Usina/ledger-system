@@ -112,6 +112,32 @@
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
+
+  /* Level 3 (Modals/Popovers) per DESIGN.md: deeper blur than `.glass`, a diffused primary-tint
+     shadow rather than a hard edge — the floating panel reads as held above the surface, not cut
+     out of it. Used by DateRangePicker and MultiSelectDropdown. */
+  .glass-popover {
+    @apply relative rounded-3xl border border-white/10 bg-panel-solid shadow-[0_16px_48px_-12px_rgba(0,80,203,0.28)] dark:border-white/8;
+    backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+  }
+}
+
+/* Liquid-glass "pop": the overshoot (108% at 60%) before settling is what reads as a bounce rather
+   than a plain fade — used to open DateRangePicker's and MultiSelectDropdown's popovers. */
+@keyframes glass-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(-6px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.015) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 @keyframes pulse-dot {

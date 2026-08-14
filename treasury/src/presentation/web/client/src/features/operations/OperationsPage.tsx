@@ -200,8 +200,11 @@ export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted 
                 key={currentSlot.key}
                 placeholder={slotPrompt(scenarioId ?? "", currentSlot)}
                 required={currentSlot.required}
-                onSend={sendUtterance}
+                // A date answers the open slot directly, the same path a choice button uses — not
+                // the free-text extractor, which a clean ISO day from the calendar has no need of.
+                onSend={currentSlot.type === "date" ? answer : sendUtterance}
                 busy={busy}
+                dateSlot={currentSlot.type === "date"}
               />
             ) : undefined
           }

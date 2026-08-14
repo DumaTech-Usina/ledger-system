@@ -35,6 +35,11 @@ export interface MovementsTableProps {
    * starts at the beginning of the book; a caller holding a later window must say where it opened.
    */
   openingBalance?: string;
+  /**
+   * Off when the caller already asked the Ledger for one page and owns the pager itself. Slicing
+   * again here would page a page — the same rule {@link PositionsTable} follows.
+   */
+  paginate?: boolean;
 }
 
 export function MovementsTable({
@@ -43,6 +48,7 @@ export function MovementsTable({
   partyNames = {},
   showBalance = false,
   openingBalance = "0",
+  paginate = true,
 }: MovementsTableProps) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
@@ -62,10 +68,16 @@ export function MovementsTable({
   /** What a person would call this line. Falls back to the effect's own name — never to an id. */
   const describe = (m: CashMovement) => m.description ?? t.cashEffect[m.effect] ?? m.effect;
 
+  /** The Ledger's own category for the fact, in the system's language — never a raw untranslated
+   * key: a type the app has no name for yet still shows the Ledger's own word, and absent (a
+   * Ledger that predates the field) is its own dash, not blank. */
+  const eventTypeLabel = (m: CashMovement) =>
+    m.eventType ? (t.eventType[m.eventType] ?? m.eventType) : "—";
+
   const nameOf = (partyId: string | null) => (partyId ? partyNames[partyId] ?? partyId : "—");
 
   const totalPages = Math.max(1, Math.ceil(movements.length / PAGE_SIZE));
-  const pageRows = movements.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageRows = paginate ? movements.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : movements;
 
   return (
     <div>
@@ -73,6 +85,7 @@ export function MovementsTable({
         <Table.Head>
           <Table.Row>
             <Table.HeaderCell>{t.dashboard.table.date}</Table.HeaderCell>
+            <Table.HeaderCell>{t.dashboard.table.eventType}</Table.HeaderCell>
             <Table.HeaderCell>{t.dashboard.table.whatHappened}</Table.HeaderCell>
             <Table.HeaderCell>{t.dashboard.table.counterparty}</Table.HeaderCell>
             <Table.HeaderCell className="text-right">{t.dashboard.table.cashInColumn}</Table.HeaderCell>
@@ -86,7 +99,7 @@ export function MovementsTable({
         <Table.Body>
           {movements.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={showBalance ? 7 : 6} className="text-center text-muted">
+              <Table.Cell colSpan={showBalance ? 8 : 7} className="text-center text-muted">
                 {t.common.noRecords}
               </Table.Cell>
             </Table.Row>
@@ -96,6 +109,7 @@ export function MovementsTable({
                 <Table.Cell mono className="text-muted">
                   {formatDate(m.occurredAt)}
                 </Table.Cell>
+                <Table.Cell className={m.eventType ? "text-muted" : "text-muted/60"}>{eventTypeLabel(m)}</Table.Cell>
                 <Table.Cell className="text-ink">{describe(m)}</Table.Cell>
                 <Table.Cell className="text-muted">{nameOf(m.counterparty)}</Table.Cell>
                 {/* Direction as position: a movement lands in the column that matches what it did
@@ -140,7 +154,7 @@ export function MovementsTable({
           )}
         </Table.Body>
       </Table.Root>
-      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+      {paginate && <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />}
       {selected && (
         <RowDetailModal
           movement={selected}

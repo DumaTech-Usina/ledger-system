@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/Button";
+import { DatePicker } from "@/components/DatePicker";
 import { scenarioCopy } from "@/features/operations/copy";
 import { cn } from "@/utils/cn";
 import type { ScenarioSummary } from "@/types/operations";
@@ -16,6 +17,13 @@ export interface ComposerProps {
   /** Jumps straight into a suggested scenario, bypassing free text entirely — the same effect as
    * tapping its ScenarioGrid card. */
   onPickSuggestion?: (scenario: ScenarioSummary) => void;
+  /**
+   * True while the open question is a date. The composer becomes the date field itself — the
+   * calendar picker sits right where free text would otherwise go, rather than as a suggestion
+   * floating above the input. `onSend` still answers it (a chosen day arrives as an ISO string,
+   * same as any other slot answer), so nothing downstream needs to know the difference.
+   */
+  dateSlot?: boolean;
 }
 
 /**
@@ -23,8 +31,11 @@ export interface ComposerProps {
  * (via sendUtterance) instead of coercing the input to the open slot's type, so a value, a date,
  * or a whole sentence naming several fields at once all just work. Keyed by the parent (the open
  * slot's key, or a fixed key while picking) so each new question starts with a clean field.
+ *
+ * The one exception is `dateSlot`: a date is answered by picking, not typing prose, so that turn
+ * swaps the free-text field for `DatePicker` instead of asking the extractor to parse a sentence.
  */
-export function Composer({ placeholder, required, onSend, busy, suggest, onPickSuggestion }: ComposerProps) {
+export function Composer({ placeholder, required, onSend, busy, suggest, onPickSuggestion, dateSlot }: ComposerProps) {
   const [value, setValue] = useState("");
   const suggestions = suggest && value.trim() ? suggest(value) : [];
 
@@ -38,6 +49,10 @@ export function Composer({ placeholder, required, onSend, busy, suggest, onPickS
     onPickSuggestion?.(scenario);
     setValue("");
   };
+
+  if (dateSlot) {
+    return <DatePicker value="" onChange={onSend} disabled={busy} requireConfirm openDirection="up" showTodayShortcut />;
+  }
 
   return (
     <div className="relative flex items-center gap-2 rounded-2xl border border-white/40 bg-panel-solid/85 p-2 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-panel-solid/80">

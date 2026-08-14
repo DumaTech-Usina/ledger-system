@@ -29,6 +29,9 @@ export function PositionsTable({
   onOperationStarted,
   paginate = true,
   showDueDate = false,
+  showParties = false,
+  selectedParties = [],
+  selfPartyId = "",
 }: {
   positions: PositionItem[];
   currency: string;
@@ -46,6 +49,15 @@ export function PositionsTable({
    * question that does not apply.
    */
   showDueDate?: boolean;
+  /**
+   * Adds the parties column. Off by default — most listings do not carry `parties` at all, and a
+   * column that is empty for every row would read as missing data.
+   */
+  showParties?: boolean;
+  /** Which ids came from a `partyId` filter — highlighted among the row's full cast, never used to hide the rest. */
+  selectedParties?: string[];
+  /** The usina's own party id — marked among the cast rather than filtered out. */
+  selfPartyId?: string;
 }) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
@@ -64,9 +76,12 @@ export function PositionsTable({
         <Table.Head>
           <Table.Row>
             <Table.HeaderCell>{t.dashboard.table.type}</Table.HeaderCell>
+            {/* When the position entered the book — the key the default listing is ordered by. */}
+            <Table.HeaderCell>{t.dashboard.table.date}</Table.HeaderCell>
             <Table.HeaderCell>{t.dashboard.table.status}</Table.HeaderCell>
             <Table.HeaderCell>{t.dashboard.table.openBalance}</Table.HeaderCell>
             {showDueDate && <Table.HeaderCell>{t.positions.dueOn}</Table.HeaderCell>}
+            {showParties && <Table.HeaderCell>{t.dashboard.table.parties}</Table.HeaderCell>}
             {/* Last: the id identifies the row, it does not describe it. Reading starts from what
                 the position IS and ends at the key you carry away from it. */}
             <Table.HeaderCell>{t.dashboard.table.id}</Table.HeaderCell>
@@ -76,7 +91,10 @@ export function PositionsTable({
         <Table.Body>
           {positions.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={showDueDate ? 6 : 5} className="text-center text-muted">
+              <Table.Cell
+                colSpan={6 + (showDueDate ? 1 : 0) + (showParties ? 1 : 0)}
+                className="text-center text-muted"
+              >
                 {t.common.noRecords}
               </Table.Cell>
             </Table.Row>
@@ -84,6 +102,11 @@ export function PositionsTable({
             pageRows.map((p) => (
               <Table.Row key={p.objectId}>
                 <Table.Cell className="text-muted">{t.objectType[p.objectType] ?? p.objectType}</Table.Cell>
+                {/* `createdAt` is always present — even a cash-basis position with no origination
+                    entered the book at some point, which is what this column, unlike `originatedAt`, answers. */}
+                <Table.Cell mono className="text-muted">
+                  {p.createdAt === null ? t.common.unknown : formatDate(p.createdAt)}
+                </Table.Cell>
                 {/* A status this app has no name for is said to be unrecognised, not printed raw —
                     but the Ledger's own word stays in the tooltip, because a reader who reports the
                     gap needs to be able to say WHAT the book published. */}
@@ -103,6 +126,36 @@ export function PositionsTable({
                 {showDueDate && (
                   <Table.Cell className={p.dueAt === null ? "text-muted" : undefined}>
                     {p.dueAt === null ? t.positions.noDueDate : formatDate(p.dueAt)}
+                  </Table.Cell>
+                )}
+                {/* The row's whole cast, not only the counterparty a filter matched: a position
+                    originated with one party and settled by another must show both. Selection only
+                    highlights; it never trims who is shown. */}
+                {showParties && (
+                  <Table.Cell>
+                    {!p.parties || p.parties.length === 0 ? (
+                      <span className="text-muted">—</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {p.parties.map((partyId) => {
+                          const matched = selectedParties.includes(partyId);
+                          const isSelf = partyId === selfPartyId && selfPartyId !== "";
+                          return (
+                            <span
+                              key={partyId}
+                              title={isSelf ? t.dashboard.table.selfParty : undefined}
+                              className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                                matched
+                                  ? "bg-accent-soft text-accent dark:text-secondary"
+                                  : "bg-ink/6 text-muted dark:bg-white/8"
+                              }`}
+                            >
+                              {isSelf ? t.dashboard.table.selfParty : partyId}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </Table.Cell>
                 )}
                 <Table.Cell>
