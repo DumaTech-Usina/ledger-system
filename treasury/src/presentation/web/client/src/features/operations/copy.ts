@@ -65,6 +65,11 @@ export const scenarioCopy: Record<string, { title: string; description: string }
     description:
       "Registrar a quitação de um empréstimo pelo corretor (entrada de caixa), quitando o empréstimo original.",
   },
+  register_rectification: {
+    title: "Retificar um lançamento",
+    description:
+      "Declarar que um lançamento já registrado nunca aconteceu — um erro de digitação confirmado contra a fonte. O valor correto, se houver, é registrado depois como um lançamento próprio.",
+  },
 };
 
 export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
@@ -173,6 +178,18 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     occurredAt: "Em que data foi quitado?",
     origin: "Qual empréstimo está sendo quitado?",
     description: "Uma breve descrição (opcional).",
+  },
+  register_rectification: {
+    target: "Qual lançamento nunca aconteceu?",
+    // The remaining slots are derived from the corrected event, never asked directly — translated
+    // all the same, since a recorded answer still shows this label back on the "Editar" form.
+    objectRef: "A posição que o lançamento corrigido movimentou.",
+    objectType: "O tipo de posição que o lançamento corrigido movimentou.",
+    amount: "O valor que o lançamento corrigido registrava.",
+    currency: "Qual é a moeda?",
+    occurredAt: "Em que data o erro foi constatado?",
+    description: "O que comprovou o erro (documento, conciliação)?",
+    reissue: "Se um lançamento corrigido deve vir a seguir.",
   },
 };
 

@@ -208,7 +208,7 @@ export function DatePicker({
             <button
               type="button"
               onClick={() => setMonth((m) => addMonths(m, -1))}
-              aria-label="Previous month"
+              aria-label={t.common.previousMonth}
               className="inline-flex size-7 items-center justify-center rounded-full text-muted transition hover:bg-ink/8 hover:text-ink dark:hover:bg-white/10"
             >
               <ChevronIcon dir="left" />
@@ -217,7 +217,7 @@ export function DatePicker({
             <button
               type="button"
               onClick={() => setMonth((m) => addMonths(m, 1))}
-              aria-label="Next month"
+              aria-label={t.common.nextMonth}
               className="inline-flex size-7 items-center justify-center rounded-full text-muted transition hover:bg-ink/8 hover:text-ink dark:hover:bg-white/10"
             >
               <ChevronIcon dir="right" />

@@ -20,6 +20,10 @@ export interface Translations {
     close: string;
     previous: string;
     next: string;
+    /** The month-navigation arrows inside `DatePicker`/`DateRangePicker` — a screen reader's only
+     * name for a button that otherwise carries just a chevron glyph. */
+    previousMonth: string;
+    nextMonth: string;
     pageOf: string;
     viewDetails: string;
     copyId: string;
@@ -290,6 +294,8 @@ const ptBR: Translations = {
     close: "Fechar",
     previous: "Anterior",
     next: "Próxima",
+    previousMonth: "Mês anterior",
+    nextMonth: "Próximo mês",
     pageOf: "Página {page} de {total}",
     viewDetails: "Ver detalhes",
     copyId: "Copiar id",
@@ -640,6 +646,8 @@ const en: Translations = {
     close: "Close",
     previous: "Previous",
     next: "Next",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
     pageOf: "Page {page} of {total}",
     viewDetails: "View details",
     copyId: "Copy id",

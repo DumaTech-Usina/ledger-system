@@ -63,6 +63,7 @@ function MonthCalendar({
   draftTo: Date | null;
   onPick: (day: Date) => void;
 }) {
+  const { t } = useLanguage();
   const grid = monthGrid(month);
   const weekdayBase = grid[0].date; // a Monday, per monthGrid's use of startOfWeek
   const weekdays = Array.from({ length: 7 }, (_, i) =>
@@ -76,7 +77,7 @@ function MonthCalendar({
         <button
           type="button"
           onClick={onPrev}
-          aria-label="Previous month"
+          aria-label={t.common.previousMonth}
           className="inline-flex size-7 items-center justify-center rounded-full text-muted transition hover:bg-ink/8 hover:text-ink dark:hover:bg-white/10"
         >
           <ChevronIcon dir="left" />
@@ -85,7 +86,7 @@ function MonthCalendar({
         <button
           type="button"
           onClick={onNext}
-          aria-label="Next month"
+          aria-label={t.common.nextMonth}
           className="inline-flex size-7 items-center justify-center rounded-full text-muted transition hover:bg-ink/8 hover:text-ink dark:hover:bg-white/10"
         >
           <ChevronIcon dir="right" />
