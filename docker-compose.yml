@@ -1,3 +1,13 @@
+# LOCAL DEVELOPMENT INFRASTRUCTURE — not the deploy stack. See deploy/docker-compose.yml for that.
+#
+# Nothing here is required to run the Ledger or the Treasury any more: both keep their data in
+# SQLite files and need no database server. What remains is for the surrounding pipeline:
+#
+#   postgres  — the `usina` source database that validators/ reads (restore.sh loads the dump)
+#   mongodb   — the normalizer's store that the ledger's `ingest:*` ETL scripts harvest from
+#   rabbitmq  — the queue between the ledger's `submit:*` producers and `post:staging` consumer
+#   adminer / mongo-express — inspection UIs for the two above
+#
 version: "3.8"
 
 services:

@@ -1,11 +1,10 @@
 import 'reflect-metadata';
 import 'dotenv/config';
 import { env } from '../../../config/env';
-import { AppDataSource } from '../../database/data-source';
-import { getMongoDb, closeMongoDb } from '../../database/mongo-client';
+import { AppDataSource, ensureDatabaseDirectory } from '../../database/data-source';
 import { TypeOrmLedgerEventRepository } from '../../persistence/typeorm/TypeOrmLedgerEventRepository';
-import { MongoRejectedEventRepository } from '../../persistence/mongodb/MongoRejectedEventRepository';
-import { MongoStagingRepository } from '../../persistence/mongodb/MongoStagingRepository';
+import { SqliteRejectedEventRepository } from '../../persistence/sqlite/SqliteRejectedEventRepository';
+import { SqliteStagingRepository } from '../../persistence/sqlite/SqliteStagingRepository';
 import { FileAuditLogger } from '../../audit/FileAuditLogger';
 import { StagingRecordValidator } from '../../../core/application/services/StagingRecordValidator';
 import { ReceiptLineageResolver } from '../../../core/application/services/ReceiptLineageResolver';
@@ -15,12 +14,12 @@ import { StagingPostingJob } from '../../jobs/StagingPostingJob';
 import { StagingWorker } from '../../messaging/rabbitmq/StagingWorker';
 
 async function main(): Promise<void> {
+  ensureDatabaseDirectory();
   await AppDataSource.initialize();
-  const mongoDb = await getMongoDb();
 
   const ledgerRepo   = new TypeOrmLedgerEventRepository(AppDataSource);
-  const rejectedRepo = new MongoRejectedEventRepository(mongoDb);
-  const stagingRepo  = new MongoStagingRepository(mongoDb);
+  const rejectedRepo = new SqliteRejectedEventRepository(AppDataSource);
+  const stagingRepo  = new SqliteStagingRepository(AppDataSource);
 
   const audit        = new FileAuditLogger(env.AUDIT_LOG_DIR);
   const validator    = new StagingRecordValidator(ledgerRepo);
@@ -34,7 +33,6 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     console.log(`[post-staging] ${signal} — shutting down`);
     await AppDataSource.destroy();
-    await closeMongoDb();
     process.exit(0);
   };
 

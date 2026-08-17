@@ -1,0 +1,12 @@
+# TLS edge for the operational MVP. Fronts ONLY the Treasury User App; the Ledger stays internal.
+#
+# SITE_ADDRESS controls TLS:
+#   - a domain (e.g. finance.example.com) → Caddy auto-provisions a Let's Encrypt certificate
+#   - ":80"                                → plain HTTP (local testing only; never for production)
+#
+# DNS: point the domain's A record at the Droplet's public IP, then `docker compose up -d`.
+
+{$SITE_ADDRESS} {
+	encode gzip
+	reverse_proxy treasury:4000
+}

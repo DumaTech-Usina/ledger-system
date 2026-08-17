@@ -1,0 +1,117 @@
+# The whole stack, on one Docker host.
+#
+# Topology:
+#
+#   host:4000 ──▶ treasury ──(internal network)──▶ ledger
+#                    │                                │
+#              treasury_data                      ledger_data
+#              (Party Directory)                  (the book: events + staging + rejections)
+#
+# ONE published port. The Ledger has no port mapping at all: it is reachable at `http://ledger:3000`
+# from inside the Docker network and from nowhere else, which is what "the Ledger is never publicly
+# user-facing" means operationally rather than by convention.
+#
+# There is no database service. Both services keep their data in a SQLite file on a named volume, so
+# the host needs Docker and nothing else — no Postgres, no Mongo, no broker.
+#
+# Copy .env.example -> .env and fill the secrets before `docker compose up -d --build`.
+#
+# For TLS on a public domain, add the `tls` profile: it puts Caddy in front and stops publishing
+# Treasury directly. See deploy/README.md.
+
+services:
+  treasury:
+    build: ../treasury
+    restart: unless-stopped
+    ports:
+      # Bound to the loopback interface by default: on a public VM, `4000:4000` would publish the
+      # app to the internet with no TLS. Put a domain in SITE_ADDRESS and use the `tls` profile for
+      # that; override BIND_ADDRESS only when something else on the host fronts it.
+      - "${BIND_ADDRESS:-127.0.0.1}:${TREASURY_PORT:-4000}:4000"
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      # The zone the usina operates in. A date the CFO types is a day HERE, and Treasury is what
+      # turns it into the instant the Ledger records; without this the container would read it in
+      # UTC and file it up to a day off. Stored instants stay UTC — this decides what was meant.
+      TZ: ${TZ:-America/Sao_Paulo}
+      LEDGER_MODE: live
+      LEDGER_API_URL: http://ledger:3000
+      LEDGER_SUBMIT_TOKEN: ${LEDGER_SUBMIT_TOKEN}
+      LEDGER_ALGEBRA_PATH: /app/algebra.json
+      USINA_PARTY_ID: ${USINA_PARTY_ID:-party-usina}
+      SESSION_TTL_HOURS: "12"
+      AUTH_MANAGER_PASSWORD: ${AUTH_MANAGER_PASSWORD}
+      AUTH_VIEWER_PASSWORD: ${AUTH_VIEWER_PASSWORD}
+      PARTY_DIRECTORY_MODE: sqlite
+      PARTY_DB_FILE: /app/data/treasury.db
+    volumes:
+      - treasury_data:/app/data
+      # The Ledger's exported economic algebra — a build artifact of the Ledger that Treasury reads
+      # once at boot. Mounted rather than copied so `npm run export:algebra` takes effect on the
+      # next restart, and so the two can never disagree about which build is deployed.
+      - ../ledger/algebra.json:/app/algebra.json:ro
+    depends_on:
+      ledger:
+        condition: service_healthy
+    networks: [internal]
+
+  ledger:
+    build: ../ledger
+    restart: unless-stopped
+    # No `ports`. Reachable only as `ledger:3000` on the internal network.
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      SERVER_PORT: "3000"
+      # Same zone as Treasury, and for the same reason: anything reaching the book without an
+      # explicit offset is read here, so the two must never disagree about what a bare date means.
+      TZ: ${TZ:-America/Sao_Paulo}
+      DB_FILE: /app/data/ledger.db
+      DB_MIGRATIONS_RUN: "true"
+      USINA_PARTY_ID: ${USINA_PARTY_ID:-party-usina}
+      LEDGER_SUBMIT_TOKEN: ${LEDGER_SUBMIT_TOKEN}
+      AUDIT_LOG_DIR: /app/logs/audit
+    volumes:
+      # The system of record. Everything the ledger knows is in this volume.
+      - ledger_data:/app/data
+      - ledger_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [internal]
+
+  # ── Optional TLS edge ────────────────────────────────────────────────────────
+  # Only started with `--profile tls`. Fronts Treasury on 80/443 and provisions a Let's Encrypt
+  # certificate for SITE_ADDRESS. Without it the stack has no public listener at all, which is the
+  # right default for a single-host MVP reached over an SSH tunnel or a private network.
+  caddy:
+    profiles: [tls]
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - treasury
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  ledger_data:
+  ledger_logs:
+  treasury_data:
+  caddy_data:
+  caddy_config:

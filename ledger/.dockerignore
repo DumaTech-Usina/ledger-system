@@ -1,12 +1,14 @@
 # Reinstalled inside the image; never ship the host copy
-node_modules
-dist
+**/node_modules
+**/dist
 coverage
 
-# Secrets & local runtime artifacts — must never enter the build context
+# Secrets & local runtime artifacts — must never enter the build context.
+# `data` holds the book itself: a host copy leaking into an image would ship real financial records.
 .env
 .env.*
 !.env.example
+data
 logs
 *.log
 

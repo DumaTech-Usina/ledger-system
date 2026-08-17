@@ -5,6 +5,16 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().int().positive().default(4000),
 
+  /**
+   * The timezone the usina operates in. Defaults to its own rather than to the host's.
+   *
+   * A date the CFO types is a day in THIS timezone, and Treasury is what turns it into the instant
+   * the Ledger records. Without this the answer would be "whatever zone the container runs in",
+   * which is UTC on every stock Linux image — and a due date would be filed three hours, and
+   * sometimes a whole day, from where it was meant. See `core/application/utils/instant.ts`.
+   */
+  TZ: z.string().min(1).default("America/Sao_Paulo"),
+
   /** Read-only Ledger API base URL — used to display financial effects; never for writes. */
   LEDGER_API_URL: z.string().default("http://localhost:3000"),
 
@@ -54,16 +64,16 @@ const envSchema = z.object({
   /**
    * Where the Party Directory lives:
    *  - "memory": volatile. Fine for tests and for exercising resolution, never for issuing ids.
-   *  - "mongo":  durable, at MONGO_URL. Required before any PartyId reaches a production Ledger —
-   *              an id lost on restart would be orphaned inside an immutable event.
+   *  - "sqlite": durable, at PARTY_DB_FILE. Required before any PartyId reaches a production
+   *              Ledger — an id lost on restart would be orphaned inside an immutable event.
    */
-  PARTY_DIRECTORY_MODE: z.enum(["memory", "mongo"]).default("memory"),
+  PARTY_DIRECTORY_MODE: z.enum(["memory", "sqlite"]).default("memory"),
 
-  /** MongoDB connection string for the Party Directory. */
-  MONGO_URL: z.string().default("mongodb://root:rootpassword@localhost:27017"),
-
-  /** Database holding the Party Directory collection. */
-  MONGO_DB: z.string().default("treasury"),
+  /**
+   * The Party Directory's file. Under Docker it lives on a mounted volume, so the ids the Directory
+   * has issued outlive the container that issued them.
+   */
+  PARTY_DB_FILE: z.string().min(1).default("./data/treasury.db"),
 
   /** Session lifetime in hours. */
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(12),
@@ -83,4 +93,11 @@ if (!result.success) {
 }
 
 export const env = result.data;
+
+/**
+ * Applied to the process before anything reads a clock or parses a date. This module is the first
+ * thing the entrypoint pulls in, so the zone is in place ahead of the first `new Date`; Node
+ * re-reads `process.env.TZ` on the next date operation, so assigning it here is enough.
+ */
+process.env.TZ = env.TZ;
 export type Env = typeof env;

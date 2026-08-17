@@ -4,6 +4,7 @@ import { PositionAggregateOptions, PositionSortKey } from "../../../../core/appl
 import { EconomicOutcome, PositionStatus } from "../../../../core/application/dtos/PositionSummary";
 import { ObjectType } from "../../../../core/domain/enums/ObjectType";
 import { serializePositionListItem, serializePositionSummary } from "../serializers/positionSerializer";
+import { parseInstant } from "../../../../core/application/utils/instant";
 
 const VALID_STATUSES  = new Set<string>(["open", "partially_settled", "fully_settled", "reversed", "unknown_origin"]);
 const VALID_OUTCOMES  = new Set<string>(["gain", "partial_loss", "full_loss", "cancelled", "pending"]);
@@ -51,7 +52,7 @@ function parseIds(raw: unknown): string[] | undefined {
 /** A date bound from the query string. Invalid input is refused, never silently ignored. */
 function parseBound(raw: unknown, label: string): Date | undefined {
   if (typeof raw !== "string" || raw === "") return undefined;
-  const date = new Date(raw);
+  const date = parseInstant(raw);
   if (isNaN(date.getTime())) {
     throw Object.assign(new Error(`Invalid date in '${label}' parameter`), { statusCode: 400 });
   }

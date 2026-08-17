@@ -2,8 +2,8 @@ import { Router, Request, Response } from "express";
 
 /** Per-dependency reachability, resolved by a probe injected from the composition root. */
 export interface ReadinessChecks {
-  postgres: boolean;
-  mongo: boolean;
+  /** The book's SQLite file — the service's only datastore. */
+  database: boolean;
 }
 
 /** Pings the datastores the service needs to serve traffic. Never throws — a failed
@@ -15,7 +15,7 @@ export type ReadinessProbe = () => Promise<ReadinessChecks>;
  *
  * Liveness answers "is the process alive?" — it makes no dependency calls, so a transient
  * database blip can never trigger a restart loop. Readiness answers "can it serve traffic
- * right now?" by pinging Postgres and Mongo; when a dependency is down it returns 503 so the
+ * right now?" by querying the book's file; when it cannot be read it returns 503 so the
  * platform routes traffic away *without* killing the process.
  */
 export function healthRoutes(readiness: ReadinessProbe): Router {
@@ -27,7 +27,7 @@ export function healthRoutes(readiness: ReadinessProbe): Router {
 
   router.get("/ready", async (_req: Request, res: Response) => {
     const checks = await readiness();
-    const ready = checks.postgres && checks.mongo;
+    const ready = checks.database;
     res.status(ready ? 200 : 503).json({
       status: ready ? "ready" : "unready",
       checks,

@@ -14,6 +14,20 @@ import { CashMovementSortKey, CashMovementsPaginatedOptions } from "../../../cor
 import { derivePositionStatus, openBalanceUnitsOf } from "../../../core/application/dtos/positionUtils";
 import { retractedEventIds } from "../../../core/application/dtos/retractionUtils";
 
+/**
+ * Compares two event ids the way SQL does, so a tiebreaker means the same thing in both
+ * repositories.
+ *
+ * The comparison is over the raw string, byte for byte, because that is what `ORDER BY id` is: an
+ * id is opaque here and its ordering carries no meaning beyond being total and stable. Using
+ * `localeCompare` instead would sort by collation rules the database does not apply, and the two
+ * readings would disagree on exactly the rows a tiebreaker exists to settle.
+ */
+function compareIds(a: string, b: string, direction: 'ASC' | 'DESC'): number {
+  const ascending = a < b ? -1 : a > b ? 1 : 0;
+  return direction === 'DESC' ? -ascending : ascending;
+}
+
 function deriveOutcomeFromAggregate(status: PositionStatus, agg: PositionAggregate): EconomicOutcome {
   if (status === "reversed") return "cancelled";
   if (status === "open" || status === "partially_settled") return "pending";
@@ -245,7 +259,11 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
           (e.economicEffect === EconomicEffect.CASH_IN ||
             e.economicEffect === EconomicEffect.CASH_OUT),
       )
-      .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
+      .sort(
+        (a, b) =>
+          b.occurredAt.getTime() - a.occurredAt.getTime() ||
+          compareIds(a.id.value, b.id.value, 'DESC'),
+      )
       .slice(0, limit);
   }
 
@@ -386,12 +404,18 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
   }
 
   async findPaginated(options: PageOptions): Promise<Page<LedgerEvent>> {
-    let items = [...this.store];
-    if (options.sortBy) {
-      const key = options.sortBy;
-      const order = options.sortOrder === 'DESC' ? -1 : 1;
-      items.sort((a, b) => order * (a[key].getTime() - b[key].getTime()));
-    }
+    // Always sorted, and by the same default the SQL repository uses (`recordedAt`, ascending).
+    // Leaving it unsorted when no key was named meant "insertion order", which is a property of
+    // this array and of nothing else — the two repositories answered the same question differently
+    // for the caller that asked for a page without naming an axis.
+    const key = options.sortBy === 'occurredAt' ? 'occurredAt' : 'recordedAt';
+    const direction = options.sortOrder === 'DESC' ? 'DESC' : 'ASC';
+    const sign = direction === 'DESC' ? -1 : 1;
+    const items = [...this.store].sort(
+      (a, b) =>
+        sign * (a[key].getTime() - b[key].getTime()) ||
+        compareIds(a.id.value, b.id.value, direction),
+    );
     return paginate(items, options);
   }
 

@@ -4,7 +4,7 @@ import { MeasureResolutionUseCase } from "../../core/application/use-cases/Measu
 import { PartyDirectory } from "../../core/application/services/PartyDirectory";
 import { HttpLedgerReadAdapter } from "../ledger-read/HttpLedgerReadAdapter";
 import { StubLedgerReadAdapter } from "../ledger-read/StubLedgerReadAdapter";
-import { connectMongo, MongoPartyRepository } from "../persistence/MongoPartyRepository";
+import { SqlitePartyRepository } from "../persistence/SqlitePartyRepository";
 import { SystemClock } from "../system/SystemClock";
 import { LedgerPartySweepSource } from "./LedgerPartySweepSource";
 
@@ -16,9 +16,9 @@ import { LedgerPartySweepSource } from "./LedgerPartySweepSource";
  * The measurement it prints is the figure that gates turning the resolution barrier on later.
  */
 async function main(): Promise<void> {
-  if (env.PARTY_DIRECTORY_MODE !== "mongo") {
+  if (env.PARTY_DIRECTORY_MODE !== "sqlite") {
     throw new Error(
-      "Seeding a volatile directory would be pointless — set PARTY_DIRECTORY_MODE=mongo.",
+      "Seeding a volatile directory would be pointless — set PARTY_DIRECTORY_MODE=sqlite.",
     );
   }
 
@@ -27,9 +27,8 @@ async function main(): Promise<void> {
       ? new HttpLedgerReadAdapter(env.LEDGER_API_URL)
       : new StubLedgerReadAdapter();
 
-  const { db, close } = await connectMongo(env.MONGO_URL, env.MONGO_DB);
+  const repo = new SqlitePartyRepository(env.PARTY_DB_FILE);
   try {
-    const repo = new MongoPartyRepository(db);
     const directory = new PartyDirectory(repo);
 
     const imported = await new ImportPartiesUseCase(repo, new SystemClock()).execute(
@@ -42,18 +41,18 @@ async function main(): Promise<void> {
     const mentions = (await directory.list()).map((p) => p.displayName);
     console.log("resolution:", await new MeasureResolutionUseCase(directory).execute(mentions));
   } finally {
-    await close();
+    repo.close();
   }
 }
 
 main().catch((err) => {
   const message = err instanceof Error ? err.message : String(err);
-  // The two reachable failures are "no Ledger" and "no Mongo", and a bare "fetch failed" names
-  // neither. Say which endpoint was being talked to.
+  // The two reachable failures are "no Ledger" and "no directory file", and a bare "fetch failed"
+  // names neither. Say which endpoint was being talked to.
   console.error(
     `Seeding failed: ${message}\n` +
       `  ledger: ${env.LEDGER_MODE === "live" ? env.LEDGER_API_URL : `${env.LEDGER_MODE} (stub data)`}\n` +
-      `  mongo:  ${env.MONGO_DB} at ${env.MONGO_URL.replace(/\/\/[^@]*@/, "//***@")}`,
+      `  directory: ${env.PARTY_DB_FILE}`,
   );
   process.exit(1);
 });

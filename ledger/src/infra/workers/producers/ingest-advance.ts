@@ -1,23 +1,26 @@
 import 'reflect-metadata';
 import 'dotenv/config';
 import { env } from '../../../config/env';
-import { getMongoDb, getMongoDatabase, closeMongoDb } from '../../database/mongo-client';
-import { MongoStagingRepository } from '../../persistence/mongodb/MongoStagingRepository';
+import { getMongoDatabase, closeMongoDb } from '../../database/mongo-client';
+import { AppDataSource, ensureDatabaseDirectory } from '../../database/data-source';
+import { SqliteStagingRepository } from '../../persistence/sqlite/SqliteStagingRepository';
 import { MongoAdvanceReportReader } from '../../etl/MongoAdvanceReportReader';
 import { AdvanceStagingJob } from '../../jobs/AdvanceStagingJob';
 import { AdvanceIngestJob } from '../../jobs/AdvanceIngestJob';
 
 async function main(): Promise<void> {
-  const stagingDb = await getMongoDb();
+  ensureDatabaseDirectory();
+  await AppDataSource.initialize();
   const etlDb = await getMongoDatabase(env.MONGO_ETL_DB);
 
-  const stagingRepo = new MongoStagingRepository(stagingDb);
+  const stagingRepo = new SqliteStagingRepository(AppDataSource);
   const reader = new MongoAdvanceReportReader(etlDb);
   const stagingJob = new AdvanceStagingJob(stagingRepo, env.USINA_PARTY_ID, 'advance-etl', console.warn.bind(console));
   const etl = new AdvanceIngestJob(reader, stagingJob);
 
   const shutdown = async (signal: string) => {
     console.log(`[ingest-advance] ${signal} — shutting down`);
+    await AppDataSource.destroy();
     await closeMongoDb();
     process.exit(0);
   };

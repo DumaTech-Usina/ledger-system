@@ -24,6 +24,7 @@ import { PartyId } from '../../../core/domain/value-objects/PartyId';
 import { LedgerEventModel } from './models/LedgerEventModel';
 import { LedgerEventPartyModel } from './models/LedgerEventPartyModel';
 import { LedgerEventObjectModel } from './models/LedgerEventObjectModel';
+import { toIso } from './transformers/iso-date.transformer';
 import { Page, PageOptions } from '../../../core/application/dtos/Pagination';
 import { asList, PositionAggregate, PositionAggregateOptions } from '../../../core/application/dtos/PositionAggregate';
 import { EconomicOutcome, PositionStatus } from '../../../core/application/dtos/PositionSummary';
@@ -53,6 +54,48 @@ const notRetracted = (alias: string) => `
       )
   )`;
 
+/**
+ * SQLite has no boolean storage class: what `BOOL_OR` expressed is an aggregate over 0/1, and what
+ * comes back is 0 or 1 rather than false/true. `anyOf` writes the aggregate, `toBool` reads it.
+ * Both exist so no caller has to remember which of the two representations it is holding.
+ */
+const anyOf = (predicate: string) => `MAX(CASE WHEN ${predicate} THEN 1 ELSE 0 END)`;
+const toBool = (value: unknown): boolean => value === 1 || value === true;
+
+/**
+ * `?` placeholders for a list bound one value per element.
+ *
+ * PostgreSQL took a whole array as one parameter (`= ANY($1)`); SQLite binds scalars only, so a
+ * list becomes as many placeholders as it has values. The values still stay parameters — nothing
+ * user-supplied is ever spliced into the SQL, which is the property `ANY` was chosen for.
+ */
+const placeholders = (count: number): string => new Array(count).fill('?').join(', ');
+
+/**
+ * The money columns of a position aggregate, handed out as text.
+ *
+ * SQLite returns an INTEGER as a JS `number`, exact only below 2^53. Every one of these is read
+ * back with `BigInt(...)`, and a sum that had crossed that line would arrive already rounded — a
+ * cent lost with nothing downstream able to notice. Text crosses the boundary exactly, and `BigInt`
+ * on a value that is no longer an integer throws rather than quietly agreeing.
+ *
+ * The cast is applied on the way OUT only. Inside the aggregate these stay numeric, because the
+ * status and outcome predicates compare them against 0 — and in SQLite a text '0' and a numeric 0
+ * are different storage classes that never compare equal.
+ */
+const MONEY_COLUMNS = [
+  'total_originated', 'total_settled', 'total_adjusted',
+  'cash_recovered', 'non_cash_closed', 'ref_cash_in', 'ref_cash_out',
+] as const;
+
+const moneyAsText = (): string =>
+  MONEY_COLUMNS.map((column) => `CAST(${column} AS TEXT) AS ${column}`).join(', ');
+
+/** The columns of a position aggregate that are not money, named so the cast ones can replace them. */
+const AGGREGATE_REST =
+  'object_id, object_type, currency, has_reversal, has_unresolved_lineage, ' +
+  'event_count, last_event_at, originated_at, created_at, due_at';
+
 function statusToSql(status: PositionStatus): string {
   switch (status) {
     case 'unknown_origin':
@@ -64,7 +107,7 @@ function statusToSql(status: PositionStatus): string {
     case 'fully_settled':
       return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated)`;
     case 'reversed':
-      return `has_reversal = true`;
+      return `has_reversal = 1`;
   }
 }
 
@@ -73,7 +116,7 @@ function outcomeToSql(outcome: EconomicOutcome): string {
     case 'pending':
       return `(NOT has_reversal AND (total_originated = 0 OR total_settled + total_adjusted < total_originated))`;
     case 'cancelled':
-      return `has_reversal = true`;
+      return `has_reversal = 1`;
     case 'gain':
       return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND non_cash_closed = 0)`;
     case 'full_loss':
@@ -149,8 +192,9 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       `SELECT DISTINCT o.object_id
          FROM ledger_event_objects o
          JOIN ledger_events e ON e.id = o.event_id
-        WHERE o.object_id = ANY($1) AND o.relation = 'settles' AND ${notRetracted('e')}`,
-      [[...objectIds]],
+        WHERE o.object_id IN (${placeholders(objectIds.length)})
+          AND o.relation = 'settles' AND ${notRetracted('e')}`,
+      [...objectIds],
     );
     return new Set(rows.map((row) => row.object_id));
   }
@@ -184,8 +228,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       .createQueryBuilder('e')
       .leftJoinAndSelect('e.parties', 'parties')
       .leftJoinAndSelect('e.objects', 'objects')
-      .where('e.occurredAt >= :from', { from })
-      .andWhere('e.occurredAt <= :to', { to })
+      .where('e.occurredAt >= :from', { from: toIso(from) })
+      .andWhere('e.occurredAt <= :to', { to: toIso(to) })
       .orderBy('e.occurredAt', 'ASC')
       .getMany();
     return rows.map((row) => this.toEntity(row));
@@ -205,6 +249,16 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     const limit = Math.min(Math.max(1, options.limit ?? 50), 200);
     const offset = (page - 1) * limit;
 
+    /**
+     * Two parameter lists, not one, and the order between them is the SQL's order.
+     *
+     * PostgreSQL numbered its placeholders, so one value could be referenced from two places and
+     * bound once. SQLite binds `?` strictly by position, so a value used both to narrow the
+     * candidates and to filter the aggregate is bound TWICE — once where each occurrence sits. The
+     * candidate filters live inside the CTE, which the final statement puts first, so their
+     * parameters lead; `limit` and `offset` come last, as the tail of the outer statement.
+     */
+    const candidateParams: unknown[] = [];
     const filterParams: unknown[] = [];
     const conditions: string[] = [];
     /**
@@ -239,14 +293,15 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
           WHERE ${notRetracted('ce')} AND ${predicate}
         )`;
 
-    // ANY over an array rather than an interpolated IN list: the values stay parameters, so a
-    // selection of many types is bound exactly like a selection of one and nothing user-supplied is
-    // ever spliced into the SQL.
+    // One placeholder per value rather than an interpolated IN list: the values stay parameters, so
+    // a selection of many types is bound exactly like a selection of one and nothing user-supplied
+    // is ever spliced into the SQL.
     const objectTypes = asList(options.objectType);
     if (objectTypes.length > 0) {
-      filterParams.push(objectTypes);
-      conditions.push(`object_type = ANY($${filterParams.length})`);
-      candidateFilters.push(objectsWhere(`co.object_type = ANY($${filterParams.length})`));
+      candidateParams.push(...objectTypes);
+      candidateFilters.push(objectsWhere(`co.object_type IN (${placeholders(objectTypes.length)})`));
+      filterParams.push(...objectTypes);
+      conditions.push(`object_type IN (${placeholders(objectTypes.length)})`);
     }
     // OR between statuses, AND against every other filter. Each statusToSql is already a complete
     // predicate, so several of them are joined rather than re-derived — the truth table that fixes
@@ -260,24 +315,26 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     // for why not originatedAt or dueAt: both are null for whole families of positions, and a period
     // filter that drops them would misrepresent the book rather than scope it.
     if (options.from) {
-      filterParams.push(options.from);
-      conditions.push(`created_at >= $${filterParams.length}`);
-      candidateFilters.push(objectsWhere(`ce.recorded_at >= $${filterParams.length}`));
+      candidateParams.push(toIso(options.from));
+      candidateFilters.push(objectsWhere(`ce.recorded_at >= ?`));
+      filterParams.push(toIso(options.from));
+      conditions.push(`created_at >= ?`);
     }
     if (options.to) {
-      filterParams.push(options.to);
-      conditions.push(`created_at <= $${filterParams.length}`);
-      candidateFilters.push(objectsWhere(`ce.recorded_at <= $${filterParams.length}`));
+      candidateParams.push(toIso(options.to));
+      candidateFilters.push(objectsWhere(`ce.recorded_at <= ?`));
+      filterParams.push(toIso(options.to));
+      conditions.push(`created_at <= ?`);
     }
     // Involvement is exactly what the semi-join expresses — some standing event of the object names
     // the party — so unlike the others this predicate needs no exact twin after the aggregation.
     // Role, direction and relation are deliberately not looked at: a party that took part took part.
     const partyIds = asList(options.partyId);
     if (partyIds.length > 0) {
-      filterParams.push(partyIds);
+      candidateParams.push(...partyIds);
       candidateFilters.push(
         objectsWhere(
-          `cp.party_id = ANY($${filterParams.length})`,
+          `cp.party_id IN (${placeholders(partyIds.length)})`,
           `\n          JOIN ledger_event_parties cp ON cp.event_id = ce.id`,
         ),
       );
@@ -298,15 +355,15 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
           o.object_id                                                                                  AS object_id,
           MAX(o.object_type)                                                                             AS object_type,
           MAX(e.amount_currency)                                                                         AS currency,
-          COALESCE(SUM(CASE WHEN o.relation = 'originates' THEN e.amount_units ELSE 0::bigint END), 0)  AS total_originated,
-          COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0::bigint END), 0)  AS total_settled,
-          COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0::bigint END), 0)  AS total_adjusted,
-          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS cash_recovered,
-          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'non_cash' THEN e.amount_units ELSE 0::bigint END), 0) AS non_cash_closed,
-          COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_in,
-          COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_out,
-          BOOL_OR(o.relation = 'reverses')                                                              AS has_reversal,
-          BOOL_OR(e.reason_type = 'unknown_origin' AND e.reason_requires_followup)                      AS has_unresolved_lineage,
+          COALESCE(SUM(CASE WHEN o.relation = 'originates' THEN e.amount_units ELSE 0 END), 0)  AS total_originated,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0 END), 0)  AS total_settled,
+          COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0 END), 0)  AS total_adjusted,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0 END), 0) AS cash_recovered,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'non_cash' THEN e.amount_units ELSE 0 END), 0) AS non_cash_closed,
+          COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0 END), 0) AS ref_cash_in,
+          COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0 END), 0) AS ref_cash_out,
+          ${anyOf(`o.relation = 'reverses'`)}                                                           AS has_reversal,
+          ${anyOf(`e.reason_type = 'unknown_origin' AND e.reason_requires_followup`)}                   AS has_unresolved_lineage,
           COUNT(DISTINCT e.id)                                                                           AS event_count,
           MAX(e.occurred_at)                                                                             AS last_event_at,
           MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at,
@@ -319,9 +376,9 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       )
     `;
 
-    const dataParams = [...filterParams, limit, offset];
-    const pLimit  = filterParams.length + 1;
-    const pOffset = filterParams.length + 2;
+    // The CTE's parameters first, then the outer filter's, then the page — the order the statement
+    // reads in, because `?` binds by position.
+    const dataParams = [...candidateParams, ...filterParams, limit, offset];
     // Default: newest position first, by when it entered the book (MIN recorded_at) — defined for
     // every position, unlike originated_at. `dueAt` serves the listings that ask about deadlines.
     //
@@ -332,14 +389,17 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     const sortColumn = options.sortBy === "dueAt" ? "due_at" : "created_at";
     const sortDir = options.sortOrder === "ASC" ? "ASC" : "DESC";
     // NULLS LAST in both directions on purpose. A position with no stated due date is not the most
-    // urgent thing in the book, and Postgres would otherwise sort nulls first on ASC.
+    // urgent thing in the book, and SQLite would otherwise sort nulls first on ASC.
     const nullsClause = sortColumn === "due_at" ? " NULLS LAST" : "";
     // `COUNT(*) OVER ()` rather than a second query: the window is evaluated over the whole filtered
     // set before LIMIT, so one pass yields both the page and the total it is a page of. The
     // aggregate used to be built twice per request — once to be counted, once to be read — which
     // doubled the most expensive read in the book for a number the same pass already knows.
     const rows: Record<string, unknown>[] = await this.repo.manager.query(
-      `${cteSql} SELECT *, COUNT(*) OVER () AS total_rows FROM aggs ${whereClause} ORDER BY ${sortColumn} ${sortDir}${nullsClause}, object_id DESC LIMIT $${pLimit} OFFSET $${pOffset}`,
+      `${cteSql} SELECT ${AGGREGATE_REST}, ${moneyAsText()}, COUNT(*) OVER () AS total_rows
+         FROM aggs ${whereClause}
+        ORDER BY ${sortColumn} ${sortDir}${nullsClause}, object_id DESC
+        LIMIT ? OFFSET ?`,
       dataParams,
     );
 
@@ -354,8 +414,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       nonCashClosedUnits:   BigInt(row.non_cash_closed  as string),
       refCashInUnits:       BigInt(row.ref_cash_in      as string),
       refCashOutUnits:      BigInt(row.ref_cash_out     as string),
-      hasReversal:          row.has_reversal as boolean,
-      hasUnresolvedLineage: row.has_unresolved_lineage as boolean,
+      hasReversal:          toBool(row.has_reversal),
+      hasUnresolvedLineage: toBool(row.has_unresolved_lineage),
       eventCount:           parseInt(row.event_count as string, 10),
       lastEventAt:          new Date(row.last_event_at as string),
       originatedAt:         row.originated_at ? new Date(row.originated_at as string) : null,
@@ -375,10 +435,10 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     // page that is not the same as a total of zero, so the count is asked for explicitly there
     // rather than assumed. Page one with no rows genuinely means nothing matched.
     const total = rows.length > 0
-      ? parseInt(rows[0].total_rows as string, 10)
+      ? Number(rows[0].total_rows)
       : page === 1
         ? 0
-        : await this.countPositionAggregates(cteSql, whereClause, filterParams);
+        : await this.countPositionAggregates(cteSql, whereClause, [...candidateParams, ...filterParams]);
     const totalPages = Math.ceil(total / limit) || 1;
 
     return { data, total, page, limit, totalPages };
@@ -394,16 +454,21 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
    */
   private async partiesOfObjects(objectIds: string[]): Promise<Map<string, string[]>> {
     if (objectIds.length === 0) return new Map();
-    const rows: { object_id: string; parties: string[] }[] = await this.repo.manager.query(
-      `SELECT o.object_id, ARRAY_AGG(DISTINCT p.party_id) AS parties
+    // `group_concat` is SQLite's array_agg: one comma-joined string per group rather than an array.
+    // A party id is a slug (`party-usina`) and never contains a comma, so the split is exact — the
+    // same set the aggregate held, only spelled differently on the way across.
+    const rows: { object_id: string; parties: string | null }[] = await this.repo.manager.query(
+      `SELECT o.object_id, group_concat(DISTINCT p.party_id) AS parties
          FROM ledger_event_objects o
          JOIN ledger_events e ON e.id = o.event_id
          JOIN ledger_event_parties p ON p.event_id = e.id
-        WHERE o.object_id = ANY($1) AND ${notRetracted('e')}
+        WHERE o.object_id IN (${placeholders(objectIds.length)}) AND ${notRetracted('e')}
         GROUP BY o.object_id`,
-      [objectIds],
+      objectIds,
     );
-    return new Map(rows.map((row) => [row.object_id, row.parties]));
+    return new Map(
+      rows.map((row) => [row.object_id, row.parties ? row.parties.split(',') : []]),
+    );
   }
 
   /** How many positions match, for the rare empty page past the first. */
@@ -416,7 +481,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       `${cteSql} SELECT COUNT(*) AS total FROM aggs ${whereClause}`,
       filterParams,
     );
-    return parseInt(row.total as string, 10);
+    return Number(row.total);
   }
 
   async aggregateOpenBalancesByObjectType(): Promise<Array<{ objectType: ObjectType; openBalanceUnits: bigint; currency: string }>> {
@@ -427,10 +492,10 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
             o.object_id,
             MAX(o.object_type)                                                                              AS object_type,
             MAX(e.amount_currency)                                                                          AS currency,
-            COALESCE(SUM(CASE WHEN o.relation = 'originates' THEN e.amount_units ELSE 0::bigint END), 0)   AS total_originated,
-            COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0::bigint END), 0)   AS total_settled,
-            COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0::bigint END), 0)   AS total_adjusted,
-            BOOL_OR(o.relation = 'reverses')                                                               AS has_reversal
+            COALESCE(SUM(CASE WHEN o.relation = 'originates' THEN e.amount_units ELSE 0 END), 0)   AS total_originated,
+            COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0 END), 0)   AS total_settled,
+            COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0 END), 0)   AS total_adjusted,
+            ${anyOf(`o.relation = 'reverses'`)}                                                    AS has_reversal
           FROM ledger_events e
           JOIN ledger_event_objects o ON o.event_id = e.id
           WHERE ${notRetracted('e')}
@@ -444,7 +509,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
             AND total_originated > 0
             AND total_settled + total_adjusted < total_originated
         )
-        SELECT object_type, SUM(open_balance) AS open_balance, MAX(currency) AS currency
+        SELECT object_type, CAST(SUM(open_balance) AS TEXT) AS open_balance, MAX(currency) AS currency
         FROM open_objects
         GROUP BY object_type
       `);
@@ -459,7 +524,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
   async aggregateCashFlows(): Promise<{ cashInUnits: bigint; cashOutUnits: bigint; currency: string }> {
     const rows: { effect: string; total: string; currency: string }[] = await this.repo.manager.query(`
       SELECT economic_effect AS effect,
-             SUM(amount_units)   AS total,
+             CAST(SUM(amount_units) AS TEXT) AS total,
              MAX(amount_currency) AS currency
       FROM ledger_events e
       WHERE economic_effect IN ('cash_in', 'cash_out')
@@ -488,7 +553,12 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     const [rows, total] = await this.repo.findAndCount({
       skip: offset,
       take: options.limit,
-      order: { [sortCol]: sortDir },
+      // The id breaks ties in the SAME direction as the sort. Neither timestamp is unique — an
+      // import records dozens of events inside the same millisecond — and with an unstable order
+      // the engine is free to return those rows differently on each call. Two consecutive pages
+      // would then be cut out of two different orderings, so an event could appear on both or on
+      // neither, and nothing about the reply would say so.
+      order: { [sortCol]: sortDir, id: sortDir },
     });
     const totalPages = Math.ceil(total / options.limit) || 1;
     return {
@@ -503,14 +573,14 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
   async aggregateCashFlowsBefore(date: Date): Promise<{ cashInUnits: bigint; cashOutUnits: bigint; currency: string }> {
     const rows: { effect: string; total: string; currency: string }[] = await this.repo.manager.query(`
       SELECT economic_effect AS effect,
-             SUM(amount_units)    AS total,
+             CAST(SUM(amount_units) AS TEXT) AS total,
              MAX(amount_currency) AS currency
       FROM ledger_events e
       WHERE economic_effect IN ('cash_in', 'cash_out')
-        AND occurred_at < $1
+        AND occurred_at < ?
         AND ${notRetracted('e')}
       GROUP BY economic_effect
-    `, [date]);
+    `, [toIso(date)]);
 
     let cashInUnits = 0n;
     let cashOutUnits = 0n;
@@ -534,18 +604,18 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       { cash_in_settled: string; total_settled: string }[]
     >(
       `SELECT
-         COALESCE(SUM(CASE WHEN e.economic_effect = 'cash_in' THEN e.amount_units ELSE 0 END), 0) AS cash_in_settled,
-         COALESCE(SUM(e.amount_units), 0)                                                          AS total_settled
+         CAST(COALESCE(SUM(CASE WHEN e.economic_effect = 'cash_in' THEN e.amount_units ELSE 0 END), 0) AS TEXT) AS cash_in_settled,
+         CAST(COALESCE(SUM(e.amount_units), 0) AS TEXT)                                                          AS total_settled
        FROM ledger_events e
-       WHERE e.occurred_at >= $1
-         AND e.occurred_at <= $2
-         AND e.amount_currency = $3
+       WHERE e.occurred_at >= ?
+         AND e.occurred_at <= ?
+         AND e.amount_currency = ?
          AND EXISTS (
            SELECT 1 FROM ledger_event_objects o
            WHERE o.event_id = e.id AND o.relation = 'settles'
          )
          AND ${notRetracted('e')}`,
-      [from, to, currency],
+      [toIso(from), toIso(to), currency],
     );
     return {
       cashInSettledUnits: BigInt(row.cash_in_settled),
@@ -555,28 +625,32 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
 
   async findAllPositionAggregates(): Promise<PositionAggregate[]> {
     const rows: Record<string, unknown>[] = await this.repo.manager.query(`
-      SELECT
-        o.object_id                                                                                    AS object_id,
-        MAX(o.object_type)                                                                             AS object_type,
-        MAX(e.amount_currency)                                                                         AS currency,
-        COALESCE(SUM(CASE WHEN o.relation = 'originates' THEN e.amount_units ELSE 0::bigint END), 0)  AS total_originated,
-        COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0::bigint END), 0)  AS total_settled,
-        COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0::bigint END), 0)  AS total_adjusted,
-        COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS cash_recovered,
-        COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'non_cash' THEN e.amount_units ELSE 0::bigint END), 0) AS non_cash_closed,
-        COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_in,
-        COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0::bigint END), 0) AS ref_cash_out,
-        BOOL_OR(o.relation = 'reverses')                                                              AS has_reversal,
-        BOOL_OR(e.reason_type = 'unknown_origin' AND e.reason_requires_followup)                       AS has_unresolved_lineage,
-        COUNT(DISTINCT e.id)                                                                           AS event_count,
-        MAX(e.occurred_at)                                                                             AS last_event_at,
-        MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)                     AS originated_at,
-        MIN(e.recorded_at)                                                                             AS created_at,
-        MIN(CASE WHEN o.relation = 'originates' THEN e.due_at ELSE NULL END)                         AS due_at
-      FROM ledger_events e
-      JOIN ledger_event_objects o ON o.event_id = e.id
-      WHERE ${notRetracted('e')}
-      GROUP BY o.object_id
+      WITH aggs AS (
+        SELECT
+          o.object_id                                                                            AS object_id,
+          MAX(o.object_type)                                                                     AS object_type,
+          MAX(e.amount_currency)                                                                 AS currency,
+          COALESCE(SUM(CASE WHEN o.relation = 'originates' THEN e.amount_units ELSE 0 END), 0)  AS total_originated,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0 END), 0)  AS total_settled,
+          COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0 END), 0)  AS total_adjusted,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0 END), 0) AS cash_recovered,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'non_cash' THEN e.amount_units ELSE 0 END), 0) AS non_cash_closed,
+          COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0 END), 0) AS ref_cash_in,
+          COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0 END), 0) AS ref_cash_out,
+          ${anyOf(`o.relation = 'reverses'`)}                                                    AS has_reversal,
+          ${anyOf(`e.reason_type = 'unknown_origin' AND e.reason_requires_followup`)}            AS has_unresolved_lineage,
+          COUNT(DISTINCT e.id)                                                                   AS event_count,
+          MAX(e.occurred_at)                                                                     AS last_event_at,
+          MIN(CASE WHEN o.relation = 'originates' THEN e.occurred_at ELSE NULL END)             AS originated_at,
+          MIN(e.recorded_at)                                                                     AS created_at,
+          MIN(CASE WHEN o.relation = 'originates' THEN e.due_at ELSE NULL END)                 AS due_at
+        FROM ledger_events e
+        JOIN ledger_event_objects o ON o.event_id = e.id
+        WHERE ${notRetracted('e')}
+        GROUP BY o.object_id
+      )
+      SELECT ${AGGREGATE_REST}, ${moneyAsText()}
+      FROM aggs
       ORDER BY last_event_at DESC
     `);
 
@@ -591,8 +665,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       nonCashClosedUnits:   BigInt(row.non_cash_closed  as string),
       refCashInUnits:       BigInt(row.ref_cash_in      as string),
       refCashOutUnits:      BigInt(row.ref_cash_out     as string),
-      hasReversal:          row.has_reversal as boolean,
-      hasUnresolvedLineage: row.has_unresolved_lineage as boolean,
+      hasReversal:          toBool(row.has_reversal),
+      hasUnresolvedLineage: toBool(row.has_unresolved_lineage),
       eventCount:           parseInt(row.event_count as string, 10),
       lastEventAt:          new Date(row.last_event_at as string),
       originatedAt:         row.originated_at ? new Date(row.originated_at as string) : null,
@@ -607,13 +681,13 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
   ): Promise<Array<{ eventType: EventType; economicEffect: EconomicEffect; totalUnits: bigint; currency: string }>> {
     const rows: { event_type: string; economic_effect: string; total_units: string; currency: string }[] =
       await this.repo.manager.query(
-        `SELECT event_type, economic_effect, SUM(amount_units) AS total_units, MAX(amount_currency) AS currency
+        `SELECT event_type, economic_effect, CAST(SUM(amount_units) AS TEXT) AS total_units, MAX(amount_currency) AS currency
          FROM ledger_events e
-         WHERE occurred_at >= $1 AND occurred_at <= $2
+         WHERE occurred_at >= ? AND occurred_at <= ?
            AND economic_effect IN ('cash_in', 'cash_out')
            AND ${notRetracted('e')}
          GROUP BY event_type, economic_effect`,
-        [from, to],
+        [toIso(from), toIso(to)],
       );
 
     return rows.map((row) => ({
@@ -632,6 +706,10 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       .where('e.economicEffect IN (:...effects)', { effects: ['cash_in', 'cash_out'] })
       .andWhere(notRetracted('e'))
       .orderBy('e.occurredAt', 'DESC')
+      // Same tiebreaker, and here it decides WHICH movements are returned, not only their order:
+      // when the events at the limit share an instant, an unstable sort picks arbitrarily among
+      // them, so "the 8 most recent movements" would be a different 8 on each reload.
+      .addOrderBy('e.id', 'DESC')
       .take(limit)
       .getMany();
     return rows.map((row) => this.toEntity(row));
@@ -673,8 +751,10 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
 
     // The period is always over occurrence, whichever axis the listing is ordered by: "movements in
     // January" is about when the money moved, never about when someone got around to recording it.
-    if (options.from) qb.andWhere('e.occurredAt >= :from', { from: options.from });
-    if (options.to)   qb.andWhere('e.occurredAt <= :to',   { to: options.to });
+    // Bound as ISO text, like every instant here: better-sqlite3 binds no Date objects, and the
+    // stored form is the string this produces, so the comparison is between two of the same thing.
+    if (options.from) qb.andWhere('e.occurredAt >= :from', { from: toIso(options.from) });
+    if (options.to)   qb.andWhere('e.occurredAt <= :to',   { to: toIso(options.to) });
 
     // ── Numbered page: costs a COUNT and an OFFSET, and only a caller who asked pays it ──────────
     if (options.page !== undefined) {
@@ -702,7 +782,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       const op = sortDir === 'ASC' ? '>' : '<';
       qb.andWhere(
         `(${sortKey} ${op} :cursorAt OR (${sortKey} = :cursorAt AND e.id ${op} :cursorId))`,
-        { cursorAt: options.cursor.value, cursorId: options.cursor.id },
+        { cursorAt: toIso(options.cursor.value), cursorId: options.cursor.id },
       );
     }
 

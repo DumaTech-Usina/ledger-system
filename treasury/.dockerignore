@@ -1,13 +1,22 @@
-node_modules
-dist
+# Reinstalled inside the image; never ship the host copy. `**/` because the React client carries a
+# node_modules and a dist of its own, and a stale host build must not reach the image.
+**/node_modules
+**/dist
 coverage
+
+# Secrets & local runtime artifacts — must never enter the build context
 .env
 .env.*
 !.env.example
+data
 logs
 *.log
+
+# Not needed to build/run the service
 src/tests
 .git
 .gitignore
 Dockerfile
 .dockerignore
+README.md
+docs

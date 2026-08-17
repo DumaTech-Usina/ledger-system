@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { env } from "../../../config/env";
-import { getMongoDb } from "../../database/mongo-client";
-import { MongoStagingRepository } from "../../persistence/mongodb/MongoStagingRepository";
+import { AppDataSource, ensureDatabaseDirectory } from "../../database/data-source";
+import { SqliteStagingRepository } from "../../persistence/sqlite/SqliteStagingRepository";
 import { RabbitMQPublisher } from "../../messaging/rabbitmq/RabbitMQPublisher";
 import { StagingSubmitJob } from "../../jobs/StagingSubmitJob";
 import { EventType } from "../../../core/domain/enums/EventType";
@@ -12,8 +12,9 @@ const RECEIPT_EVENT_TYPES = [
 ];
 
 async function main(): Promise<void> {
-  const db = await getMongoDb();
-  const stagingRepo = new MongoStagingRepository(db);
+  ensureDatabaseDirectory();
+  await AppDataSource.initialize();
+  const stagingRepo = new SqliteStagingRepository(AppDataSource);
 
   const publisher = new RabbitMQPublisher(env.RABBITMQ_URL);
   await publisher.connect();

@@ -1,6 +1,7 @@
 import type { Intent } from "../../domain/entities/Intent";
 import type { Scenario } from "../../domain/scenarios/Scenario";
 import type { Candidate } from "../../domain/value-objects/Candidate";
+import { toInstantISO } from "../utils/instant";
 
 /**
  * Per-scenario economic mapping using the Ledger's RATIFIED tuples. treasury only proposes; the
@@ -696,11 +697,11 @@ export class CandidateMapper {
       sourceReference,
       eventType: m.eventType,
       economicEffect,
-      occurredAt: new Date(a.occurredAt).toISOString(),
+      occurredAt: toInstantISO(a.occurredAt),
       // Only sent when the scenario collected one and the user filled it in. Omitted rather than
       // sent as null so a scenario that never asks cannot accidentally assert "no due date stated"
       // — and the Ledger's invariant refuses it outright on any tuple that cannot carry one.
-      ...(a.dueAt?.trim() ? { dueAt: new Date(a.dueAt).toISOString() } : {}),
+      ...(a.dueAt?.trim() ? { dueAt: toInstantISO(a.dueAt) } : {}),
       amount,
       currency: a.currency,
       description: a.description || undefined,

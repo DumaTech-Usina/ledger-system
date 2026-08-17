@@ -331,7 +331,7 @@ describe("Financial invariants", () => {
       // This test documents a known failure mode: without a database-level unique constraint
       // on previousHash, two concurrent writes that both read the same tail hash will both succeed,
       // producing a forked chain. The assertion below confirms the fork happens.
-      // Mitigation requires: UNIQUE INDEX on previousHash in the Postgres ledger_events table.
+      // Mitigation requires: UNIQUE INDEX on previousHash in the ledger_events table.
       const ledgerRepo = new RaceyLedgerEventRepository();
       const useCase = new CreateLedgerEventUseCase(ledgerRepo, new NoOpAuditLogger());
 

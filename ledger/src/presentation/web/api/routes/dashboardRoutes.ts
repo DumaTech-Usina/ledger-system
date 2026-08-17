@@ -1,13 +1,14 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { DashboardService } from "../../../../core/application/services/DashboardService";
 import { serializeDashboard } from "../serializers/dashboardSerializer";
+import { parseInstant } from "../../../../core/application/utils/instant";
 
 const DEFAULT_PERIOD_DAYS = 30;
 
 function parsePeriod(req: Request): { from: Date; to: Date } {
   const now = new Date();
-  const to   = req.query.to   ? new Date(req.query.to   as string) : now;
-  const from = req.query.from ? new Date(req.query.from as string) : new Date(to.getTime() - DEFAULT_PERIOD_DAYS * 24 * 60 * 60 * 1000);
+  const to   = req.query.to   ? parseInstant(req.query.to   as string) : now;
+  const from = req.query.from ? parseInstant(req.query.from as string) : new Date(to.getTime() - DEFAULT_PERIOD_DAYS * 24 * 60 * 60 * 1000);
 
   if (isNaN(from.getTime()) || isNaN(to.getTime())) {
     throw Object.assign(new Error("Invalid date in 'from' or 'to' parameter"), { statusCode: 400 });

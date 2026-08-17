@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { CashEventListingService } from "../../../../core/application/services/CashEventListingService";
 import { CashMovementSortKey } from "../../../../core/application/dtos/CashStatement";
 import { serializeCashMovementPage } from "../serializers/cashMovementSerializer";
+import { parseInstant } from "../../../../core/application/utils/instant";
 
 const MAX_LIMIT     = 200;
 const DEFAULT_LIMIT = 50;
@@ -53,8 +54,8 @@ export function cashMovementsRoutes(svc: CashEventListingService): Router {
       const fromStr = req.query.from   as string | undefined;
       const toStr   = req.query.to     as string | undefined;
       const cursor  = req.query.cursor as string | undefined;
-      const from    = fromStr ? new Date(fromStr) : undefined;
-      const to      = toStr   ? new Date(toStr)   : undefined;
+      const from    = fromStr ? parseInstant(fromStr) : undefined;
+      const to      = toStr   ? parseInstant(toStr)   : undefined;
       if (from && isNaN(from.getTime())) {
         res.status(400).json({ error: "Invalid from date" });
         return;

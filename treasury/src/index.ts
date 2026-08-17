@@ -3,7 +3,7 @@ import { env } from "./config/env";
 import { createServer } from "./presentation/web/api/server";
 import { InMemoryIntentRepository } from "./infra/persistence/InMemoryIntentRepository";
 import { InMemoryPartyRepository } from "./infra/persistence/InMemoryPartyRepository";
-import { MongoPartyRepository, connectMongo } from "./infra/persistence/MongoPartyRepository";
+import { SqlitePartyRepository } from "./infra/persistence/SqlitePartyRepository";
 import { PartyDirectory } from "./core/application/services/PartyDirectory";
 import { InMemoryUserRepository } from "./infra/persistence/InMemoryUserRepository";
 import { InMemoryAuditLog } from "./infra/audit/InMemoryAuditLog";
@@ -67,8 +67,8 @@ async function bootstrap(): Promise<void> {
   // conversation. In "memory" it is empty at boot and every mention falls through unresolved —
   // usable for a disconnected demo, never for issuing ids that reach a Ledger.
   const partyRepo =
-    env.PARTY_DIRECTORY_MODE === "mongo"
-      ? new MongoPartyRepository((await connectMongo(env.MONGO_URL, env.MONGO_DB)).db)
+    env.PARTY_DIRECTORY_MODE === "sqlite"
+      ? new SqlitePartyRepository(env.PARTY_DB_FILE)
       : new InMemoryPartyRepository();
   const partyDirectory = new PartyDirectory(partyRepo);
 
@@ -80,7 +80,7 @@ async function bootstrap(): Promise<void> {
     console.warn(
       "[party-directory] EMPTY (mode: " + env.PARTY_DIRECTORY_MODE + "). No counterparty will resolve, " +
         "so every party slot needs an explicit creation decision.\n" +
-        "  Seed it with: PARTY_DIRECTORY_MODE=mongo npm run seed:directory",
+        "  Seed it with: PARTY_DIRECTORY_MODE=sqlite npm run seed:directory",
     );
   } else {
     console.log("[party-directory] " + knownParties + " known part" + (knownParties === 1 ? "y" : "ies") +

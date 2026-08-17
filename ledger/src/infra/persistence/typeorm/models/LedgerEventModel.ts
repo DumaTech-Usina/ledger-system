@@ -6,6 +6,7 @@ import {
   PrimaryColumn,
 } from 'typeorm';
 import { bigintTransformer } from '../transformers/bigint.transformer';
+import { isoDateTransformer } from '../transformers/iso-date.transformer';
 import { LedgerEventObjectModel } from './LedgerEventObjectModel';
 import { LedgerEventPartyModel } from './LedgerEventPartyModel';
 
@@ -29,22 +30,22 @@ export class LedgerEventModel {
   economicEffect!: string;
 
   @Index()
-  @Column({ name: 'occurred_at', type: 'timestamptz' })
+  @Column({ name: 'occurred_at', type: 'varchar', transformer: isoDateTransformer })
   occurredAt!: Date;
 
   @Index()
-  @Column({ name: 'recorded_at', type: 'timestamptz' })
+  @Column({ name: 'recorded_at', type: 'varchar', transformer: isoDateTransformer })
   recordedAt!: Date;
 
-  @Column({ name: 'source_at', type: 'timestamptz', nullable: true })
+  @Column({ name: 'source_at', type: 'varchar', transformer: isoDateTransformer, nullable: true })
   sourceAt!: Date | null;
 
   /** When the obligation this event originates falls due. Null = terms not stated (never "no due date
    *  because we assumed one"). Indexed partially — only rows that carry one are ever ordered by it. */
-  @Column({ name: 'due_at', type: 'timestamptz', nullable: true })
+  @Column({ name: 'due_at', type: 'varchar', transformer: isoDateTransformer, nullable: true })
   dueAt!: Date | null;
 
-  /** Money.units stored as bigint — see bigintTransformer for the pg ↔ JS bridge */
+  /** Money.units stored as a 64-bit integer — see bigintTransformer for the driver ↔ JS bridge */
   @Column({
     name: 'amount_units',
     type: 'bigint',
@@ -95,7 +96,7 @@ export class LedgerEventModel {
   @Column({ name: 'reporter_name', type: 'varchar', nullable: true })
   reporterName!: string | null;
 
-  @Column({ name: 'reported_at', type: 'timestamptz' })
+  @Column({ name: 'reported_at', type: 'varchar', transformer: isoDateTransformer })
   reportedAt!: Date;
 
   @Column({ name: 'reporter_channel', type: 'varchar' })

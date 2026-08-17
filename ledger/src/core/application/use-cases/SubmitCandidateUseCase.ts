@@ -15,6 +15,7 @@ import { ReasonType } from "../../domain/enums/ReasonType";
 import { ConfidenceLevel } from "../../domain/enums/ConfidenceLevel";
 import { ReporterType } from "../../domain/enums/ReporterType";
 import { classifyStagingFailure, classifyError, type RejectionDetail } from "../services/RejectionCatalog";
+import { parseInstant, parseOptionalInstant } from "../utils/instant";
 
 export type SubmitOutcome =
   | { status: "accepted"; ledgerReference: string }
@@ -95,9 +96,9 @@ export class SubmitCandidateUseCase {
     return {
       eventType: input.eventType as EventType,
       economicEffect: input.economicEffect as EconomicEffect,
-      occurredAt: new Date(input.occurredAt),
-      sourceAt: input.sourceAt ? new Date(input.sourceAt) : null,
-      dueAt: input.dueAt ? new Date(input.dueAt) : null,
+      occurredAt: parseInstant(input.occurredAt),
+      sourceAt: parseOptionalInstant(input.sourceAt),
+      dueAt: parseOptionalInstant(input.dueAt),
       amount: input.amount,
       currency: input.currency,
       description: input.description ?? null,

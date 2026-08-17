@@ -4,7 +4,8 @@ import { TypeOrmLedgerEventRepository } from "../../../infra/persistence/typeorm
 import { ObjectType } from "../../../core/domain/enums/ObjectType";
 
 /**
- * How the position aggregate is ASKED for — not what Postgres answers, which needs a database.
+ * How the position aggregate is ASKED for — not what the database answers, which is what the
+ * equivalence suite in tests/integration/persistence does.
  *
  * These fix the two properties that cost the most and are invisible from the outside: that reading
  * a page issues ONE aggregation rather than two, and that a filter narrows the set of objects
@@ -24,7 +25,8 @@ function repoWith(rows: Record<string, unknown>[]) {
           // The fallback COUNT asks for a single row shaped { total }.
           if (/SELECT COUNT\(\*\) AS total/.test(sql)) return [{ total: "42" }];
           // The per-page parties lookup answers with its own shape.
-          if (/ARRAY_AGG/.test(sql)) return [{ object_id: "obj-1", parties: ["acme", "party-usina"] }];
+          // SQLite's group_concat answers with one comma-joined string per group, not an array.
+          if (/group_concat/.test(sql)) return [{ object_id: "obj-1", parties: "acme,party-usina" }];
           return rows;
         },
       },
@@ -45,8 +47,9 @@ function aggregateRow(overrides: Record<string, unknown> = {}) {
     non_cash_closed: "0",
     ref_cash_in: "0",
     ref_cash_out: "0",
-    has_reversal: false,
-    has_unresolved_lineage: false,
+    // SQLite has no boolean storage class: an aggregated flag comes back as 0 or 1.
+    has_reversal: 0,
+    has_unresolved_lineage: 0,
     event_count: "1",
     last_event_at: "2026-07-09T00:00:00.000Z",
     originated_at: null,
@@ -66,7 +69,7 @@ describe("findPositionAggregates — how the book is asked", () => {
     // Exactly one query GROUPs the book. The second is the parties lookup, bounded by the page's
     // ids — never a join into the aggregate, which would repeat each event per party and inflate
     // every SUM with the size of the cast.
-    const aggregations = queries.filter((q) => q.sql.includes("GROUP BY o.object_id") && !q.sql.includes("ARRAY_AGG"));
+    const aggregations = queries.filter((q) => q.sql.includes("GROUP BY o.object_id") && !q.sql.includes("group_concat"));
     expect(aggregations).toHaveLength(1);
     expect(aggregations[0].sql).toContain("COUNT(*) OVER ()");
     expect(page.total).toBe(7);
@@ -79,9 +82,9 @@ describe("findPositionAggregates — how the book is asked", () => {
     const { repo, queries } = repoWith([aggregateRow()]);
 
     await repo.findPositionAggregates({ page: 1, limit: 20 });
-    const partiesQuery = queries.find((q) => q.sql.includes("ARRAY_AGG"))!;
+    const partiesQuery = queries.find((q) => q.sql.includes("group_concat"))!;
 
-    expect(partiesQuery.params).toEqual([["obj-1"]]);
+    expect(partiesQuery.params).toEqual(["obj-1"]);
     // Retracted events are excluded here too: a party that appears only on a retracted event took
     // part in nothing that still stands.
     expect(partiesQuery.sql).toContain("NOT EXISTS");
@@ -102,11 +105,13 @@ describe("findPositionAggregates — how the book is asked", () => {
     const { sql, params } = queries[0];
 
     // Before: only the objects of those types are aggregated at all.
-    expect(sql).toContain("co.object_type = ANY($1)");
+    expect(sql).toContain("co.object_type IN (?, ?)");
     expect(sql).toContain("o.object_id IN (");
     // After: the exact predicate still decides, because the narrowing is only a superset.
-    expect(sql).toContain("object_type = ANY($1)");
-    expect(params[0]).toEqual(["payroll", "tax"]);
+    expect(sql).toContain("object_type IN (?, ?)");
+    // Bound TWICE — once per occurrence. `?` binds by position, so the value that narrows the
+    // candidates and the value that filters the aggregate are two bindings of the same list.
+    expect(params.slice(0, 4)).toEqual(["payroll", "tax", "payroll", "tax"]);
   });
 
   it("narrows with ONE semi-join PER predicate, never one row satisfying all of them", async () => {
@@ -124,8 +129,8 @@ describe("findPositionAggregates — how the book is asked", () => {
     // listing it belongs in, and the page would simply be missing a row with nothing to report it.
     const subqueries = sql.split("o.object_id IN (").length - 1;
     expect(subqueries).toBe(2);
-    expect(sql).toContain("co.object_type = ANY($1)");
-    expect(sql).toContain("ce.recorded_at <= $2");
+    expect(sql).toContain("co.object_type IN (?)");
+    expect(sql).toContain("ce.recorded_at <= ?");
   });
 
   it("filters by party through an involvement semi-join, with no second pass after the grouping", async () => {
@@ -135,8 +140,8 @@ describe("findPositionAggregates — how the book is asked", () => {
     const { sql, params } = queries[0];
 
     expect(sql).toContain("JOIN ledger_event_parties cp ON cp.event_id = ce.id");
-    expect(sql).toContain("cp.party_id = ANY($1)");
-    expect(params[0]).toEqual(["acme", "banco-xpto"]);
+    expect(sql).toContain("cp.party_id IN (?, ?)");
+    expect(params.slice(0, 2)).toEqual(["acme", "banco-xpto"]);
     // Involvement IS "some standing event names the party", which the semi-join states exactly —
     // so unlike type and period there is nothing left to re-check after the aggregation.
     const afterGrouping = sql.slice(sql.lastIndexOf("FROM aggs"));
@@ -151,11 +156,17 @@ describe("findPositionAggregates — how the book is asked", () => {
     await repo.findPositionAggregates({ from, to });
     const { sql, params } = queries[0];
 
-    expect(sql).toContain("ce.recorded_at >= $1");
-    expect(sql).toContain("ce.recorded_at <= $2");
-    expect(sql).toContain("created_at >= $1");
-    expect(sql).toContain("created_at <= $2");
-    expect(params).toEqual([from, to, 50, 0]);
+    expect(sql).toContain("ce.recorded_at >= ?");
+    expect(sql).toContain("ce.recorded_at <= ?");
+    expect(sql).toContain("created_at >= ?");
+    expect(sql).toContain("created_at <= ?");
+    // The CTE's bindings first, then the outer filter's, then the page — the order the statement
+    // reads in. Instants cross as ISO-8601 UTC text, which is how they are stored.
+    expect(params).toEqual([
+      from.toISOString(), to.toISOString(),
+      from.toISOString(), to.toISOString(),
+      50, 0,
+    ]);
   });
 
   it("keeps status and outcome after the grouping — they are functions of the sums", async () => {
@@ -200,7 +211,7 @@ describe("findSettledObjectIds", () => {
     // A retracted settlement closes nothing, so the guard has to be here too — otherwise the event
     // feed reports a position closed while the projection reports it open, over the same book.
     expect(queries[0].sql).toContain("NOT EXISTS");
-    expect(queries[0].params).toEqual([["a", "b", "c"]]);
+    expect(queries[0].params).toEqual(["a", "b", "c"]);
     expect([...settled].sort()).toEqual(["a", "c"]);
   });
 

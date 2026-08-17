@@ -1,9 +1,8 @@
 import "reflect-metadata";
-import { AppDataSource } from "./infra/database/data-source";
-import { getMongoDb, closeMongoDb } from "./infra/database/mongo-client";
+import { AppDataSource, ensureDatabaseDirectory } from "./infra/database/data-source";
 import { TypeOrmLedgerEventRepository } from "./infra/persistence/typeorm/TypeOrmLedgerEventRepository";
-import { MongoRejectedEventRepository } from "./infra/persistence/mongodb/MongoRejectedEventRepository";
-import { MongoStagingRepository } from "./infra/persistence/mongodb/MongoStagingRepository";
+import { SqliteRejectedEventRepository } from "./infra/persistence/sqlite/SqliteRejectedEventRepository";
+import { SqliteStagingRepository } from "./infra/persistence/sqlite/SqliteStagingRepository";
 import { StagingRecordValidator } from "./core/application/services/StagingRecordValidator";
 import { SubmitCandidateUseCase } from "./core/application/use-cases/SubmitCandidateUseCase";
 import { ReceiptLineageResolver } from "./core/application/services/ReceiptLineageResolver";
@@ -19,14 +18,16 @@ import { FileAuditLogger } from "./infra/audit/FileAuditLogger";
 import { env } from "./config/env";
 
 async function bootstrap(): Promise<void> {
-  // ── Databases ──────────────────────────────────────────────────────────────
+  // ── The book's file ────────────────────────────────────────────────────────
+  // One SQLite database holds the confirmed events, the candidates awaiting promotion and the
+  // refusals. The directory is created first so a first boot on an empty volume works.
+  ensureDatabaseDirectory();
   await AppDataSource.initialize();
-  const mongoDb = await getMongoDb();
 
   // ── Repositories ───────────────────────────────────────────────────────────
   const ledgerRepo = new TypeOrmLedgerEventRepository(AppDataSource);
-  const rejectedRepo = new MongoRejectedEventRepository(mongoDb);
-  const stagingRepo = new MongoStagingRepository(mongoDb);
+  const rejectedRepo = new SqliteRejectedEventRepository(AppDataSource);
+  const stagingRepo = new SqliteStagingRepository(AppDataSource);
 
   // ── Application ────────────────────────────────────────────────────────────
   const audit = new FileAuditLogger(env.AUDIT_LOG_DIR);
@@ -53,14 +54,13 @@ async function bootstrap(): Promise<void> {
   await job.run();
 
   // ── Readiness probe ────────────────────────────────────────────────────────
-  // Pings both datastores; a failure is reported as `false`, never thrown, so /ready
+  // Pings the book's file; a failure is reported as `false`, never thrown, so /ready
   // can return 503 (route traffic away) without crashing the process.
   const readiness = async () => {
-    const [postgres, mongo] = await Promise.all([
-      AppDataSource.query("SELECT 1").then(() => true).catch(() => false),
-      mongoDb.command({ ping: 1 }).then(() => true).catch(() => false),
-    ]);
-    return { postgres, mongo };
+    const database = await AppDataSource.query("SELECT 1")
+      .then(() => true)
+      .catch(() => false);
+    return { database };
   };
 
   // ── User App submission ──────────────────────────────────────────────────────
@@ -90,7 +90,6 @@ async function bootstrap(): Promise<void> {
     console.log(`${signal} received — shutting down`);
     server.close(async () => {
       await AppDataSource.destroy();
-      await closeMongoDb();
       process.exit(0);
     });
   };

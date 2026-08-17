@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { CashStatementService } from "../../../../core/application/services/CashStatementService";
 import { serializeCashStatement } from "../serializers/cashStatementSerializer";
+import { parseInstant } from "../../../../core/application/utils/instant";
 
 export function cashStatementRoutes(svc: CashStatementService): Router {
   const router = Router();
@@ -12,8 +13,8 @@ export function cashStatementRoutes(svc: CashStatementService): Router {
         res.status(400).json({ error: "from and to are required" });
         return;
       }
-      const from = new Date(fromStr);
-      const to   = new Date(toStr);
+      const from = parseInstant(fromStr);
+      const to   = parseInstant(toStr);
       if (isNaN(from.getTime()) || isNaN(to.getTime())) {
         res.status(400).json({ error: "Invalid date format" });
         return;

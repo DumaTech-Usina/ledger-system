@@ -16,6 +16,7 @@ import { PartyRole } from "../../core/domain/enums/PartyRole";
 import { ReasonType } from "../../core/domain/enums/ReasonType";
 import { Relation } from "../../core/domain/enums/Relation";
 import { ReporterType } from "../../core/domain/enums/ReporterType";
+import { parseInstant, parseOptionalInstant } from "../../core/application/utils/instant";
 
 export class StagingPostingJob implements StagingMessageHandler {
   constructor(
@@ -102,9 +103,9 @@ export class StagingPostingJob implements StagingMessageHandler {
     return {
       eventType: record.eventType as EventType,
       economicEffect: record.economicEffect as EconomicEffect,
-      occurredAt: new Date(record.occurredAt),
-      sourceAt: record.sourceAt ? new Date(record.sourceAt) : null,
-      dueAt: record.dueAt ? new Date(record.dueAt) : null,
+      occurredAt: parseInstant(record.occurredAt),
+      sourceAt: parseOptionalInstant(record.sourceAt),
+      dueAt: parseOptionalInstant(record.dueAt),
       amount: record.amount,
       currency: record.currency,
       description: record.description ?? null,
