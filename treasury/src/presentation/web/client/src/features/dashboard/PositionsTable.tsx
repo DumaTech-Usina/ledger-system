@@ -32,6 +32,7 @@ export function PositionsTable({
   showParties = false,
   selectedParties = [],
   selfPartyId = "",
+  partyNames = {},
 }: {
   positions: PositionItem[];
   currency: string;
@@ -58,6 +59,11 @@ export function PositionsTable({
   selectedParties?: string[];
   /** The usina's own party id — marked among the cast rather than filtered out. */
   selfPartyId?: string;
+  /**
+   * Display names by party id, as the Directory knows them. An id the Directory cannot name is
+   * absent here and stays on screen as the id — never replaced by an invented label.
+   */
+  partyNames?: Record<string, string>;
 }) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
@@ -150,7 +156,7 @@ export function PositionsTable({
                                   : "bg-ink/6 text-muted dark:bg-white/8"
                               }`}
                             >
-                              {isSelf ? t.dashboard.table.selfParty : partyId}
+                              {isSelf ? t.dashboard.table.selfParty : partyNames[partyId] ?? partyId}
                             </span>
                           );
                         })}

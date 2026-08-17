@@ -156,6 +156,7 @@ export const REASON_EFFECT_MATRIX: Partial<
   [ReasonType.INFRASTRUCTURE_EXPENSE]: [EconomicEffect.CASH_OUT],
   [ReasonType.THIRD_PARTY_PAYMENT]: [EconomicEffect.CASH_OUT],
   [ReasonType.TAX_PAYMENT]: [EconomicEffect.CASH_OUT],
+  [ReasonType.SERVICE_FEE_PAYMENT]: [EconomicEffect.CASH_OUT],
   [ReasonType.INCENTIVE_PAYMENT]: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH],
   // Recognizing an obligation moves no money — the payment that settles it is a separate fact.
   [ReasonType.OBLIGATION_RECOGNITION]: [EconomicEffect.NON_CASH],
@@ -207,6 +208,7 @@ export const REASON_RELATION_MATRIX: Partial<
   [ReasonType.INFRASTRUCTURE_EXPENSE]: [Relation.SETTLES],
   [ReasonType.THIRD_PARTY_PAYMENT]: [Relation.ORIGINATES, Relation.SETTLES],
   [ReasonType.TAX_PAYMENT]: [Relation.SETTLES],
+  [ReasonType.SERVICE_FEE_PAYMENT]: [Relation.SETTLES],
   [ReasonType.INCENTIVE_PAYMENT]: [Relation.ORIGINATES, Relation.SETTLES],
   // A recognition only ever originates an obligation — the twin of COMMISSION_ACCRUAL.
   [ReasonType.OBLIGATION_RECOGNITION]: [Relation.ORIGINATES],

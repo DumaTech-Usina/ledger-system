@@ -102,6 +102,8 @@ describe("ListPositionsUseCase", () => {
       page: null,
       selectedParties: ["acme"],
       selfPartyId: "party-usina",
+      // No page means no parties to name — and no Directory was given here either.
+      partyNames: {},
     });
   });
 
@@ -122,5 +124,134 @@ describe("ListPositionsUseCase", () => {
     // replacing them, so a position settled by a third party still shows who else took part.
     expect(result.selectedParties).toEqual(["acme", "banco-xpto"]);
     expect(result.selfPartyId).toBe("party-usina");
+  });
+});
+
+/**
+ * The Ledger publishes party IDS — it was never told anyone's name. Treasury holds the Directory, so
+ * naming them is its job, and `partyNames` is where it does it.
+ *
+ * The map sits BESIDE the page rather than inside its rows, the same separation `ObjectLifecycleView`
+ * makes: the page mirrors what the Ledger published, and a name is treasury's own knowledge. An id
+ * the Directory cannot name is absent from the map and stays on screen as the id.
+ */
+describe("ListPositionsUseCase — naming the parties", () => {
+  const positionWith = (objectId: string, parties: string[] | null): PositionsPage["data"][number] =>
+    ({
+      objectId,
+      objectType: "advance",
+      status: "open",
+      outcome: "pending",
+      currency: "BRL",
+      totalOriginated: "500.00",
+      openBalance: "500.00",
+      eventCount: 1,
+      lastEventAt: null,
+      originatedAt: null,
+      createdAt: null,
+      dueAt: null,
+      parties,
+    }) as PositionsPage["data"][number];
+
+  const pageOf = (data: PositionsPage["data"]): PositionsPage => ({
+    data,
+    total: data.length,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+  });
+
+  const directory = (names: Record<string, string>, onGet?: (id: string) => void) => ({
+    get: async (partyId: string) => {
+      onGet?.(partyId);
+      return names[partyId] ? { partyId, displayName: names[partyId] } : undefined;
+    },
+  });
+
+  const listing = (page: PositionsPage, dir?: unknown) =>
+    new ListPositionsUseCase(
+      ledger({ positions: async () => page }),
+      "party-usina",
+      () => {},
+      dir as never,
+    );
+
+  it("names every party the page mentions", async () => {
+    const result = await listing(
+      pageOf([positionWith("adv-1", ["party-usina", "party-broker"])]),
+      directory({ "party-usina": "Usina", "party-broker": "Corretor Parceiro" }),
+    ).execute();
+
+    expect(result.partyNames).toEqual({
+      "party-usina": "Usina",
+      "party-broker": "Corretor Parceiro",
+    });
+  });
+
+  it("leaves an id the Directory cannot name out of the map — never invents a label", async () => {
+    const result = await listing(
+      pageOf([positionWith("adv-1", ["party-broker", "party-ghost"])]),
+      directory({ "party-broker": "Corretor Parceiro" }),
+    ).execute();
+
+    expect(result.partyNames).toEqual({ "party-broker": "Corretor Parceiro" });
+    // The row still lists the party; only its label is missing, and the screen falls back to the id.
+    expect(result.page!.data[0].parties).toContain("party-ghost");
+  });
+
+  it("looks each distinct id up once, however many rows name it", async () => {
+    const asked: string[] = [];
+    await listing(
+      pageOf([
+        positionWith("adv-1", ["party-usina", "party-broker"]),
+        positionWith("adv-2", ["party-usina", "party-broker"]),
+        positionWith("adv-3", ["party-usina"]),
+      ]),
+      directory({ "party-usina": "Usina", "party-broker": "Corretor Parceiro" }, (id) => asked.push(id)),
+    ).execute();
+
+    expect(asked.sort()).toEqual(["party-broker", "party-usina"]);
+  });
+
+  it("costs labels, never rows, when the Directory is down", async () => {
+    const page = pageOf([positionWith("adv-1", ["party-broker"])]);
+    const result = await listing(page, {
+      get: () => Promise.reject(new Error("down")),
+    }).execute();
+
+    // The listing is still available and complete — only the names are missing.
+    expect(result.available).toBe(true);
+    expect(result.page).toEqual(page);
+    expect(result.partyNames).toEqual({});
+  });
+
+  it("works without a Directory at all, answering with ids alone", async () => {
+    const result = await listing(pageOf([positionWith("adv-1", ["party-broker"])])).execute();
+    expect(result.available).toBe(true);
+    expect(result.partyNames).toEqual({});
+  });
+
+  it("asks nothing when the Ledger published no parties", async () => {
+    const asked: string[] = [];
+    const result = await listing(
+      pageOf([positionWith("adv-1", null)]),
+      directory({ "party-broker": "Corretor Parceiro" }, (id) => asked.push(id)),
+    ).execute();
+
+    // Null is "not told", not "nobody took part" — and there is nothing to look up either way.
+    expect(asked).toEqual([]);
+    expect(result.partyNames).toEqual({});
+  });
+
+  it("has no names to give when the Ledger could not be reached", async () => {
+    const result = await new ListPositionsUseCase(
+      ledger({ positions: () => Promise.reject(new Error("down")) }),
+      "party-usina",
+      () => {},
+      directory({ "party-broker": "Corretor Parceiro" }) as never,
+    ).execute();
+
+    expect(result.available).toBe(false);
+    expect(result.partyNames).toEqual({});
   });
 });

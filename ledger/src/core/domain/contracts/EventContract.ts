@@ -125,6 +125,42 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
   },
 
   /**
+   * Pays a service fee, SETTLING the SERVICE_FEE obligation. Mirrors INFRASTRUCTURE_EXPENSE above:
+   * the category rides on the event type and its Reason, so a fee paid is legible as a fee and not
+   * only as a position of that kind.
+   *
+   * Like every cash-basis expense, it requires no prior OBLIGATION_RECOGNIZED — a fee paid without
+   * a recognition originates nothing and settles a position of zero, which is the ordinary reading
+   * (§2.3). Gating it on the recognition would violate premise 5.
+   */
+  [EventType.SERVICE_FEE_PAYMENT]: {
+    economicEffects: [EconomicEffect.CASH_OUT],
+
+    objects: [
+      {
+        objectType: ObjectType.SERVICE_FEE,
+        relations: [Relation.SETTLES],
+      },
+    ],
+
+    reasons: [ReasonType.SERVICE_FEE_PAYMENT],
+  },
+
+  /** Pays an assessed tax, SETTLING the TAX obligation. Same shape as SERVICE_FEE_PAYMENT above. */
+  [EventType.TAX_PAYMENT]: {
+    economicEffects: [EconomicEffect.CASH_OUT],
+
+    objects: [
+      {
+        objectType: ObjectType.TAX,
+        relations: [Relation.SETTLES],
+      },
+    ],
+
+    reasons: [ReasonType.TAX_PAYMENT],
+  },
+
+  /**
    * Generic cash-basis outbound payment. SETTLES a PAYABLE (an amount owed); the counterparty is a
    * Party and the business intent is the Reason. Reusable for types unhandled by the algebra.
    */

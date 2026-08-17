@@ -1,4 +1,5 @@
 import type { LedgerReadPort } from "../ports/LedgerReadPort";
+import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
 import type { PositionsPage } from "../dtos/LedgerReadModels";
 
 /** Default page size. The caller may ask for another; the Ledger caps at 200 either way. */
@@ -46,6 +47,17 @@ export interface ListPositionsResult {
    * mark it without a second copy of the configuration living in the client.
    */
   selfPartyId: string;
+  /**
+   * Display names for the parties this page names, keyed by id.
+   *
+   * Sits BESIDE the page rather than inside its rows — the same separation `ObjectLifecycleView` and
+   * `TreasuryDashboard` make, and for the same reason: the page mirrors what the Ledger published,
+   * and the Ledger publishes ids. A name is treasury's own knowledge, not a figure it may add to the
+   * Ledger's answer.
+   *
+   * A party the Directory does not know is simply absent from the map, so its id stays on screen.
+   */
+  partyNames: Record<string, string>;
 }
 
 /** One value or several, as the list of values. Empty means no selection was made. */
@@ -89,6 +101,12 @@ export class ListPositionsUseCase {
      * is never the source of the answer — only a head start on it.
      */
     private readonly remember: (positions: PositionsPage["data"]) => void = () => {},
+    /**
+     * Optional: without it the listing answers with ids alone, which is exactly what it does for a
+     * party the Directory does not know. Names are legibility, not truth, so their absence never
+     * changes what the screen asserts.
+     */
+    private readonly directory?: PartyDirectoryPort,
   ) {}
 
   async execute(input: ListPositionsInput = {}): Promise<ListPositionsResult> {
@@ -111,6 +129,7 @@ export class ListPositionsUseCase {
         page,
         selectedParties: asValues(input.partyId),
         selfPartyId: this.usinaPartyId,
+        partyNames: await this.nameParties(page.data),
       };
     } catch {
       // Unknown, not empty: the selection is still what was asked for, and the identity of our own
@@ -120,7 +139,34 @@ export class ListPositionsUseCase {
         page: null,
         selectedParties: asValues(input.partyId),
         selfPartyId: this.usinaPartyId,
+        partyNames: {},
       };
+    }
+  }
+
+  /**
+   * Looks up a display name for every party this page names, once per distinct id.
+   *
+   * Deliberately outside the failure path above: a Directory that is down costs labels, never rows,
+   * so it degrades to ids rather than taking the whole listing with it.
+   */
+  private async nameParties(positions: PositionsPage["data"]): Promise<Record<string, string>> {
+    if (!this.directory) return {};
+
+    // Deduplicated on purpose: a page of 200 rows sharing a handful of counterparties costs a
+    // handful of lookups, not one per row.
+    const ids = [...new Set(positions.flatMap((position) => position.parties ?? []))];
+    if (ids.length === 0) return {};
+
+    try {
+      const parties = await Promise.all(ids.map((id) => this.directory!.get(id)));
+      const names: Record<string, string> = {};
+      for (const party of parties) {
+        if (party) names[party.partyId] = party.displayName;
+      }
+      return names;
+    } catch {
+      return {};
     }
   }
 }

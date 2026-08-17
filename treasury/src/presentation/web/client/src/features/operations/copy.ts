@@ -14,6 +14,14 @@ export const scenarioCopy: Record<string, { title: string; description: string }
     title: "Registrar despesa de infraestrutura",
     description: "Registrar um custo operacional/infraestrutura pago pela usina (saída de caixa).",
   },
+  register_service_fee: {
+    title: "Registrar pagamento de taxa de serviço",
+    description: "Registrar uma taxa de serviço paga pela usina (saída de caixa).",
+  },
+  register_tax: {
+    title: "Registrar pagamento de imposto",
+    description: "Registrar um imposto pago pela usina (saída de caixa).",
+  },
   register_penalty: {
     title: "Registrar pagamento de multa",
     description: "Registrar uma multa ou penalidade paga pela usina (saída de caixa).",
@@ -101,6 +109,22 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
   register_infrastructure: {
     payee: "Para quem é o pagamento (fornecedor ou prestador)?",
     amount: "Qual é o valor?",
+    currency: "Qual é a moeda?",
+    occurredAt: "Em que data foi pago?",
+    objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
+    description: "Uma breve descrição (opcional).",
+  },
+  register_service_fee: {
+    payee: "Para quem é o pagamento (fornecedor ou prestador)?",
+    amount: "Qual é o valor da taxa?",
+    currency: "Qual é a moeda?",
+    occurredAt: "Em que data foi paga?",
+    objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
+    description: "Uma breve descrição (opcional).",
+  },
+  register_tax: {
+    payee: "Para quem é o pagamento (autoridade fiscal)?",
+    amount: "Qual é o valor do imposto?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi pago?",
     objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",

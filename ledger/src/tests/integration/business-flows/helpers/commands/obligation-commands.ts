@@ -78,6 +78,66 @@ export const payrollPayment = (
   ...overrides,
 });
 
+/**
+ * The two categories that could be recognized but never paid: SERVICE_FEE and TAX originated under
+ * OBLIGATION_RECOGNIZED while no event type admitted SETTLES for them, so the obligation opened and
+ * had no way to close. These are their settlements, shaped exactly like `payrollPayment` above —
+ * the category rides on the event type and its reason, not on a generic payment.
+ */
+export const serviceFeePayment = (
+  ref: (label: string) => string,
+  objectId: string,
+  amount: string,
+  overrides: Partial<CreateLedgerEventCommand> = {},
+): CreateLedgerEventCommand => ({
+  eventType: EventType.SERVICE_FEE_PAYMENT,
+  economicEffect: EconomicEffect.CASH_OUT,
+  occurredAt: new Date("2025-03-31"),
+  amount,
+  currency: "BRL",
+  sourceSystem: "normalizer",
+  sourceReference: ref("service-fee"),
+  normalizationVersion: "1.0",
+  normalizationWorkerId: "worker-test",
+  parties: [{ partyId: USINA, role: PartyRole.PAYER, direction: Direction.OUT, amount }],
+  objects: [{ objectId, objectType: ObjectType.SERVICE_FEE, relation: Relation.SETTLES }],
+  reason: {
+    type: ReasonType.SERVICE_FEE_PAYMENT,
+    description: "service fee invoice paid",
+    confidence: ConfidenceLevel.HIGH,
+    requiresFollowup: false,
+  },
+  reporter: reporter(),
+  ...overrides,
+});
+
+export const taxPayment = (
+  ref: (label: string) => string,
+  objectId: string,
+  amount: string,
+  overrides: Partial<CreateLedgerEventCommand> = {},
+): CreateLedgerEventCommand => ({
+  eventType: EventType.TAX_PAYMENT,
+  economicEffect: EconomicEffect.CASH_OUT,
+  occurredAt: new Date("2025-03-31"),
+  amount,
+  currency: "BRL",
+  sourceSystem: "normalizer",
+  sourceReference: ref("tax"),
+  normalizationVersion: "1.0",
+  normalizationWorkerId: "worker-test",
+  parties: [{ partyId: USINA, role: PartyRole.PAYER, direction: Direction.OUT, amount }],
+  objects: [{ objectId, objectType: ObjectType.TAX, relation: Relation.SETTLES }],
+  reason: {
+    type: ReasonType.TAX_PAYMENT,
+    description: "assessed tax paid",
+    confidence: ConfidenceLevel.HIGH,
+    requiresFollowup: false,
+  },
+  reporter: reporter(),
+  ...overrides,
+});
+
 /** Retracts any event on a PAYROLL position — the correction path for a mis-stated recognition. */
 export const retractPayroll = (
   ref: (label: string) => string,

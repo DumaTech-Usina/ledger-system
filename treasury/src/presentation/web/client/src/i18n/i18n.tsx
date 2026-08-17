@@ -622,6 +622,8 @@ const ptBR: Translations = {
   eventType: {
     payroll_payment: "Pagamento de folha",
     infrastructure_expense: "Despesa de infraestrutura",
+    service_fee_payment: "Pagamento de taxa de serviço",
+    tax_payment: "Pagamento de imposto",
     commission_received: "Comissão recebida",
     commission_split: "Divisão de comissão",
     commission_waiver: "Isenção de comissão",
@@ -961,6 +963,8 @@ const en: Translations = {
   eventType: {
     payroll_payment: "Payroll payment",
     infrastructure_expense: "Infrastructure expense",
+    service_fee_payment: "Service fee payment",
+    tax_payment: "Tax payment",
     commission_received: "Commission received",
     commission_split: "Commission split",
     commission_waiver: "Commission waiver",

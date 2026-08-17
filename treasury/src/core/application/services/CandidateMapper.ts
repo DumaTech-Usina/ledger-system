@@ -185,6 +185,30 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     reasonText: "Infrastructure expense",
     objectIdSlot: "objectRef",
   },
+  // Service fee and tax are the two cost categories that could be recognized but never paid: they
+  // had an ObjectType and an ORIGINATES contract, and no event type admitting SETTLES. Same shape as
+  // infrastructure above — the category rides on the event type and its reason, not on the generic
+  // OUTBOUND_PAYMENT tuple, which is reserved for the outflow whose category the model cannot name.
+  register_service_fee: {
+    eventType: "service_fee_payment",
+    economicEffect: "cash_out",
+    counterpartySlot: "payee",
+    parties: cashOutParties,
+    objects: [{ objectType: "service_fee", relation: "settles" }],
+    reasonType: "service_fee_payment",
+    reasonText: "Service fee payment",
+    objectIdSlot: "objectRef",
+  },
+  register_tax: {
+    eventType: "tax_payment",
+    economicEffect: "cash_out",
+    counterpartySlot: "payee",
+    parties: cashOutParties,
+    objects: [{ objectType: "tax", relation: "settles" }],
+    reasonType: "tax_payment",
+    reasonText: "Tax payment",
+    objectIdSlot: "objectRef",
+  },
   register_penalty: {
     eventType: "penalty_payment",
     economicEffect: "cash_out",

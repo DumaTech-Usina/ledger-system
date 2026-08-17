@@ -173,8 +173,11 @@ async function bootstrap(): Promise<void> {
   const getObjectLifecycle = new GetObjectLifecycleUseCase(ledgerRead, partyDirectory);
   const getLedgerEvent = new GetLedgerEventUseCase(ledgerRead);
   const getBookExposure = new GetBookExposureUseCase(ledgerRead);
-  const listPositions = new ListPositionsUseCase(ledgerRead, env.USINA_PARTY_ID, (positions) =>
-    positionSnapshot.remember(positions),
+  const listPositions = new ListPositionsUseCase(
+    ledgerRead,
+    env.USINA_PARTY_ID,
+    (positions) => positionSnapshot.remember(positions),
+    partyDirectory,
   );
   const listPayablePositions = new ListPayablePositionsUseCase(ledgerRead);
   const listCashMovements = new ListCashMovementsUseCase(ledgerRead);

@@ -276,6 +276,12 @@ export interface ListPositionsResult {
   selectedParties: string[];
   /** Which party id is us. Used to hide or mark it among `parties`, never to filter on the way in. */
   selfPartyId: string;
+  /**
+   * Display names for the parties this page names, keyed by id. A party the Directory cannot name is
+   * absent from the map, and its id stays on screen — an invented label would be a claim the system
+   * cannot support.
+   */
+  partyNames: Record<string, string>;
 }
 
 /** One page of cash movements, paged by the Ledger's own cursor (or a numbered page, when asked). */
