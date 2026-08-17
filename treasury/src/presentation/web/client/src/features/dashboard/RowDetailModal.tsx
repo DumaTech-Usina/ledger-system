@@ -266,6 +266,9 @@ function PositionActions({
   const [actions, setActions] = useState<PositionAction[] | null>(null);
   const [starting, setStarting] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  // Open by default while the position still has something to act on; a settled position's
+  // recommendations are no longer the point of looking at it, so they start tucked away.
+  const [expanded, setExpanded] = useState(position.status !== "fully_settled");
 
   useEffect(() => {
     let cancelled = false;
@@ -309,32 +312,53 @@ function PositionActions({
 
   return (
     <div className="col-span-2 border-t border-line pt-4">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-        {t.dashboard.lifecycle.actionsTitle}
-      </p>
-      {failure && (
-        <Banner variant="bad" className="mt-2">
-          {failure}
-        </Banner>
+      <button
+        type="button"
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+        className="flex w-full items-center justify-between gap-2 text-left"
+      >
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+          {t.dashboard.lifecycle.actionsTitle}
+        </span>
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          className={cn(
+            "size-4 flex-shrink-0 text-muted transition-transform duration-300",
+            !expanded && "-rotate-90",
+          )}
+        >
+          <path d="M5 7.5 10 12l5-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {expanded && (
+        <>
+          {failure && (
+            <Banner variant="bad" className="mt-2">
+              {failure}
+            </Banner>
+          )}
+          <div className="mt-2 flex flex-wrap gap-2">
+            {actions.map((action) => {
+              const key = action.scenarioId + (action.variantChoice ?? "");
+              return (
+                <Button
+                  key={key}
+                  variant={action.likely ? "primary" : "ghost"}
+                  loading={starting === key}
+                  disabled={starting !== null && starting !== key}
+                  onClick={() => start(action)}
+                >
+                  {scenarioCopy[action.scenarioId]?.title ?? action.scenarioId}
+                  {action.touchesOtherPositions && ` ${t.dashboard.lifecycle.actionOpensAnother}`}
+                </Button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-[11px] text-muted">{t.dashboard.lifecycle.actionsHint}</p>
+        </>
       )}
-      <div className="mt-2 flex flex-wrap gap-2">
-        {actions.map((action) => {
-          const key = action.scenarioId + (action.variantChoice ?? "");
-          return (
-            <Button
-              key={key}
-              variant={action.likely ? "primary" : "ghost"}
-              loading={starting === key}
-              disabled={starting !== null && starting !== key}
-              onClick={() => start(action)}
-            >
-              {scenarioCopy[action.scenarioId]?.title ?? action.scenarioId}
-              {action.touchesOtherPositions && ` ${t.dashboard.lifecycle.actionOpensAnother}`}
-            </Button>
-          );
-        })}
-      </div>
-      <p className="mt-2 text-[11px] text-muted">{t.dashboard.lifecycle.actionsHint}</p>
     </div>
   );
 }

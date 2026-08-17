@@ -224,8 +224,6 @@ export interface Translations {
       relatedEvent: string;
       /** The related event belongs to a position this screen is not showing — said, not left as a bare id. */
       relatedElsewhere: string;
-      copyEventId: string;
-      copied: string;
       retracted: string;
       retractedNote: string;
       openByIdLabel: string;
@@ -473,8 +471,6 @@ const ptBR: Translations = {
       recordedOn: "Registrado em",
       relatedEvent: "Evento relacionado",
       relatedElsewhere: "Evento relacionado — de outra posição",
-      copyEventId: "Copiar id do evento",
-      copied: "Copiado",
       retracted: "Retratado",
       retractedNote: "Uma retificação declarou que este evento nunca aconteceu. Ele permanece na história e não conta para nenhum valor.",
       openByIdLabel: "Abrir posição por id",
@@ -825,8 +821,6 @@ const en: Translations = {
       recordedOn: "Recorded on",
       relatedEvent: "Related event",
       relatedElsewhere: "Related event — from another position",
-      copyEventId: "Copy event id",
-      copied: "Copied",
       retracted: "Retracted",
       retractedNote: "A rectification declared this event never happened. It stays in the history and counts towards no figure.",
       openByIdLabel: "Open position by id",

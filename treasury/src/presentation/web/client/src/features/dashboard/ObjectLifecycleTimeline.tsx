@@ -259,16 +259,9 @@ function TimelineEvent({
   onFailure: (message: string) => void;
 }) {
   const { t } = useLanguage();
-  const [copied, setCopied] = useState(false);
   const [rectifying, setRectifying] = useState(false);
 
   const siblings = event.objects.filter((object) => object.objectId !== objectId);
-
-  const copyId = async () => {
-    await navigator.clipboard.writeText(event.eventId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
 
   return (
     <li className="relative flex gap-3 pb-6 last:pb-0">
@@ -345,15 +338,7 @@ function TimelineEvent({
         )}
 
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted">
-          <button
-            type="button"
-            onClick={copyId}
-            title={t.dashboard.lifecycle.copyEventId}
-            className="tabular inline-flex items-center gap-1.5 rounded-full bg-ink/6 px-2 py-1 transition hover:text-ink dark:bg-white/8"
-          >
-            {copied ? t.dashboard.lifecycle.copied : event.eventId}
-          </button>
-          {/* Where the fact came from, beside the id that identifies it here. */}
+          {/* Where the fact came from. */}
           {event.source && <SourceRef source={event.source} />}
           {/* The event this one speaks about, named rather than pointed at. A bare id says a
               correction happened without saying what it corrected; this says which fact, for how
@@ -380,24 +365,22 @@ function TimelineEvent({
             ))}
           {canRectify &&
             (rectify.available ? (
-              <button
-                type="button"
-                onClick={() => setRectifying(true)}
-                className="font-semibold text-muted underline underline-offset-2 transition hover:text-ink"
-              >
+              <Button type="button" size="sm" onClick={() => setRectifying(true)}>
                 {t.dashboard.lifecycle.rectify}
-              </button>
+              </Button>
             ) : (
-              <span
+              <Button
+                type="button"
+                size="sm"
+                disabled
                 title={
                   rectify.reason === "unsupported"
                     ? t.dashboard.lifecycle.rectifyUnsupported
                     : t.dashboard.lifecycle.rectifyContextual
                 }
-                className="cursor-not-allowed font-semibold text-muted/50 underline underline-offset-2"
               >
                 {t.dashboard.lifecycle.rectify}
-              </span>
+              </Button>
             ))}
         </div>
 
@@ -566,7 +549,7 @@ function ModeButton({
       className={cn(
         "rounded-full border px-3 py-1.5 text-[12px] font-semibold transition",
         active
-          ? "border-ink bg-ink text-paper"
+          ? "border-accent bg-accent text-accent-ink"
           : "border-line text-muted hover:border-ink/40 hover:text-ink",
         disabled && "cursor-not-allowed opacity-60",
       )}
