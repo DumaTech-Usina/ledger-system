@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Bot, MessageSquareMore, MessageSquareOff, Video, VideoOff } from "lucide-react";
 import { LifecycleMenu } from "@/features/operations/LifecycleMenu";
 import { ChatAurora } from "@/features/operations/ChatAurora";
 import { statusLabels } from "@/features/operations/copy";
@@ -122,13 +123,7 @@ export function OperationsShell({
       <header className="relative flex items-center justify-between gap-3 border-b border-line px-5 py-4">
         <div className="flex min-w-0 items-center gap-3">
           <span className="grid size-9 flex-shrink-0 place-items-center rounded-full bg-accent" aria-hidden>
-            <svg viewBox="0 0 20 20" fill="none" className="size-[18px] text-accent-ink">
-              <rect x="4" y="6.5" width="12" height="8.5" rx="3" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M10 3.2v3.3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-              <circle cx="10" cy="2.4" r="1" fill="currentColor" />
-              <circle cx="7.4" cy="10.6" r="1" fill="currentColor" />
-              <circle cx="12.6" cy="10.6" r="1" fill="currentColor" />
-            </svg>
+            <Bot className="size-[18px] text-accent-ink" strokeWidth={1.4} />
           </span>
           <div className="min-w-0">
             <div className="truncate font-display text-[15px] font-semibold text-ink">{title}</div>
@@ -155,20 +150,11 @@ export function OperationsShell({
             title={typingHidden ? "Ativar animação de digitação" : "Desativar animação de digitação"}
             className="inline-flex size-8 items-center justify-center rounded-full text-muted transition hover:bg-ink/6 hover:text-ink dark:hover:bg-white/8"
           >
-            <svg viewBox="0 0 20 20" fill="none" className="size-4">
-              <path
-                d="M4 5h12a1.5 1.5 0 0 1 1.5 1.5v6A1.5 1.5 0 0 1 16 14H9.5L6 17v-3H4A1.5 1.5 0 0 1 2.5 12.5v-6A1.5 1.5 0 0 1 4 5Z"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-              />
-              <circle cx="6.7" cy="9.5" r="0.9" fill="currentColor" />
-              <circle cx="10" cy="9.5" r="0.9" fill="currentColor" />
-              <circle cx="13.3" cy="9.5" r="0.9" fill="currentColor" />
-              {typingHidden && (
-                <path d="M3 3l14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              )}
-            </svg>
+            {typingHidden ? (
+              <MessageSquareOff className="size-4" strokeWidth={1.5} />
+            ) : (
+              <MessageSquareMore className="size-4" strokeWidth={1.5} />
+            )}
           </button>
           {/* Ambient video — dark theme only, so only shown there. */}
           {isDark && (
@@ -179,13 +165,11 @@ export function OperationsShell({
               title={videoHidden ? "Mostrar animação" : "Ocultar animação"}
               className="inline-flex size-8 items-center justify-center rounded-full text-muted transition hover:bg-ink/6 hover:text-ink dark:hover:bg-white/8"
             >
-              <svg viewBox="0 0 20 20" fill="none" className="size-4">
-                <rect x="2.5" y="5.5" width="10" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M12.5 8.5 17 6v8l-4.5-2.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-                {videoHidden && (
-                  <path d="M3 3l14 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                )}
-              </svg>
+              {videoHidden ? (
+                <VideoOff className="size-4" strokeWidth={1.5} />
+              ) : (
+                <Video className="size-4" strokeWidth={1.5} />
+              )}
             </button>
           )}
           <LifecycleMenu status={status} history={history} ledgerReference={ledgerReference} onRestart={onRestart} />

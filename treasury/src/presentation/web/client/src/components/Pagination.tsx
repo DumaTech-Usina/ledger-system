@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { formatTemplate, useLanguage } from "@/i18n/i18n";
 
 export interface PaginationProps {
@@ -18,9 +19,7 @@ export function Pagination({ page, totalPages, onPageChange }: PaginationProps) 
         onClick={() => onPageChange(page - 1)}
         className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-medium text-ink transition hover:bg-ink/6 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-white/8"
       >
-        <svg viewBox="0 0 20 20" fill="none" className="size-3.5">
-          <path d="M12 5l-5 5 5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <ChevronLeft className="size-3.5" strokeWidth={1.6} />
         {t.common.previous}
       </button>
       <p className="text-[12.5px] text-muted">{formatTemplate(t.common.pageOf, { page, total: totalPages })}</p>
@@ -31,9 +30,7 @@ export function Pagination({ page, totalPages, onPageChange }: PaginationProps) 
         className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-medium text-ink transition hover:bg-ink/6 disabled:pointer-events-none disabled:opacity-40 dark:hover:bg-white/8"
       >
         {t.common.next}
-        <svg viewBox="0 0 20 20" fill="none" className="size-3.5">
-          <path d="M8 5l5 5-5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <ChevronRight className="size-3.5" strokeWidth={1.6} />
       </button>
     </div>
   );

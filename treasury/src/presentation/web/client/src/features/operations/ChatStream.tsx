@@ -761,8 +761,15 @@ function ConfirmCard({
   // A party the Directory doesn't know keeps its id on screen. Unknown is shown as unknown — an
   // invented label would be a claim the system cannot support.
   const counterparty = counterpartyId ? preview.partyNames[counterpartyId] ?? counterpartyId : "—";
-  const isCashIn = candidate.economicEffect === "cash_in";
-  const effectPhrase = isCashIn ? "entrada de caixa prevista" : "saída de caixa a pagar";
+  // Only `cash_in`/`cash_out` move cash. Everything else the Ledger can say here — `non_cash`,
+  // `cash_internal`, `contingent` — books a position without a movement, and must read as neither an
+  // inflow nor an outflow: labelling it "Saída" would claim money left when none did.
+  const cashEffect =
+    candidate.economicEffect === "cash_in"
+      ? { label: "Entrada", badgeVariant: "ok" as const, phrase: "entrada de caixa prevista" }
+      : candidate.economicEffect === "cash_out"
+        ? { label: "Saída", badgeVariant: "bad" as const, phrase: "saída de caixa a pagar" }
+        : { label: "Sem movimento de caixa", badgeVariant: "neutral" as const, phrase: null as string | null };
   const [showDetails, setShowDetails] = useState(false);
   const [editing, setEditing] = useState(false);
   // Locked in as soon as "Confirmar e enviar" is clicked — `busy` alone is not enough, since it
@@ -841,7 +848,7 @@ function ConfirmCard({
           <h4 className="font-display text-lg font-bold text-ink">Confirme antes de registrar</h4>
           <p className="mt-0.5 text-[13px] text-muted">{scenarioTitle}</p>
         </div>
-        <Badge variant={isCashIn ? "ok" : "bad"}>{isCashIn ? "Entrada" : "Saída"}</Badge>
+        <Badge variant={cashEffect.badgeVariant}>{cashEffect.label}</Badge>
       </div>
 
       <p className="tabular mt-5 text-3xl font-bold text-ink">{formatMoney(candidate.amount, candidate.currency)}</p>
@@ -866,8 +873,17 @@ function ConfirmCard({
           <SummaryRow label="Operação" value={scenarioTitle} />
           <SummaryRow label="Valor" value={formatMoney(candidate.amount, candidate.currency)} mono />
           <p>
-            <span className="font-semibold">Efeito financeiro:</span> {effectPhrase} de{" "}
-            {formatMoney(candidate.amount, candidate.currency)}, atribuído a você.
+            <span className="font-semibold">Efeito financeiro:</span>{" "}
+            {cashEffect.phrase ? (
+              <>
+                {cashEffect.phrase} de {formatMoney(candidate.amount, candidate.currency)}, atribuído a você.
+              </>
+            ) : (
+              <>
+                nenhuma movimentação de caixa — apenas o registro de uma posição de{" "}
+                {formatMoney(candidate.amount, candidate.currency)}.
+              </>
+            )}
           </p>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
@@ -72,9 +73,7 @@ export function TotalFlowWidget({
               className="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium text-muted transition hover:text-accent"
             >
               {h.viewAll}
-              <svg viewBox="0 0 12 12" fill="none" className="size-3">
-                <path d="M4 2.5 8 6l-4 3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ChevronRight className="size-3" strokeWidth={1.4} />
             </button>
           </div>
           <div className="mt-3">

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
@@ -321,16 +322,13 @@ function PositionActions({
         <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">
           {t.dashboard.lifecycle.actionsTitle}
         </span>
-        <svg
-          viewBox="0 0 20 20"
-          fill="none"
+        <ChevronDown
           className={cn(
             "size-4 flex-shrink-0 text-muted transition-transform duration-300",
             !expanded && "-rotate-90",
           )}
-        >
-          <path d="M5 7.5 10 12l5-4.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+          strokeWidth={1.6}
+        />
       </button>
       {expanded && (
         <>

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Warehouse } from "lucide-react";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
@@ -36,12 +37,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             className="mb-4 grid size-12 place-items-center rounded-2xl bg-accent shadow-[0_10px_24px_-8px_var(--color-accent)]"
             aria-hidden
           >
-            <svg viewBox="0 0 20 20" fill="none" className="size-6 text-accent-ink">
-              <path d="M2 8 10 2.5 18 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M3 8h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              <path d="M4.5 8v7M8 8v7M12 8v7M15.5 8v7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              <path d="M2.5 17.5h15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
+            <Warehouse className="size-6 text-accent-ink" strokeWidth={1.6} />
           </span>
           <h1 className="font-display text-2xl font-bold text-ink">Entrar no Treasury</h1>
           <p className="mt-1.5 text-sm text-muted">Acesse com sua conta para continuar.</p>

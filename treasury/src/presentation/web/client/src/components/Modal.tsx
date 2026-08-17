@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import { Card } from "@/components/Card";
 import { cn } from "@/utils/cn";
 
@@ -50,9 +51,7 @@ export function Modal({ open, onClose, title, closeLabel, children, className, t
             aria-label={closeLabel}
             className="inline-flex size-8 flex-shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-ink/6 hover:text-ink dark:hover:bg-white/8"
           >
-            <svg viewBox="0 0 20 20" fill="none" className="size-4">
-              <path d="M5 5l10 10M15 5 5 15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
+            <X className="size-4" strokeWidth={1.6} />
           </button>
         </div>
         {tabs && <div className="border-b border-line px-5 py-3">{tabs}</div>}

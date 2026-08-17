@@ -1,3 +1,4 @@
+import { Menu } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UserMenu } from "@/components/layout/UserMenu";
@@ -22,9 +23,7 @@ export function Topbar({ title, userName, userRole, onMenuClick, onSignOut }: To
           aria-label={t.topbar.openMenu}
           className="glass -ml-1 inline-flex size-10 items-center justify-center text-ink transition hover:bg-white/70 dark:hover:bg-white/10 md:hidden"
         >
-          <svg viewBox="0 0 20 20" fill="none" className="size-[18px]">
-            <path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
+          <Menu className="size-[18px]" strokeWidth={1.6} />
         </button>
         <h1 className="font-display text-2xl font-extrabold text-accent">{title}</h1>
       </div>

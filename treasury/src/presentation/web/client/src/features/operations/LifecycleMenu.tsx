@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MoreVertical } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { Card } from "@/components/Card";
 import { eventLabels, statusLabels } from "@/features/operations/copy";
@@ -32,11 +33,7 @@ export function LifecycleMenu({ status, history, ledgerReference, onRestart }: L
         aria-label="Mais opções"
         className="inline-flex size-8 items-center justify-center rounded-full text-muted transition hover:bg-ink/6 hover:text-ink dark:hover:bg-white/8"
       >
-        <svg viewBox="0 0 20 20" fill="currentColor" className="size-4">
-          <circle cx="10" cy="4" r="1.6" />
-          <circle cx="10" cy="10" r="1.6" />
-          <circle cx="10" cy="16" r="1.6" />
-        </svg>
+        <MoreVertical className="size-4" strokeWidth={1.8} />
       </button>
 
       {open && (

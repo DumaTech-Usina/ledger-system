@@ -1,4 +1,5 @@
 import { type ReactElement } from "react";
+import { BarChart3, ChevronLeft, FileText, LayoutDashboard, MessageSquare, Warehouse } from "lucide-react";
 import { useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
 
@@ -19,43 +20,10 @@ export interface SidebarProps {
 }
 
 const icons: Record<NavItem["icon"], ReactElement> = {
-  operations: (
-    <svg viewBox="0 0 20 20" fill="none" className="size-4">
-      <path
-        d="M4 4.5h12a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3.5 3v-3H4a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-    </svg>
-  ),
-  dashboards: (
-    <svg viewBox="0 0 20 20" fill="none" className="size-4">
-      <rect x="2.5" y="2.5" width="6" height="9" rx="1.2" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="11.5" y="2.5" width="6" height="5" rx="1.2" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="11.5" y="10.5" width="6" height="7" rx="1.2" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="2.5" y="14.5" width="6" height="3" rx="1.2" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  ),
-  positions: (
-    <svg viewBox="0 0 20 20" fill="none" className="size-4">
-      <path d="M3 16.5h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <rect x="4" y="9" width="3.5" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="9.5" y="5" width="3.5" height="9" rx="1" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="15" y="11" width="1.5" height="3" rx="0.7" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  ),
-  intents: (
-    <svg viewBox="0 0 20 20" fill="none" className="size-4">
-      <path
-        d="M5 2.5h7l3.5 3.5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <path d="M11.5 2.5v4h4M7 11h6M7 14h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  ),
+  operations: <MessageSquare className="size-4" strokeWidth={1.5} />,
+  dashboards: <LayoutDashboard className="size-4" strokeWidth={1.5} />,
+  positions: <BarChart3 className="size-4" strokeWidth={1.5} />,
+  intents: <FileText className="size-4" strokeWidth={1.5} />,
 };
 
 export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, onToggleCollapse }: SidebarProps) {
@@ -84,12 +52,7 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
             className="grid size-10 flex-shrink-0 place-items-center rounded-xl bg-accent shadow-[0_6px_16px_-4px_var(--color-accent)]"
             aria-hidden
           >
-            <svg viewBox="0 0 20 20" fill="none" className="size-5 text-accent-ink">
-              <path d="M2 8 10 2.5 18 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M3 8h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              <path d="M4.5 8v7M8 8v7M12 8v7M15.5 8v7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              <path d="M2.5 17.5h15" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
+            <Warehouse className="size-5 text-accent-ink" strokeWidth={1.6} />
           </span>
           <div className={cn(collapsed && "md:hidden")}>
             <div className="font-display text-lg font-bold leading-tight text-accent">Treasury</div>
@@ -136,13 +99,10 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
               collapsed && "md:justify-center md:px-0",
             )}
           >
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
+            <ChevronLeft
               className={cn("size-4 flex-shrink-0 transition-transform duration-300", collapsed && "rotate-180")}
-            >
-              <path d="M12.5 4.5 6.5 10l6 5.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+              strokeWidth={1.6}
+            />
             <span className={cn(collapsed && "md:hidden")}>{t.sidebar.collapse}</span>
           </button>
         </div>

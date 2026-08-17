@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Calendar, Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
 import {
@@ -20,29 +21,16 @@ import {
 } from "@/utils/dateRange";
 
 function CalendarIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="size-4 shrink-0">
-      <rect x="3" y="4" width="14" height="13" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M3 8h14M7 2.5v3M13 2.5v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
+  return <Calendar className="size-4 shrink-0" strokeWidth={1.4} />;
 }
 
 function ChevronIcon({ dir }: { dir: "left" | "right" | "down" }) {
-  const d = dir === "left" ? "M11 4 6 9l5 5" : dir === "right" ? "M7 4l5 5-5 5" : "M4 7l5 5 5-5";
-  return (
-    <svg viewBox="0 0 18 18" fill="none" className="size-3.5">
-      <path d={d} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  const Icon = dir === "left" ? ChevronLeft : dir === "right" ? ChevronRight : ChevronDown;
+  return <Icon className="size-3.5" strokeWidth={1.6} />;
 }
 
 function CheckIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className="size-3.5">
-      <path d="M3 8.5 6.2 12 13 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <Check className="size-3.5" strokeWidth={1.8} />;
 }
 
 /** One month, independently paged (see `DateRangePicker`'s doc comment for why). */

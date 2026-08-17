@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/utils/cn";
 
 export interface MultiSelectDropdownOption {
@@ -7,19 +8,11 @@ export interface MultiSelectDropdownOption {
 }
 
 function ChevronDownIcon() {
-  return (
-    <svg viewBox="0 0 18 18" fill="none" className="size-3.5">
-      <path d="M4 7l5 5 5-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <ChevronDown className="size-3.5" strokeWidth={1.6} />;
 }
 
 function CheckIcon() {
-  return (
-    <svg viewBox="0 0 16 16" fill="none" className="size-3">
-      <path d="M3 8.5 6.2 12 13 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <Check className="size-3" strokeWidth={2} />;
 }
 
 /**

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Check, Copy } from "lucide-react";
 import { useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
 
@@ -65,29 +66,9 @@ export function CopyableId({
 }
 
 function CopyIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="size-3.5">
-      <rect x="7" y="7" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="1.4" />
-      <path
-        d="M13 5.5A1.5 1.5 0 0 0 11.5 4h-6A1.5 1.5 0 0 0 4 5.5v6A1.5 1.5 0 0 0 5.5 13"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <Copy className="size-3.5" strokeWidth={1.4} />;
 }
 
 function CheckIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="size-3.5">
-      <path
-        d="m4.5 10.5 3.5 3.5 7.5-8"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Check className="size-3.5" strokeWidth={1.6} />;
 }

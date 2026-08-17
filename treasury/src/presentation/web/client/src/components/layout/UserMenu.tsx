@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronDown, LogOut } from "lucide-react";
 import { Avatar } from "@/components/Avatar";
 import { Card } from "@/components/Card";
 import { useLanguage } from "@/i18n/i18n";
@@ -32,9 +33,7 @@ export function UserMenu({ userName, userRole, onSignOut }: UserMenuProps) {
           aria-hidden
           className="absolute -bottom-0.5 -right-0.5 grid size-3.5 place-items-center rounded-full border border-panel-solid bg-panel-solid text-muted"
         >
-          <svg viewBox="0 0 20 20" fill="none" className="size-2.5">
-            <path d="M5 7.5 10 12.5 15 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ChevronDown className="size-2.5" strokeWidth={2} />
         </span>
       </button>
 
@@ -63,22 +62,7 @@ export function UserMenu({ userName, userRole, onSignOut }: UserMenuProps) {
               }}
               className="flex w-full items-center gap-2 rounded-xl bg-bad-soft px-3 py-2 text-left text-[13px] font-medium text-bad transition hover:bg-bad/20"
             >
-              <svg viewBox="0 0 20 20" fill="none" className="size-4 flex-shrink-0">
-                <path
-                  d="M7.5 2.5H4.5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h3"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M12.5 6.5 16.5 10l-4 3.5M16 10H7.5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <LogOut className="size-4 flex-shrink-0" strokeWidth={1.6} />
               {t.topbar.signOut}
             </button>
           </Card>

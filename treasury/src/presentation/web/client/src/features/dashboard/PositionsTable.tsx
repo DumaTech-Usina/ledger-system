@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Eye } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { CopyableId } from "@/components/CopyableId";
 import { Pagination } from "@/components/Pagination";
@@ -13,12 +14,7 @@ import type { PositionItem } from "@/types/dashboard";
 const PAGE_SIZE = 10;
 
 function EyeIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="size-4">
-      <path d="M2 10s2.8-5 8-5 8 5 8 5-2.8 5-8 5-8-5-8-5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-      <circle cx="10" cy="10" r="2" stroke="currentColor" strokeWidth="1.4" />
-    </svg>
-  );
+  return <Eye className="size-4" strokeWidth={1.4} />;
 }
 
 
