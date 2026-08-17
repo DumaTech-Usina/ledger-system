@@ -32,6 +32,7 @@ export enum ReasonType {
   INFRASTRUCTURE_EXPENSE = "infrastructure_expense",
   THIRD_PARTY_PAYMENT = "third_party_payment",
   TAX_PAYMENT = "tax_payment",
+  SERVICE_FEE_PAYMENT = "service_fee_payment",
   INCENTIVE_PAYMENT = "incentive_payment",
 
   /** An external fact established an obligation the usina owes: an invoice issued against it, a

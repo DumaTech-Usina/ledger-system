@@ -37,6 +37,7 @@ export function usePositionsPage() {
   const [result, setResult] = useState<PositionsPage | null>(null);
   const [selectedParties, setSelectedParties] = useState<string[]>([]);
   const [selfPartyId, setSelfPartyId] = useState("");
+  const [partyNames, setPartyNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   /** Any filter change starts back at page 1 — the page the previous selection was on may not exist here. */
@@ -71,6 +72,7 @@ export function usePositionsPage() {
           setResult(data.page);
           setSelectedParties(data.selectedParties);
           setSelfPartyId(data.selfPartyId);
+          setPartyNames(data.partyNames ?? {});
         } else {
           setResult(null);
         }
@@ -94,6 +96,7 @@ export function usePositionsPage() {
     result,
     selectedParties,
     selfPartyId,
+    partyNames,
     loading,
   };
 }

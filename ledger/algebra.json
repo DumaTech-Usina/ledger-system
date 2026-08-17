@@ -255,6 +255,9 @@
       "contingent",
       "non_cash"
     ],
+    "service_fee_payment": [
+      "cash_out"
+    ],
     "tax_payment": [
       "cash_out"
     ],
@@ -345,6 +348,9 @@
     ],
     "penalty_recognition": [
       "originates"
+    ],
+    "service_fee_payment": [
+      "settles"
     ],
     "tax_payment": [
       "settles"
@@ -865,6 +871,46 @@
       ],
       "reasons": [
         "penalty_payment"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "service_fee_payment": {
+      "economicEffects": [
+        "cash_out"
+      ],
+      "objects": [
+        {
+          "objectType": "service_fee",
+          "relations": [
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "service_fee_payment"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "tax_payment": {
+      "economicEffects": [
+        "cash_out"
+      ],
+      "objects": [
+        {
+          "objectType": "tax",
+          "relations": [
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "tax_payment"
       ],
       "minConfidence": null,
       "requiresPreviousHash": false,

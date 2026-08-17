@@ -206,6 +206,7 @@ export function PositionsPage({
     result: positionsPage,
     selectedParties,
     selfPartyId,
+    partyNames,
     loading: listLoading,
   } = usePositionsPage();
   const { t } = useLanguage();
@@ -502,6 +503,7 @@ export function PositionsPage({
                         showParties
                         selectedParties={selectedParties}
                         selfPartyId={selfPartyId}
+                        partyNames={partyNames}
                       />
                       <Pagination page={page} totalPages={positionsPage.totalPages} onPageChange={setPage} />
                       <p className="px-5 pb-4 text-[12px] text-muted">

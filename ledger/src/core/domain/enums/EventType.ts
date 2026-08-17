@@ -45,10 +45,29 @@ export enum EventType {
 
   /**
    * Generic cash-basis outbound payment: the usina pays a counterparty, SETTLING a PAYABLE.
-   * The business intent (supplier, reimbursement, tax, …) is carried by the counterparty (Party)
-   * and the Reason — not by new event types, unless the economics actually differ.
+   *
+   * Reserved for the outflow whose category the model does not express. A category that HAS its own
+   * ObjectType gets its own event type and its own Reason — the way PAYROLL, INFRASTRUCTURE_COST,
+   * SERVICE_FEE and TAX do — so that the paid category survives into the reason and not only into
+   * the position. This tuple is the zero-point for everything still uncategorized.
    */
   OUTBOUND_PAYMENT = "outbound_payment",
+
+  /**
+   * Usina pays a service fee, SETTLING a SERVICE_FEE obligation. The cash-out twin of the
+   * SERVICE_FEE branch of OBLIGATION_RECOGNIZED.
+   *
+   * Needs no prior recognition: paying a fee nobody recognized first is the ordinary cash-basis
+   * fact, and it derives to the same position as the recognized order (the fold reads sums, never
+   * order). When a recognition does exist, the payment closes it by naming the same objectId.
+   */
+  SERVICE_FEE_PAYMENT = "service_fee_payment",
+
+  /**
+   * Usina pays an assessed tax, SETTLING a TAX obligation. The cash-out twin of the TAX branch of
+   * OBLIGATION_RECOGNIZED, on the same terms as SERVICE_FEE_PAYMENT above.
+   */
+  TAX_PAYMENT = "tax_payment",
 
   /**
    * Records an obligation the usina owes, created by an external fact — an invoice issued against
