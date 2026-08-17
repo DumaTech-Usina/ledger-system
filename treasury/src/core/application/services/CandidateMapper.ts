@@ -290,6 +290,7 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     reasonType: "commission_payment",
     reasonText: "Commission received",
     relatedEventSlot: "origin",
+    objectIdSlot: "objectRef",
     orphan: { reasonType: "unknown_origin", reasonText: "Commission received; originating expected unknown" },
   },
   // Advance recovery SETTLES the advance an ADVANCE_PAYMENT originated. Origin is required (the
@@ -345,6 +346,7 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     reasonType: "loan_repayment",
     reasonText: "Loan repayment",
     relatedEventSlot: "origin",
+    objectIdSlot: "objectRef",
     // The party settling an advance or a loan is the one that received it.
     inheritsCounterparty: true,
   },

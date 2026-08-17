@@ -19,6 +19,10 @@ export const registerLoanRepayment: Scenario = {
     { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it repaid?", required: true },
     { key: "origin", type: SlotType.EVENT_REF, prompt: "Which loan does this repay?", required: true, suggestionSource: "origin_events" },
+    // Optional continuity assertion: the id of the loan position this repayment moves, so the Ledger
+    // projects ONE loan being repaid rather than a new object per event. Never required — absence is
+    // a legitimate state (the position may simply be unknown), and it changes nothing.
+    { key: "objectRef", type: SlotType.STRING, prompt: "If you know it, the id of the loan being repaid (optional).", required: false },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
   keywords: { "pt-BR": ["quitacao", "quitar", "quitado", "reembolso"] },

@@ -14,7 +14,9 @@ import { PARTY } from "../../fixtures/parties";
  *   - LINEAGE      (`relatedEventId`) — which fact caused this fact; validated by the Ledger;
  *   - CONTINUITY   (`objectId`)       — which position this fact moves; asserted by the producer.
  *
- * Scope: `register_advance_settlement` only. Everything else must keep minting, byte for byte.
+ * Scope: `register_advance_settlement`, the scenario the hypothesis was probed on. Continuity has
+ * since been extended to every settlement whose position treasury can also originate; a scenario
+ * that declares none must still keep minting, byte for byte.
  */
 const USINA = PARTY.USINA;
 
@@ -46,10 +48,16 @@ describe("object continuity — absence keeps today's behaviour", () => {
   });
 
   it("a scenario that does not declare continuity ignores the answer entirely", () => {
-    // commission_received is out of this MVA's scope: it must keep minting even if the key is present.
-    const c = build("register_commission_received", "intent-1", {
-      payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
-      origin: "evt-expected-1", objectRef: "intent:intent-A",
+    // A penalty settles a position no event type originates, so there is nothing to continue and the
+    // mapping declares no slot. The key must be ignored rather than honoured.
+    //
+    // This used to be asserted with `register_commission_received`, which was out of this MVA's
+    // scope at the time. It is no longer: a COMMISSION_EXPECTED originates the receivable a receipt
+    // closes, so that scenario now carries continuity like any other settlement — see
+    // `settlement-continuity-regression.test.ts`.
+    const c = build("register_penalty", "intent-1", {
+      payee: PARTY.AUTHORITY, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
+      objectRef: "intent:intent-A",
     });
     expect(c.objects[0].objectId).toBe("intent:intent-1");
   });

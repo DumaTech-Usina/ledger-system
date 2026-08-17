@@ -25,6 +25,11 @@ export const registerCommissionReceived: Scenario = {
     { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it received?", required: true },
     { key: "origin", type: SlotType.EVENT_REF, prompt: "Which expected commission does this settle? (leave empty if unknown)", required: false, suggestionSource: "origin_events" },
+    // Optional continuity assertion: the id of the receivable position this receipt moves, so the
+    // Ledger projects ONE receivable being settled rather than a new object per event. Independent of
+    // `origin` above: the position may be known while the originating event is not, and an unknown
+    // position is a legitimate state that changes nothing.
+    { key: "objectRef", type: SlotType.STRING, prompt: "If you know it, the id of the receivable being settled (optional).", required: false },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
   keywords: { "pt-BR": ["recebida", "recebimento"] },
