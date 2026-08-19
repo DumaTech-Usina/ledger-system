@@ -1,4 +1,5 @@
-import type { IntentStatus } from "@/types/operations";
+import { formatTemplate, type Translations } from "@/i18n/i18n";
+import type { IntentStatus, RejectionDetail } from "@/types/operations";
 
 export const scenarioCopy: Record<string, { title: string; description: string }> = {
   register_payment: {
@@ -139,6 +140,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
   },
   register_incentive: {
     payee: "Quem está recebendo o incentivo (corretor ou parceiro)?",
+    kind: "É um incentivo ou um bônus?",
     amount: "Qual é o valor do incentivo?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi pago?",
@@ -349,4 +351,34 @@ export function translateMessage(message: string | undefined): string {
   const choose = message.match(/^Choose one of: (.+)\.$/);
   if (choose) return `Escolha uma das opções: ${choose[1]}.`;
   return message;
+}
+
+/**
+ * What the operator reads when the Ledger refuses an entry.
+ *
+ * The refusal arrives as three fields and only one of them belongs on screen. `code` is the closed
+ * vocabulary the boundary publishes so that a client never has to parse prose — it is what gets
+ * translated. `detail` is the Ledger's own English sentence. `reason` is rawer still: the invariant
+ * message as thrown, which can name matrices and steps the operator has no use for. So the code is
+ * read and the other two are not shown.
+ *
+ * A code this app has not been taught yet falls back to saying the book refused, without inventing
+ * a cause — the code itself stays beside the sentence on the card, so the refusal is still
+ * reportable. `OVER_SETTLEMENT` is the one code that carries a figure: the position's remaining
+ * balance, which is the whole answer to "then how much may I settle?".
+ */
+export function rejectionText(rejection: RejectionDetail, t: Translations): string {
+  const text = t.rejection.byCode[rejection.code] ?? t.rejection.unknown;
+  const limit = rejection.hint?.limit;
+  return limit ? `${text} ${formatTemplate(t.rejection.outstanding, { limit })}` : text;
+}
+
+/**
+ * The same refusal in one line, for the terminal banner where there is no room for a list. An empty
+ * list is a real case — a boundary that predates the structured contract sends none — and it reads
+ * as the unknown refusal rather than as an empty banner.
+ */
+export function rejectionSummary(rejections: RejectionDetail[], t: Translations): string {
+  if (rejections.length === 0) return t.rejection.unknown;
+  return rejections.map((rejection) => rejectionText(rejection, t)).join(" ");
 }

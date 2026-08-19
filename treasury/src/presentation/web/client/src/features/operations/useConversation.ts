@@ -3,7 +3,7 @@ import { operationsApi } from "@/features/operations/operationsApi";
 import { identityCopy, positionCopy, scenarioCopy, translateMessage } from "@/features/operations/copy";
 import { typingDurationMs } from "@/features/operations/typing";
 import { useTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
-import { useLanguage } from "@/i18n/i18n";
+import { useLanguage, type Translations } from "@/i18n/i18n";
 import { formatDateForLanguage, formatMoney, formatMoneyForLanguage, parseLooseAmount } from "@/utils/format";
 import {
   decideAdvance,
@@ -36,9 +36,22 @@ import type {
  * the raw value is cleanly what the slot claims (a plain ISO date, a plain amount), and left exactly
  * as typed otherwise. A value the extractor still had to interpret (free text, "ontem", a phrase) is
  * not reformatted — this only dresses up the values our own controls already hand back clean.
+ *
+ * A CHOICE answer is the one case where the stored value is not language at all: the backend keeps
+ * the branch key ("waiver", "reversal"), and the chip the operator clicked already showed the
+ * catalog's wording. The bubble echoes that same wording, so the transcript never answers a
+ * Portuguese question with an English key. A key with no entry falls back to itself.
  */
-function formatAnswerBubbleText(value: string, slot: SlotDefinition | null | undefined, language: string): string {
+function formatAnswerBubbleText(
+  value: string,
+  slot: SlotDefinition | null | undefined,
+  language: string,
+  t: Translations,
+): string {
   if (!slot) return value;
+  if (slot.type === "choice") {
+    return t.slotChoice[value] ?? value;
+  }
   if (slot.type === "date" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return formatDateForLanguage(value, language);
   }
@@ -64,7 +77,7 @@ export interface AdoptedIntent {
 
 export function useConversation(adopt?: AdoptedIntent | null) {
   const typingHidden = useTypingAnimationDisabled();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [scenarios, setScenarios] = useState<ScenarioSummary[] | null>(null);
   const [scenarioId, setScenarioId] = useState<string | null>(null);
   const [scenarioTitle, setScenarioTitle] = useState<string>("");
@@ -278,7 +291,7 @@ export function useConversation(adopt?: AdoptedIntent | null) {
       const id = intentIdRef.current;
       const slot = currentSlot;
       if (!id || !slot) return;
-      push(withId({ kind: "user", text: value === "" ? "(pulado)" : formatAnswerBubbleText(value, slot, language) }));
+      push(withId({ kind: "user", text: value === "" ? "(pulado)" : formatAnswerBubbleText(value, slot, language, t) }));
       setBusy(true);
       // The route replies 422 (not 2xx) for a rejected answer, but still with a well-formed
       // body — that's a normal validation outcome, not a transport failure, so `data.state`
@@ -295,7 +308,7 @@ export function useConversation(adopt?: AdoptedIntent | null) {
       if (!data.error && offerIdentity(data.identity ? [data.identity] : undefined)) return;
       advance(data.state, data.error);
     },
-    [currentSlot, push, refreshLifecycle, advance, offerIdentity, language],
+    [currentSlot, push, refreshLifecycle, advance, offerIdentity, language, t],
   );
 
   /**
@@ -341,7 +354,7 @@ export function useConversation(adopt?: AdoptedIntent | null) {
       // Reformatted only when the raw text is cleanly what the open slot asks for (a plain amount,
       // a plain ISO date) — free text the extractor still has to interpret is echoed exactly as
       // typed, since guessing a format for it could show something that isn't what was meant.
-      push(withId({ kind: "user", text: formatAnswerBubbleText(text, currentSlot, language) }));
+      push(withId({ kind: "user", text: formatAnswerBubbleText(text, currentSlot, language, t) }));
       const askedSlotKey = currentSlot?.key ?? null;
       setBusy(true);
       const { data } = await operationsApi.interpretBound(id, text);
@@ -373,7 +386,7 @@ export function useConversation(adopt?: AdoptedIntent | null) {
 
       applyInterpretation(data, scenarioId ?? "");
     },
-    [currentSlot, scenarioId, push, refreshLifecycle, applyInterpretation, advance, language],
+    [currentSlot, scenarioId, push, refreshLifecycle, applyInterpretation, advance, language, t],
   );
 
   /** Sim/Não on a low-confidence suggestion bubble — Sim applies it via the same edit path as

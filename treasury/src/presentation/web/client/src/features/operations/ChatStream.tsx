@@ -15,6 +15,8 @@ import {
   partyTypeChoices,
   partyTypeLabels,
   positionCopy,
+  rejectionSummary,
+  rejectionText,
   statusLabels,
   submitCopy,
 } from "@/features/operations/copy";
@@ -254,7 +256,6 @@ export function ChatStream({
               return (
                 <CorrectionCard
                   key={item.id}
-                  reason={item.reason}
                   rejections={item.rejections ?? []}
                   slots={(item.correctionSlots ?? [])
                     .map((key) => (answeredSlots ?? {})[key])
@@ -270,7 +271,7 @@ export function ChatStream({
               </Banner>
             ) : (
               <Banner key={item.id} variant="bad">
-                ✕ Rejeitado — {item.reason}
+                ✕ Rejeitado — {rejectionSummary(item.rejections ?? [], t)}
               </Banner>
             );
           default:
@@ -380,18 +381,17 @@ function PositionPicker({
  * the user seeing exactly what will go.
  */
 function CorrectionCard({
-  reason,
   rejections,
   slots,
   busy,
   onApply,
 }: {
-  reason?: string;
   rejections: RejectionDetail[];
   slots: SlotDefinition[];
   busy: boolean;
   onApply: (edits: Record<string, string>) => Promise<SaveEditsResult>;
 }) {
+  const { t } = useLanguage();
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [fieldError, setFieldError] = useState<{ key: string; message: string } | null>(null);
@@ -415,13 +415,11 @@ function CorrectionCard({
         <Badge variant="warn">{statusLabels.awaiting_correction}</Badge>
       </div>
 
-      {reason && <p className="mt-2 text-[13px] text-ink">{reason}</p>}
-
       {rejections.length > 0 && (
         <ul className="mt-3 space-y-2 border-t border-line pt-3 text-[13px]">
           {rejections.map((rejection) => (
             <li key={rejection.code}>
-              <span className="text-ink">{rejection.detail}</span>
+              <span className="text-ink">{rejectionText(rejection, t)}</span>
               <span className="tabular ml-1.5 text-[11px] text-muted">{rejection.code}</span>
             </li>
           ))}

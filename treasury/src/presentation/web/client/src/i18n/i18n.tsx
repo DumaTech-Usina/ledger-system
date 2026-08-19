@@ -291,6 +291,23 @@ export interface Translations {
    * record. An unlisted choice falls back to its raw value, exactly as before.
    */
   slotChoice: Record<string, string>;
+  /**
+   * What the Ledger said when it refused an entry, keyed by the `code` it publishes.
+   *
+   * The boundary hands over three things and only one of them is showable. `code` is a closed
+   * vocabulary published precisely so a client never parses prose — that is what gets translated
+   * here. `detail` is the Ledger's own English sentence, kept only as evidence the code was
+   * understood. `reason` is the raw invariant message and can name matrices and steps, so it never
+   * reaches the screen at all.
+   */
+  rejection: {
+    /** Keyed by the Ledger's `RejectionCode`. */
+    byCode: Record<string, string>;
+    /** A code this app has not been taught yet: says the book refused, invents no cause. */
+    unknown: string;
+    /** `OVER_SETTLEMENT` publishes the position's remaining balance in `hint.limit`. */
+    outstanding: string;
+  };
 }
 
 const ptBR: Translations = {
@@ -650,6 +667,31 @@ const ptBR: Translations = {
     infrastructure: "Infraestrutura",
     tax: "Imposto",
     other: "Outra",
+    // "Registrar renúncia de comissão" — se a comissão está sendo dispensada ou estornada.
+    waiver: "Renúncia padrão",
+    reversal: "Estorno de comissão indevida",
+    // "Registrar pagamento de incentivo" — qual objeto o pagamento origina.
+    incentive: "Incentivo",
+    bonus: "Bônus",
+    // "Retificar um lançamento" — o tipo de posição que o lançamento corrigido movimentou.
+    advance: "Adiantamento",
+    loan: "Empréstimo",
+    commission_receivable: "Comissão a receber",
+  },
+  rejection: {
+    byCode: {
+      AMOUNT_INVALID: "O valor informado não é válido.",
+      PARTY_MISSING: "Falta uma contraparte obrigatória.",
+      FIELD_MISSING: "Falta um campo obrigatório.",
+      DUPLICATE: "Este lançamento já foi registrado.",
+      ORIGIN_NOT_FOUND: "O lançamento de origem informado não foi encontrado.",
+      ORIGIN_WRONG_TYPE: "O lançamento de origem informado não é do tipo esperado.",
+      LINEAGE_REQUIRED: "Esta operação precisa referenciar um lançamento de origem.",
+      OVER_SETTLEMENT: "O valor excede o saldo em aberto da posição.",
+      TUPLE_INVALID: "Este lançamento não pôde ser registrado automaticamente e foi encaminhado para revisão.",
+    },
+    unknown: "O Ledger recusou este lançamento.",
+    outstanding: "Saldo em aberto: {limit}.",
   },
 };
 
@@ -997,6 +1039,31 @@ const en: Translations = {
     infrastructure: "Infrastructure",
     tax: "Tax",
     other: "Other",
+    // "Register commission waiver" — whether the commission is being given up or reversed.
+    waiver: "Standard waiver",
+    reversal: "Reversal of an incorrect entitlement",
+    // "Register incentive payment" — which object the payment originates.
+    incentive: "Incentive",
+    bonus: "Bonus",
+    // "Rectify a recorded entry" — the kind of position the corrected entry moved.
+    advance: "Advance",
+    loan: "Loan",
+    commission_receivable: "Commission receivable",
+  },
+  rejection: {
+    byCode: {
+      AMOUNT_INVALID: "The amount is not valid.",
+      PARTY_MISSING: "A required counterparty is missing.",
+      FIELD_MISSING: "A required field is missing.",
+      DUPLICATE: "This entry was already recorded.",
+      ORIGIN_NOT_FOUND: "The originating entry referenced could not be found.",
+      ORIGIN_WRONG_TYPE: "The originating entry referenced is not the expected kind.",
+      LINEAGE_REQUIRED: "This operation must reference an originating entry.",
+      OVER_SETTLEMENT: "The amount exceeds the position's outstanding balance.",
+      TUPLE_INVALID: "This entry could not be recorded automatically and was routed for review.",
+    },
+    unknown: "The Ledger refused this entry.",
+    outstanding: "Outstanding balance: {limit}.",
   },
 };
 
