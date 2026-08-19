@@ -8,6 +8,7 @@ import { formatDate, formatDocument, formatMoney } from "@/utils/format";
 import { cn } from "@/utils/cn";
 import { typingDurationMs } from "@/features/operations/typing";
 import { useTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
+import { useLanguage } from "@/i18n/i18n";
 import {
   enrichmentCopy,
   identityCopy,
@@ -133,6 +134,7 @@ export function ChatStream({
   onSelectPosition,
   onDismissPositions,
 }: ChatStreamProps) {
+  const { t } = useLanguage();
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ block: "end" });
   const showInlineChoices = currentSlot?.type === "choice" && !!currentSlot.choices?.length;
@@ -286,7 +288,7 @@ export function ChatStream({
               onClick={() => onAnswer?.(choice)}
               className="rounded-full border border-line bg-panel-solid px-4 py-2 text-sm font-semibold text-ink shadow-sm transition hover:border-accent hover:bg-accent hover:text-accent-ink disabled:opacity-50 disabled:pointer-events-none"
             >
-              {choice}
+              {t.slotChoice[choice] ?? choice}
             </button>
           ))}
         </div>
@@ -602,6 +604,8 @@ function EditField({
   disabled: boolean;
   error?: string;
 }) {
+  const { t } = useLanguage();
+
   if (slot.type === "choice" && slot.choices) {
     return (
       <div className="flex flex-col gap-1.5">
@@ -620,7 +624,7 @@ function EditField({
                   : "border-line bg-panel-solid text-ink hover:border-accent",
               )}
             >
-              {choice}
+              {t.slotChoice[choice] ?? choice}
             </button>
           ))}
         </div>

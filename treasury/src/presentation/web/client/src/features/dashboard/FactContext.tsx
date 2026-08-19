@@ -228,7 +228,6 @@ export function ObjectChip({ object }: { object: EventObjectRef }) {
     <li className="flex flex-wrap items-center gap-2 py-1.5">
       <span className="text-[13px] font-semibold text-ink">{objectTypeLabel(object.objectType, t)}</span>
       <Badge variant="neutral">{t.eventRelation[object.relation] ?? object.relation}</Badge>
-      <span className="tabular truncate text-[12px] text-muted">{object.objectId}</span>
     </li>
   );
 }

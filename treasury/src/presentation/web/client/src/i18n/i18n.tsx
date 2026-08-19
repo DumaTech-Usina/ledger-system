@@ -283,6 +283,14 @@ export interface Translations {
   intentStatus: Record<string, string>;
   objectType: Record<string, string>;
   eventType: Record<string, string>;
+  /**
+   * The values a CHOICE slot offers, keyed by the answer the backend expects. Separate from
+   * `objectType` on purpose: a choice is a branch the operator picks, and the two vocabularies only
+   * look alike — "service" here selects the branch the mapper turns into the `service_fee` object,
+   * and translating one from the other would tie the wording of a question to the wording of a
+   * record. An unlisted choice falls back to its raw value, exactly as before.
+   */
+  slotChoice: Record<string, string>;
 }
 
 const ptBR: Translations = {
@@ -635,6 +643,14 @@ const ptBR: Translations = {
     outbound_payment: "Pagamento efetuado",
     obligation_recognized: "Obrigação reconhecida",
   },
+  slotChoice: {
+    // "Reconhecer obrigação a pagar" — que tipo de obrigação está sendo reconhecida.
+    payroll: "Folha de pagamento",
+    service: "Taxa de serviço",
+    infrastructure: "Infraestrutura",
+    tax: "Imposto",
+    other: "Outra",
+  },
 };
 
 const en: Translations = {
@@ -973,6 +989,14 @@ const en: Translations = {
     commission_expected: "Commission expected",
     outbound_payment: "Outbound payment",
     obligation_recognized: "Obligation recognized",
+  },
+  slotChoice: {
+    // "Recognize an obligation" — which kind of obligation is being recognized.
+    payroll: "Payroll",
+    service: "Service fee",
+    infrastructure: "Infrastructure",
+    tax: "Tax",
+    other: "Other",
   },
 };
 

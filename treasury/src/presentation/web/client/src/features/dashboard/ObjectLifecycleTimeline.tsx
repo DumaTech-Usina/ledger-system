@@ -6,7 +6,6 @@ import { DatePicker } from "@/components/DatePicker";
 import { Input } from "@/components/Input";
 import { FactParties, ObjectChip, SourceRef } from "@/features/dashboard/FactContext";
 import { useLanguage } from "@/i18n/i18n";
-import { CopyableId } from "@/components/CopyableId";
 import {
   outcomeTone,
   pendingCorrection,
@@ -82,7 +81,6 @@ export function ObjectLifecycleTimeline({
         <Badge variant={outcomeTone(lifecycle.outcome)} dot>
           {t.positionOutcome[lifecycle.outcome] ?? lifecycle.outcome}
         </Badge>
-        <CopyableId value={lifecycle.objectId} className="ml-auto" />
       </div>
 
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line pt-4 sm:grid-cols-4">
@@ -294,6 +292,28 @@ function TimelineEvent({
           <span className="tabular ml-auto text-[13px] font-semibold text-ink">
             {formatMoney(event.amount, event.currency)}
           </span>
+          {/* The correction sits with the step it acts on, at its head: it is an action ON this
+              entry, and reading the whole entry before finding out it can be corrected puts the
+              offer where the eye has already left. */}
+          {canRectify &&
+            (rectify.available ? (
+              <Button type="button" size="sm" onClick={() => setRectifying(true)}>
+                {t.dashboard.lifecycle.rectify}
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                disabled
+                title={
+                  rectify.reason === "unsupported"
+                    ? t.dashboard.lifecycle.rectifyUnsupported
+                    : t.dashboard.lifecycle.rectifyContextual
+                }
+              >
+                {t.dashboard.lifecycle.rectify}
+              </Button>
+            ))}
         </div>
 
         <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[12px] text-muted">
@@ -358,29 +378,7 @@ function TimelineEvent({
             ) : (
               // Outside this position's history, so there is nothing here to resolve it against.
               // Said in words: an unresolved id would read as a lookup that failed.
-              <span className="inline-flex items-center gap-1.5">
-                {t.dashboard.lifecycle.relatedElsewhere}
-                <CopyableId value={event.relatedEventId} widths="max-w-[10ch] sm:max-w-none" />
-              </span>
-            ))}
-          {canRectify &&
-            (rectify.available ? (
-              <Button type="button" size="sm" onClick={() => setRectifying(true)}>
-                {t.dashboard.lifecycle.rectify}
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                size="sm"
-                disabled
-                title={
-                  rectify.reason === "unsupported"
-                    ? t.dashboard.lifecycle.rectifyUnsupported
-                    : t.dashboard.lifecycle.rectifyContextual
-                }
-              >
-                {t.dashboard.lifecycle.rectify}
-              </Button>
+              <span>{t.dashboard.lifecycle.relatedElsewhere}</span>
             ))}
         </div>
 
