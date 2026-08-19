@@ -40,7 +40,7 @@ async function fillAddCharge(w: ReturnType<typeof wire>, description = "") {
   await w.advance.execute({ intentId, key: "amount", value: "1500.00" });
   await w.advance.execute({ intentId, key: "currency", value: "BRL" });
   await w.advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });
-  if (description) await w.advance.execute({ intentId, key: "description", value: description });
+  await w.advance.execute({ intentId, key: "description", value: description });
   return intentId;
 }
 

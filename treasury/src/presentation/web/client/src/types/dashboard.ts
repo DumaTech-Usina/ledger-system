@@ -177,6 +177,8 @@ export interface PositionOriginRef {
   eventType: string;
   occurredAt: string;
   source: { system: string; reference: string } | null;
+  /** Free text the reporter gave the origination event. Null when none was given. */
+  description: string | null;
   /** Siblings named beside the position: proposal, contract, installment. */
   relatedObjects: { objectId: string; objectType: string; relation: string }[];
   parties: { partyId: string; role: string; direction: string; amount: string | null }[];

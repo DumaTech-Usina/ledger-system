@@ -194,6 +194,8 @@ export interface PositionOriginRef {
   occurredAt: string;
   /** The external system and its identifier for the fact — the "número de origem" of the position. */
   source: { system: string; reference: string } | null;
+  /** Free text the reporter gave the origination event. Null when none was given. */
+  description: string | null;
   /**
    * The other objects the origination named beside this position: proposal, contract, installment.
    * Empty when it named none — the origination referred to nothing else, which is not the same as

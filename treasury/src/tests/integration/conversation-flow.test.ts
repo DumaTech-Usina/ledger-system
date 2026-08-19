@@ -34,7 +34,12 @@ describe("conversation flow (register_payment)", () => {
     await advance.execute({ intentId, key: "payee", value: PARTY.ACME });
     await advance.execute({ intentId, key: "amount", value: "1500.00" });
     await advance.execute({ intentId, key: "currency", value: "BRL" });
-    const last = await advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });
+    const afterRequired = await advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });
+
+    // Every required slot is filled — the engine now offers the optional description next.
+    expect(afterRequired.state.kind).toBe("question");
+    if (afterRequired.state.kind === "question") expect(afterRequired.state.slot.key).toBe("description");
+    const last = await advance.execute({ intentId, key: "description", value: "" });
 
     expect(last.state.kind).toBe("ready");
     const intent = await repo.findById(intentId);

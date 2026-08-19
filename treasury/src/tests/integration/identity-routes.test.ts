@@ -243,7 +243,7 @@ describe("GET /:intentId/preview", () => {
   it("carries display names and the enrichment suggestion", async () => {
     const intentId = await startIntentOver("register_payment");
     const created = await json(await post(`/${intentId}/identity`, { slot: "payee", kind: "create", mention: "Padaria do Zé" }));
-    for (const [key, value] of [["amount", "2500.00"], ["currency", "BRL"], ["occurredAt", "2026-08-03"]]) {
+    for (const [key, value] of [["amount", "2500.00"], ["currency", "BRL"], ["occurredAt", "2026-08-03"], ["description", ""]]) {
       await post(`/${intentId}/answer`, { key, value });
     }
 

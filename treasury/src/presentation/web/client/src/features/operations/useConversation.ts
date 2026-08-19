@@ -354,7 +354,9 @@ export function useConversation(adopt?: AdoptedIntent | null) {
       // Reformatted only when the raw text is cleanly what the open slot asks for (a plain amount,
       // a plain ISO date) — free text the extractor still has to interpret is echoed exactly as
       // typed, since guessing a format for it could show something that isn't what was meant.
-      push(withId({ kind: "user", text: formatAnswerBubbleText(text, currentSlot, language, t) }));
+      // A blank submit only reaches here for an optional slot (Composer blocks it otherwise), so
+      // it reads as a skip — same wording as the dedicated `answer()` path uses for the same case.
+      push(withId({ kind: "user", text: text === "" ? "(pulado)" : formatAnswerBubbleText(text, currentSlot, language, t) }));
       const askedSlotKey = currentSlot?.key ?? null;
       setBusy(true);
       const { data } = await operationsApi.interpretBound(id, text);

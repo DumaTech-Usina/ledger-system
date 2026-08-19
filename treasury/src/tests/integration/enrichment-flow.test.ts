@@ -62,6 +62,7 @@ async function readyPayment(): Promise<{ intentId: string; partyId: string }> {
   await w.advance.execute({ intentId, key: "amount", value: "1500.00" });
   await w.advance.execute({ intentId, key: "currency", value: "BRL" });
   await w.advance.execute({ intentId, key: "occurredAt", value: "2026-08-03" });
+  await w.advance.execute({ intentId, key: "description", value: "" });
   return { intentId, partyId: decision.partyId };
 }
 
@@ -121,6 +122,7 @@ describe("enrichment is offered only after the fact is complete", () => {
     await w.advance.execute({ intentId, key: "amount", value: "1000.00" });
     await w.advance.execute({ intentId, key: "currency", value: "BRL" });
     await w.advance.execute({ intentId, key: "occurredAt", value: "2026-08-03" });
+    await w.advance.execute({ intentId, key: "description", value: "" });
 
     expect((await w.preview.execute(intentId)).enrichment).toBeUndefined();
   });

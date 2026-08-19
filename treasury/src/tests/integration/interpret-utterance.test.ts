@@ -51,6 +51,7 @@ describe("InterpretUtterance", () => {
           { key: "amount", value: "1500.00", confidence: 0.9 },
           { key: "currency", value: "BRL", confidence: 0.9 },
           { key: "occurredAt", value: "2026-07-23", confidence: 0.9 },
+          { key: "description", value: "", confidence: 0.9 },
         ],
       }),
     );

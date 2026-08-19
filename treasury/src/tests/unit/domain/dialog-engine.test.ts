@@ -22,12 +22,35 @@ describe("DialogEngine.nextState", () => {
     if (state.kind === "question") expect(state.slot.key).toBe("occurredAt");
   });
 
-  it("is ready when all required slots are filled (optional ones may be blank)", () => {
+  it("asks for the optional description once every required slot is filled", () => {
     const state = DialogEngine.nextState(registerPayment, {
       payee: PARTY.ACME,
       amount: "1500.00",
       currency: "BRL",
       occurredAt: "2026-07-09",
+    });
+    expect(state.kind).toBe("question");
+    if (state.kind === "question") expect(state.slot.key).toBe("description");
+  });
+
+  it("is ready once description is answered with real text", () => {
+    const state = DialogEngine.nextState(registerPayment, {
+      payee: PARTY.ACME,
+      amount: "1500.00",
+      currency: "BRL",
+      occurredAt: "2026-07-09",
+      description: "Pagamento referente à NF 123",
+    });
+    expect(state.kind).toBe("ready");
+  });
+
+  it("is ready once description is skipped — a blank answer still counts as asked, so it is never offered again", () => {
+    const state = DialogEngine.nextState(registerPayment, {
+      payee: PARTY.ACME,
+      amount: "1500.00",
+      currency: "BRL",
+      occurredAt: "2026-07-09",
+      description: "",
     });
     expect(state.kind).toBe("ready");
   });

@@ -49,6 +49,7 @@ describe("NON_CASH scenarios flow (Phase 5)", () => {
     const w = wire();
     const { intentId, last } = await fill(w, "register_waiver", {
       payee: PARTY.BROKER, basis: "reversal", amount: "500.00", currency: "BRL", occurredAt: "2026-07-09",
+      description: "",
     });
     expect(last.state.kind).toBe("ready");
 
@@ -64,7 +65,7 @@ describe("NON_CASH scenarios flow (Phase 5)", () => {
   it("commission accrual: usina-only party, no counterparty slot asked", async () => {
     const w = wire();
     const { intentId } = await fill(w, "register_commission_accrual", {
-      amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
+      amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09", description: "",
     });
     const preview = await w.preview.execute(intentId);
     expect(preview.candidate.eventType).toBe("commission_expected");
@@ -77,7 +78,7 @@ describe("NON_CASH scenarios flow (Phase 5)", () => {
   it("direct payment acknowledgement: two settled objects, accepted", async () => {
     const w = wire();
     const { intentId } = await fill(w, "register_direct_payment", {
-      payee: PARTY.BROKER, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
+      payee: PARTY.BROKER, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09", description: "",
     });
     const preview = await w.preview.execute(intentId);
     expect(preview.candidate.objects).toHaveLength(2);
