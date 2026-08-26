@@ -220,7 +220,10 @@ describe("identityDecision", () => {
     const outcome: IdentityOutcome = { slot: "payee", resolution: { kind: "new", mention: mention("Padaria Aurora") } };
     const message = identityDecision(outcome, payeeSlot);
     if (message?.kind !== "identity") return;
-    expect(message.text).toBe('Ainda não conheço "Padaria Aurora". Quer cadastrar?');
+    expect(message.text).toBe(
+      'Nenhuma contraparte encontrada com o nome "Padaria Aurora". Deseja cadastrar no sistema?\n' +
+        "(Após o cadastro, reconhecerei a contraparte automaticamente nas próximas vezes.)",
+    );
     expect(message.options).toEqual([
       { kind: "create", mention: "Padaria Aurora", label: 'Cadastrar "Padaria Aurora"' },
     ]);

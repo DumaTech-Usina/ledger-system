@@ -591,7 +591,7 @@ function IdentityBubble({
           "flex flex-col gap-3 rounded-2xl rounded-bl-md border border-white/40 bg-panel-solid/85 text-ink shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-panel-solid/80",
         )}
       >
-        <span>
+        <span className="whitespace-pre-line">
           <TypedText text={text} onTick={onReveal} />
         </span>
 

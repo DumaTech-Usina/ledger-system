@@ -256,7 +256,8 @@ export const identityCopy = {
     `"${mention}" parece ser a contraparte ${partyId}. É essa mesma?`,
   ambiguous: (mention: string) =>
     `Mais de uma contraparte se parece com "${mention}". Qual delas?`,
-  unknown: (mention: string) => `Ainda não conheço "${mention}". Quer cadastrar?`,
+  unknown: (mention: string) =>
+    `Nenhuma contraparte encontrada com o nome "${mention}". Deseja cadastrar no sistema?\n(Após o cadastro, reconhecerei a contraparte automaticamente nas próximas vezes.)`,
   create: (mention: string) => `Cadastrar "${mention}"`,
   unidentifiable: "Não é possível identificar",
   justificationLabel: "Por que a contraparte não pode ser identificada?",
