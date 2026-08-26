@@ -138,7 +138,9 @@ export class SubmitRectificationUseCase {
       // The correction occurs when the error is established, not when the corrected entry occurred.
       { key: "occurredAt", value: this.clock.now() },
       ...(awaitingReissue ? [{ key: "reissue", value: "pending" }] : []),
-      ...(input.description ? [{ key: "description", value: input.description }] : []),
+      // Always answered, even blank: the engine now asks description once every required slot is
+      // filled, and a batch that omits it entirely would leave the intent short of ready.
+      { key: "description", value: input.description ?? "" },
     ]);
   }
 

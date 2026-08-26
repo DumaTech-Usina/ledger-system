@@ -20,14 +20,21 @@ const isBlank = (v: SlotValue | undefined): boolean => v === undefined || v.trim
  * and identical everywhere it runs.
  */
 export const DialogEngine = {
-  /** The next required slot to ask, or `ready` when all required slots are filled. */
+  /** The next required slot to ask, then the optional description, or `ready` once both are settled. */
   nextState(scenario: Scenario, answers: Record<string, SlotValue>): DialogState {
     const total = scenario.slots.length;
     const answered = scenario.slots.filter((s) => !isBlank(answers[s.key])).length;
-    const next = scenario.slots.find((s) => s.required && isBlank(answers[s.key]));
-    return next
-      ? { kind: "question", slot: next, answered, total }
-      : { kind: "ready", answered, total };
+
+    const nextRequired = scenario.slots.find((s) => s.required && isBlank(answers[s.key]));
+    if (nextRequired) return { kind: "question", slot: nextRequired, answered, total };
+
+    // Once every required slot is filled, offer the one optional slot meant to be asked.
+    // Presence in `answers` — not blankness — is what marks it as already asked: a skip
+    // records "" against the key, and checking isBlank here would re-offer it forever.
+    const description = scenario.slots.find((s) => s.key === "description" && !(s.key in answers));
+    if (description) return { kind: "question", slot: description, answered, total };
+
+    return { kind: "ready", answered, total };
   },
 
   /** Validate one answer against its slot. Returns null when valid. */

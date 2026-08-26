@@ -10,7 +10,9 @@ import { typingDurationMs } from "@/features/operations/typing";
 import { useTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
 import { useLanguage } from "@/i18n/i18n";
 import {
+  documentTypeLabels,
   enrichmentCopy,
+  extractionCopy,
   identityCopy,
   partyTypeChoices,
   partyTypeLabels,
@@ -27,6 +29,7 @@ import {
 } from "@/features/operations/conversationEngine";
 import type {
   EnrichmentSuggestion,
+  ExtractAndApplyDocumentResult,
   PreviewIntentResult,
   RejectionDetail,
   SettlementCandidate,
@@ -236,6 +239,8 @@ export function ChatStream({
                 Não foi possível falar com o Ledger agora. Tente novamente.
               </Banner>
             );
+          case "extraction":
+            return <ExtractionSummaryCard key={item.id} result={item.result} answeredSlots={answeredSlots ?? {}} />;
           case "confirm":
             return (
               <ConfirmCard
@@ -296,6 +301,87 @@ export function ChatStream({
       )}
 
       <div ref={bottomRef} />
+    </div>
+  );
+}
+
+const HIGH_CONFIDENCE_THRESHOLD = 0.8;
+
+/**
+ * Only the date field currently carries graduated confidence (a payment-date label vs. a fallback
+ * like "emissão" vs. an unlabeled guess) — counterparty/amount/currency/description each use one
+ * fixed confidence, so this intentionally only affects the date row rather than recoloring every
+ * applied field.
+ */
+function needsReview(extraction: ExtractAndApplyDocumentResult["extraction"], slot: SlotDefinition): boolean {
+  if (slot.type !== "date") return false;
+  const confidence = extraction.confidence?.date;
+  return confidence !== undefined && confidence < HIGH_CONFIDENCE_THRESHOLD;
+}
+
+/** What an attached file produced: which fields it filled (or couldn't), shown as a compact card
+ * instead of a chat bubble — the guided dialog moves on to whatever question is still open. */
+function ExtractionSummaryCard({
+  result,
+  answeredSlots,
+}: {
+  result: ExtractAndApplyDocumentResult;
+  answeredSlots: Record<string, SlotDefinition>;
+}) {
+  const { extraction, applied, skipped } = result;
+  const label = (key: string, fallback: string) => answeredSlots[key]?.prompt ?? fallback;
+
+  return (
+    <div className="flex justify-start">
+      <Card padding="md" className="max-w-md border-white/40 bg-panel-solid/85 backdrop-blur-md dark:border-white/10">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[13.5px] font-semibold text-ink">
+            {extractionCopy.analyzed(extraction.documentType ? documentTypeLabels[extraction.documentType] : "Documento")}
+          </p>
+          {!extraction.success && <Badge variant="bad">{extractionCopy.failed}</Badge>}
+        </div>
+
+        {!extraction.success && (
+          <p className="mt-2 text-[13px] text-bad">
+            {extraction.errors?.[0] ?? "Não foi possível ler os dados deste documento."}
+          </p>
+        )}
+
+        {(applied.length > 0 || skipped.length > 0) && (
+          <div className="mt-3 flex flex-col gap-2">
+            {applied.map((slot) => {
+              const review = needsReview(extraction, slot);
+              return (
+                <div
+                  key={slot.key}
+                  className={cn(
+                    "flex items-center justify-between gap-3 rounded-xl px-3 py-2 text-[13px]",
+                    review ? "bg-warn-soft" : "bg-ok-soft",
+                  )}
+                >
+                  <span className={cn("font-medium", review ? "text-warn" : "text-ok")}>
+                    {label(slot.key, slot.prompt)}
+                  </span>
+                  <Badge variant={review ? "warn" : "ok"}>{review ? extractionCopy.review : extractionCopy.filled}</Badge>
+                </div>
+              );
+            })}
+            {skipped.map(({ slot, reason }) => (
+              <div key={slot.key} className="rounded-xl bg-warn-soft px-3 py-2 text-[13px]">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-warn">{label(slot.key, slot.prompt)}</span>
+                  <Badge variant="warn">{extractionCopy.fillManually}</Badge>
+                </div>
+                <p className="mt-1 text-xs text-warn/90">{reason}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {extraction.warnings && extraction.warnings.length > 0 && (
+          <p className="mt-3 text-xs text-muted">{extraction.warnings.join(" ")}</p>
+        )}
+      </Card>
     </div>
   );
 }

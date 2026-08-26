@@ -39,9 +39,18 @@ function wire() {
   };
 }
 
-/** Fill the one slot the stub can't ground (the payee PARTY) so the intent becomes ready. */
+/**
+ * Fill the one slot the stub can't ground (the payee PARTY), plus the optional description the
+ * engine now asks once every required slot is filled — skipped blank, so the intent becomes ready.
+ */
 async function fillPayee(apply: ReturnType<typeof wire>["apply"], intentId: string) {
-  await apply.execute({ intentId, answers: [{ key: "payee", value: PARTY.ACME }] });
+  await apply.execute({
+    intentId,
+    answers: [
+      { key: "payee", value: PARTY.ACME },
+      { key: "description", value: "" },
+    ],
+  });
 }
 
 describe("confirm → submit (Phase 4 end-to-end)", () => {

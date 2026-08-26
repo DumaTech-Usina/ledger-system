@@ -65,6 +65,7 @@ async function fillPenalty(w: ReturnType<typeof wire>, amount: string) {
   await w.advance.execute({ intentId, key: "amount", value: amount });
   await w.advance.execute({ intentId, key: "currency", value: "BRL" });
   await w.advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });
+  await w.advance.execute({ intentId, key: "description", value: "" });
   return intentId;
 }
 

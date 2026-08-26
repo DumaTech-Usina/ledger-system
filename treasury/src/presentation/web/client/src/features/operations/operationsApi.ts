@@ -1,9 +1,10 @@
-import { apiGet, apiPost } from "@/api/client";
+import { apiGet, apiPost, apiPostForm } from "@/api/client";
 import type {
   AdvanceDialogResult,
   ApplyAnswersResult,
   ApplyMode,
   DecideIdentityResult,
+  ExtractAndApplyDocumentResult,
   GetIntentResult,
   IdentityDecisionKind,
   IntentSummary,
@@ -31,6 +32,13 @@ export const operationsApi = {
   /** The batch merge — one round-trip that validates every answer and reports all the problems. */
   applyAnswers: (intentId: string, answers: { key: string; value: string }[], mode: ApplyMode) =>
     apiPost<ApplyAnswersResult>(`/api/conversation/${intentId}/apply`, { answers, mode }),
+  /** An attached file, sent instead of a typed answer — extracted fields fill whatever unanswered
+   * slots they match, through the same batch merge `applyAnswers` uses under the hood. */
+  extract: (intentId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiPostForm<ExtractAndApplyDocumentResult>(`/api/conversation/${intentId}/extract`, form);
+  },
   preview: (intentId: string) => apiGet<PreviewIntentResult>(`/api/conversation/${intentId}/preview`),
   submit: (intentId: string) => apiPost<SubmitIntentResult>(`/api/conversation/${intentId}/submit`, {}),
   getIntent: (intentId: string) => apiGet<GetIntentResult>(`/api/intents/${intentId}`),

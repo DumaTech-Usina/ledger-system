@@ -4,6 +4,7 @@ import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
 import { DatePicker } from "@/components/DatePicker";
 import { Input } from "@/components/Input";
+import { Tooltip } from "@/components/Tooltip";
 import { FactParties, ObjectChip, SourceRef } from "@/features/dashboard/FactContext";
 import { useLanguage } from "@/i18n/i18n";
 import {
@@ -186,6 +187,17 @@ function StandingOrigin({
         {origin.source && <SourceRef source={origin.source} />}
       </div>
 
+      {/* Free text the reporter gave when the origination was recorded. Null when none was given —
+          then nothing is shown, rather than an empty label with no value under it. */}
+      {origin.description && (
+        <>
+          <p className="mt-3 text-[12px] font-bold uppercase tracking-[0.03em] text-muted">
+            {t.dashboard.table.description}
+          </p>
+          <p className="mt-1 text-[13px] text-ink">{origin.description}</p>
+        </>
+      )}
+
       {/* The documents the origination named beside this position. Empty means it named none, which
           is not an absence of information — so nothing is said about it. */}
       {origin.relatedObjects.length > 0 && (
@@ -301,18 +313,17 @@ function TimelineEvent({
                 {t.dashboard.lifecycle.rectify}
               </Button>
             ) : (
-              <Button
-                type="button"
-                size="sm"
-                disabled
-                title={
+              <Tooltip
+                content={
                   rectify.reason === "unsupported"
                     ? t.dashboard.lifecycle.rectifyUnsupported
                     : t.dashboard.lifecycle.rectifyContextual
                 }
               >
-                {t.dashboard.lifecycle.rectify}
-              </Button>
+                <Button type="button" size="sm" disabled>
+                  {t.dashboard.lifecycle.rectify}
+                </Button>
+              </Tooltip>
             ))}
         </div>
 

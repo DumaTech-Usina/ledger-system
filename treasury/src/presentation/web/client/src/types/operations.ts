@@ -352,3 +352,44 @@ export interface ApplyAnswersResult {
   /** One entry per PARTY answer processed this turn. */
   identity: IdentityOutcome[];
 }
+
+export type DocumentType =
+  | "pix_receipt"
+  | "ted_receipt"
+  | "doc_receipt"
+  | "boleto"
+  | "invoice"
+  | "bank_statement"
+  | "receipt"
+  | "generic";
+
+export interface ExtractedFieldData {
+  counterparty?: string;
+  amount?: string;
+  date?: string;
+  currency?: string;
+  description?: string;
+}
+
+export interface ExtractionResult {
+  success: boolean;
+  documentType?: DocumentType;
+  data: ExtractedFieldData;
+  confidence?: { counterparty?: number; amount?: number; date?: number; currency?: number; description?: number };
+  warnings?: string[];
+  errors?: string[];
+  rawText?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ExtractAndApplyDocumentResult {
+  extraction: ExtractionResult;
+  state: DialogState;
+  applied: SlotDefinition[];
+  /** Slots that could not be filled, and why — carrying the full definition (not just the key) so
+   * a label can be shown without having asked about the slot directly yet. */
+  skipped: { slot: SlotDefinition; reason: string }[];
+  /** One entry per PARTY field the extraction proposed. An unresolved one leaves the slot blank —
+   * same as any other identity outcome — for the guided chat to offer a decision on. */
+  identity: IdentityOutcome[];
+}

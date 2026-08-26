@@ -401,6 +401,7 @@ export class HttpLedgerReadAdapter
       source: originating.source
         ? { system: originating.source.system, reference: originating.source.reference }
         : null,
+      description: originating.description ?? null,
       // The siblings only — the position itself is already the subject of the read.
       relatedObjects: (originating.objects ?? [])
         .filter((o) => o.objectId !== objectId)

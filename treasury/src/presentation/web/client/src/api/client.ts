@@ -23,3 +23,13 @@ export async function apiPost<T = unknown>(url: string, body: unknown): Promise<
   });
   return toResult<T>(res);
 }
+
+/** Like `apiPost`, but sends `multipart/form-data` — the browser sets the boundary header itself. */
+export async function apiPostForm<T = unknown>(url: string, form: FormData): Promise<ApiResult<T>> {
+  const res = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    body: form,
+  });
+  return toResult<T>(res);
+}

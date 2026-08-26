@@ -58,6 +58,7 @@ const lifecycle = (over: Partial<PositionLifecycle> = {}): PositionLifecycle => 
     eventType: "advance_payment",
     occurredAt: "2026-07-01T00:00:00.000Z",
     source: { system: "treasury", reference: "intent:adv-1" },
+    description: null,
     relatedObjects: [],
     parties: [
       { partyId: "party-usina", role: "payer", direction: "out", amount: "500.00" },

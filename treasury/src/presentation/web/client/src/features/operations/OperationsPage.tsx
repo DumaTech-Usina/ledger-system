@@ -67,6 +67,7 @@ export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted 
     selectScenario,
     answer,
     sendUtterance,
+    extractFromFile,
     resolveSuggestion,
     decideIdentity,
     selectPosition,
@@ -205,6 +206,7 @@ export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted 
                 onSend={currentSlot.type === "date" ? answer : sendUtterance}
                 busy={busy}
                 dateSlot={currentSlot.type === "date"}
+                onAttach={currentSlot.type === "date" ? undefined : extractFromFile}
               />
             ) : undefined
           }

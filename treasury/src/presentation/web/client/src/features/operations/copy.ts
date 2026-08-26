@@ -1,5 +1,5 @@
 import { formatTemplate, type Translations } from "@/i18n/i18n";
-import type { IntentStatus, RejectionDetail } from "@/types/operations";
+import type { DocumentType, IntentStatus, RejectionDetail } from "@/types/operations";
 
 export const scenarioCopy: Record<string, { title: string; description: string }> = {
   register_payment: {
@@ -289,6 +289,33 @@ export const positionCopy = {
   /** What goes into the transcript once a position is picked. */
   picked: (counterparty: string | null, amount: string) =>
     counterparty ? `${counterparty} — ${amount}` : amount,
+};
+
+export const documentTypeLabels: Record<DocumentType, string> = {
+  pix_receipt: "Comprovante de PIX",
+  ted_receipt: "Comprovante de TED",
+  doc_receipt: "Comprovante de DOC",
+  boleto: "Boleto",
+  invoice: "Nota fiscal",
+  bank_statement: "Extrato bancário",
+  receipt: "Recibo",
+  generic: "Documento",
+};
+
+/** The attachment flow: picking a file type, and what the extraction summary card says. */
+export const extractionCopy = {
+  pickType: "Qual o tipo do arquivo?",
+  fileTypes: {
+    pdf: "PDF",
+    image: "Imagem (PNG, JPG, WEBP)",
+    csv: "Planilha CSV",
+    xml: "XML",
+  },
+  analyzed: (label: string) => `${label} analisado`,
+  failed: "Falhou",
+  filled: "Preenchido",
+  review: "Confira",
+  fillManually: "Preencha manualmente",
 };
 
 /**

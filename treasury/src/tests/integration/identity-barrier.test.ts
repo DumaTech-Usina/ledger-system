@@ -232,7 +232,9 @@ describe("natural language now grounds to real entities", () => {
 
     expect(res.accepted).toContain("payee");
     expect((await w.repo.findById(intentId))?.answers.payee).toBe(PARTY.ACME);
-    expect(res.state?.kind).toBe("ready");
+    // Every required slot is filled — the engine now offers the optional description next.
+    expect(res.state?.kind).toBe("question");
+    if (res.state?.kind === "question") expect(res.state.slot.key).toBe("description");
   });
 
   it("cannot invent a counterparty that does not exist", async () => {

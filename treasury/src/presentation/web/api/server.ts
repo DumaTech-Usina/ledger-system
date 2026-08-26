@@ -30,6 +30,7 @@ import type { ListPositionActionsUseCase } from "../../../core/application/use-c
 import type { StartPositionActionUseCase } from "../../../core/application/use-cases/StartPositionAction";
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
+import type { ExtractAndApplyDocumentUseCase } from "../../../core/application/use-cases/ExtractAndApplyDocument";
 
 export interface ServerDeps {
   auth: AuthService;
@@ -41,6 +42,7 @@ export interface ServerDeps {
   interpretUtterance: InterpretUtteranceUseCase;
   previewIntent: PreviewIntentUseCase;
   submitIntent: SubmitIntentUseCase;
+  extractAndApplyDocument: ExtractAndApplyDocumentUseCase;
   submitRectification: SubmitRectificationUseCase;
   decideIdentity: DecideIdentityUseCase;
   recordPartyAttribute: RecordPartyAttributeUseCase;
@@ -86,6 +88,7 @@ export function createServer(deps: ServerDeps) {
       deps.interpretUtterance,
       deps.previewIntent,
       deps.submitIntent,
+      deps.extractAndApplyDocument,
       deps.submitRectification,
       deps.decideIdentity,
       deps.recordPartyAttribute,

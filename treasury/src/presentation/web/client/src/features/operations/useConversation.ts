@@ -354,7 +354,9 @@ export function useConversation(adopt?: AdoptedIntent | null) {
       // Reformatted only when the raw text is cleanly what the open slot asks for (a plain amount,
       // a plain ISO date) — free text the extractor still has to interpret is echoed exactly as
       // typed, since guessing a format for it could show something that isn't what was meant.
-      push(withId({ kind: "user", text: formatAnswerBubbleText(text, currentSlot, language, t) }));
+      // A blank submit only reaches here for an optional slot (Composer blocks it otherwise), so
+      // it reads as a skip — same wording as the dedicated `answer()` path uses for the same case.
+      push(withId({ kind: "user", text: text === "" ? "(pulado)" : formatAnswerBubbleText(text, currentSlot, language, t) }));
       const askedSlotKey = currentSlot?.key ?? null;
       setBusy(true);
       const { data } = await operationsApi.interpretBound(id, text);
@@ -531,6 +533,38 @@ export function useConversation(adopt?: AdoptedIntent | null) {
   }, [refreshLifecycle]);
 
   /**
+   * Sends an attached file to the extraction endpoint and applies whatever fields it could read
+   * straight into the current scenario's unanswered slots — the same batch-merge path `applyAnswers`
+   * already uses, so it advances `currentSlot`/`phase` (or opens the confirm card) exactly the same
+   * way a typed answer would. A counterparty the Directory couldn't resolve to exactly one party is
+   * offered through the ordinary identity flow, just like any other PARTY answer.
+   */
+  const extractFromFile = useCallback(
+    async (file: File) => {
+      const id = intentIdRef.current;
+      if (!id) return;
+      setBusy(true);
+      const { data } = await operationsApi.extract(id, file);
+      setBusy(false);
+      if (!data?.extraction) {
+        push(withId({ kind: "transport-error" }));
+        return;
+      }
+      refreshLifecycle(id);
+      // Neither `applied` nor `skipped` slots ever became `currentSlot` — record them now so the
+      // extraction card (and later "Editar") can show a proper label for each, exactly like a slot
+      // the guided dialog actually asked about.
+      const sid = scenarioId ?? "";
+      for (const slot of data.applied) recordSlot(slot, slotPrompt(sid, slot));
+      for (const { slot } of data.skipped) recordSlot(slot, slotPrompt(sid, slot));
+      push(withId({ kind: "extraction", result: data }));
+      if (offerIdentity(data.identity)) return;
+      advance(data.state, undefined, sid);
+    },
+    [advance, offerIdentity, push, refreshLifecycle, scenarioId],
+  );
+
+  /**
    * Applies edits to already-answered slots (any key the scenario knows, not just the "next"
    * one — the same `/answer` route the guided dialog uses already allows this) and refreshes the
    * confirm card in place, without restarting the conversation or re-asking anything.
@@ -651,6 +685,7 @@ export function useConversation(adopt?: AdoptedIntent | null) {
     selectScenario,
     answer,
     sendUtterance,
+    extractFromFile,
     resolveSuggestion,
     decideIdentity,
     selectPosition,

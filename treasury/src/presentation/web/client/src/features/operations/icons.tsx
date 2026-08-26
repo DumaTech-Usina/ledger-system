@@ -6,10 +6,15 @@ import {
   CircleDashed,
   Diamond,
   FileClock,
+  FileCode,
+  FileSpreadsheet,
+  FileText,
   FileX,
   Gift,
   HandCoins,
+  Image,
   Landmark,
+  Paperclip,
   Percent,
   PiggyBank,
   Receipt,
@@ -53,3 +58,14 @@ export const scenarioIcons: Record<string, ReactElement> = {
 };
 
 export const defaultScenarioIcon = <Diamond {...iconProps} />;
+
+export const paperclipIcon = <Paperclip className="size-5" strokeWidth={1.5} />;
+
+const fileTypeIconProps = { className: "size-4", strokeWidth: 1.5 };
+
+export const fileTypeIcons: Record<"pdf" | "image" | "csv" | "xml", ReactElement> = {
+  pdf: <FileText {...fileTypeIconProps} />,
+  image: <Image {...fileTypeIconProps} />,
+  csv: <FileSpreadsheet {...fileTypeIconProps} />,
+  xml: <FileCode {...fileTypeIconProps} />,
+};

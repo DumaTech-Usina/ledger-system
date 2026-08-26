@@ -36,6 +36,7 @@ describe("simulate mode — full create → dashboard loop", () => {
     await advance.execute({ intentId, key: "amount", value: "5000.00" });
     await advance.execute({ intentId, key: "currency", value: "BRL" });
     await advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });
+    await advance.execute({ intentId, key: "description", value: "" });
     const result = await submit.execute(intentId);
     expect(result.status).toBe("accepted");
 

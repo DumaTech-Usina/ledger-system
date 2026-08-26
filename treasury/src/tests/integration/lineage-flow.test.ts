@@ -61,6 +61,7 @@ describe("lineage flow (Phase 6)", () => {
     const w = wire();
     const { intentId, last } = await fill(w, "register_commission_received", {
       payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-expected-1",
+      description: "",
     });
     expect(last.state.kind).toBe("ready");
     const preview = await w.preview.execute(intentId);
@@ -72,7 +73,7 @@ describe("lineage flow (Phase 6)", () => {
     const w = wire();
     // origin is optional → omitting it still reaches ready; the mapper records an orphan.
     const { intentId, last } = await fill(w, "register_commission_received", {
-      payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
+      payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09", description: "",
     });
     expect(last.state.kind).toBe("ready");
     const preview = await w.preview.execute(intentId);
@@ -95,6 +96,7 @@ describe("lineage flow (Phase 6)", () => {
     const w = wire(new OriginGate("evt-bad"));
     const { intentId } = await fill(w, "register_advance_settlement", {
       payer: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-bad",
+      description: "",
     });
 
     const first = await w.submit.execute(intentId);

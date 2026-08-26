@@ -66,6 +66,7 @@ async function commissionWithUnknownPayer(origin?: string): Promise<string> {
   await w.advance.execute({ intentId, key: "currency", value: "BRL" });
   await w.advance.execute({ intentId, key: "occurredAt", value: "2026-08-03" });
   if (origin) await w.advance.execute({ intentId, key: "origin", value: origin });
+  await w.advance.execute({ intentId, key: "description", value: "" });
   return intentId;
 }
 
@@ -78,6 +79,7 @@ async function commissionWithKnownPayer(): Promise<string> {
   await w.advance.execute({ intentId, key: "amount", value: "1000.00" });
   await w.advance.execute({ intentId, key: "currency", value: "BRL" });
   await w.advance.execute({ intentId, key: "occurredAt", value: "2026-08-03" });
+  await w.advance.execute({ intentId, key: "description", value: "" });
   return intentId;
 }
 
@@ -151,6 +153,7 @@ describe("a known counterparty is never marked", () => {
     await w.advance.execute({ intentId, key: "amount", value: "1500.00" });
     await w.advance.execute({ intentId, key: "currency", value: "BRL" });
     await w.advance.execute({ intentId, key: "occurredAt", value: "2026-08-03" });
+    await w.advance.execute({ intentId, key: "description", value: "" });
     await w.submit.execute(intentId);
 
     expect(w.submission.last!.parties.some((p) => p.partyId === decision.partyId)).toBe(true);

@@ -15,6 +15,11 @@ import { ApplyAnswersUseCase } from "../../core/application/use-cases/ApplyAnswe
 import { InterpretUtteranceUseCase } from "../../core/application/use-cases/InterpretUtterance";
 import { PreviewIntentUseCase } from "../../core/application/use-cases/PreviewIntent";
 import { SubmitIntentUseCase } from "../../core/application/use-cases/SubmitIntent";
+import { ExtractAndApplyDocumentUseCase } from "../../core/application/use-cases/ExtractAndApplyDocument";
+import { DocumentExtractionService } from "../../core/application/services/DocumentExtractionService";
+import { CsvFormatAdapter } from "../../infra/file-extraction/adapters/CsvFormatAdapter";
+import { HeuristicDocumentClassifier } from "../../infra/file-extraction/classification/HeuristicDocumentClassifier";
+import { HeuristicFieldExtractor } from "../../infra/file-extraction/fields/HeuristicFieldExtractor";
 import { SubmitRectificationUseCase } from "../../core/application/use-cases/SubmitRectification";
 import { DecideIdentityUseCase } from "../../core/application/use-cases/DecideIdentity";
 import { RecordPartyAttributeUseCase } from "../../core/application/use-cases/RecordPartyAttribute";
@@ -85,6 +90,11 @@ function harness() {
       ),
       new PreviewIntentUseCase(intents, mapper, directory),
       submitIntent,
+      new ExtractAndApplyDocumentUseCase(
+        new DocumentExtractionService([new CsvFormatAdapter()], new HeuristicDocumentClassifier(), new HeuristicFieldExtractor()),
+        applyAnswers,
+        intents,
+      ),
       new SubmitRectificationUseCase(
         new StubLedgerReadAdapter() as never,
         startIntent,
@@ -243,7 +253,7 @@ describe("GET /:intentId/preview", () => {
   it("carries display names and the enrichment suggestion", async () => {
     const intentId = await startIntentOver("register_payment");
     const created = await json(await post(`/${intentId}/identity`, { slot: "payee", kind: "create", mention: "Padaria do Zé" }));
-    for (const [key, value] of [["amount", "2500.00"], ["currency", "BRL"], ["occurredAt", "2026-08-03"]]) {
+    for (const [key, value] of [["amount", "2500.00"], ["currency", "BRL"], ["occurredAt", "2026-08-03"], ["description", ""]]) {
       await post(`/${intentId}/answer`, { key, value });
     }
 

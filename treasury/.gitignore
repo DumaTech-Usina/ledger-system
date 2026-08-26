@@ -2,6 +2,7 @@ node_modules
 dist
 coverage
 logs
+data
 .env
 .env.*
 !.env.example

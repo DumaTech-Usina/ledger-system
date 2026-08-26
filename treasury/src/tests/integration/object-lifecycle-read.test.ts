@@ -234,6 +234,7 @@ describe("HttpLedgerReadAdapter — position lifecycle", () => {
       eventType: "advance_payment",
       occurredAt: "2026-07-02T00:00:00.000Z",
       source: { system: "treasury", reference: "PRP-77" },
+      description: "Advance disbursement",
       // The siblings only: the position itself is the subject of the read, not a related object.
       relatedObjects: [{ objectId: "proposal:PRP-77", objectType: "proposal", relation: "references" }],
       parties: [

@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import multer from "multer";
 import { listScenarios } from "../../../../core/domain/scenarios/Scenario";
 import type { StartIntentUseCase } from "../../../../core/application/use-cases/StartIntent";
 import type { AdvanceDialogUseCase } from "../../../../core/application/use-cases/AdvanceDialog";
@@ -6,6 +7,7 @@ import type { ApplyAnswersUseCase } from "../../../../core/application/use-cases
 import type { InterpretUtteranceUseCase } from "../../../../core/application/use-cases/InterpretUtterance";
 import type { PreviewIntentUseCase } from "../../../../core/application/use-cases/PreviewIntent";
 import type { SubmitIntentUseCase } from "../../../../core/application/use-cases/SubmitIntent";
+import type { ExtractAndApplyDocumentUseCase } from "../../../../core/application/use-cases/ExtractAndApplyDocument";
 import type { SubmitRectificationUseCase } from "../../../../core/application/use-cases/SubmitRectification";
 import type { DecideIdentityUseCase } from "../../../../core/application/use-cases/DecideIdentity";
 import type { RecordPartyAttributeUseCase } from "../../../../core/application/use-cases/RecordPartyAttribute";
@@ -16,6 +18,26 @@ import type { StartPositionActionUseCase } from "../../../../core/application/us
 import { IdentityDecisionKind } from "../../../../core/domain/value-objects/IdentityDecision";
 import { Permission } from "../../../../core/domain/enums/Permission";
 import { currentUser, requirePermission } from "../middleware/auth";
+
+/** Accepted upload formats for document extraction — kept here (HTTP plumbing), never leaked into the extraction module itself. */
+const ACCEPTED_UPLOAD_MIME_TYPES = new Set([
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/webp",
+  "text/csv",
+  "application/csv",
+  "application/vnd.ms-excel",
+  "text/xml",
+  "application/xml",
+]);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => cb(null, ACCEPTED_UPLOAD_MIME_TYPES.has(file.mimetype)),
+});
 
 /**
  * Drives the guided conversation: list scenarios, start an intent, answer one slot at a time,
@@ -28,6 +50,7 @@ export function conversationRoutes(
   interpretUtterance: InterpretUtteranceUseCase,
   previewIntent: PreviewIntentUseCase,
   submitIntent: SubmitIntentUseCase,
+  extractAndApplyDocument: ExtractAndApplyDocumentUseCase,
   submitRectification: SubmitRectificationUseCase,
   decideIdentity: DecideIdentityUseCase,
   recordPartyAttribute: RecordPartyAttributeUseCase,
@@ -133,6 +156,28 @@ export function conversationRoutes(
       next(err);
     }
   });
+
+  // An attached file, sent instead of a typed answer: extracted fields fill whatever unanswered
+  // slots they match through the same batch-merge path a typed answer/interpretation uses.
+  router.post(
+    "/:intentId/extract",
+    upload.single("file"),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        if (!req.file) {
+          res.status(400).json({ error: "Nenhum arquivo enviado ou formato não permitido." });
+          return;
+        }
+        const result = await extractAndApplyDocument.execute({
+          intentId: req.params.intentId,
+          file: { buffer: req.file.buffer, mimeType: req.file.mimetype, filename: req.file.originalname },
+        });
+        res.json(result);
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
 
   // First utterance, no scenario chosen yet: classify → create the intent → merge (or clarify).
   router.post("/interpret", async (req: Request, res: Response, next: NextFunction) => {
