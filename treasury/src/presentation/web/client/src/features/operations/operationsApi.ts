@@ -32,12 +32,17 @@ export const operationsApi = {
   /** The batch merge — one round-trip that validates every answer and reports all the problems. */
   applyAnswers: (intentId: string, answers: { key: string; value: string }[], mode: ApplyMode) =>
     apiPost<ApplyAnswersResult>(`/api/conversation/${intentId}/apply`, { answers, mode }),
-  /** An attached file, sent instead of a typed answer — extracted fields fill whatever unanswered
-   * slots they match, through the same batch merge `applyAnswers` uses under the hood. */
+  /**
+   * An attached file, sent instead of a typed answer — extracted fields fill whatever unanswered
+   * slots they match, through the same batch merge `applyAnswers` uses under the hood. A dropped
+   * file bypasses the composer's own `accept` filter entirely, so an unsupported format reaching
+   * this route is the ordinary case to handle, not an edge case: the multer layer answers it with
+   * 400 and this same error body, never a thrown exception.
+   */
   extract: (intentId: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return apiPostForm<ExtractAndApplyDocumentResult>(`/api/conversation/${intentId}/extract`, form);
+    return apiPostForm<ExtractAndApplyDocumentResult | ApiErrorBody>(`/api/conversation/${intentId}/extract`, form);
   },
   preview: (intentId: string) => apiGet<PreviewIntentResult>(`/api/conversation/${intentId}/preview`),
   submit: (intentId: string) => apiPost<SubmitIntentResult>(`/api/conversation/${intentId}/submit`, {}),

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Bot, MessageSquareMore, MessageSquareOff, Video, VideoOff } from "lucide-react";
+import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { Bot, MessageSquareMore, MessageSquareOff, Paperclip, Video, VideoOff } from "lucide-react";
 import { LifecycleMenu } from "@/features/operations/LifecycleMenu";
 import { ChatAurora } from "@/features/operations/ChatAurora";
 import { statusLabels } from "@/features/operations/copy";
@@ -50,6 +50,13 @@ export interface OperationsShellProps {
   footer?: ReactNode;
   /** The shell has fully faded in — only then does the ambient video start playing. */
   ready?: boolean;
+  /**
+   * Present only while a file dropped anywhere on the shell can actually be handled (an active
+   * conversation, not mid-request) — hands the dropped file over exactly like the composer's attach
+   * button does. Absent disables the drop zone entirely, so this component stays reusable for any
+   * phase that has nothing to do with files.
+   */
+  onDropFile?: (file: File) => void;
 }
 
 export function OperationsShell({
@@ -61,11 +68,47 @@ export function OperationsShell({
   children,
   footer,
   ready = true,
+  onDropFile,
 }: OperationsShellProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const isDark = useIsDarkMode();
   const videoHidden = useVideoAnimationDisabled();
   const typingHidden = useTypingAnimationDisabled();
+
+  // A drag that enters a child element fires `dragleave` on the parent before `dragenter` on the
+  // child — a plain boolean would flicker the overlay off between them. Counting nesting depth
+  // instead means only the drag that leaves the LAST element still inside the shell turns it off.
+  const [dragActive, setDragActive] = useState(false);
+  const dragDepth = useRef(0);
+
+  const isFileDrag = (e: DragEvent): boolean => Array.from(e.dataTransfer.types).includes("Files");
+
+  const handleDragEnter = (e: DragEvent) => {
+    if (!onDropFile || !isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDragActive(true);
+  };
+  const handleDragOver = (e: DragEvent) => {
+    // A drop is only permitted on an element whose dragover handler calls preventDefault — without
+    // this the browser rejects the drop and opens the file instead (its default for a bare page).
+    if (!onDropFile || !isFileDrag(e)) return;
+    e.preventDefault();
+  };
+  const handleDragLeave = (e: DragEvent) => {
+    if (!onDropFile || !isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragActive(false);
+  };
+  const handleDrop = (e: DragEvent) => {
+    if (!onDropFile || !isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth.current = 0;
+    setDragActive(false);
+    const file = e.dataTransfer.files[0];
+    if (file) onDropFile(file);
+  };
 
   // The video stays mounted and playing through the fade-out (so the motion behind it feels
   // alive) and only actually pauses once fully transparent. Revealing it always restarts
@@ -90,7 +133,25 @@ export function OperationsShell({
   }, [isDark, ready, videoHidden]);
 
   return (
-    <div className="glass relative mx-auto flex h-[calc(100vh-11.5rem)] min-h-[32rem] max-w-6xl flex-col overflow-hidden dark:bg-transparent">
+    <div
+      className="glass relative mx-auto flex h-[calc(100vh-11.5rem)] min-h-[32rem] max-w-6xl flex-col overflow-hidden dark:bg-transparent"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {onDropFile && dragActive && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-30 grid place-items-center rounded-3xl border-2 border-dashed border-accent bg-accent-soft/90 backdrop-blur-sm"
+        >
+          <div className="flex flex-col items-center gap-2 text-center text-accent">
+            <Paperclip className="size-8" strokeWidth={1.5} />
+            <p className="text-sm font-semibold">Solte o documento aqui</p>
+            <p className="text-xs opacity-80">Vou extrair os dados automaticamente</p>
+          </div>
+        </div>
+      )}
       <ChatAurora />
       {/* Dark theme (default): the mp4 loop fills the panel's full height — behind the header and
           composer too, not just a bottom strip — so it never gets capped short on tall viewports.

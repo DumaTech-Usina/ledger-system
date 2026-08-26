@@ -546,8 +546,12 @@ export function useConversation(adopt?: AdoptedIntent | null) {
       setBusy(true);
       const { data } = await operationsApi.extract(id, file);
       setBusy(false);
-      if (!data?.extraction) {
-        push(withId({ kind: "transport-error" }));
+      // A dropped/attached file in an unsupported format (or too large) never reaches extraction at
+      // all — multer answers with 400 and an `{ error }` body before this route's own handler runs.
+      // That is the user's to fix (pick a different file), not a connectivity failure.
+      if (!data || !("extraction" in data)) {
+        const reason = data && "error" in data ? data.error : undefined;
+        push(withId(reason ? { kind: "error", text: translateMessage(reason) } : { kind: "transport-error" }));
         return;
       }
       refreshLifecycle(id);

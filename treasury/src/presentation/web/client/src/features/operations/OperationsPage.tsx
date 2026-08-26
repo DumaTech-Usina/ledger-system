@@ -185,6 +185,7 @@ export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted 
           ledgerReference={lifecycle?.ledgerReference}
           onRestart={restart}
           ready={chatReady}
+          onDropFile={phase === "conversation" && !busy ? extractFromFile : undefined}
           footer={
             phase === "picking" ? (
               <Composer
