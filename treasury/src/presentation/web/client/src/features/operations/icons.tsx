@@ -14,6 +14,7 @@ import {
   HandCoins,
   Image,
   Landmark,
+  Lock,
   Paperclip,
   Percent,
   PiggyBank,
@@ -69,3 +70,6 @@ export const fileTypeIcons: Record<"pdf" | "image" | "csv" | "xml", ReactElement
   csv: <FileSpreadsheet {...fileTypeIconProps} />,
   xml: <FileCode {...fileTypeIconProps} />,
 };
+
+/** Shown in place of a file type's own icon while that format is disabled (see AttachmentMenu). */
+export const lockIcon = <Lock {...fileTypeIconProps} />;

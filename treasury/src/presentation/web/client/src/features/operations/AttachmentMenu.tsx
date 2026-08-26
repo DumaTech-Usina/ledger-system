@@ -1,16 +1,21 @@
 import { useState } from "react";
 import { Card } from "@/components/Card";
+import { Tooltip } from "@/components/Tooltip";
 import { extractionCopy } from "@/features/operations/copy";
-import { fileTypeIcons, paperclipIcon } from "@/features/operations/icons";
+import { fileTypeIcons, lockIcon, paperclipIcon } from "@/features/operations/icons";
 
 export interface FileTypeOption {
   id: "pdf" | "image" | "csv" | "xml";
   accept: string;
+  /** The stub OCR engine returns the same canned text for every image regardless of its actual
+   * content — offering this option today would silently record fabricated data, so it stays
+   * locked until a real OCR/vision engine backs `OcrEnginePort`. */
+  disabled?: boolean;
 }
 
 const FILE_TYPES: FileTypeOption[] = [
   { id: "pdf", accept: "application/pdf" },
-  { id: "image", accept: "image/png,image/jpeg,image/jpg,image/webp" },
+  { id: "image", accept: "image/png,image/jpeg,image/jpg,image/webp", disabled: true },
   { id: "csv", accept: "text/csv,application/vnd.ms-excel" },
   { id: "xml", accept: "text/xml,application/xml" },
 ];
@@ -55,20 +60,33 @@ export function AttachmentMenu({ disabled, onPick }: AttachmentMenuProps) {
             <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
               {extractionCopy.pickType}
             </p>
-            {FILE_TYPES.map((ft) => (
-              <button
-                key={ft.id}
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onPick(ft.accept);
-                }}
-                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-medium text-ink transition hover:bg-accent-soft"
-              >
-                {fileTypeIcons[ft.id]}
-                {extractionCopy.fileTypes[ft.id]}
-              </button>
-            ))}
+            {FILE_TYPES.map((ft) =>
+              ft.disabled ? (
+                <Tooltip key={ft.id} content={extractionCopy.comingSoon} className="w-full">
+                  <button
+                    type="button"
+                    disabled
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-medium text-muted opacity-60 disabled:pointer-events-none"
+                  >
+                    {lockIcon}
+                    {extractionCopy.fileTypes[ft.id]}
+                  </button>
+                </Tooltip>
+              ) : (
+                <button
+                  key={ft.id}
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onPick(ft.accept);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-medium text-ink transition hover:bg-accent-soft"
+                >
+                  {fileTypeIcons[ft.id]}
+                  {extractionCopy.fileTypes[ft.id]}
+                </button>
+              ),
+            )}
           </Card>
         </>
       )}

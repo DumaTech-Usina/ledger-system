@@ -20,12 +20,15 @@ import { Permission } from "../../../../core/domain/enums/Permission";
 import { currentUser, requirePermission } from "../middleware/auth";
 
 /** Accepted upload formats for document extraction — kept here (HTTP plumbing), never leaked into the extraction module itself. */
+/**
+ * Image types are deliberately absent for now: `StubOcrEngine` returns the same canned text for
+ * every image regardless of its actual content, so accepting one here would silently record
+ * fabricated data rather than a rejection the operator can see and act on. Re-add them once
+ * `OcrEnginePort` is backed by a real engine — `ImageFormatAdapter` stays wired in the composition
+ * root so nothing else needs to change to turn this back on.
+ */
 const ACCEPTED_UPLOAD_MIME_TYPES = new Set([
   "application/pdf",
-  "image/png",
-  "image/jpeg",
-  "image/jpg",
-  "image/webp",
   "text/csv",
   "application/csv",
   "application/vnd.ms-excel",

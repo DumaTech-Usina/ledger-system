@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Bot, MessageSquareMore, MessageSquareOff, Paperclip, Video, VideoOff } from "lucide-react";
+import { Bot, Lock, MessageSquareMore, MessageSquareOff, Paperclip, Video, VideoOff } from "lucide-react";
 import { LifecycleMenu } from "@/features/operations/LifecycleMenu";
 import { ChatAurora } from "@/features/operations/ChatAurora";
-import { statusLabels } from "@/features/operations/copy";
+import { extractionCopy, statusLabels } from "@/features/operations/copy";
 import {
   useVideoAnimationDisabled,
   setVideoAnimationDisabled,
@@ -78,20 +78,30 @@ export function OperationsShell({
   // A drag that enters a child element fires `dragleave` on the parent before `dragenter` on the
   // child — a plain boolean would flicker the overlay off between them. Counting nesting depth
   // instead means only the drag that leaves the LAST element still inside the shell turns it off.
-  const [dragActive, setDragActive] = useState(false);
+  // "image" vs "file" tracks whether the overlay should invite the drop or refuse it — the stub OCR
+  // engine returns the same canned text for every image regardless of its content, so accepting an
+  // image drop today would silently record fabricated data (see AttachmentMenu's locked option).
+  const [dragKind, setDragKind] = useState<"none" | "file" | "image">("none");
   const dragDepth = useRef(0);
 
   const isFileDrag = (e: DragEvent): boolean => Array.from(e.dataTransfer.types).includes("Files");
+  // `DataTransferItem.type` (the MIME type of a dragged file) is available during dragenter/dragover
+  // by spec, well before drop — unlike a drag's custom data payload, which browsers restrict until
+  // drop for security. That's what lets the overlay react to "this is an image" while still hovering.
+  const isImageDrag = (e: DragEvent): boolean =>
+    Array.from(e.dataTransfer.items).some((item) => item.kind === "file" && item.type.startsWith("image/"));
 
   const handleDragEnter = (e: DragEvent) => {
     if (!onDropFile || !isFileDrag(e)) return;
     e.preventDefault();
     dragDepth.current += 1;
-    setDragActive(true);
+    setDragKind(isImageDrag(e) ? "image" : "file");
   };
   const handleDragOver = (e: DragEvent) => {
     // A drop is only permitted on an element whose dragover handler calls preventDefault — without
     // this the browser rejects the drop and opens the file instead (its default for a bare page).
+    // Applies to an image drag too: refusing the drop is done in `handleDrop`, not by leaving this
+    // page open to the browser's own fallback (navigating to the dropped file).
     if (!onDropFile || !isFileDrag(e)) return;
     e.preventDefault();
   };
@@ -99,15 +109,19 @@ export function OperationsShell({
     if (!onDropFile || !isFileDrag(e)) return;
     e.preventDefault();
     dragDepth.current = Math.max(0, dragDepth.current - 1);
-    if (dragDepth.current === 0) setDragActive(false);
+    if (dragDepth.current === 0) setDragKind("none");
   };
   const handleDrop = (e: DragEvent) => {
     if (!onDropFile || !isFileDrag(e)) return;
     e.preventDefault();
     dragDepth.current = 0;
-    setDragActive(false);
+    setDragKind("none");
     const file = e.dataTransfer.files[0];
-    if (file) onDropFile(file);
+    // Checked again here (not just trusted from the hover state above) against the actual dropped
+    // File's own type — the authoritative source, in case a fast drag never fired an intermediate
+    // dragover.
+    if (!file || file.type.startsWith("image/")) return;
+    onDropFile(file);
   };
 
   // The video stays mounted and playing through the fade-out (so the motion behind it feels
@@ -140,15 +154,28 @@ export function OperationsShell({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {onDropFile && dragActive && (
+      {onDropFile && dragKind !== "none" && (
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 z-30 grid place-items-center rounded-3xl border-2 border-dashed border-accent bg-accent-soft/90 backdrop-blur-sm"
+          className={cn(
+            "pointer-events-none absolute inset-0 z-30 grid place-items-center rounded-3xl border-2 border-dashed backdrop-blur-sm",
+            dragKind === "image" ? "border-bad bg-bad-soft/90" : "border-accent bg-accent-soft/90",
+          )}
         >
-          <div className="flex flex-col items-center gap-2 text-center text-accent">
-            <Paperclip className="size-8" strokeWidth={1.5} />
-            <p className="text-sm font-semibold">Solte o documento aqui</p>
-            <p className="text-xs opacity-80">Vou extrair os dados automaticamente</p>
+          <div className={cn("flex flex-col items-center gap-2 text-center", dragKind === "image" ? "text-bad" : "text-accent")}>
+            {dragKind === "image" ? (
+              <>
+                <Lock className="size-8" strokeWidth={1.5} />
+                <p className="text-sm font-semibold">{extractionCopy.comingSoon}</p>
+                <p className="text-xs opacity-80">{extractionCopy.imageDropRejected}</p>
+              </>
+            ) : (
+              <>
+                <Paperclip className="size-8" strokeWidth={1.5} />
+                <p className="text-sm font-semibold">Solte o documento aqui</p>
+                <p className="text-xs opacity-80">Vou extrair os dados automaticamente</p>
+              </>
+            )}
           </div>
         </div>
       )}

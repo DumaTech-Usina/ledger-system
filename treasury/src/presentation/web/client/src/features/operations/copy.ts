@@ -318,6 +318,9 @@ export const extractionCopy = {
   filled: "Preenchido",
   review: "Confira",
   fillManually: "Preencha manualmente",
+  /** Shown on the disabled "Imagem" option and while dragging an image over the chat. */
+  comingSoon: "Função em desenvolvimento...",
+  imageDropRejected: "Envio de imagens ainda não está disponível",
 };
 
 /**
