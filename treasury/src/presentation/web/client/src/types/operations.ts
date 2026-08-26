@@ -359,6 +359,7 @@ export type DocumentType =
   | "doc_receipt"
   | "boleto"
   | "invoice"
+  | "tax_document"
   | "bank_statement"
   | "receipt"
   | "generic";

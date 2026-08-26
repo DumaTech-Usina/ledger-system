@@ -1,7 +1,13 @@
 import type { FieldExtractorPort } from "../../../core/application/ports/FieldExtractorPort";
 import type { RawContent, DocumentClassification, FieldExtractionOutcome } from "../../../core/application/dtos/ExtractionModels";
 
-/** Checked in order — first label found wins, most specific first. */
+/**
+ * Checked in order — first label found wins, most specific first. Deliberately does NOT include a
+ * bare "razão social"/"emitente" match ahead of the structured NFS-e block below: on a tax document
+ * that label names whoever OWES the tax (see `extractCounterparty`), and on a multi-party document
+ * (an NFS-e's own EMITENTE/TOMADOR blocks) a bare label match can land on the wrong block entirely —
+ * both are exactly the failure this file's counterparty extraction used to have.
+ */
 const COUNTERPARTY_LABELS: RegExp[] = [
   /favorecido[:\s]+([^\n|]+)/i,
   /cedente[:\s]+([^\n|]+)/i,
@@ -12,6 +18,95 @@ const COUNTERPARTY_LABELS: RegExp[] = [
   /emitente[:\s]+([^\n|]+)/i,
   /raz[aã]o social[:\s]+([^\n|]+)/i,
   /para[:\s]+([^\n|]+)/i,
+];
+
+/**
+ * NFS-e/DANFSe templates print the service provider under an "EMITENTE DA NFS-e"/"Prestador do
+ * Serviço" block and the client under a separate "TOMADOR DO SERVIÇO" block, with the actual name a
+ * few lines below a "Nome / Nome Empresarial" sub-label (CNPJ, inscrição municipal, telefone, ...
+ * sit in between). The `{0,400}` bound keeps this from ever reaching into an unrelated section of a
+ * long document — it only looks as far as one form block plausibly extends.
+ *
+ * Every scenario this app records a document for expresses an outbound act — paying a supplier, a
+ * payroll, a service fee, a tax — never a receivable being billed out, so the EMITENTE (whoever
+ * issued/performed the service being paid for) is the counterparty in the overwhelmingly common
+ * case; the TOMADOR is typically the usina itself. This is a deliberate default, not a certainty —
+ * a document where the usina is itself the EMITENTE would need the other block instead, which this
+ * heuristic pass does not attempt to detect.
+ */
+const EMITENTE_NFSE_PATTERN =
+  /(?:emitente da nfs-?e|prestador do servi[cç]o)[\s\S]{0,400}?nome\s*\/\s*nome empresarial\s*[:\s]*\n?\s*([^\n]+)/i;
+
+/**
+ * A tax payment slip (DAS/DARF/GPS/guia de recolhimento) prints the TAXPAYER's own CNPJ/razão
+ * social prominently — that is who OWES the tax, not who it is paid to, so `COUNTERPARTY_LABELS`
+ * would grab exactly the wrong party here. The actual payee is a government body, identified by
+ * keyword rather than by any name field on the document. Checked in order, most specific first —
+ * PGFN (active debt collection) is a meaningfully different payee than a routine DARF/Simples
+ * Nacional collection, so it must win when both are present (e.g. a Simples Nacional DAS that has
+ * gone to active debt shows both "PGFN" and "SIMPLES NACIONAL" on the same slip).
+ */
+const TAX_AUTHORITY_LABELS: { pattern: RegExp; name: string }[] = [
+  { pattern: /\bpgfn\b|procuradoria.?geral da fazenda nacional/i, name: "Procuradoria-Geral da Fazenda Nacional (PGFN)" },
+  { pattern: /\bdarf\b/i, name: "Receita Federal do Brasil" },
+  { pattern: /documento de arrecada[cç][aã]o do simples nacional|\bdas-mei\b|simples nacional/i, name: "Receita Federal do Brasil" },
+];
+
+/** Last-resort fallbacks for a tax document that named neither PGFN nor a federal collection. */
+const MUNICIPAL_TAX_AUTHORITY_PATTERN = /prefeitura(?:\s+municipal)?\s+d[eo]\s+([^\n,./]+)/i;
+
+/** Strips a registration-code prefix some municipal NFS-e templates glue onto the name field itself
+ * (e.g. "66.237.020 ACME LTDA" → "ACME LTDA") — never a legitimate start of a real company name. */
+function cleanCounterpartyName(raw: string): string {
+  return raw.trim().replace(/^[\d./-]+\s+/, "").trim();
+}
+
+/**
+ * The payee on a tax document is a government body, never the taxpayer's own name printed on it —
+ * resolved by keyword instead of by any name field. Returns undefined (never a guess) when no
+ * known collector is named, which is honest: the guided chat then simply asks for it.
+ */
+function extractTaxAuthority(text: string): string | undefined {
+  for (const { pattern, name } of TAX_AUTHORITY_LABELS) {
+    if (pattern.test(text)) return name;
+  }
+  const municipal = text.match(MUNICIPAL_TAX_AUTHORITY_PATTERN);
+  if (municipal) return `Prefeitura de ${municipal[1].trim()}`;
+  if (/\binss\b/i.test(text)) return "INSS";
+  return undefined;
+}
+
+/**
+ * A tax document's payee is never a name printed on the document (see `extractTaxAuthority`) — the
+ * generic label list below is skipped entirely for it, not just deprioritized, since matching it
+ * would silently record the taxpayer as their own counterparty. Every other document type tries the
+ * NFS-e block first (structural, so it cannot land on the wrong party's block) and falls back to the
+ * single-party label list any other receipt format uses.
+ */
+function extractCounterparty(text: string, classification: DocumentClassification): string | undefined {
+  if (classification.documentType === "tax_document") return extractTaxAuthority(text);
+
+  const emitente = text.match(EMITENTE_NFSE_PATTERN);
+  if (emitente) return cleanCounterpartyName(emitente[1]);
+
+  for (const pattern of COUNTERPARTY_LABELS) {
+    const match = text.match(pattern);
+    if (match) return cleanCounterpartyName(match[1]);
+  }
+  return undefined;
+}
+
+/**
+ * Labels that name the document's own bottom-line total — checked before the bare pattern below so
+ * a dense, multi-column layout (a DAS's composition table, an NFS-e's repeated "Valor do Serviço"
+ * across its municipal/federal/total sections) can never have an unrelated line-item number win
+ * just by appearing earlier in the extracted text than the actual total.
+ */
+const AMOUNT_LABELS: RegExp[] = [
+  /valor l[ií]quido da nfs-?e[:\s]+R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/i,
+  /valor total da nfs-?e[:\s]+R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/i,
+  /valor total do documento[:\s]+R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/i,
+  /valor do servi[cç]o[:\s]+R?\$?\s?(\d{1,3}(?:\.\d{3})*,\d{2})/i,
 ];
 
 /** Brazilian currency format: "R$ 1.250,00" or "1.250,00" (dot = thousands, comma = decimal). */
@@ -76,6 +171,10 @@ const FALLBACK_DATE_LABELS: { pattern: RegExp; name: string }[] = [
 const EXCLUDED_DATE_LABELS: RegExp[] = [
   dateLabelPattern("vencimento"),
   dateLabelPattern("per[ií]odo(?:\\s+de\\s+refer[eê]ncia)?"),
+  // A tax/boleto payment slip's own due date, printed as an instruction ("pay by") rather than a
+  // record of when payment happened — auto-filling it as the payment date would assert a fact the
+  // slip itself does not contain (it is unpaid at the moment it is issued).
+  dateLabelPattern("pagar (?:este documento )?at[eé]"),
 ];
 
 const BARE_DATE_PATTERN = new RegExp(DATE_VALUE);
@@ -145,22 +244,26 @@ function extractCurrency(text: string): string | undefined {
   return undefined;
 }
 
+/** The document's own labeled total wins over the bare pattern — see `AMOUNT_LABELS`. */
+function extractAmount(text: string): string | undefined {
+  for (const pattern of AMOUNT_LABELS) {
+    const match = text.match(pattern);
+    if (match) return normalizeAmount(match[1]);
+  }
+  const bare = text.match(AMOUNT_PATTERN);
+  return bare ? normalizeAmount(bare[1]) : undefined;
+}
+
 /**
  * Heuristic (regex/keyword) field extraction — the first swap target for an AI-based
  * implementation once accuracy needs to improve; `DocumentExtractionService` is unaware of which
- * kind is in use. `classification` isn't weighted into the label priority yet (kept generic
- * across document types for this pass) but is already threaded through for that future tuning.
+ * kind is in use. `classification` now steers counterparty extraction specifically (tax documents
+ * and NFS-e need document-type-aware handling — see `extractCounterparty`); the other fields are
+ * still generic across document types.
  */
 export class HeuristicFieldExtractor implements FieldExtractorPort {
-  extractFields(content: RawContent, _classification: DocumentClassification): FieldExtractionOutcome {
-    let counterparty: string | undefined;
-    for (const pattern of COUNTERPARTY_LABELS) {
-      const match = content.text.match(pattern);
-      if (match) {
-        counterparty = match[1].trim();
-        break;
-      }
-    }
+  extractFields(content: RawContent, classification: DocumentClassification): FieldExtractionOutcome {
+    const counterparty = extractCounterparty(content.text, classification);
 
     let description: string | undefined;
     for (const pattern of DESCRIPTION_LABELS) {
@@ -171,8 +274,7 @@ export class HeuristicFieldExtractor implements FieldExtractorPort {
       }
     }
 
-    const amountMatch = content.text.match(AMOUNT_PATTERN);
-    const amount = amountMatch ? normalizeAmount(amountMatch[1]) : undefined;
+    const amount = extractAmount(content.text);
 
     const currency = extractCurrency(content.text);
 

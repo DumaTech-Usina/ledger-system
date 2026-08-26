@@ -297,6 +297,7 @@ export const documentTypeLabels: Record<DocumentType, string> = {
   doc_receipt: "Comprovante de DOC",
   boleto: "Boleto",
   invoice: "Nota fiscal",
+  tax_document: "Guia de imposto",
   bank_statement: "Extrato bancário",
   receipt: "Recibo",
   generic: "Documento",
