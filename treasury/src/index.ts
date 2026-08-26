@@ -53,6 +53,15 @@ import { PositionSnapshot } from "./core/application/services/PositionSnapshot";
 import { SnapshotRefresher } from "./core/application/services/SnapshotRefresher";
 import { GetIntentUseCase } from "./core/application/use-cases/GetIntent";
 import { ListIntentsUseCase } from "./core/application/use-cases/ListIntents";
+import { ExtractAndApplyDocumentUseCase } from "./core/application/use-cases/ExtractAndApplyDocument";
+import { DocumentExtractionService } from "./core/application/services/DocumentExtractionService";
+import { CsvFormatAdapter } from "./infra/file-extraction/adapters/CsvFormatAdapter";
+import { XmlFormatAdapter } from "./infra/file-extraction/adapters/XmlFormatAdapter";
+import { PdfFormatAdapter } from "./infra/file-extraction/adapters/PdfFormatAdapter";
+import { ImageFormatAdapter } from "./infra/file-extraction/adapters/ImageFormatAdapter";
+import { StubOcrEngine } from "./infra/file-extraction/ocr/StubOcrEngine";
+import { HeuristicDocumentClassifier } from "./infra/file-extraction/classification/HeuristicDocumentClassifier";
+import { HeuristicFieldExtractor } from "./infra/file-extraction/fields/HeuristicFieldExtractor";
 
 async function bootstrap(): Promise<void> {
   // ── Composition root ─────────────────────────────────────────────────────────
@@ -192,6 +201,16 @@ async function bootstrap(): Promise<void> {
     partyDirectory,
   );
 
+  // ── Document extraction (file → prefilled slot answers) ─────────────────────
+  const ocrEngine = new StubOcrEngine();
+  const documentClassifier = new HeuristicDocumentClassifier();
+  const fieldExtractor = new HeuristicFieldExtractor();
+  const extractionService = new DocumentExtractionService(
+    [new PdfFormatAdapter(), new ImageFormatAdapter(ocrEngine), new CsvFormatAdapter(), new XmlFormatAdapter()],
+    documentClassifier,
+    fieldExtractor,
+  );
+
   const app = createServer({
     auth,
     secureCookies: env.NODE_ENV === "production",
@@ -217,6 +236,7 @@ async function bootstrap(): Promise<void> {
     ),
     previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper, partyDirectory),
     submitIntent,
+    extractAndApplyDocument: new ExtractAndApplyDocumentUseCase(extractionService, applyAnswers, intentRepo),
     submitRectification: new SubmitRectificationUseCase(
       ledgerRead,
       startIntent,

@@ -1,6 +1,7 @@
 import { identityCopy, scenarioCopy, scenarioSlotPrompts, translateMessage } from "@/features/operations/copy";
 import type {
   DialogState,
+  ExtractAndApplyDocumentResult,
   IdentityOutcome,
   IntentStatus,
   InterpretResult,
@@ -48,6 +49,7 @@ export type StreamItem =
       candidates: SettlementCandidate[];
     }
   | { id: string; kind: "confirm"; preview: PreviewIntentResult }
+  | { id: string; kind: "extraction"; result: ExtractAndApplyDocumentResult }
   | {
       id: string;
       kind: "result";

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { DatePicker } from "@/components/DatePicker";
+import { AttachmentMenu } from "@/features/operations/AttachmentMenu";
 import { scenarioCopy } from "@/features/operations/copy";
 import { cn } from "@/utils/cn";
 import type { ScenarioSummary } from "@/types/operations";
@@ -24,6 +25,9 @@ export interface ComposerProps {
    * same as any other slot answer), so nothing downstream needs to know the difference.
    */
   dateSlot?: boolean;
+  /** Conversation-phase only: attaches a document instead of typing an answer — extraction may fill
+   * several unanswered slots at once, not just the one currently on screen. */
+  onAttach?: (file: File) => void;
 }
 
 /**
@@ -35,9 +39,19 @@ export interface ComposerProps {
  * The one exception is `dateSlot`: a date is answered by picking, not typing prose, so that turn
  * swaps the free-text field for `DatePicker` instead of asking the extractor to parse a sentence.
  */
-export function Composer({ placeholder, required, onSend, busy, suggest, onPickSuggestion, dateSlot }: ComposerProps) {
+export function Composer({
+  placeholder,
+  required,
+  onSend,
+  busy,
+  suggest,
+  onPickSuggestion,
+  dateSlot,
+  onAttach,
+}: ComposerProps) {
   const [value, setValue] = useState("");
   const suggestions = suggest && value.trim() ? suggest(value) : [];
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const submit = () => {
     if (value.trim() === "" && required) return;
@@ -50,12 +64,34 @@ export function Composer({ placeholder, required, onSend, busy, suggest, onPickS
     setValue("");
   };
 
+  const openPicker = (accept: string) => {
+    const input = fileInputRef.current;
+    if (!input) return;
+    input.accept = accept;
+    input.click();
+  };
+
   if (dateSlot) {
     return <DatePicker value="" onChange={onSend} disabled={busy} requireConfirm openDirection="up" showTodayShortcut />;
   }
 
   return (
     <div className="relative flex items-center gap-2 rounded-2xl border border-white/40 bg-panel-solid/85 p-2 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-panel-solid/80">
+      {onAttach && (
+        <>
+          <AttachmentMenu disabled={busy} onPick={openPicker} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) onAttach(file);
+            }}
+          />
+        </>
+      )}
       {suggestions.length > 0 && (
         <div
           role="listbox"
