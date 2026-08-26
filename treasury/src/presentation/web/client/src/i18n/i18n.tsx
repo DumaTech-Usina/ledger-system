@@ -37,7 +37,120 @@ export interface Translations {
     /** For a figure the Ledger cannot derive. Never rendered as zero — the two mean different things. */
     unknown: string;
   };
-  nav: { operations: string; dashboards: string; positions: string; intents: string };
+  nav: {
+    operations: string;
+    dashboards: string;
+    positions: string;
+    intents: string;
+    counterparties: string;
+    financialHealth: string;
+  };
+  /** The Contrapartes screen — every party the Directory knows, searchable and editable. */
+  counterparties: {
+    heading: string;
+    subheading: string;
+    searchLabel: string;
+    searchPlaceholder: string;
+    statusFilterLabel: string;
+    table: { name: string; id: string };
+    edit: string;
+    viewPositions: string;
+    editModal: {
+      title: string;
+      nameLabel: string;
+      nameRequired: string;
+      save: string;
+      cancel: string;
+      genericError: string;
+    };
+    /** "Posições de {name}" — the modal title, filled in with `formatTemplate`. */
+    positionsModalTitle: string;
+  };
+  /** The Saúde Financeira screen — a gauge, a rule-based summary of what changed, two ranked tables. */
+  financialHealth: {
+    heading: string;
+    subheading: string;
+    gauge: {
+      /** Title above the net-cash dial. */
+      cashTitle: string;
+      /** Title above the book health-score dial. */
+      scoreTitle: string;
+      title: string;
+      subtitle: string;
+      /** Subtitle under the health-score dial's number. */
+      scoreSubtitle: string;
+      zoneHealthy: string;
+      zoneCaution: string;
+      zoneCritical: string;
+      unavailable: string;
+      /** Shown in place of the health-score dial when the book's health score wasn't returned. */
+      scoreUnavailable: string;
+    };
+    insights: {
+      title: string;
+      subtitle: string;
+      empty: string;
+      unavailable: string;
+      /** Section heading inside the "what caused this" modal opened by clicking an insight. */
+      causeTitle: string;
+      generalSpendingUp: string;
+      generalSpendingDown: string;
+      generalRevenueUp: string;
+      generalRevenueDown: string;
+      /** "Aumento nos gastos com {category}" — filled in with `formatTemplate`. */
+      categorySpendingUp: string;
+      /** "Aumento na receita de {category}" — filled in with `formatTemplate`. */
+      categoryRevenueUp: string;
+      loanRecoveryHigh: string;
+      advanceRecoveryHigh: string;
+      commissionOpenExcess: string;
+      capitalAtRisk: string;
+      overduePayables: string;
+      healthTrendUp: string;
+      healthTrendDown: string;
+      /** "{pct} em relação ao período anterior" — the detail line under a period-comparison insight. */
+      vsLastPeriod: string;
+      /** "{pct} dos recebíveis em aberto" — the detail line under the commission-concentration insight. */
+      shareOfReceivables: string;
+      /** "{delta} pontos" — the detail line under the health-trend insight. */
+      pointsDelta: string;
+      /** Labels for the factor lines shown inside the "what caused this" modal. */
+      factors: {
+        previousPeriod: string;
+        currentPeriod: string;
+        variation: string;
+        category: string;
+        commissionOpen: string;
+        totalOpenReceivables: string;
+        share: string;
+        capitalAtRisk: string;
+        openExposure: string;
+        riskShare: string;
+        overduePayable: string;
+        upcomingPayable: string;
+        undatedPayable: string;
+        healthScore: string;
+        closureQuality: string;
+        openBookHealth: string;
+        windowDays: string;
+      };
+    };
+    topExpenseCategories: {
+      title: string;
+      subtitle: string;
+      category: string;
+      amount: string;
+      share: string;
+      empty: string;
+      unavailable: string;
+    };
+    topOpenPositions: {
+      title: string;
+      subtitle: string;
+      empty: string;
+      unavailable: string;
+    };
+  };
   /** The economic reality: what is owed, what is outstanding, how each object evolved. */
   positions: {
     heading: string;
@@ -331,6 +444,100 @@ const ptBR: Translations = {
     dashboards: "Dashboard",
     positions: "Posições",
     intents: "Minhas operações",
+    counterparties: "Contrapartes",
+    financialHealth: "Saúde financeira",
+  },
+  counterparties: {
+    heading: "Contrapartes",
+    subheading: "Todo mundo com quem a usina já registrou um fato — pesquise, edite o nome ou veja as posições financeiras de cada uma.",
+    searchLabel: "Buscar",
+    searchPlaceholder: "Nome, CNPJ ou id…",
+    statusFilterLabel: "Status de posição",
+    table: { name: "Nome", id: "Id" },
+    edit: "Editar",
+    viewPositions: "Ver posições financeiras",
+    editModal: {
+      title: "Editar contraparte",
+      nameLabel: "Nome",
+      nameRequired: "O nome não pode ficar em branco.",
+      save: "Salvar",
+      cancel: "Cancelar",
+      genericError: "Não foi possível salvar. Tente novamente.",
+    },
+    positionsModalTitle: "Posições de {name}",
+  },
+  financialHealth: {
+    heading: "Saúde financeira",
+    subheading: "Como o caixa está indo e o que mudou recentemente.",
+    gauge: {
+      cashTitle: "Saúde de Caixa",
+      scoreTitle: "Saúde Financeira",
+      title: "Caixa líquido",
+      subtitle: "Últimos 30 dias",
+      scoreSubtitle: "Pontuação do livro",
+      zoneHealthy: "Saudável",
+      zoneCaution: "Atenção",
+      zoneCritical: "Crítico",
+      unavailable: "Não foi possível ler o caixa do período.",
+      scoreUnavailable: "Não foi possível ler a pontuação do livro.",
+    },
+    insights: {
+      title: "Resumo dos últimos acontecimentos",
+      subtitle: "Comparando os últimos 30 dias com os 30 anteriores.",
+      empty: "Nada fora do padrão no período — sem sinais relevantes para destacar.",
+      unavailable: "Não há dados suficientes para montar o resumo.",
+      causeTitle: "O que causou isso",
+      generalSpendingUp: "Aumento nos gastos gerais",
+      generalSpendingDown: "Diminuição nos gastos gerais",
+      generalRevenueUp: "Aumento na receita geral",
+      generalRevenueDown: "Diminuição na receita",
+      categorySpendingUp: "Aumento nos gastos com {category}",
+      categoryRevenueUp: "Aumento na receita de {category}",
+      loanRecoveryHigh: "Alta recuperação de empréstimos",
+      advanceRecoveryHigh: "Alta recuperação de adiantamentos",
+      commissionOpenExcess: "Excesso de expectativa de comissão em aberto",
+      capitalAtRisk: "Capital em risco identificado",
+      overduePayables: "Pagamentos vencidos em aberto",
+      healthTrendUp: "Melhora na saúde financeira do livro",
+      healthTrendDown: "Piora na saúde financeira do livro",
+      vsLastPeriod: "{pct} em relação ao período anterior",
+      shareOfReceivables: "{pct} dos recebíveis em aberto",
+      pointsDelta: "{delta} pontos",
+      factors: {
+        previousPeriod: "Período anterior",
+        currentPeriod: "Período atual",
+        variation: "Variação",
+        category: "Categoria",
+        commissionOpen: "Comissão em aberto",
+        totalOpenReceivables: "Total de recebíveis em aberto",
+        share: "Participação",
+        capitalAtRisk: "Capital em risco",
+        openExposure: "Exposição em aberto",
+        riskShare: "% da exposição em risco",
+        overduePayable: "Vencido",
+        upcomingPayable: "A vencer",
+        undatedPayable: "Sem vencimento definido",
+        healthScore: "Pontuação atual",
+        closureQuality: "Qualidade de fechamento",
+        openBookHealth: "Saúde do livro em aberto",
+        windowDays: "Janela analisada",
+      },
+    },
+    topExpenseCategories: {
+      title: "Maiores categorias de saída",
+      subtitle: "Últimos 30 dias, por tipo de evento.",
+      category: "Categoria",
+      amount: "Valor",
+      share: "% do total",
+      empty: "Nenhuma saída de caixa no período.",
+      unavailable: "Dados de composição indisponíveis.",
+    },
+    topOpenPositions: {
+      title: "Maiores posições em aberto",
+      subtitle: "Ordenadas pelo saldo em aberto.",
+      empty: "Nenhuma posição em aberto.",
+      unavailable: "Não foi possível carregar as posições.",
+    },
   },
   positions: {
     heading: "Posições econômicas",
@@ -716,6 +923,100 @@ const en: Translations = {
     dashboards: "Dashboard",
     positions: "Positions",
     intents: "My entries",
+    counterparties: "Counterparties",
+    financialHealth: "Financial Health",
+  },
+  counterparties: {
+    heading: "Counterparties",
+    subheading: "Everyone the usina has ever recorded a fact about — search, rename, or view each one's financial positions.",
+    searchLabel: "Search",
+    searchPlaceholder: "Name, tax id, or id…",
+    statusFilterLabel: "Position status",
+    table: { name: "Name", id: "Id" },
+    edit: "Edit",
+    viewPositions: "View financial positions",
+    editModal: {
+      title: "Edit counterparty",
+      nameLabel: "Name",
+      nameRequired: "Name cannot be blank.",
+      save: "Save",
+      cancel: "Cancel",
+      genericError: "Could not save. Try again.",
+    },
+    positionsModalTitle: "Positions for {name}",
+  },
+  financialHealth: {
+    heading: "Financial health",
+    subheading: "How cash is doing, and what changed recently.",
+    gauge: {
+      cashTitle: "Cash Health",
+      scoreTitle: "Financial Health",
+      title: "Net cash",
+      subtitle: "Last 30 days",
+      scoreSubtitle: "Book score",
+      zoneHealthy: "Healthy",
+      zoneCaution: "Caution",
+      zoneCritical: "Critical",
+      unavailable: "Could not read cash for the period.",
+      scoreUnavailable: "Could not read the book's health score.",
+    },
+    insights: {
+      title: "Recent events summary",
+      subtitle: "Comparing the last 30 days against the 30 before that.",
+      empty: "Nothing out of the ordinary this period — no signals worth flagging.",
+      unavailable: "Not enough data to build the summary.",
+      causeTitle: "What caused this",
+      generalSpendingUp: "Rise in overall spending",
+      generalSpendingDown: "Drop in overall spending",
+      generalRevenueUp: "Rise in overall revenue",
+      generalRevenueDown: "Drop in revenue",
+      categorySpendingUp: "Rise in spending on {category}",
+      categoryRevenueUp: "Rise in revenue from {category}",
+      loanRecoveryHigh: "Strong loan recovery",
+      advanceRecoveryHigh: "Strong advance recovery",
+      commissionOpenExcess: "Excess of open commission expectancy",
+      capitalAtRisk: "Capital at risk identified",
+      overduePayables: "Overdue payables outstanding",
+      healthTrendUp: "Improvement in the book's financial health",
+      healthTrendDown: "Decline in the book's financial health",
+      vsLastPeriod: "{pct} vs. the previous period",
+      shareOfReceivables: "{pct} of open receivables",
+      pointsDelta: "{delta} points",
+      factors: {
+        previousPeriod: "Previous period",
+        currentPeriod: "Current period",
+        variation: "Change",
+        category: "Category",
+        commissionOpen: "Open commission",
+        totalOpenReceivables: "Total open receivables",
+        share: "Share",
+        capitalAtRisk: "Capital at risk",
+        openExposure: "Open exposure",
+        riskShare: "% of exposure at risk",
+        overduePayable: "Overdue",
+        upcomingPayable: "Upcoming",
+        undatedPayable: "No due date set",
+        healthScore: "Current score",
+        closureQuality: "Closure quality",
+        openBookHealth: "Open-book health",
+        windowDays: "Window analyzed",
+      },
+    },
+    topExpenseCategories: {
+      title: "Top spending categories",
+      subtitle: "Last 30 days, by event type.",
+      category: "Category",
+      amount: "Amount",
+      share: "% of total",
+      empty: "No cash out in the period.",
+      unavailable: "Composition data unavailable.",
+    },
+    topOpenPositions: {
+      title: "Largest open positions",
+      subtitle: "Ranked by open balance.",
+      empty: "No open positions.",
+      unavailable: "Could not load positions.",
+    },
   },
   positions: {
     heading: "Economic positions",

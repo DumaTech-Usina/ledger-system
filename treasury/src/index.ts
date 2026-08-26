@@ -62,6 +62,8 @@ import { ImageFormatAdapter } from "./infra/file-extraction/adapters/ImageFormat
 import { StubOcrEngine } from "./infra/file-extraction/ocr/StubOcrEngine";
 import { HeuristicDocumentClassifier } from "./infra/file-extraction/classification/HeuristicDocumentClassifier";
 import { HeuristicFieldExtractor } from "./infra/file-extraction/fields/HeuristicFieldExtractor";
+import { ListPartiesUseCase } from "./core/application/use-cases/ListParties";
+import { RenamePartyUseCase } from "./core/application/use-cases/RenameParty";
 
 async function bootstrap(): Promise<void> {
   // ── Composition root ─────────────────────────────────────────────────────────
@@ -249,6 +251,8 @@ async function bootstrap(): Promise<void> {
     recordPartyAttribute: new RecordPartyAttributeUseCase(partyRepo, clock, audit),
     listIncompleteParties: new ListIncompletePartiesUseCase(partyDirectory),
     listSettlementCandidates: new ListSettlementCandidatesUseCase(intentRepo, ledgerRead, partyDirectory),
+    listParties: new ListPartiesUseCase(partyDirectory, env.USINA_PARTY_ID),
+    renameParty: new RenamePartyUseCase(partyRepo),
     // The algebra is a build artifact of the Ledger, read once at boot. A snapshot this build
     // cannot read is refused loudly here rather than producing a silently empty offer.
     listPositionActions: new ListPositionActionsUseCase(ledgerRead, ledgerAlgebra),

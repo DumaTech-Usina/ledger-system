@@ -5,6 +5,7 @@ import { conversationRoutes } from "./routes/conversationRoutes";
 import { intentRoutes } from "./routes/intentRoutes";
 import { authRoutes } from "./routes/authRoutes";
 import { dashboardRoutes } from "./routes/dashboardRoutes";
+import { partyRoutes } from "./routes/partyRoutes";
 import { attachUser, requireAuth, requirePermission } from "./middleware/auth";
 import { Permission } from "../../../core/domain/enums/Permission";
 import type { AuthService } from "../../../core/application/services/AuthService";
@@ -31,6 +32,8 @@ import type { StartPositionActionUseCase } from "../../../core/application/use-c
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
 import type { ExtractAndApplyDocumentUseCase } from "../../../core/application/use-cases/ExtractAndApplyDocument";
+import type { ListPartiesUseCase } from "../../../core/application/use-cases/ListParties";
+import type { RenamePartyUseCase } from "../../../core/application/use-cases/RenameParty";
 
 export interface ServerDeps {
   auth: AuthService;
@@ -50,6 +53,8 @@ export interface ServerDeps {
   listSettlementCandidates: ListSettlementCandidatesUseCase;
   listPositionActions: ListPositionActionsUseCase;
   startPositionAction: StartPositionActionUseCase;
+  listParties: ListPartiesUseCase;
+  renameParty: RenamePartyUseCase;
   /** Forgets the positions a successful write touched. Composition, never domain. */
   forgetPositions?: (objectIds: readonly string[]) => void;
   getIntent: GetIntentUseCase;
@@ -99,6 +104,7 @@ export function createServer(deps: ServerDeps) {
       deps.forgetPositions,
     ),
   );
+  app.use("/api/parties", requireAuth, partyRoutes(deps.listParties, deps.renameParty));
   app.use(
     "/api/intents",
     requireAuth,

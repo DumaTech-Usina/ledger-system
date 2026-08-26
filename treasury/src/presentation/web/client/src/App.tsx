@@ -6,6 +6,8 @@ import { OperationsPage } from "@/features/operations/OperationsPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { PositionsPage } from "@/features/dashboard/PositionsPage";
 import { IntentsPage } from "@/features/intents/IntentsPage";
+import { CounterpartiesPage } from "@/screens-concept/CounterpartiesPage";
+import { FinancialHealthPage } from "@/screens-concept/FinancialHealthPage";
 import { useLanguage } from "@/i18n/i18n";
 import type { Role } from "@/types/auth";
 import type { AdoptedIntent } from "@/features/operations/useConversation";
@@ -28,6 +30,9 @@ export function App() {
     { id: "dashboards", label: t.nav.dashboards, icon: "dashboards" as const },
     { id: "positions", label: t.nav.positions, icon: "positions" as const },
     { id: "intents", label: t.nav.intents, icon: "intents" as const },
+    // Concept screens — see src/screens-concept. Design pending; navigable but blank for now.
+    { id: "counterparties", label: t.nav.counterparties, icon: "counterparties" as const },
+    { id: "financial-health", label: t.nav.financialHealth, icon: "financialHealth" as const },
   ];
 
   const pageTitles: Record<string, string> = {
@@ -35,6 +40,8 @@ export function App() {
     dashboards: t.nav.dashboards,
     positions: t.nav.positions,
     intents: t.nav.intents,
+    counterparties: t.nav.counterparties,
+    "financial-health": t.nav.financialHealth,
   };
 
   const roleLabels: Record<Role, string> = {
@@ -64,7 +71,17 @@ export function App() {
       userRole={roleLabels[user.role]}
       onSignOut={logout}
     >
-      {activeNav === "intents" ? (
+      {activeNav === "counterparties" ? (
+        <CounterpartiesPage
+          canRectify={user.permissions.includes("intent:submit")}
+          onOperationStarted={(intent) => {
+            setAdopted(intent);
+            setActiveNav("operations");
+          }}
+        />
+      ) : activeNav === "financial-health" ? (
+        <FinancialHealthPage />
+      ) : activeNav === "intents" ? (
         <IntentsPage />
       ) : activeNav === "positions" ? (
         <PositionsPage
