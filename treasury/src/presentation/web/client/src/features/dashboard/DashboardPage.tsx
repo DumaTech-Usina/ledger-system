@@ -217,7 +217,7 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
                 />
               </Modal>
 
-              <MovementsSection currency={cashPosition.currency} period={period} />
+              <MovementsSection currency={cashPosition.currency} period={period} balanceOver={movements} />
             </>
           );
         })()

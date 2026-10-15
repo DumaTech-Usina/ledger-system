@@ -32,6 +32,12 @@ export interface MovementsTableProps {
    */
   openingBalance?: string;
   /**
+   * The complete run the balance is accumulated over, when the rows shown are not that run — a page
+   * of a list the reader filtered or re-sorted. Each row then reads its balance from this run by
+   * event id, so neither a filter nor a sort can change it; a row outside the run shows as unknown.
+   */
+  balanceOver?: CashMovement[];
+  /**
    * Off when the caller already asked the Ledger for one page and owns the pager itself. Slicing
    * again here would page a page — the same rule {@link PositionsTable} follows.
    */
@@ -44,6 +50,7 @@ export function MovementsTable({
   partyNames = {},
   showBalance = false,
   openingBalance = "0",
+  balanceOver,
   paginate = true,
 }: MovementsTableProps) {
   const { t } = useLanguage();
@@ -53,8 +60,8 @@ export function MovementsTable({
   // Over the whole list, never the visible page: a balance is what everything before it adds up to,
   // so paging must not restart the accumulation.
   const balances = useMemo(
-    () => (showBalance ? runningBalances(movements, openingBalance) : null),
-    [movements, openingBalance, showBalance],
+    () => (showBalance ? runningBalances(balanceOver ?? movements, openingBalance) : null),
+    [balanceOver, movements, openingBalance, showBalance],
   );
 
   useEffect(() => {
@@ -124,7 +131,7 @@ export function MovementsTable({
                 {showBalance && (
                   <Table.Cell
                     mono
-                    className={`text-right font-semibold ${
+                    className={`whitespace-nowrap text-right font-semibold ${
                       balances?.get(m.eventId) == null ? "text-muted" : "text-ink"
                     }`}
                   >

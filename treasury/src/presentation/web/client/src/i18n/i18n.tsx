@@ -435,7 +435,7 @@ const ptBR: Translations = {
     unavailable: "Não foi possível carregar os dados do Ledger no momento.",
     cashIn: "Entradas de caixa",
     cashOut: "Saídas de caixa",
-    netFlow: "Fluxo líquido",
+    netFlow: "Saldo geral",
     positionAsOf: "Posição em {date}",
     periodLabel: "Período",
     periodApplied: "Aplicado pelo Ledger: {from} – {to}",
@@ -533,7 +533,7 @@ const ptBR: Translations = {
     hero: {
       badge: "Fluxo financeiro",
       cta: "Nova operação",
-      netLabel: "Líquido",
+      netLabel: "Saldo geral",
       dayDetailTitle: "Movimentações de {date}",
       balanceLabel: "Saldo do dia",
       viewAll: "Ver fluxo completo",
@@ -613,7 +613,7 @@ const ptBR: Translations = {
     commission_pool: "Pool de comissão",
     commission_receivable: "Comissão a receber",
     commission_payable: "Comissão a pagar",
-    loan: "Empréstimo",
+    loan: "Vale",
     advance: "Adiantamento",
     receivable: "A receber",
     payable: "A pagar",
@@ -651,10 +651,10 @@ const ptBR: Translations = {
     penalty_payment: "Pagamento de multa",
     advance_payment: "Pagamento de adiantamento",
     advance_settlement: "Liquidação de adiantamento",
-    loan_origination: "Concessão de empréstimo",
-    loan_repayment: "Pagamento de empréstimo",
+    loan_origination: "Concessão de vale",
+    loan_repayment: "Recuperação de vale",
     direct_payment_acknowledged: "Pagamento direto reconhecido",
-    incentive_payment: "Pagamento de incentivo",
+    incentive_payment: "Pagamento de campanha",
     ledger_correction: "Correção de lançamento",
     commission_expected: "Comissão prevista",
     outbound_payment: "Pagamento efetuado",
@@ -670,12 +670,12 @@ const ptBR: Translations = {
     // "Registrar renúncia de comissão" — se a comissão está sendo dispensada ou estornada.
     waiver: "Renúncia padrão",
     reversal: "Estorno de comissão indevida",
-    // "Registrar pagamento de incentivo" — qual objeto o pagamento origina.
+    // "Registrar pagamento de campanha" — qual objeto o pagamento origina.
     incentive: "Incentivo",
     bonus: "Bônus",
     // "Retificar um lançamento" — o tipo de posição que o lançamento corrigido movimentou.
     advance: "Adiantamento",
-    loan: "Empréstimo",
+    loan: "Vale",
     commission_receivable: "Comissão a receber",
   },
   rejection: {
@@ -820,7 +820,7 @@ const en: Translations = {
     unavailable: "Couldn't load Ledger data right now.",
     cashIn: "Cash in",
     cashOut: "Cash out",
-    netFlow: "Net flow",
+    netFlow: "Overall balance",
     positionAsOf: "Position as of {date}",
     periodLabel: "Period",
     periodApplied: "Applied by the Ledger: {from} – {to}",
@@ -918,7 +918,7 @@ const en: Translations = {
     hero: {
       badge: "Financial flow",
       cta: "New entry",
-      netLabel: "Net",
+      netLabel: "Overall balance",
       dayDetailTitle: "Movements on {date}",
       balanceLabel: "Daily balance",
       viewAll: "View full flow",

@@ -8,6 +8,7 @@ import { MovementsTable } from "@/features/dashboard/MovementsTable";
 import { useMovementsPage } from "@/features/dashboard/useMovementsPage";
 import { CASH_EFFECTS, MOVEMENT_SORT_KEYS } from "@/features/dashboard/vocabulary";
 import { formatTemplate, useLanguage } from "@/i18n/i18n";
+import type { CashMovement } from "@/types/dashboard";
 
 /**
  * The book's cash movements — the real listing behind the "recent" slice `/overview` carries,
@@ -18,10 +19,11 @@ import { formatTemplate, useLanguage } from "@/i18n/i18n";
  * that could silently disagree. Direction, counterparty and sort stay local — they only ever
  * narrow this one list.
  *
- * No running-balance column here, unlike the summary drill-downs elsewhere on this page: a balance
- * only means something over a complete, fixed-order run of movements, and this list can be
- * filtered to one direction or one party and re-sorted by the reader — either of which would make
- * "the balance right after this row" a number that does not correspond to anything.
+ * The balance column is not accumulated over these rows: a balance only means something over a
+ * complete, fixed-order run of movements, and this list can be filtered to one direction or one
+ * party and re-sorted by the reader. It is read instead from `balanceOver` — the period's whole,
+ * unfiltered run the Dashboard already holds — so each row shows the same balance the "Saldo geral"
+ * drill-down shows for it, whatever filter or sort is applied here.
  *
  * `counterparty` shows the raw party id: this route does not resolve display names the way
  * `/overview` does (see `treasury_api_reference.md` §3.5/§7), and inventing one from a page that
@@ -30,9 +32,12 @@ import { formatTemplate, useLanguage } from "@/i18n/i18n";
 export function MovementsSection({
   currency,
   period,
+  balanceOver,
 }: {
   currency: string;
   period: { from: string; to: string };
+  /** The period's complete movement run each row's balance is read from. */
+  balanceOver: CashMovement[];
 }) {
   const { t } = useLanguage();
   const { page, setPage, filters, updateFilters, clearFilters, result, loading } = useMovementsPage(period);
@@ -108,7 +113,13 @@ export function MovementsSection({
         ) : (
           <>
             {/* Paged and filtered by the Ledger — the table must not slice a page again. */}
-            <MovementsTable movements={result.items} currency={currency} paginate={false} />
+            <MovementsTable
+              movements={result.items}
+              currency={currency}
+              paginate={false}
+              showBalance
+              balanceOver={balanceOver}
+            />
             <Pagination page={page} totalPages={result.totalPages ?? 1} onPageChange={setPage} />
             {result.total != null && (
               <p className="px-5 pb-4 text-[12px] text-muted">

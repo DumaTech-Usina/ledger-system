@@ -54,6 +54,34 @@ describe("decideAdvance", () => {
     if (decision.kind !== "question") return;
     expect(decision.message).toEqual({ kind: "bot", text: "Who is being paid?" });
   });
+
+  it("fills the currency with Real instead of asking for it", () => {
+    const currencySlot: SlotDefinition = {
+      key: "currency",
+      type: "choice",
+      prompt: "Which currency?",
+      required: true,
+      choices: ["BRL", "USD"],
+    };
+    const state: DialogState = { kind: "question", slot: currencySlot, answered: 2, total: 5 };
+    expect(decideAdvance(state, undefined, "register_payment")).toEqual({
+      kind: "default",
+      slot: currencySlot,
+      value: "BRL",
+    });
+  });
+
+  it("asks for the currency when Real is not one of the slot's choices", () => {
+    const currencySlot: SlotDefinition = {
+      key: "currency",
+      type: "choice",
+      prompt: "Which currency?",
+      required: true,
+      choices: ["USD"],
+    };
+    const state: DialogState = { kind: "question", slot: currencySlot, answered: 2, total: 5 };
+    expect(decideAdvance(state, undefined, "register_payment").kind).toBe("question");
+  });
 });
 
 describe("interpretationMessages", () => {

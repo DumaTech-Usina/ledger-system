@@ -90,12 +90,31 @@ export const labelFor = (scenarioId: string, key: string): string => scenarioSlo
 export type AdvanceDecision =
   | { kind: "error"; message: NewMessage }
   | { kind: "ready" }
-  | { kind: "question"; slot: SlotDefinition; message: NewMessage };
+  | { kind: "question"; slot: SlotDefinition; message: NewMessage }
+  | { kind: "default"; slot: SlotDefinition; value: string };
+
+/**
+ * Questions the chat answers on the operator's behalf instead of asking. Real is the treasury's
+ * working currency, so asking for it on every operation is noise — it is filled in silently and
+ * stays editable on the confirmation card like any other answer.
+ */
+const defaultAnswers: Record<string, string> = { currency: "BRL" };
+
+/**
+ * The value to fill a slot with without asking, or null when it must be asked. A default the slot's
+ * own choices don't offer is never sent — the backend would refuse it, so the question is asked.
+ */
+export function defaultAnswerFor(slot: SlotDefinition): string | null {
+  const value = defaultAnswers[slot.key];
+  if (value === undefined) return null;
+  if (slot.choices && !slot.choices.includes(value)) return null;
+  return value;
+}
 
 /**
  * What to do with a single-answer outcome (a direct answer, a suggestion accepted, or a bound
  * interpretation once its `interpretationMessages` are already queued): stay put with an error,
- * head to preview, or ask the next question.
+ * head to preview, fill a defaulted slot, or ask the next question.
  */
 export function decideAdvance(
   state: DialogState,
@@ -107,6 +126,10 @@ export function decideAdvance(
   }
   if (state.kind === "ready") {
     return { kind: "ready" };
+  }
+  const value = defaultAnswerFor(state.slot);
+  if (value !== null) {
+    return { kind: "default", slot: state.slot, value };
   }
   return {
     kind: "question",

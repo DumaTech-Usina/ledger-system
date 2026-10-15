@@ -185,11 +185,34 @@ export function useConversation(adopt?: AdoptedIntent | null) {
         if (id) goPreview(id);
         return;
       }
+      if (decision.kind === "default") {
+        // Recorded like an asked slot so the confirmation card's "Editar" still offers it.
+        recordSlot(decision.slot, slotPrompt(sid, decision.slot));
+        const id = intentIdRef.current;
+        if (!id) return;
+        setBusy(true);
+        operationsApi.answer(id, decision.slot.key, decision.value).then(({ data }) => {
+          setBusy(false);
+          if (!data?.state) {
+            push(withId({ kind: "transport-error" }));
+            return;
+          }
+          refreshLifecycle(id);
+          // A refused default is asked the ordinary way rather than retried forever.
+          if (data.error) {
+            setCurrentSlot(decision.slot);
+            push(withId({ kind: "bot", text: slotPrompt(sid, decision.slot) }));
+            return;
+          }
+          advance(data.state, undefined, sid);
+        });
+        return;
+      }
       setCurrentSlot(decision.slot);
       recordSlot(decision.slot, slotPrompt(sid, decision.slot));
       push(withId(decision.message));
     },
-    [push, goPreview, scenarioId],
+    [push, goPreview, refreshLifecycle, scenarioId],
   );
 
   /**
