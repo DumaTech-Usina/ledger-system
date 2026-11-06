@@ -3,7 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Modal } from "@/components/Modal";
-import { CashFlowChart } from "@/features/dashboard/CashFlowChart";
+import { amountsUnreadable, CashFlowChart } from "@/features/dashboard/CashFlowChart";
 import { MovementsTable } from "@/features/dashboard/MovementsTable";
 import { formatTemplate, useLanguage } from "@/i18n/i18n";
 import { formatDate, formatSignedMoney } from "@/utils/format";
@@ -79,6 +79,8 @@ export function TotalFlowWidget({
           <div className="mt-3">
             <CashFlowChart movements={movements} currency={currency} onSelectDay={setSelectedDay} />
           </div>
+          {movementsHasMore && <p className="mt-2 text-[12px] text-muted">{h.truncatedNote}</p>}
+          {amountsUnreadable(movements) && <p className="mt-2 text-[12px] text-muted">{h.unreadableNote}</p>}
         </div>
       )}
 

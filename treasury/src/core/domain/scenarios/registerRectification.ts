@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Rectify an entry" — declares that a previously recorded event never corresponded to the world.
@@ -25,7 +26,7 @@ export const registerRectification: Scenario = {
     { key: "objectRef", type: SlotType.STRING, prompt: "The position the corrected entry moved.", required: true },
     { key: "objectType", type: SlotType.CHOICE, prompt: "The kind of position the corrected entry moved.", required: true, choices: ["advance", "loan", "commission_receivable"] },
     { key: "amount", type: SlotType.MONEY, prompt: "The amount the corrected entry asserted.", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the error established?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "What established the error (document, reconciliation)?", required: false },
     // Marks the withdrawal as awaiting the entry that replaces it, so a correction interrupted

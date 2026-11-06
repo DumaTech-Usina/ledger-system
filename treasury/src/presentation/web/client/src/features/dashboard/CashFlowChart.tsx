@@ -3,6 +3,7 @@ import { niceTicks, verticalBarPath } from "@/features/dashboard/chart-utils";
 import { useMeasuredWidth } from "@/hooks/useMeasuredWidth";
 import { useLanguage } from "@/i18n/i18n";
 import { formatDate, formatMoney } from "@/utils/format";
+import { fromCents, toCents } from "@/utils/money";
 import type { CashMovement } from "@/types/dashboard";
 
 const PAD_TOP = 14;
@@ -17,7 +18,6 @@ const MAX_BAR = 24;
 const BAR_RADIUS = 4;
 /** The 2px surface gap that keeps the up-bar and the down-bar from touching at the baseline. */
 const BASELINE_GAP = 1;
-const DOT_R = 4;
 /** Wider than one calendar year of empty days: past that, only days that actually moved are plotted. */
 const MAX_FILLED_DAYS = 400;
 
@@ -25,8 +25,6 @@ export interface DailyFlow {
   date: string;
   inflow: number;
   outflow: number;
-  /** Running closing balance: every net day before this one, plus this one. */
-  balance: number;
   hasMovement: boolean;
 }
 
@@ -56,9 +54,9 @@ function lastDayOfMonth(day: string): string {
 }
 
 /**
- * Cash in and cash out per calendar day, plus the balance those days accumulate to. The axis spans
+ * Cash in and cash out per calendar day, from the movements on hand. The axis spans
  * whole months — every day of every month touched by the movements, not only the days that moved —
- * so a quiet week reads as a quiet week and the balance line reads as time passing. It stops at
+ * so a quiet week reads as a quiet week. It stops at
  * `todayIso`: an empty future says nothing about the cash. A movement already dated ahead of today
  * still extends the axis, because no figure the Ledger published is ever dropped from the plot.
  */
@@ -66,15 +64,16 @@ export function buildDailyFlow(
   movements: CashMovement[],
   todayIso: string = new Date().toISOString().slice(0, 10),
 ): DailyFlow[] {
-  const byDay = new Map<string, { inflow: number; outflow: number }>();
+  const byDay = new Map<string, { inflow: bigint; outflow: bigint }>();
   for (const m of movements) {
     if (m.effect !== "cash_in" && m.effect !== "cash_out") continue;
-    const amount = Number(m.amount);
-    if (Number.isNaN(amount)) continue;
+    const cents = toCents(m.amount);
+    if (cents === null) continue; // not drawn; `amountsUnreadable` makes the chart say so
+    const absolute = cents < 0n ? -cents : cents;
     const day = m.occurredAt.slice(0, 10);
-    const entry = byDay.get(day) ?? { inflow: 0, outflow: 0 };
-    if (m.effect === "cash_in") entry.inflow += Math.abs(amount);
-    else entry.outflow += Math.abs(amount);
+    const entry = byDay.get(day) ?? { inflow: 0n, outflow: 0n };
+    if (m.effect === "cash_in") entry.inflow += absolute;
+    else entry.outflow += absolute;
     byDay.set(day, entry);
   }
 
@@ -89,14 +88,20 @@ export function buildDailyFlow(
   const axis =
     span >= 0 && span < MAX_FILLED_DAYS ? Array.from({ length: span + 1 }, (_, i) => addDays(first, i)) : moved;
 
-  let running = 0;
   return axis.map((date) => {
     const entry = byDay.get(date);
-    const inflow = entry?.inflow ?? 0;
-    const outflow = entry?.outflow ?? 0;
-    running += inflow - outflow;
-    return { date, inflow, outflow, balance: running, hasMovement: entry !== undefined };
+    return {
+      date,
+      inflow: Number(fromCents(entry?.inflow ?? 0n)),
+      outflow: Number(fromCents(entry?.outflow ?? 0n)),
+      hasMovement: entry !== undefined,
+    };
   });
+}
+
+/** Whether a cash movement could not be drawn, because its amount is not a figure that can be added. */
+export function amountsUnreadable(movements: CashMovement[]): boolean {
+  return movements.some((m) => (m.effect === "cash_in" || m.effect === "cash_out") && toCents(m.amount) === null);
 }
 
 function formatDayTick(day: string, locale: string): string {
@@ -112,20 +117,10 @@ function formatCompact(value: number, locale: string): string {
   return new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(value);
 }
 
-/** The legend's line key for the balance series — a stroke, because the series is a line. */
-function LineKey() {
-  return (
-    <svg viewBox="0 0 18 8" className="h-2 w-4.5 shrink-0" aria-hidden>
-      <path d="M1 4h16" stroke="var(--color-accent)" strokeWidth={2} strokeLinecap="round" />
-      <circle cx="9" cy="4" r="3" fill="var(--color-accent)" />
-    </svg>
-  );
-}
-
 /**
- * The day-by-day shape of the cash flow: cash in above the zero line, cash out below it, and the
- * balance those days accumulate to as a line across the top. One axis for all three — the balance
- * is money, the bars are money, and a second scale would let them lie about each other.
+ * The day-by-day shape of the movements on hand: cash in above the zero line, cash out below it. It
+ * draws no balance. A balance needs the opening figure and every movement, and only the Ledger has
+ * those (REQ-601); the bars say only what this list contains, and the widget warns when it is cut.
  */
 export function CashFlowChart({
   movements,
@@ -152,8 +147,8 @@ export function CashFlowChart({
   const barWidth = Math.max(2, Math.min(MAX_BAR, slot * 0.55));
 
   const { ticks, lo, hi } = niceTicks(
-    Math.min(0, ...daily.map((d) => Math.min(-d.outflow, d.balance))),
-    Math.max(0, ...daily.map((d) => Math.max(d.inflow, d.balance))),
+    Math.min(0, ...daily.map((d) => -d.outflow)),
+    Math.max(0, ...daily.map((d) => d.inflow)),
   );
   const toY = (value: number) => PAD_TOP + PLOT_H - ((value - lo) / (hi - lo || 1)) * PLOT_H;
   const baselineY = toY(0);
@@ -163,12 +158,10 @@ export function CashFlowChart({
     index: i,
     x: PAD_LEFT + i * slot,
     centerX: PAD_LEFT + i * slot + slot / 2,
-    balanceY: toY(d.balance),
   }));
 
   /** Every label would collide on a long range, so thin them to whatever the width actually fits. */
   const labelEvery = Math.max(1, Math.ceil(daily.length / Math.max(1, Math.floor(plotW / 38))));
-  const balancePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.centerX} ${p.balanceY}`).join(" ");
   const active = hovered !== null ? points[hovered] ?? null : null;
   const anchored = points[anchor] ?? points[0];
 
@@ -277,37 +270,6 @@ export function CashFlowChart({
               );
             })}
 
-            <path d={balancePath} fill="none" stroke="var(--color-accent)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-            {points.map((p) => {
-              const lifted = hovered === p.index;
-              return (
-                <g key={`dot-${p.date}`} className="pointer-events-none">
-                  <circle
-                    cx={p.centerX}
-                    cy={p.balanceY}
-                    r={DOT_R + 5}
-                    fill="var(--color-accent)"
-                    opacity={lifted ? 0.18 : 0}
-                    className="transition-opacity duration-200 ease-out motion-reduce:transition-none"
-                  />
-                  <circle
-                    cx={p.centerX}
-                    cy={p.balanceY}
-                    r={DOT_R}
-                    fill="var(--color-accent)"
-                    stroke="var(--color-panel-solid)"
-                    strokeWidth={2}
-                    className="transition-transform duration-200 ease-out motion-reduce:transition-none"
-                    style={{
-                      transformBox: "fill-box",
-                      transformOrigin: "center",
-                      transform: lifted ? "scale(1.45)" : "scale(1)",
-                    }}
-                  />
-                </g>
-              );
-            })}
-
             {points.map((p, i) =>
               i % labelEvery === 0 ? (
                 <text
@@ -334,7 +296,7 @@ export function CashFlowChart({
                 fill="transparent"
                 role="button"
                 tabIndex={0}
-                aria-label={`${formatDate(p.date)} · ${c.chartInflow}: ${formatMoney(p.inflow, currency)} · ${c.chartOutflow}: ${formatMoney(p.outflow, currency)} · ${c.balanceLabel}: ${formatMoney(p.balance, currency)}`}
+                aria-label={`${formatDate(p.date)} · ${c.chartInflow}: ${formatMoney(p.inflow, currency)} · ${c.chartOutflow}: ${formatMoney(p.outflow, currency)}`}
                 className={onSelectDay ? "cursor-pointer outline-none" : "outline-none"}
                 onMouseEnter={() => hover(p.index)}
                 onFocus={() => hover(p.index)}
@@ -364,7 +326,6 @@ export function CashFlowChart({
                 {[
                   { label: c.chartInflow, value: active.inflow, color: "var(--color-ok)" },
                   { label: c.chartOutflow, value: active.outflow, color: "var(--color-bad)" },
-                  { label: c.balanceLabel, value: active.balance, color: "var(--color-accent)" },
                 ].map((row) => (
                   <div key={row.label} className="flex items-center justify-between gap-4">
                     <dt className="flex items-center gap-2 text-[11px] text-muted">
@@ -388,10 +349,6 @@ export function CashFlowChart({
         <span className="flex items-center gap-2">
           <span className="size-2.5 shrink-0 rounded-[3px] bg-bad" aria-hidden />
           {c.chartOutflow}
-        </span>
-        <span className="flex items-center gap-2">
-          <LineKey />
-          {c.chartBalance}
         </span>
       </figcaption>
     </figure>

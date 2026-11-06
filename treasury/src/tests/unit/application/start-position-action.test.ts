@@ -19,7 +19,7 @@ import { PARTY, partyDirectory } from "../../fixtures/parties";
  * counterparty is only carried when the economics make it necessarily the same party, because
  * carrying it otherwise produces a record that is valid and false.
  */
-const clock: Clock = { now: () => "2026-08-06T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-08-06T12:00:00.000Z" };
 
 const lifecycle = (over: Partial<PositionLifecycle> = {}): PositionLifecycle => ({
   objectId: "intent:adv-1",

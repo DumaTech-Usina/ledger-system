@@ -54,12 +54,6 @@ export const operationsApi = {
     input: { slot: string; kind: IdentityDecisionKind; mention: string; justification?: string },
   ) => apiPost<DecideIdentityResult | ApiErrorBody>(`/api/conversation/${intentId}/identity`, input),
   /**
-   * Answers the one optional enrichment question — or records that the user would not. An omitted
-   * value is the refusal, stored as its own state so the question is never asked again.
-   */
-  enrich: (intentId: string, input: { partyId: string; key: string; value?: string }) =>
-    apiPost<{ partyId: string } | ApiErrorBody>(`/api/conversation/${intentId}/enrich`, input),
-  /**
    * Declares that a recorded entry never corresponded to the world. Not a guided conversation: the
    * operator points at the entry, and the amount and object are read from the Ledger's own record
    * of it — so a correction can never disagree with what it corrects.

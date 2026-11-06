@@ -17,7 +17,7 @@ import { PARTY, partyDirectory } from "../fixtures/parties";
  * sole tuple authority — the user picks incentive vs bonus, never a raw Ledger value — and the whole
  * guided flow (which now asks `kind`) still ends in an accepted candidate.
  */
-const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-07-09T12:00:00.000Z" };
 
 function wire() {
   const directory = partyDirectory();

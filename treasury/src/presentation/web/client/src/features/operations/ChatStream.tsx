@@ -4,16 +4,14 @@ import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { Banner } from "@/components/Banner";
 import { Input } from "@/components/Input";
-import { formatDate, formatDocument, formatMoney } from "@/utils/format";
+import { formatDate, formatMoney } from "@/utils/format";
+import { amountDigits, amountFromDigits, digitsFromAmount, maskedAmount } from "@/utils/money";
 import { cn } from "@/utils/cn";
 import { typingDurationMs } from "@/features/operations/typing";
 import { useTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
 import { useLanguage } from "@/i18n/i18n";
 import {
-  enrichmentCopy,
   identityCopy,
-  partyTypeChoices,
-  partyTypeLabels,
   positionCopy,
   rejectionSummary,
   rejectionText,
@@ -26,7 +24,6 @@ import {
   type StreamItem,
 } from "@/features/operations/conversationEngine";
 import type {
-  EnrichmentSuggestion,
   PreviewIntentResult,
   RejectionDetail,
   SettlementCandidate,
@@ -44,7 +41,7 @@ export interface ChatStreamProps {
   onConfirm: () => void;
   onCancel: () => void;
   busy: boolean;
-  /** When this is a "choice" slot (e.g. BRL/USD), its options render inline below, as a live
+  /** When this is a "choice" slot, its options render inline below, as a live
    * preview of the answer — not in the composer. */
   currentSlot?: SlotDefinition | null;
   onAnswer?: (value: string) => void;
@@ -56,7 +53,6 @@ export interface ChatStreamProps {
   /** Settles an open counterparty question. `justification` is required to declare unidentifiable. */
   onDecideIdentity?: (item: { id: string; slot: string }, option: IdentityOption, justification?: string) => void;
   /** Answers the confirmation card's optional question, or records the refusal (value omitted). */
-  onRecordEnrichment?: (partyId: string, key: string, value?: string) => Promise<{ ok: boolean }>;
   /** Re-answers the slots a fixable rejection implicated, then returns to the confirmation card. */
   onApplyCorrection?: (edits: Record<string, string>) => Promise<SaveEditsResult>;
   /** Records which position a settlement is about — asserting continuity and lineage together. */
@@ -131,7 +127,6 @@ export function ChatStream({
   onSaveEdits,
   onResolveSuggestion,
   onDecideIdentity,
-  onRecordEnrichment,
   onApplyCorrection,
   onSelectPosition,
   onDismissPositions,
@@ -254,7 +249,6 @@ export function ChatStream({
                 onCancel={onCancel}
                 answeredSlots={answeredSlots ?? {}}
                 onSaveEdits={onSaveEdits ?? (async () => ({ ok: false }))}
-                onRecordEnrichment={onRecordEnrichment}
               />
             );
           case "result":
@@ -638,111 +632,34 @@ function EditField({
     );
   }
 
+  if (slot.type === "money") {
+    const digits = digitsFromAmount(value);
+    return (
+      <Input
+        label={slot.prompt}
+        type="text"
+        inputMode="numeric"
+        value={digits === "" ? "" : maskedAmount(digits)}
+        placeholder={maskedAmount("")}
+        disabled={disabled}
+        onChange={(e) => {
+          const typed = amountDigits(e.target.value);
+          onChange(typed === "" ? "" : amountFromDigits(typed));
+        }}
+        error={error}
+      />
+    );
+  }
+
   return (
     <Input
       label={slot.prompt}
-      type={slot.type === "money" ? "number" : slot.type === "date" ? "date" : "text"}
-      step={slot.type === "money" ? "0.01" : undefined}
+      type={slot.type === "date" ? "date" : "text"}
       value={value}
       disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
       error={error}
     />
-  );
-}
-
-/**
- * The one optional question, offered beside the confirmation — never in front of it. It cannot
- * block the submit, so it owns no `busy` state of its own and its outcome changes nothing about
- * what will be recorded.
- */
-function EnrichmentOffer({
-  suggestion,
-  disabled,
-  onRecord,
-}: {
-  suggestion: EnrichmentSuggestion;
-  disabled: boolean;
-  onRecord: (value?: string) => Promise<{ ok: boolean }>;
-}) {
-  const [value, setValue] = useState("");
-  const [settled, setSettled] = useState<"saved" | "declined" | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  const record = async (given?: string) => {
-    setSaving(true);
-    const { ok } = await onRecord(given);
-    setSaving(false);
-    if (ok) setSettled(given ? "saved" : "declined");
-  };
-
-  if (settled) {
-    return (
-      <p className="mt-4 border-t border-line pt-4 text-[13px] text-muted">
-        {settled === "saved" ? enrichmentCopy.saved : enrichmentCopy.declined}
-      </p>
-    );
-  }
-
-  const isType = suggestion.attribute === "type";
-  // CPF/CNPJ is the one attribute with a shape worth showing while it's typed — the separators tell
-  // the operator which of the two they're entering, and where they are in it.
-  const isDocument = suggestion.attribute === "document";
-  const question = enrichmentCopy.question(suggestion.displayName, suggestion.attribute);
-
-  return (
-    <div className="mt-4 border-t border-line pt-4">
-      <p className="text-[13px] text-muted">{question}</p>
-
-      {isType ? (
-        <div className="mt-2.5 flex flex-wrap gap-2">
-          {partyTypeChoices.map((choice) => (
-            <button
-              key={choice}
-              type="button"
-              disabled={disabled || saving}
-              onClick={() => record(choice)}
-              className="rounded-full border border-line bg-panel-solid px-3 py-1.5 text-xs font-semibold text-ink transition hover:border-accent disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {partyTypeLabels[choice] ?? choice}
-            </button>
-          ))}
-        </div>
-      ) : (
-        // `Input` renders its own wrapper, so the growing flex child has to be that wrapper — sizing
-        // the inner field alone leaves it at its intrinsic width and strands the button mid-row.
-        <div className="mt-2.5 flex items-center gap-2">
-          <div className="min-w-0 flex-1">
-            <Input
-              value={value}
-              disabled={disabled || saving}
-              aria-label={question}
-              inputMode={isDocument ? "numeric" : undefined}
-              placeholder={isDocument ? "000.000.000-00" : undefined}
-              onChange={(e) => setValue(isDocument ? formatDocument(e.target.value) : e.target.value)}
-              className={cn("w-full", isDocument && "tabular")}
-            />
-          </div>
-          <button
-            type="button"
-            disabled={disabled || saving || value.trim() === ""}
-            onClick={() => record(value.trim())}
-            className="h-10 shrink-0 rounded-full border border-line bg-panel-solid px-3.5 text-[13px] font-semibold text-ink transition hover:border-accent disabled:opacity-50 disabled:pointer-events-none"
-          >
-            {enrichmentCopy.save}
-          </button>
-        </div>
-      )}
-
-      <button
-        type="button"
-        disabled={disabled || saving}
-        onClick={() => record(undefined)}
-        className="mt-2 text-[12px] font-semibold text-muted underline underline-offset-2 transition hover:text-ink disabled:opacity-50 disabled:pointer-events-none"
-      >
-        {enrichmentCopy.decline}
-      </button>
-    </div>
   );
 }
 
@@ -754,7 +671,6 @@ function ConfirmCard({
   onCancel,
   answeredSlots,
   onSaveEdits,
-  onRecordEnrichment,
 }: {
   preview: PreviewIntentResult;
   scenarioTitle: string;
@@ -763,7 +679,6 @@ function ConfirmCard({
   onCancel: () => void;
   answeredSlots: Record<string, SlotDefinition>;
   onSaveEdits: (edits: Record<string, string>) => Promise<SaveEditsResult>;
-  onRecordEnrichment?: (partyId: string, key: string, value?: string) => Promise<{ ok: boolean }>;
 }) {
   const { candidate } = preview;
   const counterpartyId = candidate.parties[1]?.partyId;
@@ -897,13 +812,6 @@ function ConfirmCard({
         </div>
       )}
 
-      {preview.enrichment && onRecordEnrichment && (
-        <EnrichmentOffer
-          suggestion={preview.enrichment}
-          disabled={busy}
-          onRecord={(value) => onRecordEnrichment(preview.enrichment!.partyId, preview.enrichment!.attribute, value)}
-        />
-      )}
 
       <div className="mt-5 flex flex-col gap-2.5">
         <Button

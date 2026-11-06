@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Acknowledge direct payment" — the operator paid the broker directly, bypassing the usina, so the
@@ -16,7 +17,7 @@ export const registerDirectPayment: Scenario = {
   slots: [
     { key: "payee", type: SlotType.PARTY, prompt: "Which broker was paid directly?", required: true, suggestionSource: "parties" },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the commission amount that was settled?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the broker paid?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],

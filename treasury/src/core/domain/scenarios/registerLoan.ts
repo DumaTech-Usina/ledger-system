@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register loan origination" — the usina disburses a loan to a broker. Maps to the Ledger's
@@ -18,7 +19,7 @@ export const registerLoan: Scenario = {
   slots: [
     { key: "payee", type: SlotType.PARTY, prompt: "Who is receiving the loan (borrower)?", required: true, suggestionSource: "parties" },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the loan amount?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the loan disbursed?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
     // Only a rectification fills this: it keeps the restated entry on the position being corrected.

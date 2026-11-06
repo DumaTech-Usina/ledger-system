@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register loan repayment" — a broker repays a loan (cash in), SETTLING the loan a LOAN_ORIGINATION
@@ -16,7 +17,7 @@ export const registerLoanRepayment: Scenario = {
   slots: [
     { key: "payer", type: SlotType.PARTY, prompt: "Who is repaying the loan (borrower)?", required: true, suggestionSource: "parties" },
     { key: "amount", type: SlotType.MONEY, prompt: "What amount was repaid?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it repaid?", required: true },
     { key: "origin", type: SlotType.EVENT_REF, prompt: "Which loan does this repay?", required: true, suggestionSource: "origin_events" },
     // Optional continuity assertion: the id of the loan position this repayment moves, so the Ledger

@@ -518,19 +518,6 @@ export function useConversation(adopt?: AdoptedIntent | null) {
   }, []);
 
   /**
-   * Records an answer to the confirmation card's optional question, or the refusal to give one.
-   * Deliberately does NOT touch `busy` or the preview: nothing here can hold a submission back, and
-   * making the confirm button wait on it would be exactly that.
-   */
-  const recordEnrichment = useCallback(async (partyId: string, key: string, value?: string) => {
-    const id = intentIdRef.current;
-    if (!id) return { ok: false as const };
-    const { ok } = await operationsApi.enrich(id, { partyId, key, value });
-    if (ok) refreshLifecycle(id);
-    return { ok };
-  }, [refreshLifecycle]);
-
-  /**
    * Applies edits to already-answered slots (any key the scenario knows, not just the "next"
    * one — the same `/answer` route the guided dialog uses already allows this) and refreshes the
    * confirm card in place, without restarting the conversation or re-asking anything.
@@ -655,7 +642,6 @@ export function useConversation(adopt?: AdoptedIntent | null) {
     decideIdentity,
     selectPosition,
     dismissPositions,
-    recordEnrichment,
     applyCorrection,
     confirmSubmit,
     restart,

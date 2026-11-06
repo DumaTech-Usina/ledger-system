@@ -8,8 +8,6 @@ import type { PreviewIntentUseCase } from "../../../../core/application/use-case
 import type { SubmitIntentUseCase } from "../../../../core/application/use-cases/SubmitIntent";
 import type { SubmitRectificationUseCase } from "../../../../core/application/use-cases/SubmitRectification";
 import type { DecideIdentityUseCase } from "../../../../core/application/use-cases/DecideIdentity";
-import type { RecordPartyAttributeUseCase } from "../../../../core/application/use-cases/RecordPartyAttribute";
-import type { ListIncompletePartiesUseCase } from "../../../../core/application/use-cases/ListIncompleteParties";
 import type { ListSettlementCandidatesUseCase } from "../../../../core/application/use-cases/ListSettlementCandidates";
 import type { ListPositionActionsUseCase } from "../../../../core/application/use-cases/ListPositionActions";
 import type { StartPositionActionUseCase } from "../../../../core/application/use-cases/StartPositionAction";
@@ -31,8 +29,6 @@ export function conversationRoutes(
   submitIntent: SubmitIntentUseCase,
   submitRectification: SubmitRectificationUseCase,
   decideIdentity: DecideIdentityUseCase,
-  recordPartyAttribute: RecordPartyAttributeUseCase,
-  listIncompleteParties: ListIncompletePartiesUseCase,
   listSettlementCandidates: ListSettlementCandidatesUseCase,
   listPositionActions: ListPositionActionsUseCase,
   startPositionAction: StartPositionActionUseCase,
@@ -175,34 +171,6 @@ export function conversationRoutes(
       }
       // A refused decision (not admissible, missing justification) is the user's to fix, not a fault.
       res.status(422).json({ error: err instanceof Error ? err.message : String(err) });
-    }
-  });
-
-  // Answering (or refusing) the one optional question the confirmation card may offer. Separate
-  // from the intent entirely: it can only ever run after the fact is already complete, and nothing
-  // here can hold a submission back.
-  router.post("/:intentId/enrich", async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { partyId, key, value } = req.body ?? {};
-      const party = await recordPartyAttribute.execute({
-        partyId,
-        key,
-        value,
-        userId: currentUser(req).id,
-        intentId: req.params.intentId,
-      });
-      res.json({ partyId: party.partyId });
-    } catch (err) {
-      res.status(422).json({ error: err instanceof Error ? err.message : String(err) });
-    }
-  });
-
-  // The backlog: what is still unknown, computed on demand and never stored.
-  router.get("/parties/incomplete", async (_req: Request, res: Response, next: NextFunction) => {
-    try {
-      res.json(await listIncompleteParties.execute());
-    } catch (err) {
-      next(err);
     }
   });
 

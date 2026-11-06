@@ -17,7 +17,7 @@ import { PARTY, partyDirectory } from "../fixtures/parties";
  * candidates. The mold (single beneficiary party carrying no amount; multi-object) is the new
  * capability; the Ledger accepts these exact shapes (proven in ledger submit-endpoint.test.ts).
  */
-const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-07-09T12:00:00.000Z" };
 
 function wire() {
   const directory = partyDirectory();

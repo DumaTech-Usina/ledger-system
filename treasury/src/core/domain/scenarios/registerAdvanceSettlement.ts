@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register advance recovery" — the usina recovers an advance (cash in), SETTLING the advance an
@@ -17,7 +18,7 @@ export const registerAdvanceSettlement: Scenario = {
   slots: [
     { key: "payer", type: SlotType.PARTY, prompt: "Who is repaying the advance (broker or partner)?", required: true, suggestionSource: "parties" },
     { key: "amount", type: SlotType.MONEY, prompt: "What amount was recovered?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it recovered?", required: true },
     { key: "origin", type: SlotType.EVENT_REF, prompt: "Which advance does this settle?", required: true, suggestionSource: "origin_events" },
     // Optional continuity assertion: the id of the advance position this recovery moves, so the

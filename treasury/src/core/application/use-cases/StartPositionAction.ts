@@ -1,3 +1,4 @@
+import { THE_CURRENCY } from "../../domain/value-objects/Slot";
 import {
   continuitySlot,
   counterpartySlot,
@@ -59,6 +60,10 @@ export class StartPositionActionUseCase {
   async execute(input: StartPositionActionInput): Promise<StartPositionActionResult> {
     const position = await this.lifecycle.lifecycle(input.objectId);
     if (!position) throw new Error(`Unknown position: ${input.objectId}`);
+    // The intent is BRL from the start, so another currency would be recorded as BRL, not refused.
+    if (position.currency !== THE_CURRENCY) {
+      throw new Error(`This position is in ${position.currency}; only ${THE_CURRENCY} can be recorded.`);
+    }
 
     const { intentId } = await this.startIntent.execute({
       scenarioId: input.scenarioId,

@@ -159,12 +159,12 @@ export function editableAnswers(
 }
 
 /**
- * Whether a PARTY answer was actually written. Only an exact resolution is — a similarity hit,
- * an ambiguous mention and an unknown one all leave the slot blank, which the guided dialog answers
- * by asking the question again. A path with no next question to fall back on has to check.
+ * Whether a PARTY answer was actually written. Only an exact resolution is — close names and an
+ * unknown mention both leave the slot blank, which the guided dialog answers by asking the question
+ * again. A path with no next question to fall back on has to check.
  */
 export function identityWasRecorded(outcome: IdentityOutcome): boolean {
-  return outcome.resolution.kind === "resolved" && !outcome.resolution.needsConfirmation;
+  return outcome.resolution.kind === "resolved";
 }
 
 /**
@@ -179,19 +179,16 @@ export function identityWasRecorded(outcome: IdentityOutcome): boolean {
  */
 export function identityDecision(outcome: IdentityOutcome, slot: SlotDefinition | undefined): NewMessage | null {
   const { resolution } = outcome;
-  if (identityWasRecorded(outcome)) return null;
+  if (resolution.kind === "resolved") return null;
 
   const mention = resolution.mention.text;
   const options: IdentityOption[] = [];
   let text: string;
 
-  if (resolution.kind === "resolved") {
-    // A similarity hit. The backend refuses to record it, and picking it silently is how two real
-    // counterparties become one aggregate — irreversibly, since events are immutable.
-    text = identityCopy.confirm(mention, resolution.partyId);
-    options.push({ kind: "select", partyId: resolution.partyId, label: resolution.partyId });
-  } else if (resolution.kind === "ambiguous") {
-    text = identityCopy.ambiguous(mention);
+  if (resolution.kind === "similar") {
+    // Close, not equal. The backend records none of them, and picking one for the operator is how
+    // two real counterparties become one aggregate — irreversibly, since events are immutable.
+    text = identityCopy.similar(mention);
     for (const candidate of resolution.candidates) {
       options.push({ kind: "select", partyId: candidate.partyId, label: candidate.displayName });
     }

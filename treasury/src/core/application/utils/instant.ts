@@ -22,6 +22,13 @@ export function parseInstant(value: string): Date {
   return new Date(DATE_ONLY.test(trimmed) ? `${trimmed}T00:00:00` : trimmed);
 }
 
+/** The calendar day an instant falls on here, as `YYYY-MM-DD`. */
+export function localDay(value: string): string {
+  const d = parseInstant(value);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 /** The same, already in the form sent over the wire to the Ledger. */
 export function toInstantISO(value: string): string {
   return parseInstant(value).toISOString();

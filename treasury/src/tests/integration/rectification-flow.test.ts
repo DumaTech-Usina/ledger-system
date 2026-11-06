@@ -25,7 +25,7 @@ import { PARTY, partyDirectory } from "../fixtures/parties";
  * figures are never typed a second time.
  */
 
-const clock: Clock = { now: () => "2026-08-05T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-08-05T12:00:00.000Z" };
 
 /**
  * The entry that was keyed as 250 and never happened.
@@ -179,7 +179,7 @@ describe("the payload Treasury produces for a rectification", () => {
     const { rectify } = wire();
     await rectify.execute({ targetEventId: "evt-wrong", userId: "cfo" });
 
-    expect(submitted[0].occurredAt).toBe("2026-08-05T00:00:00.000Z");
+    expect(submitted[0].occurredAt).toBe("2026-08-05T12:00:00.000Z");
     expect(submitted[0].occurredAt).not.toBe(WRONG_EVENT.occurredAt);
   });
 

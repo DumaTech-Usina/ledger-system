@@ -26,10 +26,32 @@ export interface SlotDefinition {
    */
   allowUnidentifiable?: boolean;
   /**
-   * Filled by the system, never asked: it does not count towards the conversation's progress and no
-   * question is ever raised for it. Always optional, since nobody is there to answer it.
+   * Filled by the system, never asked: it does not count towards the conversation's progress. An
+   * internal slot that is also required must carry a `defaultValue`, or no question would ever fill it.
    */
   internal?: boolean;
+  /** What the slot holds from the moment the intent starts. */
+  defaultValue?: string;
+  /**
+   * DATE slots only: this date is not when something happened, so it may lie ahead. Absent means it
+   * may not (REQ-226): a date is an occurrence unless a slot says otherwise, because a fact recorded
+   * for tomorrow is a prediction, which is the worse mistake to make by omission.
+   */
+  allowFuture?: boolean;
 }
 
 export type SlotValue = string;
+
+/** REQ-222: the only currency there is, until DEC-011 says otherwise. */
+export const THE_CURRENCY = "BRL";
+
+/** Every scenario's currency: already answered when the intent starts, so it is never asked. */
+export const CURRENCY_SLOT: SlotDefinition = {
+  key: "currency",
+  type: SlotType.CHOICE,
+  prompt: "Which currency?",
+  required: true,
+  choices: [THE_CURRENCY],
+  internal: true,
+  defaultValue: THE_CURRENCY,
+};

@@ -49,8 +49,7 @@ export type ResolutionRule =
   | "exact_id"
   | "exact_document"
   | "exact_external_id"
-  | "exact_name"
-  | "similarity";
+  | "exact_name";
 
 export interface ResolutionCandidate {
   partyId: string;
@@ -60,10 +59,9 @@ export interface ResolutionCandidate {
 }
 
 /**
- * How a mention resolved against the Party Directory. `resolved` with `needsConfirmation` is a
- * similarity hit, not an equality one — the backend does NOT record it, so the conversation has to
- * ask before it can be used. `ambiguous` and `new` are likewise not recorded: the slot stays blank
- * and is asked again until an identity decision settles it.
+ * How a mention resolved against the Party Directory. `resolved` is always an exact match. `similar`
+ * lists close names for the operator to choose from, and `new` found nothing; neither is recorded, so
+ * the slot stays blank until the operator settles it.
  */
 export type Resolution =
   | {
@@ -72,9 +70,8 @@ export type Resolution =
       partyId: string;
       rule: ResolutionRule;
       score: number;
-      needsConfirmation: boolean;
     }
-  | { kind: "ambiguous"; mention: Mention; candidates: ResolutionCandidate[] }
+  | { kind: "similar"; mention: Mention; candidates: ResolutionCandidate[] }
   | { kind: "new"; mention: Mention };
 
 /** What one turn did with one PARTY slot. Reported alongside the dialog state, never inside it. */
@@ -168,13 +165,6 @@ export interface Candidate {
   reporter: { reporterType: string; reporterId: string; channel: string };
 }
 
-/** One optional question, offered after the intent is already complete. Never blocks the submit. */
-export interface EnrichmentSuggestion {
-  partyId: string;
-  displayName: string;
-  attribute: string;
-}
-
 export interface PreviewIntentResult {
   intentId: string;
   scenarioTitle: string;
@@ -185,8 +175,6 @@ export interface PreviewIntentResult {
    * absent here and keeps its id on screen — unknown is shown as unknown, never given a label.
    */
   partyNames: Record<string, string>;
-  /** Present when exactly one party in this candidate is worth one question. */
-  enrichment?: EnrichmentSuggestion;
 }
 
 export type SubmissionStatus = "accepted" | "rejected";

@@ -5,7 +5,7 @@ import type { SlotDefinition } from "../../../core/domain/value-objects/Slot";
 import type { ScenarioCatalogEntry } from "../../../core/application/ports/SlotExtractionPort";
 import { PARTY, knownParties } from "../../fixtures/parties";
 
-const slots = getScenario("register_payment")!.slots; // payee, amount, currency(BRL|USD), occurredAt, description
+const slots = getScenario("register_payment")!.slots; // payee, amount, currency (internal), occurredAt, description
 const catalog: ScenarioCatalogEntry[] = listScenarios().map((s) => ({
   id: s.id,
   title: s.title,

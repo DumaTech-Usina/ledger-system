@@ -71,7 +71,6 @@ export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted 
     decideIdentity,
     selectPosition,
     dismissPositions,
-    recordEnrichment,
     applyCorrection,
     confirmSubmit,
     restart,
@@ -194,17 +193,18 @@ export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted 
                 suggest={(query) => suggestScenarios(query, scenarios ?? [])}
                 onPickSuggestion={selectScenario}
               />
-            ) : // Choice slots (e.g. BRL/USD) answer inline in the chat instead — see ChatStream.
+            ) : // Choice slots answer inline in the chat instead — see ChatStream.
             phase === "conversation" && currentSlot && currentSlot.type !== "choice" ? (
               <Composer
                 key={currentSlot.key}
                 placeholder={slotPrompt(scenarioId ?? "", currentSlot)}
                 required={currentSlot.required}
-                // A date answers the open slot directly, the same path a choice button uses — not
-                // the free-text extractor, which a clean ISO day from the calendar has no need of.
-                onSend={currentSlot.type === "date" ? answer : sendUtterance}
+                // A date or a masked amount answers the open slot directly, the same path a choice
+                // button uses — not the free-text extractor, which a clean value has no need of.
+                onSend={currentSlot.type === "date" || currentSlot.type === "money" ? answer : sendUtterance}
                 busy={busy}
                 dateSlot={currentSlot.type === "date"}
+                moneySlot={currentSlot.type === "money"}
               />
             ) : undefined
           }
@@ -235,7 +235,6 @@ export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted 
               onSaveEdits={saveEdits}
               onResolveSuggestion={resolveSuggestion}
               onDecideIdentity={decideIdentity}
-              onRecordEnrichment={recordEnrichment}
               onApplyCorrection={applyCorrection}
               onSelectPosition={selectPosition}
               onDismissPositions={dismissPositions}

@@ -100,8 +100,6 @@ beforeAll(async () => {
     previewIntent: unused,
     submitRectification: unused,
     decideIdentity: unused,
-    recordPartyAttribute: unused,
-    listIncompleteParties: unused,
     listSettlementCandidates: unused,
     listPositionActions: unused,
     startPositionAction: unused,

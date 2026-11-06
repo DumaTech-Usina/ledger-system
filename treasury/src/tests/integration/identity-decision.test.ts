@@ -11,7 +11,7 @@ import { IdentityDecisionKind } from "../../core/domain/value-objects/IdentityDe
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
 
-const clock: Clock = { now: () => "2026-08-03T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-08-03T12:00:00.000Z" };
 
 function wire() {
   const intents = new InMemoryIntentRepository();
@@ -193,7 +193,7 @@ describe("every issued id traces to a decision", () => {
       slot: "payee",
       mention: "Fornecedor Novo",
       decidedBy: "cfo",
-      decidedAt: "2026-08-03T00:00:00.000Z",
+      decidedAt: "2026-08-03T12:00:00.000Z",
       intentId,
     });
 

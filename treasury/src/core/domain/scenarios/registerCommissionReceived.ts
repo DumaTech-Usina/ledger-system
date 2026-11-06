@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register commission received" — the usina receives a commission (cash in), SETTLING the receivable
@@ -22,7 +23,7 @@ export const registerCommissionReceived: Scenario = {
     // attribute. An outgoing payment is the opposite — you know who you paid.
     { key: "payer", type: SlotType.PARTY, prompt: "Who paid the commission (operator or counterparty)?", required: true, suggestionSource: "parties", allowUnidentifiable: true },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the commission amount received?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it received?", required: true },
     { key: "origin", type: SlotType.EVENT_REF, prompt: "Which expected commission does this settle? (leave empty if unknown)", required: false, suggestionSource: "origin_events" },
     // Optional continuity assertion: the id of the receivable position this receipt moves, so the

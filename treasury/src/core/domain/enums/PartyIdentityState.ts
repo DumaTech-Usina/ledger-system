@@ -1,7 +1,6 @@
 /**
- * The entity axis of a Party's state — persistent, and deliberately separate from the dialog axis
- * (unresolved/ambiguous/resolved, which belongs to a conversation turn and never to an entity) and
- * from enrichment completeness (which is *derived* from the attributes, never stored).
+ * The entity axis of a Party's state — persistent, and deliberately separate from how a mention
+ * resolved, which belongs to a conversation turn and never to an entity.
  */
 export enum PartyIdentityState {
   /** Has a PartyId through an explicit decision or an import. The normal state. */

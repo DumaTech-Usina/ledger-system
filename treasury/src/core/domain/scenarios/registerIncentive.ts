@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register incentive payment" — the usina pays an incentive or bonus to a broker or partner. Maps
@@ -17,7 +18,7 @@ export const registerIncentive: Scenario = {
     { key: "payee", type: SlotType.PARTY, prompt: "Who is receiving the incentive (broker or partner)?", required: true, suggestionSource: "parties" },
     { key: "kind", type: SlotType.CHOICE, prompt: "Is this an incentive or a bonus?", required: true, choices: ["incentive", "bonus"] },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the amount?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it paid?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],

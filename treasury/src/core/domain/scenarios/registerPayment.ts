@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register a general payment" — the generic cash-basis outbound payment, reserved for an outflow
@@ -18,7 +19,7 @@ export const registerPayment: Scenario = {
   slots: [
     { key: "payee", type: SlotType.PARTY, prompt: "Who is being paid?", required: true, suggestionSource: "parties" },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the payment amount?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the payment made?", required: true },
     // Optional continuity: the obligation this payment closes, when it was recognized beforehand.
     { key: "objectRef", type: SlotType.STRING, prompt: "Which recognized obligation does this pay?", required: false },

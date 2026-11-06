@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register expected commission" — the usina accrues the commission it EXPECTS to receive, before
@@ -15,7 +16,7 @@ export const registerCommissionAccrual: Scenario = {
   description: "Record a commission the usina expects to receive before the cash arrives (an accrual; no cash moves).",
   slots: [
     { key: "amount", type: SlotType.MONEY, prompt: "What commission amount is expected?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "As of what date is it expected?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
     // Only a rectification fills this: it keeps the restated entry on the position being corrected.

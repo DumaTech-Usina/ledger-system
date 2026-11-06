@@ -17,7 +17,7 @@ import { PARTY, partyDirectory } from "../fixtures/parties";
  * guided path — start → fill every required slot → preview → submit → accepted — exactly like the
  * existing shape-A scenarios, with no new plumbing. Proves "a new scenario is data only".
  */
-const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-07-09T12:00:00.000Z" };
 
 function wire() {
   const directory = partyDirectory();

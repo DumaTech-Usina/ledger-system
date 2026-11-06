@@ -1,13 +1,12 @@
 /**
  * Arithmetic on the Ledger's decimal money strings.
  *
- * Money never becomes a float here. `0.1 + 0.2` in binary floating point is not `0.30`, and a
- * running cash balance accumulated that way drifts by a cent over enough rows — a balance nobody can
- * reconcile against the book. Everything is done in integer cents and rendered back as a decimal
- * string, which is the shape the rest of the app already formats.
+ * Money never becomes a float here. `0.1 + 0.2` in binary floating point is not `0.30`, so everything
+ * is done in integer cents and rendered back as a decimal string, the shape the rest of the app
+ * already formats.
  *
  * `formatMoney` still parses with `Number` and that is fine: it displays one value that was never
- * added to another. This module exists for the case where values are summed.
+ * added to another. This module exists for the cases where values are added or typed.
  */
 
 /** Exactly what the Ledger publishes: an optional sign, digits, and at most two decimal places. */
@@ -36,4 +35,27 @@ export function fromCents(cents: bigint): string {
   const whole = absolute / 100n;
   const fraction = (absolute % 100n).toString().padStart(2, "0");
   return `${negative ? "-" : ""}${whole}.${fraction}`;
+}
+
+/** REQ-224: what is typed into an amount field, reduced to its digits, without leading zeros. */
+export function amountDigits(typed: string): string {
+  return typed.replace(/\D/g, "").replace(/^0+/, "");
+}
+
+/** The digits as the field shows them, filling from the cents: `150050` reads `R$ 1.500,50`. */
+export function maskedAmount(digits: string): string {
+  const padded = digits.padStart(3, "0");
+  const whole = padded.slice(0, -2).replace(/\B(?=(\d{3})+$)/g, ".");
+  return `R$ ${whole},${padded.slice(-2)}`;
+}
+
+/** The same digits in the only form that leaves the field (REQ-228): `150050` is `1500.50`. */
+export function amountFromDigits(digits: string): string {
+  return fromCents(BigInt(digits || "0"));
+}
+
+/** A stored amount back to the digits the field works with: `1500.5` is `150050`. */
+export function digitsFromAmount(amount: string): string {
+  const cents = toCents(amount);
+  return cents === null || cents < 0n ? "" : amountDigits(cents.toString());
 }

@@ -3,6 +3,7 @@ import { DialogEngine, type DialogState, type SlotValidationError } from "../../
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { Clock } from "../ports/Clock";
 import { userActor } from "../ports/AuditLog";
+import { localDay } from "../utils/instant";
 import type { ConversationLog } from "../ports/ConversationLog";
 import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
 import {
@@ -50,7 +51,7 @@ export class AdvanceDialogUseCase {
     const slot = scenario.slots.find((s) => s.key === input.key);
     if (!slot) throw new Error(`Unknown slot '${input.key}' for scenario '${scenario.id}'`);
 
-    const error = DialogEngine.validateAnswer(slot, input.value);
+    const error = DialogEngine.validateAnswer(slot, input.value, localDay(this.clock.now()));
     if (error) {
       // Reject without recording — never persist an invalid answer.
       await this.log.record({ actor: userActor(intent.userId), intentId: intent.id, at: this.clock.now(), type: "slot.rejected", detail: `${input.key}: ${error.message}` });

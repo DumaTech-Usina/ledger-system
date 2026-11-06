@@ -8,7 +8,7 @@ import { PartyAttributeKey } from "../../../core/domain/value-objects/PartyAttri
 import type { PartySeed, PartySeedSource } from "../../../core/application/ports/PartySeedSource";
 import type { Clock } from "../../../core/application/ports/Clock";
 
-const clock: Clock = { now: () => "2026-08-03T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-08-03T12:00:00.000Z" };
 
 function source(system: string, seeds: PartySeed[]): PartySeedSource {
   return { system, fetch: async () => seeds };
@@ -47,7 +47,7 @@ describe("ImportParties — creating", () => {
       value: "12.345.678/0001-99",
       source: AttributeSource.IMPORT,
       capturedBy: "erp",
-      capturedAt: "2026-08-03T00:00:00.000Z",
+      capturedAt: "2026-08-03T12:00:00.000Z",
     });
     expect(party?.attributes[PartyAttributeKey.TYPE]?.value).toBe("supplier");
   });

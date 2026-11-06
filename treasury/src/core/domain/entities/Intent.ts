@@ -34,13 +34,19 @@ export interface IntentProps {
 export class Intent {
   private constructor(private readonly props: IntentProps) {}
 
-  static start(id: string, scenarioId: string, userId: string, now: string): Intent {
+  static start(
+    id: string,
+    scenarioId: string,
+    userId: string,
+    now: string,
+    answers: Record<string, SlotValue> = {},
+  ): Intent {
     return new Intent({
       id,
       scenarioId,
       userId,
       status: IntentStatus.GATHERING,
-      answers: {},
+      answers: { ...answers },
       createdAt: now,
       updatedAt: now,
     });

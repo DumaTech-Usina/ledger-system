@@ -9,7 +9,7 @@ import { ResolutionRule } from "../../core/domain/services/PartyResolution";
 import type { Clock } from "../../core/application/ports/Clock";
 import { PARTY } from "../fixtures/parties";
 
-const clock: Clock = { now: () => "2026-08-03T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-08-03T12:00:00.000Z" };
 const USINA = PARTY.USINA;
 
 /** The stub Ledger names four counterparties, every one of them a free-text literal. */
@@ -58,7 +58,6 @@ describe("Legacy convergence", () => {
       expect(resolution.kind).toBe("resolved");
       if (resolution.kind === "resolved") {
         expect(resolution.partyId).toBe(literal);
-        expect(resolution.needsConfirmation).toBe(false);
       }
     }
   });
@@ -80,7 +79,6 @@ describe("Legacy convergence", () => {
       if (resolution.kind === "resolved") {
         expect(resolution.partyId).toBe("ACME Foods");
         expect(resolution.rule).toBe(rule);
-        expect(resolution.needsConfirmation).toBe(false);
       }
     }
   });
@@ -92,7 +90,7 @@ describe("Legacy convergence", () => {
   });
 });
 
-describe("Measurement — the number that gates the barrier", () => {
+describe("Measurement — how the Directory resolves a corpus of mentions", () => {
   it("reports the outcome distribution over a corpus of mentions", async () => {
     const measurement = await measure.execute([
       ...LEDGER_LITERALS, // exact
@@ -102,15 +100,15 @@ describe("Measurement — the number that gates the barrier", () => {
 
     expect(measurement.total).toBe(6);
     expect(measurement.exact).toBe(5);
-    expect(measurement.ambiguous).toBe(0);
+    expect(measurement.similar).toBe(0);
     expect(measurement.unresolved).toBe(1);
     expect(measurement.unresolvedSamples).toEqual(["Empresa Nova"]);
   });
 
-  it("counts a similarity hit as needing confirmation, not as free", async () => {
+  it("counts a close name as a choice to make, not as resolved", async () => {
     const measurement = await measure.execute(["Fornecedor Sol"]); // one edit from "Fornecedor Sul"
     expect(measurement.exact).toBe(0);
-    expect(measurement.needsConfirmation).toBe(1);
+    expect(measurement.similar).toBe(1);
   });
 
   it("reports an empty directory as fully unresolved instead of failing", async () => {

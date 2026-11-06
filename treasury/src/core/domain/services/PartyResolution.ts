@@ -19,7 +19,6 @@ export enum ResolutionRule {
   EXACT_DOCUMENT = "exact_document",
   EXACT_EXTERNAL_ID = "exact_external_id",
   EXACT_NAME = "exact_name",
-  SIMILARITY = "similarity",
 }
 
 /**
@@ -44,8 +43,9 @@ export interface ResolutionCandidate {
  * The outcome of running the cascade — the Resolution itself, carrying the mention it started from
  * and the rule that decided, so "why did this mention become this entity" stays answerable.
  *
- * `resolved` with `needsConfirmation` is a similarity hit, not an equality one: the caller must ask
- * before using it. Similarity is never silently promoted to identity.
+ * `resolved` is always an equality. Closeness never resolves anything: `similar` lists the parties
+ * whose names are close, best first, for the operator to choose from. One close name is still a
+ * choice to make, not a confirmation of the system's guess (§5.5, decided 2026-11-06).
  */
 export type Resolution =
   | {
@@ -54,9 +54,8 @@ export type Resolution =
       partyId: string;
       rule: ResolutionRule;
       score: number;
-      needsConfirmation: boolean;
     }
-  | { kind: "ambiguous"; mention: Mention; candidates: ResolutionCandidate[] }
+  | { kind: "similar"; mention: Mention; candidates: ResolutionCandidate[] }
   | { kind: "new"; mention: Mention };
 
 /**
@@ -83,12 +82,11 @@ function nameKeys(party: Party): string[] {
  * and returns an answer, mutating nothing and reaching nothing outside its arguments.
  *
  *   1. exact PartyId            4. exact display name or alias
- *   2. exact document           5. similarity, single candidate  → resolved, needs confirmation
- *   3. exact external id        6. similarity, several candidates → ambiguous
- *                               7. nothing                        → new
+ *   2. exact document           5. close names                    → similar, for the operator to pick
+ *   3. exact external id        6. nothing                        → new
  *
- * Rung 6 never picks the most likely of several. Choosing between two same-named counterparties is
- * how two distinct entities get summed into one, and the resulting damage cannot be undone.
+ * Rung 5 never picks. Choosing between two same-named counterparties is how two distinct entities
+ * get summed into one, and the resulting damage cannot be undone.
  */
 export function resolveParty(
   query: ResolutionQuery,
@@ -97,13 +95,12 @@ export function resolveParty(
 ): Resolution {
   const mention: Mention = { text: query.mention, normalized: normalizeName(query.mention) };
 
-  const resolved = (party: Party, rule: ResolutionRule, score: number, needsConfirmation = false): Resolution => ({
+  const resolved = (party: Party, rule: ResolutionRule, score: number): Resolution => ({
     kind: "resolved",
     mention,
     partyId: effectiveId(party),
     rule,
     score,
-    needsConfirmation,
   });
 
   // 1 — exact PartyId. The mention may itself already be an id (a caller passing one through).
@@ -137,7 +134,7 @@ export function resolveParty(
     if (byName) return resolved(byName, ResolutionRule.EXACT_NAME, 1);
   }
 
-  // 5/6 — similarity. Best score per party, then everything at or above the threshold.
+  // 5 — close names. Best score per party, then everything at or above the threshold.
   if (mention.normalized === "") return { kind: "new", mention };
 
   const candidates: ResolutionCandidate[] = parties
@@ -153,18 +150,8 @@ export function resolveParty(
   // A merged party and its survivor can both clear the threshold; they are one entity, not two.
   const distinct = candidates.filter((c, i) => candidates.findIndex((o) => o.partyId === c.partyId) === i);
 
-  if (distinct.length === 1) {
-    return {
-      kind: "resolved",
-      mention,
-      partyId: distinct[0].partyId,
-      rule: ResolutionRule.SIMILARITY,
-      score: distinct[0].score,
-      needsConfirmation: true,
-    };
-  }
-  if (distinct.length > 1) return { kind: "ambiguous", mention, candidates: distinct };
+  if (distinct.length > 0) return { kind: "similar", mention, candidates: distinct };
 
-  // 7 — nothing matched. Creating the entity is an explicit decision, taken elsewhere.
+  // 6 — nothing matched. Creating the entity is an explicit decision, taken elsewhere.
   return { kind: "new", mention };
 }

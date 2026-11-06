@@ -4,6 +4,7 @@ import type { SlotValue } from "../../domain/value-objects/Slot";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { Clock } from "../ports/Clock";
 import { userActor } from "../ports/AuditLog";
+import { localDay } from "../utils/instant";
 import type { ConversationLog } from "../ports/ConversationLog";
 import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
 import {
@@ -87,7 +88,7 @@ export class ApplyAnswersUseCase {
         continue;
       }
 
-      const error = DialogEngine.validateAnswer(slot, value);
+      const error = DialogEngine.validateAnswer(slot, value, localDay(now));
       if (error) {
         // Reject without recording — never persist an invalid answer.
         rejected.push(error);

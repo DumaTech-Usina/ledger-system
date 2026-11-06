@@ -20,6 +20,18 @@ export interface SlotValidationError {
 const isBlank = (v: SlotValue | undefined): boolean => v === undefined || v.trim() === "";
 
 /**
+ * The calendar day an answer names, in this process's timezone. A bare `YYYY-MM-DD` is that day as
+ * written; anything else is an instant, read locally so 02:00Z on the 4th is still the 3rd here.
+ */
+function dayOf(value: SlotValue): string {
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const d = new Date(trimmed);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
  * Pure, deterministic conversation engine — the heart of the guided (non-form) experience.
  * No LLM: given a scenario and the answers so far, it decides the next question or signals
  * readiness, and validates a single answer. Kept side-effect free so it is trivially testable
@@ -37,8 +49,11 @@ export const DialogEngine = {
       : { kind: "ready", answered, total };
   },
 
-  /** Validate one answer against its slot. Returns null when valid. */
-  validateAnswer(slot: SlotDefinition, value: SlotValue): SlotValidationError | null {
+  /**
+   * Validate one answer against its slot. Returns null when valid. `today` is the current day in the
+   * usina's timezone, as `YYYY-MM-DD`: a parameter so that this stays free of any clock.
+   */
+  validateAnswer(slot: SlotDefinition, value: SlotValue, today: string): SlotValidationError | null {
     if (slot.required && isBlank(value)) {
       return { key: slot.key, message: `${slot.prompt} is required.` };
     }
@@ -64,6 +79,9 @@ export const DialogEngine = {
       case SlotType.DATE:
         if (Number.isNaN(Date.parse(value))) {
           return { key: slot.key, message: "Enter a valid date." };
+        }
+        if (!slot.allowFuture && dayOf(value) > today) {
+          return { key: slot.key, message: "The date cannot be in the future." };
         }
         break;
       case SlotType.CHOICE:

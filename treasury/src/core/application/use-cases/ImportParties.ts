@@ -118,7 +118,7 @@ export class ImportPartiesUseCase {
       }
     }
 
-    // Only fills gaps: an attribute that is already KNOWN or DECLINED is left exactly as it is.
+    // Only fills gaps: an attribute already held is left exactly as it is.
     const attributes = { ...party.attributes };
     let attributesAdded = 0;
     for (const [key, attribute] of Object.entries(this.attributesOf(seed, system, now))) {

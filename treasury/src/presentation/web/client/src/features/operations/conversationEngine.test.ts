@@ -167,39 +167,35 @@ describe("identityDecision", () => {
         partyId: "party-1",
         rule: "exact_name",
         score: 1,
-        needsConfirmation: false,
       },
     };
     expect(identityDecision(outcome, payeeSlot)).toBeNull();
   });
 
-  it("asks to confirm a similarity hit, showing the id it would use", () => {
+  it("lists a single close name by its name, never by its id, and picks nothing", () => {
     const outcome: IdentityOutcome = {
       slot: "payee",
       resolution: {
-        kind: "resolved",
+        kind: "similar",
         mention: mention("Fornec. Sul"),
-        partyId: "party-1",
-        rule: "similarity",
-        score: 0.9,
-        needsConfirmation: true,
+        candidates: [{ partyId: "party-1", displayName: "Fornecedor Sul", score: 0.9 }],
       },
     };
     const message = identityDecision(outcome, payeeSlot);
     expect(message).not.toBeNull();
     if (message?.kind !== "identity") return;
-    expect(message.text).toBe('"Fornec. Sul" parece ser a contraparte party-1. É essa mesma?');
+    expect(message.text).toBe('Encontrei nomes parecidos com "Fornec. Sul". É algum destes?');
     expect(message.options).toEqual([
-      { kind: "select", partyId: "party-1", label: "party-1" },
+      { kind: "select", partyId: "party-1", label: "Fornecedor Sul" },
       { kind: "create", mention: "Fornec. Sul", label: 'Cadastrar "Fornec. Sul"' },
     ]);
   });
 
-  it("offers every candidate by name when the mention was ambiguous, in the order received", () => {
+  it("offers every close name, in the order received", () => {
     const outcome: IdentityOutcome = {
       slot: "payee",
       resolution: {
-        kind: "ambiguous",
+        kind: "similar",
         mention: mention("Sul"),
         candidates: [
           { partyId: "party-1", displayName: "Fornecedor Sul", score: 0.92 },
@@ -258,7 +254,6 @@ describe("pendingIdentity", () => {
         partyId: "party-1",
         rule: "exact_name",
         score: 1,
-        needsConfirmation: false,
       },
     };
     const unresolved: IdentityOutcome = {
@@ -454,15 +449,19 @@ describe("offerablePositions", () => {
     it("is true only for an exact resolution", () => {
       const outcome: IdentityOutcome = {
         slot: "payee",
-        resolution: { kind: "resolved", mention, partyId: "PTY-7c1a", rule: "exact_name", score: 1, needsConfirmation: false },
+        resolution: { kind: "resolved", mention, partyId: "PTY-7c1a", rule: "exact_name", score: 1 },
       };
       expect(identityWasRecorded(outcome)).toBe(true);
     });
 
-    it("is false for a similarity hit — close is not equal, and the backend recorded nothing", () => {
+    it("is false for close names — close is not equal, and the backend recorded nothing", () => {
       const outcome: IdentityOutcome = {
         slot: "payee",
-        resolution: { kind: "resolved", mention, partyId: "PTY-7c1a", rule: "similarity", score: 0.9, needsConfirmation: true },
+        resolution: {
+          kind: "similar",
+          mention,
+          candidates: [{ partyId: "PTY-7c1a", displayName: "Fornecedor", score: 0.9 }],
+        },
       };
       expect(identityWasRecorded(outcome)).toBe(false);
     });

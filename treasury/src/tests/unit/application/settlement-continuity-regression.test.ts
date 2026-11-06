@@ -39,7 +39,7 @@ import { PARTY, partyDirectory } from "../../fixtures/parties";
  * the two read paths that supply it.
  */
 const USINA = PARTY.USINA;
-const clock: Clock = { now: () => "2026-08-17T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-08-17T12:00:00.000Z" };
 
 function build(scenarioId: string, intentId: string, answers: Record<string, string>) {
   const scenario = getScenario(scenarioId)!;

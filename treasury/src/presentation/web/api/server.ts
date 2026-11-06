@@ -24,8 +24,6 @@ import type { PreviewIntentUseCase } from "../../../core/application/use-cases/P
 import type { SubmitIntentUseCase } from "../../../core/application/use-cases/SubmitIntent";
 import type { SubmitRectificationUseCase } from "../../../core/application/use-cases/SubmitRectification";
 import type { DecideIdentityUseCase } from "../../../core/application/use-cases/DecideIdentity";
-import type { RecordPartyAttributeUseCase } from "../../../core/application/use-cases/RecordPartyAttribute";
-import type { ListIncompletePartiesUseCase } from "../../../core/application/use-cases/ListIncompleteParties";
 import type { ListSettlementCandidatesUseCase } from "../../../core/application/use-cases/ListSettlementCandidates";
 import type { ListPositionActionsUseCase } from "../../../core/application/use-cases/ListPositionActions";
 import type { StartPositionActionUseCase } from "../../../core/application/use-cases/StartPositionAction";
@@ -44,8 +42,6 @@ export interface ServerDeps {
   submitIntent: SubmitIntentUseCase;
   submitRectification: SubmitRectificationUseCase;
   decideIdentity: DecideIdentityUseCase;
-  recordPartyAttribute: RecordPartyAttributeUseCase;
-  listIncompleteParties: ListIncompletePartiesUseCase;
   listSettlementCandidates: ListSettlementCandidatesUseCase;
   listPositionActions: ListPositionActionsUseCase;
   startPositionAction: StartPositionActionUseCase;
@@ -87,8 +83,6 @@ export function createServer(deps: ServerDeps) {
       deps.submitIntent,
       deps.submitRectification,
       deps.decideIdentity,
-      deps.recordPartyAttribute,
-      deps.listIncompleteParties,
       deps.listSettlementCandidates,
       deps.listPositionActions,
       deps.startPositionAction,

@@ -2,13 +2,11 @@ import { AttributeSource } from "../enums/AttributeSource";
 import { AttributeState } from "../enums/AttributeState";
 
 /**
- * One attribute of a Party, carrying its own provenance. A KNOWN attribute has a value; a DECLINED
- * one does not (the user was asked and did not answer). An attribute that was never asked is simply
+ * One attribute of a Party, carrying its own provenance. An attribute nobody has observed is simply
  * absent from the map — that is UNKNOWN.
  */
 export interface PartyAttribute {
   state: AttributeState;
-  /** Present only when state is KNOWN. */
   value?: string;
   source: AttributeSource;
   /** In [0, 1]. DERIVED values carry reduced confidence and are never shown as the user's word. */

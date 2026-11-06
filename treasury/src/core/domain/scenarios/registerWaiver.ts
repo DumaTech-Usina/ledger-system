@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register commission waiver" — the usina discharges a broker's commission entitlement, NO cash
@@ -17,7 +18,7 @@ export const registerWaiver: Scenario = {
     { key: "payee", type: SlotType.PARTY, prompt: "Whose commission is being waived (broker or partner)?", required: true, suggestionSource: "parties" },
     { key: "basis", type: SlotType.CHOICE, prompt: "Is this a standard waiver, or reversing an incorrectly granted entitlement?", required: true, choices: ["waiver", "reversal"] },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the waived amount?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it waived?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],

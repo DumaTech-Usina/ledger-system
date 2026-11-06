@@ -8,7 +8,7 @@ import type { Clock } from "../../../core/application/ports/Clock";
 import type { IdGenerator } from "../../../core/application/ports/IdGenerator";
 import { PARTY, partyDirectory } from "../../fixtures/parties";
 
-const clock: Clock = { now: () => "2026-07-23T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-07-23T12:00:00.000Z" };
 
 function wire() {
   const directory = partyDirectory();
@@ -24,7 +24,7 @@ function wire() {
   };
 }
 
-// register_payment slots: payee, amount, currency (BRL|USD), occurredAt, description(optional)
+// register_payment slots: payee, amount, currency (internal), occurredAt, description(optional)
 async function startPayment(w: ReturnType<typeof wire>) {
   const { intentId } = await w.start.execute({ scenarioId: "register_payment", userId: "cfo" });
   return intentId;
@@ -49,7 +49,7 @@ describe("ApplyAnswers — deterministic multi-slot merge", () => {
 
     expect(res.rejected).toHaveLength(0);
     expect(res.skipped).toHaveLength(0);
-    expect(res.state.kind).toBe("question"); // currency still required
+    expect(res.state.kind).toBe("question"); // the date is still required
 
     const intent = await w.repo.findById(intentId);
     expect(intent?.answers.payee).toBe(PARTY.ACME);
@@ -82,16 +82,16 @@ describe("ApplyAnswers — deterministic multi-slot merge", () => {
       answers: [
         { key: "payee", value: PARTY.ACME },
         { key: "amount", value: "abc" }, // invalid money
-        { key: "currency", value: "GBP" }, // not an allowed choice
+        { key: "occurredAt", value: "not a date" }, // invalid date
       ],
     });
 
-    expect(res.rejected.map((r) => r.key).sort()).toEqual(["amount", "currency"]);
+    expect(res.rejected.map((r) => r.key).sort()).toEqual(["amount", "occurredAt"]);
 
     const intent = await w.repo.findById(intentId);
     expect(intent?.answers.payee).toBe(PARTY.ACME); // valid one recorded
     expect(intent?.answers.amount).toBeUndefined(); // invalid never persisted
-    expect(intent?.answers.currency).toBeUndefined();
+    expect(intent?.answers.occurredAt).toBeUndefined();
   });
 
   it("reports an unknown slot key without throwing and without recording it", async () => {

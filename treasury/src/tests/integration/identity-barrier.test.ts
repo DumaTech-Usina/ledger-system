@@ -14,7 +14,7 @@ import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
 import { PARTY, PARTY_DISPLAY_NAMES, partyDirectory, emptyPartyDirectory } from "../fixtures/parties";
 
-const clock: Clock = { now: () => "2026-08-03T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-08-03T12:00:00.000Z" };
 
 function wire(directory = partyDirectory()) {
   const repo = new InMemoryIntentRepository();
@@ -98,7 +98,6 @@ describe("what does get recorded", () => {
     expect((await w.repo.findById(intentId))?.answers.payee).toBe(PARTY.ACME);
     if (res.identity?.resolution.kind === "resolved") {
       expect(res.identity.resolution.rule).toBe(ResolutionRule.EXACT_ID);
-      expect(res.identity.resolution.needsConfirmation).toBe(false);
     }
   });
 
@@ -123,15 +122,15 @@ describe("what does get recorded", () => {
 });
 
 describe("similarity is never promoted to identity", () => {
-  it("does not record a near miss, and offers it for confirmation instead", async () => {
+  it("does not record a near miss, and lists it to be chosen", async () => {
     // One edit away from "Corretor Parceiro".
     const res = await w.advance.execute({ intentId, key: "payee", value: "Corretor Parceira" });
 
     expect((await w.repo.findById(intentId))?.answers.payee).toBeUndefined();
-    expect(res.identity?.resolution.kind).toBe("resolved");
-    if (res.identity?.resolution.kind === "resolved") {
-      expect(res.identity.resolution.needsConfirmation).toBe(true);
-      expect(res.identity.resolution.partyId).toBe(PARTY.BROKER);
+    expect(res.identity?.resolution.kind).toBe("similar");
+    if (res.identity?.resolution.kind === "similar") {
+      expect(res.identity.resolution.candidates.map((c) => c.partyId)).toEqual([PARTY.BROKER]);
+      expect(res.identity.resolution.candidates[0].displayName).toBe("Corretor Parceiro");
     }
   });
 
@@ -151,18 +150,18 @@ describe("similarity is never promoted to identity", () => {
       });
     }
 
-    const ambiguous = wire(new PartyDirectory(repo));
-    const { intentId: id } = await ambiguous.start.execute({ scenarioId: "register_payment", userId: "cfo" });
-    const res = await ambiguous.advance.execute({ intentId: id, key: "payee", value: "Alfa Comercia" });
+    const close = wire(new PartyDirectory(repo));
+    const { intentId: id } = await close.start.execute({ scenarioId: "register_payment", userId: "cfo" });
+    const res = await close.advance.execute({ intentId: id, key: "payee", value: "Alfa Comercia" });
 
-    expect(res.identity?.resolution.kind).toBe("ambiguous");
-    if (res.identity?.resolution.kind === "ambiguous") {
+    expect(res.identity?.resolution.kind).toBe("similar");
+    if (res.identity?.resolution.kind === "similar") {
       expect(res.identity.resolution.candidates.map((c) => c.partyId).sort()).toEqual([
         "party-alfa-1",
         "party-alfa-2",
       ]);
     }
-    expect((await ambiguous.repo.findById(id))?.answers.payee).toBeUndefined();
+    expect((await close.repo.findById(id))?.answers.payee).toBeUndefined();
   });
 
   it("closes the loop when the user answers again with a canonical id", async () => {

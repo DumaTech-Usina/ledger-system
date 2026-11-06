@@ -14,7 +14,7 @@ import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
 import { PARTY, PARTY_DISPLAY_NAMES, seededDirectory } from "../fixtures/parties";
 
-const clock: Clock = { now: () => "2026-08-03T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-08-03T12:00:00.000Z" };
 
 /** Captures exactly what would reach the Ledger. */
 class CapturingSubmission implements CandidateSubmissionPort {

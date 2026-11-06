@@ -236,6 +236,21 @@ describe("CA-521b — o mesmo caso, interrompido depois da retirada", () => {
   });
 });
 
+describe("um valor corrigido inválido é recusado antes de qualquer gravação", () => {
+  it.each([
+    ["valor ilegível", { amount: "abc" }],
+    ["valor com 3 casas (REQ-221)", { amount: "450.125" }],
+    ["valor zero (REQ-223)", { amount: "0" }],
+    ["data futura (REQ-226)", { occurredAt: "2026-11-10" }],
+  ])("%s: o lançamento continua de pé", async (_label, corrected) => {
+    await expect(
+      rectification().execute({ targetEventId: "evt-400", userId: "cfo", corrected }),
+    ).rejects.toThrow(/Could not describe/);
+
+    expect(submitted).toEqual([]);
+  });
+});
+
 describe("REJ-524 — a retificação não apaga nem reescreve o original", () => {
   it("o Treasury só lê o original e acrescenta fatos que o citam", async () => {
     await rectification().execute({

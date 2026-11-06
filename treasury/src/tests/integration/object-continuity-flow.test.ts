@@ -17,7 +17,7 @@ import { PARTY, partyDirectory } from "../fixtures/parties";
  * an optional slot, the existing dialog, the existing preview and submit. Answering it links the
  * settlement to the advance's position; leaving it empty reproduces today's behaviour exactly.
  */
-const clock: Clock = { now: () => "2026-07-09T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-07-09T12:00:00.000Z" };
 
 function wire() {
   const directory = partyDirectory();

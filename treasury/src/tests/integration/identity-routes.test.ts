@@ -17,20 +17,17 @@ import { PreviewIntentUseCase } from "../../core/application/use-cases/PreviewIn
 import { SubmitIntentUseCase } from "../../core/application/use-cases/SubmitIntent";
 import { SubmitRectificationUseCase } from "../../core/application/use-cases/SubmitRectification";
 import { DecideIdentityUseCase } from "../../core/application/use-cases/DecideIdentity";
-import { RecordPartyAttributeUseCase } from "../../core/application/use-cases/RecordPartyAttribute";
-import { ListIncompletePartiesUseCase } from "../../core/application/use-cases/ListIncompleteParties";
 import { ListSettlementCandidatesUseCase } from "../../core/application/use-cases/ListSettlementCandidates";
 import { ListPositionActionsUseCase } from "../../core/application/use-cases/ListPositionActions";
 import { StartPositionActionUseCase } from "../../core/application/use-cases/StartPositionAction";
 import { algebra } from "../fixtures/algebra";
 import { StubLedgerReadAdapter } from "../../infra/ledger-read/StubLedgerReadAdapter";
 import { Role } from "../../core/domain/enums/Role";
-import { PartyAttributeKey } from "../../core/domain/value-objects/PartyAttribute";
 import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
 import { PARTY, PARTY_DISPLAY_NAMES, seededDirectory } from "../fixtures/parties";
 
-const clock: Clock = { now: () => "2026-08-03T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-08-03T12:00:00.000Z" };
 
 /**
  * Exercises the HTTP surface the Fase 6/7 features are actually reached through: body parsing, the
@@ -94,8 +91,6 @@ function harness() {
         PARTY.USINA,
       ),
       new DecideIdentityUseCase(intents, parties, clock, ids, audit),
-      new RecordPartyAttributeUseCase(parties, clock, audit),
-      new ListIncompletePartiesUseCase(directory),
       new ListSettlementCandidatesUseCase(intents, new StubLedgerReadAdapter(), directory),
       // This suite exercises identity, not the position entry point; the stub Ledger holds no
       // positions, so both of these answer "nothing" — which is the honest wiring for it.
@@ -240,7 +235,7 @@ describe("POST /:intentId/answer — the barrier over the wire", () => {
 });
 
 describe("GET /:intentId/preview", () => {
-  it("carries display names and the enrichment suggestion", async () => {
+  it("carries display names, and asks nothing about the party (§5.5)", async () => {
     const intentId = await startIntentOver("register_payment");
     const created = await json(await post(`/${intentId}/identity`, { slot: "payee", kind: "create", mention: "Padaria do Zé" }));
     for (const [key, value] of [["amount", "2500.00"], ["currency", "BRL"], ["occurredAt", "2026-08-03"]]) {
@@ -249,80 +244,15 @@ describe("GET /:intentId/preview", () => {
 
     const body = await json(await get(`/${intentId}/preview`));
     expect(body.partyNames[created.decision.partyId]).toBe("Padaria do Zé");
-    expect(body.enrichment.attribute).toBe(PartyAttributeKey.DOCUMENT);
+    expect(body).not.toHaveProperty("enrichment");
   });
 });
 
-describe("POST /:intentId/enrich", () => {
-  it("records an answer", async () => {
+describe("§5.5 — o enriquecimento saiu", () => {
+  it("as rotas não existem mais", async () => {
     const intentId = await startIntentOver("register_payment");
-    const created = await json(await post(`/${intentId}/identity`, { slot: "payee", kind: "create", mention: "Padaria do Zé" }));
 
-    const res = await post(`/${intentId}/enrich`, {
-      partyId: created.decision.partyId,
-      key: PartyAttributeKey.DOCUMENT,
-      value: "12345678000199",
-    });
-
-    expect(res.status).toBe(200);
-    const party = await ctx.parties.findById(created.decision.partyId);
-    expect(party?.attributes[PartyAttributeKey.DOCUMENT]?.value).toBe("12345678000199");
-    expect(party?.attributes[PartyAttributeKey.DOCUMENT]?.capturedBy).toBe("user-cfo");
-  });
-
-  it("records a blank answer as declined", async () => {
-    const intentId = await startIntentOver("register_payment");
-    const created = await json(await post(`/${intentId}/identity`, { slot: "payee", kind: "create", mention: "Padaria do Zé" }));
-
-    await post(`/${intentId}/enrich`, {
-      partyId: created.decision.partyId,
-      key: PartyAttributeKey.DOCUMENT,
-      value: "",
-    });
-
-    const party = await ctx.parties.findById(created.decision.partyId);
-    expect(party?.attributes[PartyAttributeKey.DOCUMENT]?.state).toBe("declined");
-  });
-
-  it("maps an attribute the conversation does not ask for to 422", async () => {
-    const intentId = await startIntentOver("register_payment");
-    const res = await post(`/${intentId}/enrich`, {
-      partyId: PARTY.ACME,
-      key: "notes",
-      value: "x",
-    });
-
-    expect(res.status).toBe(422);
-    expect((await json(res)).error).toMatch(/not an attribute/i);
-  });
-
-  it("maps an unknown party to 422", async () => {
-    const intentId = await startIntentOver("register_payment");
-    const res = await post(`/${intentId}/enrich`, {
-      partyId: "party-nao-existe",
-      key: PartyAttributeKey.DOCUMENT,
-      value: "1",
-    });
-
-    expect(res.status).toBe(422);
-  });
-});
-
-describe("GET /parties/incomplete", () => {
-  it("computes the backlog and reflects an enrichment immediately", async () => {
-    const before = await json(await get("/parties/incomplete"));
-    expect(before.length).toBe(6); // every fixture party starts with both gaps open
-    expect(before[0].missing).toContain(PartyAttributeKey.DOCUMENT);
-
-    const intentId = await startIntentOver("register_payment");
-    await post(`/${intentId}/enrich`, {
-      partyId: PARTY.ACME,
-      key: PartyAttributeKey.DOCUMENT,
-      value: "1",
-    });
-    await post(`/${intentId}/enrich`, { partyId: PARTY.ACME, key: PartyAttributeKey.TYPE, value: "client" });
-
-    const after = await json(await get("/parties/incomplete"));
-    expect(after.map((c: { partyId: string }) => c.partyId)).not.toContain(PARTY.ACME);
+    expect((await post(`/${intentId}/enrich`, { partyId: PARTY.ACME, key: "document", value: "1" })).status).toBe(404);
+    expect((await get("/parties/incomplete")).status).toBe(404);
   });
 });

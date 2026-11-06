@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register payroll" — the usina pays its employees. Maps to the Ledger's ratified tuple
@@ -15,7 +16,7 @@ export const registerPayroll: Scenario = {
   slots: [
     { key: "payee", type: SlotType.PARTY, prompt: "Who is being paid (employee or payroll provider)?", required: true, suggestionSource: "parties" },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the payroll amount?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was payroll paid?", required: true },
     // Optional continuity: the obligation this payment closes, when the payroll was recognized
     // before it was paid. Never required — a payroll paid without a prior recognition is the

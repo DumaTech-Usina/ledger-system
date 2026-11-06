@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register penalty payment" — the usina pays a penalty or fine. Maps to the Ledger's ratified tuple
@@ -14,7 +15,7 @@ export const registerPenalty: Scenario = {
   slots: [
     { key: "payee", type: SlotType.PARTY, prompt: "Who is being paid (authority or counterparty)?", required: true, suggestionSource: "parties" },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the penalty amount?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it paid?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],

@@ -222,7 +222,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
 export const statusLabels: Record<IntentStatus, string> = {
   draft: "Rascunho",
   gathering: "Coletando informações",
-  awaiting_confirmation: "Aguardando confirmação",
+  awaiting_confirmation: "Pronta para envio",
   confirmed: "Confirmado",
   submitted: "Enviado",
   awaiting_correction: "Aguardando correção",
@@ -247,15 +247,8 @@ export const eventLabels: Record<string, string> = {
  * instead of asking the same thing again in silence.
  */
 export const identityCopy = {
-  /**
-   * Similarity hit: close, not equal. Confirming is the user's to do — never assumed. The backend's
-   * `resolved` outcome publishes only the PartyId (no display name, unlike an ambiguous candidate),
-   * so the id is what goes on screen — an unknown label is never invented to fill the gap.
-   */
-  confirm: (mention: string, partyId: string) =>
-    `"${mention}" parece ser a contraparte ${partyId}. É essa mesma?`,
-  ambiguous: (mention: string) =>
-    `Mais de uma contraparte se parece com "${mention}". Qual delas?`,
+  /** Close names, listed for the operator to choose from. The system never picks one. */
+  similar: (mention: string) => `Encontrei nomes parecidos com "${mention}". É algum destes?`,
   unknown: (mention: string) => `Ainda não conheço "${mention}". Quer cadastrar?`,
   create: (mention: string) => `Cadastrar "${mention}"`,
   unidentifiable: "Não é possível identificar",
@@ -292,28 +285,6 @@ export const positionCopy = {
 };
 
 /**
- * The one optional question the confirmation card may offer. It exists only after the fact is
- * already complete and can never hold a submission back — so it is phrased as an offer, never as a
- * pending item, and "prefiro não informar" is a first-class answer rather than a dismissal.
- */
-export const enrichmentCopy = {
-  question: (displayName: string, attribute: string) =>
-    `Quer aproveitar e informar ${attributeLabels[attribute] ?? attribute} de ${displayName}?`,
-  save: "Salvar",
-  decline: "Prefiro não informar",
-  saved: "Anotado.",
-  declined: "Sem problema — não pergunto de novo.",
-};
-
-/** The attributes the conversation may ask for, and the Ledger's own party vocabulary for `type`. */
-export const attributeLabels: Record<string, string> = {
-  document: "o CPF/CNPJ",
-  type: "o tipo",
-};
-
-export const partyTypeChoices = ["company", "client", "supplier", "bank", "gateway"] as const;
-
-/**
  * What the Ledger's answer means for the conversation. A fixable rejection is not an ending: the
  * Ledger named what it could not accept, and the same intent can carry a corrected version.
  */
@@ -325,18 +296,11 @@ export const submitCopy = {
   correctionCancel: "Cancelar",
 };
 
-export const partyTypeLabels: Record<string, string> = {
-  company: "Empresa",
-  client: "Cliente",
-  supplier: "Fornecedor",
-  bank: "Banco",
-  gateway: "Gateway",
-};
-
 const messageTranslations: Record<string, string> = {
   "Enter a valid amount, e.g. 1500.00.": "Informe um valor válido, ex.: 1500.00.",
   "Amount must be greater than zero.": "O valor deve ser maior que zero.",
   "An amount has at most 2 decimal places.": "Um valor tem no máximo 2 casas decimais.",
+  "The date cannot be in the future.": "A data não pode ser futura.",
   "Enter a valid date.": "Informe uma data válida.",
   "Flagged for manual review (description contains 'test').":
     "Sinalizado para revisão manual (a descrição contém 'test').",

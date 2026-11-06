@@ -4,6 +4,7 @@ import { registerPayment } from "../../../core/domain/scenarios/registerPayment"
 import { PARTY } from "../../fixtures/parties";
 
 const slot = (key: string) => registerPayment.slots.find((s) => s.key === key)!;
+const TODAY = "2026-11-03";
 
 describe("DialogEngine.nextState", () => {
   it("asks for the first required slot when nothing is answered", () => {
@@ -35,26 +36,26 @@ describe("DialogEngine.nextState", () => {
 
 describe("DialogEngine.validateAnswer", () => {
   it("rejects a non-numeric money value", () => {
-    expect(DialogEngine.validateAnswer(slot("amount"), "abc")).not.toBeNull();
+    expect(DialogEngine.validateAnswer(slot("amount"), "abc", TODAY)).not.toBeNull();
   });
 
   it("rejects a non-positive amount", () => {
-    expect(DialogEngine.validateAnswer(slot("amount"), "0")).not.toBeNull();
+    expect(DialogEngine.validateAnswer(slot("amount"), "0", TODAY)).not.toBeNull();
   });
 
   it("accepts a valid amount", () => {
-    expect(DialogEngine.validateAnswer(slot("amount"), "1500.00")).toBeNull();
+    expect(DialogEngine.validateAnswer(slot("amount"), "1500.00", TODAY)).toBeNull();
   });
 
   it("rejects a value outside a CHOICE slot", () => {
-    expect(DialogEngine.validateAnswer(slot("currency"), "GBP")).not.toBeNull();
+    expect(DialogEngine.validateAnswer(slot("currency"), "GBP", TODAY)).not.toBeNull();
   });
 
   it("rejects a required slot left blank", () => {
-    expect(DialogEngine.validateAnswer(slot("payee"), "")).not.toBeNull();
+    expect(DialogEngine.validateAnswer(slot("payee"), "", TODAY)).not.toBeNull();
   });
 
   it("accepts an optional slot left blank", () => {
-    expect(DialogEngine.validateAnswer(slot("description"), "")).toBeNull();
+    expect(DialogEngine.validateAnswer(slot("description"), "", TODAY)).toBeNull();
   });
 });

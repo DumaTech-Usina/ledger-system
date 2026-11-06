@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Recognize an obligation" — an external fact established something the usina owes, before any
@@ -30,7 +31,7 @@ export const registerObligationRecognition: Scenario = {
     },
     { key: "payee", type: SlotType.PARTY, prompt: "Who is it owed to?", required: true, suggestionSource: "parties" },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the amount owed?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     {
       key: "occurredAt",
       type: SlotType.DATE,
@@ -46,6 +47,8 @@ export const registerObligationRecognition: Scenario = {
       type: SlotType.DATE,
       prompt: "On what date does it fall due? (leave empty if the document does not say)",
       required: false,
+      // REQ-227: what the establishing document says, not the date of a fact.
+      allowFuture: true,
     },
     {
       // Optional continuity assertion: the position of a payment already recorded, which this

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/Button";
 import { DatePicker } from "@/components/DatePicker";
 import { scenarioCopy } from "@/features/operations/copy";
+import { amountDigits, amountFromDigits, maskedAmount } from "@/utils/money";
 import { cn } from "@/utils/cn";
 import type { ScenarioSummary } from "@/types/operations";
 
@@ -24,6 +25,12 @@ export interface ComposerProps {
    * same as any other slot answer), so nothing downstream needs to know the difference.
    */
   dateSlot?: boolean;
+  /**
+   * True while the open question is an amount. The field masks as it is typed, filling from the
+   * cents (REQ-224), and what `onSend` receives is the plain decimal, so nothing the mask shows can
+   * reach the Ledger (REQ-228).
+   */
+  moneySlot?: boolean;
 }
 
 /**
@@ -32,16 +39,27 @@ export interface ComposerProps {
  * or a whole sentence naming several fields at once all just work. Keyed by the parent (the open
  * slot's key, or a fixed key while picking) so each new question starts with a clean field.
  *
- * The one exception is `dateSlot`: a date is answered by picking, not typing prose, so that turn
- * swaps the free-text field for `DatePicker` instead of asking the extractor to parse a sentence.
+ * The exceptions are `dateSlot` and `moneySlot`. A date is answered by picking, so that turn swaps the
+ * free-text field for `DatePicker`. An amount is answered through the mask, because a mask cannot
+ * share a field with prose: "2000 em outubro" would have to be read either as R$ 20,00 or as a
+ * sentence, and guessing changes the amount.
  */
-export function Composer({ placeholder, required, onSend, busy, suggest, onPickSuggestion, dateSlot }: ComposerProps) {
+export function Composer({
+  placeholder,
+  required,
+  onSend,
+  busy,
+  suggest,
+  onPickSuggestion,
+  dateSlot,
+  moneySlot,
+}: ComposerProps) {
   const [value, setValue] = useState("");
   const suggestions = suggest && value.trim() ? suggest(value) : [];
 
   const submit = () => {
     if (value.trim() === "" && required) return;
-    onSend(value);
+    onSend(moneySlot && value !== "" ? amountFromDigits(value) : value);
     setValue("");
   };
 
@@ -81,10 +99,12 @@ export function Composer({ placeholder, required, onSend, busy, suggest, onPickS
       )}
       <input
         type="text"
-        placeholder={placeholder}
-        value={value}
+        inputMode={moneySlot ? "numeric" : undefined}
+        placeholder={moneySlot ? maskedAmount("") : placeholder}
+        aria-label={placeholder}
+        value={moneySlot && value !== "" ? maskedAmount(value) : value}
         disabled={busy}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => setValue(moneySlot ? amountDigits(e.target.value) : e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") submit();
         }}

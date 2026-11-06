@@ -12,7 +12,7 @@ import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
 import { PARTY, partyDirectory } from "../fixtures/parties";
 
-const clock: Clock = { now: () => "2026-07-23T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-07-23T12:00:00.000Z" };
 
 function wire() {
   const directory = partyDirectory();

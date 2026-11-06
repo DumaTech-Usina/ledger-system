@@ -1,5 +1,6 @@
 import type { Scenario } from "./Scenario";
 import { SlotType } from "../enums/SlotType";
+import { CURRENCY_SLOT } from "../value-objects/Slot";
 
 /**
  * "Register service fee payment" — the usina pays a service fee. Maps to the Ledger's ratified tuple
@@ -17,7 +18,7 @@ export const registerServiceFee: Scenario = {
   slots: [
     { key: "payee", type: SlotType.PARTY, prompt: "Who is being paid (supplier or provider)?", required: true, suggestionSource: "parties" },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the fee amount?", required: true },
-    { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
+    CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it paid?", required: true },
     // Optional continuity: the obligation this payment closes, when it was recognized beforehand.
     { key: "objectRef", type: SlotType.STRING, prompt: "Which recognized obligation does this pay?", required: false },

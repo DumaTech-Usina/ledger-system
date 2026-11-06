@@ -168,7 +168,6 @@ export interface Translations {
       cashInColumn: string;
       cashOutColumn: string;
       /** The cash balance standing right after the movement on that row. */
-      balanceColumn: string;
       /** Reads as a question a person would ask, not as a field name. */
       whatHappened: string;
       /** Everyone involved in a position, not only the counterparty a filter matched. */
@@ -257,16 +256,15 @@ export interface Translations {
       cta: string;
       netLabel: string;
       dayDetailTitle: string;
-      balanceLabel: string;
       viewAll: string;
       allMovementsTitle: string;
       chartTitle: string;
       chartLabel: string;
       chartInflow: string;
       chartOutflow: string;
-      chartBalance: string;
       /** The chart/modal stopped at the page cap before the period did — said, not left implicit. */
       truncatedNote: string;
+      unreadableNote: string;
     };
   };
   /** Keyed by the domain enum's raw string value (e.g. CashEffect, ObjectType). */
@@ -457,7 +455,6 @@ const ptBR: Translations = {
       document: "Número do documento",
       cashInColumn: "Entradas",
       cashOutColumn: "Saídas",
-      balanceColumn: "Saldo",
       whatHappened: "O que aconteceu",
       parties: "Partes",
       selfParty: "Usina",
@@ -535,15 +532,14 @@ const ptBR: Translations = {
       cta: "Nova operação",
       netLabel: "Líquido",
       dayDetailTitle: "Movimentações de {date}",
-      balanceLabel: "Saldo do dia",
       viewAll: "Ver fluxo completo",
       allMovementsTitle: "Fluxo completo",
       chartTitle: "Fluxo diário",
       chartLabel: "Entradas e saídas por dia, com a evolução do saldo em caixa",
       chartInflow: "Entradas",
       chartOutflow: "Saídas",
-      chartBalance: "Saldo",
       truncatedNote: "Mostrando as primeiras movimentações do período. Para ver todas, use a lista de Movimentações abaixo.",
+      unreadableNote: "Há movimentações com valor ilegível que não aparecem no gráfico.",
     },
   },
   cashEffect: {
@@ -594,7 +590,7 @@ const ptBR: Translations = {
   intentStatus: {
     draft: "Rascunho",
     gathering: "Coletando informações",
-    awaiting_confirmation: "Aguardando confirmação",
+    awaiting_confirmation: "Pronta para envio",
     confirmed: "Confirmado",
     submitted: "Enviado",
     awaiting_correction: "Aguardando correção",
@@ -842,7 +838,6 @@ const en: Translations = {
       document: "Document number",
       cashInColumn: "Cash in",
       cashOutColumn: "Cash out",
-      balanceColumn: "Balance",
       whatHappened: "What happened",
       parties: "Parties",
       selfParty: "Usina",
@@ -920,15 +915,14 @@ const en: Translations = {
       cta: "New entry",
       netLabel: "Net",
       dayDetailTitle: "Movements on {date}",
-      balanceLabel: "Daily balance",
       viewAll: "View full flow",
       allMovementsTitle: "Full flow",
       chartTitle: "Daily flow",
       chartLabel: "Cash in and cash out per day, with the running cash balance",
       chartInflow: "Cash in",
       chartOutflow: "Cash out",
-      chartBalance: "Balance",
       truncatedNote: "Showing the period's first movements. See the Movements list below for the rest.",
+      unreadableNote: "Some movements have an unreadable amount and are not on the chart.",
     },
   },
   cashEffect: {
@@ -969,7 +963,7 @@ const en: Translations = {
   intentStatus: {
     draft: "Draft",
     gathering: "Gathering information",
-    awaiting_confirmation: "Awaiting confirmation",
+    awaiting_confirmation: "Ready to send",
     confirmed: "Confirmed",
     submitted: "Submitted",
     awaiting_correction: "Awaiting correction",

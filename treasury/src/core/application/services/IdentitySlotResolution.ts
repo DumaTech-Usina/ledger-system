@@ -34,28 +34,26 @@ export async function resolveIdentitySlot(
 /**
  * Whether a resolution may be written into the intent's answers.
  *
- * Only an exact rung qualifies. A similarity hit is deliberately excluded: it is close, not equal,
- * and confirming it is the user's to do — picking the likely one silently is how two real
- * counterparties get merged into one aggregate, irreversibly, because events are immutable.
+ * Only an exact match qualifies. A close name is deliberately excluded: choosing it is the user's to
+ * do — picking the likely one silently is how two real counterparties get merged into one aggregate,
+ * irreversibly, because events are immutable.
  */
 export function isRecordable(resolution: Resolution): boolean {
-  return resolution.kind === "resolved" && !resolution.needsConfirmation;
+  return resolution.kind === "resolved";
 }
 
 /** The canonical id to record. Never the mention: what the user typed is not an identity. */
 export function recordableId(resolution: Resolution): string | null {
-  return isRecordable(resolution) && resolution.kind === "resolved" ? resolution.partyId : null;
+  return resolution.kind === "resolved" ? resolution.partyId : null;
 }
 
 /** A compact, greppable audit line describing how a mention was (or was not) resolved. */
 export function auditDetail(slot: string, resolution: Resolution): string {
   switch (resolution.kind) {
     case "resolved":
-      return `${slot}: "${resolution.mention.text}" → ${resolution.partyId} via ${resolution.rule}${
-        resolution.needsConfirmation ? " (needs confirmation)" : ""
-      }`;
-    case "ambiguous":
-      return `${slot}: "${resolution.mention.text}" → ambiguous [${resolution.candidates
+      return `${slot}: "${resolution.mention.text}" → ${resolution.partyId} via ${resolution.rule}`;
+    case "similar":
+      return `${slot}: "${resolution.mention.text}" → similar [${resolution.candidates
         .map((c) => c.partyId)
         .join(", ")}]`;
     case "new":

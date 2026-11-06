@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye } from "lucide-react";
 import { Pagination } from "@/components/Pagination";
 import { Table } from "@/components/Table";
 import { RowDetailModal } from "@/features/dashboard/RowDetailModal";
-import { runningBalances } from "@/features/dashboard/cashBalance";
 import { useLanguage } from "@/i18n/i18n";
 import { formatDate, formatMoney } from "@/utils/format";
 import type { CashMovement } from "@/types/dashboard";
@@ -20,18 +19,6 @@ export interface MovementsTableProps {
   /** partyId → display name. A party absent here keeps its id: unknown is shown as unknown. */
   partyNames?: Record<string, string>;
   /**
-   * Adds the running cash-balance column. Off by default, and deliberately so: a balance only means
-   * something over a complete run of movements. On a list filtered to one direction — the cash-in
-   * and cash-out drill-downs — it would accumulate half the story and read as the cash balance,
-   * which it would not be.
-   */
-  showBalance?: boolean;
-  /**
-   * What the balance stood at before the first of these movements. Zero is right when the list
-   * starts at the beginning of the book; a caller holding a later window must say where it opened.
-   */
-  openingBalance?: string;
-  /**
    * Off when the caller already asked the Ledger for one page and owns the pager itself. Slicing
    * again here would page a page — the same rule {@link PositionsTable} follows.
    */
@@ -42,20 +29,11 @@ export function MovementsTable({
   movements,
   currency,
   partyNames = {},
-  showBalance = false,
-  openingBalance = "0",
   paginate = true,
 }: MovementsTableProps) {
   const { t } = useLanguage();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<CashMovement | null>(null);
-
-  // Over the whole list, never the visible page: a balance is what everything before it adds up to,
-  // so paging must not restart the accumulation.
-  const balances = useMemo(
-    () => (showBalance ? runningBalances(movements, openingBalance) : null),
-    [movements, openingBalance, showBalance],
-  );
 
   useEffect(() => {
     setPage(1);
@@ -86,16 +64,13 @@ export function MovementsTable({
             <Table.HeaderCell>{t.dashboard.table.counterparty}</Table.HeaderCell>
             <Table.HeaderCell className="text-right">{t.dashboard.table.cashInColumn}</Table.HeaderCell>
             <Table.HeaderCell className="text-right">{t.dashboard.table.cashOutColumn}</Table.HeaderCell>
-            {showBalance && (
-              <Table.HeaderCell className="text-right">{t.dashboard.table.balanceColumn}</Table.HeaderCell>
-            )}
             <Table.HeaderCell aria-hidden />
           </Table.Row>
         </Table.Head>
         <Table.Body>
           {movements.length === 0 ? (
             <Table.Row>
-              <Table.Cell colSpan={showBalance ? 8 : 7} className="text-center text-muted">
+              <Table.Cell colSpan={7} className="text-center text-muted">
                 {t.common.noRecords}
               </Table.Cell>
             </Table.Row>
@@ -119,21 +94,6 @@ export function MovementsTable({
                 <Table.Cell mono className="text-right font-semibold text-bad">
                   {m.effect === "cash_out" ? formatMoney(m.amount, currency) : ""}
                 </Table.Cell>
-                {/* The cash balance standing right after this movement. Unknown rather than blank
-                    when it could not be derived — a blank would read as zero cash. */}
-                {showBalance && (
-                  <Table.Cell
-                    mono
-                    className={`text-right font-semibold ${
-                      balances?.get(m.eventId) == null ? "text-muted" : "text-ink"
-                    }`}
-                  >
-                    {(() => {
-                      const balance = balances?.get(m.eventId);
-                      return balance == null ? t.common.unknown : formatMoney(balance, currency);
-                    })()}
-                  </Table.Cell>
-                )}
                 <Table.Cell>
                   <button
                     type="button"

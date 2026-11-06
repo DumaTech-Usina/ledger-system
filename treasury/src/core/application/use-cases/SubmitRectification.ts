@@ -1,3 +1,7 @@
+import { getScenario } from "../../domain/scenarios/Scenario";
+import { DialogEngine } from "../../domain/services/DialogEngine";
+import { THE_CURRENCY } from "../../domain/value-objects/Slot";
+import { localDay } from "../utils/instant";
 import type { LedgerEventLookupPort } from "../ports/LedgerEventLookupPort";
 import type { Clock } from "../ports/Clock";
 import type { StartIntentUseCase } from "./StartIntent";
@@ -103,8 +107,16 @@ export class SubmitRectificationUseCase {
     // produce it, the book stays untouched: withdrawing the entry anyway would leave the operator
     // with neither the old figure nor the new one, having asked for a correction rather than a
     // withdrawal. Withdrawing alone stays available — as its own, deliberate request.
+    if (target.currency !== THE_CURRENCY) {
+      throw new Error(`This entry is in ${target.currency}; only ${THE_CURRENCY} can be recorded.`);
+    }
     const plan = input.corrected ? planReissue(target, this.usinaPartyId) : null;
     if (plan && !plan.reissuable) return { notReissuable: plan.reason };
+
+    // Everything the reissue will say is checked here, ahead of the withdrawal. Found out afterwards,
+    // an unusable corrected value would leave the entry withdrawn with no replacement, on a request
+    // the operator could simply have fixed and sent again.
+    if (plan) this.assertDescribable(plan.scenarioId, this.reissueAnswers(input, plan));
 
     const retraction = await this.retract(input, target, moved, plan !== null);
     if (!plan || retraction.status !== "accepted") return { retraction };
@@ -152,19 +164,7 @@ export class SubmitRectificationUseCase {
       userId: input.userId,
     });
 
-    // Only the restated fields override what the Ledger already holds. A field the operator did not
-    // touch is carried over, so a correction of the amount cannot quietly move the date as well.
-    const corrected = input.corrected ?? {};
-    const overrides = new Map<string, string>();
-    if (corrected.amount) overrides.set("amount", corrected.amount);
-    if (corrected.occurredAt) overrides.set("occurredAt", corrected.occurredAt);
-    if (corrected.description) overrides.set("description", corrected.description);
-
-    const answers = plan.answers.map((a) => ({ key: a.key, value: overrides.get(a.key) ?? a.value }));
-    for (const [key, value] of overrides) {
-      if (!answers.some((a) => a.key === key)) answers.push({ key, value });
-    }
-
+    const answers = this.reissueAnswers(input, plan);
     const merged = await this.applyAnswers.execute({ intentId, answers });
     if (merged.rejected.length > 0) {
       throw new Error(`Could not describe the entry: ${merged.rejected.map((r) => r.message).join("; ")}`);
@@ -177,6 +177,38 @@ export class SubmitRectificationUseCase {
     }
 
     return this.submitIntent.execute(intentId, input.userId);
+  }
+
+  /**
+   * Only the restated fields override what the Ledger already holds. A field the operator did not
+   * touch is carried over, so a correction of the amount cannot quietly move the date as well.
+   */
+  private reissueAnswers(
+    input: SubmitRectificationInput,
+    plan: Extract<ReturnType<typeof planReissue>, { reissuable: true }>,
+  ): { key: string; value: string }[] {
+    const corrected = input.corrected ?? {};
+    const overrides = new Map<string, string>();
+    if (corrected.amount) overrides.set("amount", corrected.amount);
+    if (corrected.occurredAt) overrides.set("occurredAt", corrected.occurredAt);
+    if (corrected.description) overrides.set("description", corrected.description);
+
+    const answers = plan.answers.map((a) => ({ key: a.key, value: overrides.get(a.key) ?? a.value }));
+    for (const [key, value] of overrides) {
+      if (!answers.some((a) => a.key === key)) answers.push({ key, value });
+    }
+    return answers;
+  }
+
+  private assertDescribable(scenarioId: string, answers: { key: string; value: string }[]): void {
+    const slots = getScenario(scenarioId)?.slots ?? [];
+    const today = localDay(this.clock.now());
+    const refused = answers.flatMap(({ key, value }) => {
+      const slot = slots.find((s) => s.key === key);
+      const error = slot ? DialogEngine.validateAnswer(slot, value, today) : null;
+      return error ? [error.message] : [];
+    });
+    if (refused.length > 0) throw new Error(`Could not describe the entry: ${refused.join("; ")}`);
   }
 
   private async fill(

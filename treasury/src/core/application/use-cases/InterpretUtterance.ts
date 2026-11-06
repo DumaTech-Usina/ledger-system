@@ -1,5 +1,5 @@
 import { Intent } from "../../domain/entities/Intent";
-import { getScenario, listScenarios } from "../../domain/scenarios/Scenario";
+import { getScenario, listScenarios, defaultAnswers } from "../../domain/scenarios/Scenario";
 import type { DialogState, SlotValidationError } from "../../domain/services/DialogEngine";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import { userActor } from "../ports/AuditLog";
@@ -143,7 +143,7 @@ export class InterpretUtteranceUseCase {
     }
 
     const now = this.clock.now();
-    const intent = Intent.start(this.ids.next(), scenario.id, input.userId, now);
+    const intent = Intent.start(this.ids.next(), scenario.id, input.userId, now, defaultAnswers(scenario));
     await this.repo.save(intent);
     await this.log.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "intent.started", detail: scenario.id });
     await this.log.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "utterance.received", detail: input.utterance });

@@ -10,7 +10,7 @@ import type { Clock } from "../../core/application/ports/Clock";
 import type { IdGenerator } from "../../core/application/ports/IdGenerator";
 import { PARTY, partyDirectory } from "../fixtures/parties";
 
-const clock: Clock = { now: () => "2026-07-23T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-07-23T12:00:00.000Z" };
 
 /** A controllable extractor for exercising InterpretUtterance's handling of proposals. */
 const fakePort = (result: SlotExtractionResult | (() => never)): SlotExtractionPort => ({
@@ -36,7 +36,7 @@ describe("InterpretUtterance", () => {
 
     const res = await interpret.execute({ intentId, utterance: "Paguei 1500.00 em BRL no dia 2026-07-23" });
 
-    expect(res.accepted.sort()).toEqual(["amount", "currency", "occurredAt"]);
+    expect(res.accepted.sort()).toEqual(["amount", "occurredAt"]);
     expect(res.state?.kind).toBe("question"); // payee still missing
     const intent = await repo.findById(intentId);
     expect(intent?.answers.amount).toBe("1500.00");
@@ -122,7 +122,7 @@ describe("InterpretUtterance", () => {
     const trail = await log.listByIntent(intentId);
     expect(trail.some((e) => e.type === "extraction.failed")).toBe(true);
     const intent = await repo.findById(intentId);
-    expect(Object.keys(intent?.answers ?? {})).toHaveLength(0);
+    expect(Object.keys(intent?.answers ?? {})).toEqual(["currency"]); // only what the intent starts with
   });
 
   it("records the utterance in the conversation log", async () => {
@@ -148,7 +148,7 @@ describe("InterpretUtterance", () => {
 
       expect(res.scenarioId).toBe("register_payroll");
       expect(res.intentId).toBeDefined();
-      expect(res.accepted).toEqual(expect.arrayContaining(["amount", "currency", "occurredAt"]));
+      expect(res.accepted).toEqual(expect.arrayContaining(["amount", "occurredAt"]));
       const intent = await repo.findById(res.intentId!);
       expect(intent?.scenarioId).toBe("register_payroll");
       expect(intent?.answers.amount).toBe("1500.00");

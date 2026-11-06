@@ -207,13 +207,12 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
                     </p>
                   </div>
                 </div>
-                {/* Every movement the Ledger returned for the period, in one run — the only shape a
-                    balance can be read down. Capped the same way the chart is; see `movementsHasMore`. */}
+                {/* Every movement the Ledger returned for the period. Capped the same way the chart
+                    is; see `movementsHasMore`. */}
                 <MovementsTable
                   movements={movements}
                   currency={cashPosition.currency}
                   partyNames={data.partyNames}
-                  showBalance
                 />
               </Modal>
 

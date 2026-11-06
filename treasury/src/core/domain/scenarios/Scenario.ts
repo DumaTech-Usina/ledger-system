@@ -66,3 +66,10 @@ export function getScenario(id: string): Scenario | undefined {
 export function listScenarios(): Scenario[] {
   return Object.values(REGISTRY);
 }
+
+/** What an intent for this scenario already knows the moment it starts. */
+export function defaultAnswers(scenario: Scenario): Record<string, string> {
+  return Object.fromEntries(
+    scenario.slots.flatMap((slot) => (slot.defaultValue === undefined ? [] : [[slot.key, slot.defaultValue]])),
+  );
+}

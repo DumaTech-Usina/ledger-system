@@ -14,7 +14,7 @@ import type { Clock } from "../../core/application/ports/Clock";
 import { PARTY } from "../fixtures/parties";
 
 const USINA = PARTY.USINA;
-const clock: Clock = { now: () => "2026-08-03T00:00:00.000Z" };
+const clock: Clock = { now: () => "2026-08-03T12:00:00.000Z" };
 
 let directoryDir: string;
 let file: string;
@@ -87,7 +87,7 @@ describe("Party Directory persistence", () => {
       value: "12.345.678/0001-99",
       source: AttributeSource.IMPORT,
       capturedBy: "erp",
-      capturedAt: "2026-08-03T00:00:00.000Z",
+      capturedAt: "2026-08-03T12:00:00.000Z",
     });
     expect(acme?.attributes[PartyAttributeKey.TYPE]?.value).toBe("client");
   });

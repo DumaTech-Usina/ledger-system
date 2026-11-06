@@ -43,7 +43,6 @@ describe("resolveParty — rung 1: exact PartyId", () => {
     if (r.kind === "resolved") {
       expect(r.partyId).toBe("party-alfa");
       expect(r.rule).toBe(ResolutionRule.EXACT_ID);
-      expect(r.needsConfirmation).toBe(false);
     }
   });
 });
@@ -95,7 +94,6 @@ describe("resolveParty — rung 4: exact name or alias", () => {
       if (r.kind === "resolved") {
         expect(r.partyId).toBe("party-alfa");
         expect(r.rule).toBe(ResolutionRule.EXACT_NAME);
-        expect(r.needsConfirmation).toBe(false);
       }
     }
   });
@@ -108,30 +106,18 @@ describe("resolveParty — rung 4: exact name or alias", () => {
   });
 });
 
-describe("resolveParty — rung 5: similarity, single candidate", () => {
-  it("resolves a typo but demands confirmation", () => {
+describe("resolveParty — rung 5: close names", () => {
+  it("lists one close name for the operator to choose, and does not resolve it", () => {
     const r = resolveParty({ mention: "Fornecedor Alga" }, [alfa, beta]);
-    expect(r.kind).toBe("resolved");
-    if (r.kind === "resolved") {
-      expect(r.partyId).toBe("party-alfa");
-      expect(r.rule).toBe(ResolutionRule.SIMILARITY);
-      expect(r.needsConfirmation).toBe(true);
+
+    expect(r.kind).toBe("similar");
+    if (r.kind === "similar") {
+      expect(r.candidates.map((c) => c.partyId)).toEqual(["party-alfa"]);
+      expect(r.candidates[0].displayName).toBe("Fornecedor Alfa");
     }
   });
-});
 
-describe("resolveParty — rung 6: similarity, several candidates", () => {
-  it("never picks the most likely of several — it asks", () => {
-    const alfa1 = party("party-alfa-1", "Alfa");
-    const alfa2 = party("party-alfa-2", "Alfa");
-    const r = resolveParty({ mention: "Alfa" }, [alfa1, alfa2]);
-    // Two entities share the exact name: an exact-name hit would silently pick one, so the
-    // cascade must surface both instead.
-    expect(r.kind === "ambiguous" || r.kind === "resolved").toBe(true);
-    if (r.kind === "ambiguous") expect(r.candidates.map((c) => c.partyId)).toContain("party-alfa-2");
-  });
-
-  it("returns every near candidate, best first, when none is exact", () => {
+  it("lists every close name, best first, and picks none", () => {
     // Both clear the threshold against "Alfa Comercia" (0.929 and 0.923) — the cascade must not
     // hand back the marginally better one as if it were the answer.
     const r = resolveParty({ mention: "Alfa Comercia" }, [
@@ -139,8 +125,8 @@ describe("resolveParty — rung 6: similarity, several candidates", () => {
       party("party-b", "Alfa Comercial"),
       beta,
     ]);
-    expect(r.kind).toBe("ambiguous");
-    if (r.kind === "ambiguous") {
+    expect(r.kind).toBe("similar");
+    if (r.kind === "similar") {
       expect(r.candidates).toHaveLength(2);
       expect(r.candidates[0].score).toBeGreaterThanOrEqual(r.candidates[1].score);
     }
@@ -153,7 +139,17 @@ describe("resolveParty — rung 6: similarity, several candidates", () => {
   });
 });
 
-describe("resolveParty — rung 7: nothing matched", () => {
+describe("resolveParty — two parties with exactly the same name", () => {
+  it("resolves to the first in the list today (a known gap, to be closed with the party registry)", () => {
+    // Pinned so the behaviour is visible: nothing stops the registry from holding two identical
+    // names, and an exact name match does not look further than the first.
+    const r = resolveParty({ mention: "Alfa" }, [party("party-alfa-1", "Alfa"), party("party-alfa-2", "Alfa")]);
+
+    expect(r.kind).toBe("resolved");
+  });
+});
+
+describe("resolveParty — rung 6: nothing matched", () => {
   it("reports a new mention instead of inventing an entity", () => {
     const r = resolveParty({ mention: "Empresa Totalmente Outra" }, [alfa, beta]);
     expect(r.kind).toBe("new");
@@ -215,7 +211,7 @@ describe("resolveParty — invariants", () => {
     for (const mention of ["Fornecedor Alfa", "Fornecedor Alga", "Alfaa", "Nada Disso", ""]) {
       const r = resolveParty({ mention }, [alfa, beta]);
       if (r.kind === "resolved") expect(known.has(r.partyId)).toBe(true);
-      if (r.kind === "ambiguous") r.candidates.forEach((c) => expect(known.has(c.partyId)).toBe(true));
+      if (r.kind === "similar") r.candidates.forEach((c) => expect(known.has(c.partyId)).toBe(true));
     }
   });
 });
@@ -230,7 +226,6 @@ describe("resolveParty — threshold", () => {
     const strict = resolveParty({ mention: "Alfaa" }, [alfa, beta], 0.99);
     const loose = resolveParty({ mention: "Alfaa" }, [alfa, beta], 0.15);
     expect(strict.kind).toBe("new");
-    expect(loose.kind).toBe("resolved");
-    if (loose.kind === "resolved") expect(loose.needsConfirmation).toBe(true);
+    expect(loose.kind).toBe("similar");
   });
 });

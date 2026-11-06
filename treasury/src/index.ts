@@ -47,8 +47,6 @@ import { PreviewIntentUseCase } from "./core/application/use-cases/PreviewIntent
 import { SubmitIntentUseCase } from "./core/application/use-cases/SubmitIntent";
 import { SubmitRectificationUseCase } from "./core/application/use-cases/SubmitRectification";
 import { DecideIdentityUseCase } from "./core/application/use-cases/DecideIdentity";
-import { RecordPartyAttributeUseCase } from "./core/application/use-cases/RecordPartyAttribute";
-import { ListIncompletePartiesUseCase } from "./core/application/use-cases/ListIncompleteParties";
 import { ListSettlementCandidatesUseCase } from "./core/application/use-cases/ListSettlementCandidates";
 import { ListPositionActionsUseCase } from "./core/application/use-cases/ListPositionActions";
 import { StartPositionActionUseCase } from "./core/application/use-cases/StartPositionAction";
@@ -229,8 +227,6 @@ async function bootstrap(): Promise<void> {
       env.USINA_PARTY_ID,
     ),
     decideIdentity: new DecideIdentityUseCase(intentRepo, partyRepo, clock, ids, conversationLog),
-    recordPartyAttribute: new RecordPartyAttributeUseCase(partyRepo, clock, conversationLog),
-    listIncompleteParties: new ListIncompletePartiesUseCase(partyDirectory),
     listSettlementCandidates: new ListSettlementCandidatesUseCase(intentRepo, ledgerRead, partyDirectory),
     // The algebra is a build artifact of the Ledger, read once at boot. A snapshot this build
     // cannot read is refused loudly here rather than producing a silently empty offer.
