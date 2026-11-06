@@ -2,7 +2,8 @@ import { Intent } from "../../domain/entities/Intent";
 import { getScenario, listScenarios } from "../../domain/scenarios/Scenario";
 import type { DialogState, SlotValidationError } from "../../domain/services/DialogEngine";
 import type { IntentRepository } from "../repositories/IntentRepository";
-import { userActor, type AuditLog } from "../ports/AuditLog";
+import { userActor } from "../ports/AuditLog";
+import type { ConversationLog } from "../ports/ConversationLog";
 import type { Clock } from "../ports/Clock";
 import type { IdGenerator } from "../ports/IdGenerator";
 import type {
@@ -78,7 +79,7 @@ export class InterpretUtteranceUseCase {
     private readonly repo: IntentRepository,
     private readonly extractor: SlotExtractionPort,
     private readonly applyAnswers: ApplyAnswersUseCase,
-    private readonly audit: AuditLog,
+    private readonly log: ConversationLog,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
     private readonly directory: PartyDirectoryPort,
@@ -99,7 +100,7 @@ export class InterpretUtteranceUseCase {
     const scenario = getScenario(intent.scenarioId);
     if (!scenario) throw new Error(`Unknown scenario: ${intent.scenarioId}`);
 
-    await this.audit.record({ actor: userActor(intent.userId), intentId, at: this.clock.now(), type: "utterance.received", detail: utterance });
+    await this.log.record({ actor: userActor(intent.userId), intentId, at: this.clock.now(), type: "utterance.received", detail: utterance });
 
     const result = await this.safeExtract(
       {
@@ -144,8 +145,8 @@ export class InterpretUtteranceUseCase {
     const now = this.clock.now();
     const intent = Intent.start(this.ids.next(), scenario.id, input.userId, now);
     await this.repo.save(intent);
-    await this.audit.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "intent.started", detail: scenario.id });
-    await this.audit.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "utterance.received", detail: input.utterance });
+    await this.log.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "intent.started", detail: scenario.id });
+    await this.log.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "utterance.received", detail: input.utterance });
 
     const merged = await this.mergeProposals(intent.id, result.slots);
     return { intentId: intent.id, scenarioId: scenario.id, ...merged };
@@ -184,7 +185,7 @@ export class InterpretUtteranceUseCase {
     try {
       return await this.extractor.extract(request);
     } catch (err) {
-      await this.audit.record({
+      await this.log.record({
         actor: userActor(userId),
         intentId: intentId ?? "-",
         at: this.clock.now(),

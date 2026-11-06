@@ -7,6 +7,11 @@ import { SqlitePartyRepository } from "./infra/persistence/SqlitePartyRepository
 import { PartyDirectory } from "./core/application/services/PartyDirectory";
 import { InMemoryUserRepository } from "./infra/persistence/InMemoryUserRepository";
 import { InMemoryAuditLog } from "./infra/audit/InMemoryAuditLog";
+import { InMemoryConversationLog } from "./infra/audit/InMemoryConversationLog";
+import { SqliteAuditLog } from "./infra/audit/SqliteAuditLog";
+import { SqliteConversationLog } from "./infra/audit/SqliteConversationLog";
+import { SqliteIntentRepository } from "./infra/persistence/SqliteIntentRepository";
+import { resolveOperationsStore } from "./config/operationsStore";
 import { StubCandidateSubmissionAdapter } from "./infra/submission/StubCandidateSubmissionAdapter";
 import { HttpCandidateSubmissionAdapter } from "./infra/submission/HttpCandidateSubmissionAdapter";
 import { HttpLedgerReadAdapter } from "./infra/ledger-read/HttpLedgerReadAdapter";
@@ -53,8 +58,17 @@ import { ListIntentsUseCase } from "./core/application/use-cases/ListIntents";
 
 async function bootstrap(): Promise<void> {
   // ── Composition root ─────────────────────────────────────────────────────────
-  const intentRepo = new InMemoryIntentRepository();
-  const audit = new InMemoryAuditLog();
+  // Intents, the audit and the conversation's steps. Durable whenever the Ledger is real, so that the
+  // audit (REQ-801) and the link back to each fact (REQ-501) outlive a restart.
+  const durableOperations =
+    resolveOperationsStore(env.LEDGER_MODE, env.OPERATIONS_STORE_MODE) === "sqlite";
+  const intentRepo = durableOperations
+    ? new SqliteIntentRepository(env.OPERATIONS_DB_FILE)
+    : new InMemoryIntentRepository();
+  const audit = durableOperations ? new SqliteAuditLog(env.OPERATIONS_DB_FILE) : new InMemoryAuditLog();
+  const conversationLog = durableOperations
+    ? new SqliteConversationLog(env.OPERATIONS_DB_FILE)
+    : new InMemoryConversationLog();
   const clock = new SystemClock();
   const ids = new UuidGenerator();
   const candidateMapper = new CandidateMapper(env.USINA_PARTY_ID);
@@ -84,7 +98,7 @@ async function bootstrap(): Promise<void> {
       " (mode: " + env.PARTY_DIRECTORY_MODE + ")");
   }
 
-  const applyAnswers = new ApplyAnswersUseCase(intentRepo, clock, audit, partyDirectory);
+  const applyAnswers = new ApplyAnswersUseCase(intentRepo, clock, conversationLog, partyDirectory);
 
   // ── The Ledger's algebra ─────────────────────────────────────────────────────
   // A build artifact exported from the Ledger's own domain modules, read once. Treasury derives
@@ -171,7 +185,7 @@ async function bootstrap(): Promise<void> {
   const listPayablePositions = new ListPayablePositionsUseCase(ledgerRead);
   const listCashMovements = new ListCashMovementsUseCase(ledgerRead);
 
-  const startIntent = new StartIntentUseCase(intentRepo, clock, ids, audit);
+  const startIntent = new StartIntentUseCase(intentRepo, clock, ids, conversationLog);
   const submitIntent = new SubmitIntentUseCase(
     intentRepo,
     candidateMapper,
@@ -193,13 +207,13 @@ async function bootstrap(): Promise<void> {
     listPayablePositions,
     listCashMovements,
     startIntent,
-    advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, audit, partyDirectory),
+    advanceDialog: new AdvanceDialogUseCase(intentRepo, clock, conversationLog, partyDirectory),
     applyAnswers,
     interpretUtterance: new InterpretUtteranceUseCase(
       intentRepo,
       extractor,
       applyAnswers,
-      audit,
+      conversationLog,
       clock,
       ids,
       partyDirectory,
@@ -214,8 +228,8 @@ async function bootstrap(): Promise<void> {
       clock,
       env.USINA_PARTY_ID,
     ),
-    decideIdentity: new DecideIdentityUseCase(intentRepo, partyRepo, clock, ids, audit),
-    recordPartyAttribute: new RecordPartyAttributeUseCase(partyRepo, clock, audit),
+    decideIdentity: new DecideIdentityUseCase(intentRepo, partyRepo, clock, ids, conversationLog),
+    recordPartyAttribute: new RecordPartyAttributeUseCase(partyRepo, clock, conversationLog),
     listIncompleteParties: new ListIncompletePartiesUseCase(partyDirectory),
     listSettlementCandidates: new ListSettlementCandidatesUseCase(intentRepo, ledgerRead, partyDirectory),
     // The algebra is a build artifact of the Ledger, read once at boot. A snapshot this build
@@ -228,7 +242,7 @@ async function bootstrap(): Promise<void> {
       applyAnswers,
       env.USINA_PARTY_ID,
     ),
-    getIntent: new GetIntentUseCase(intentRepo, audit),
+    getIntent: new GetIntentUseCase(intentRepo, audit, conversationLog),
     listIntents: new ListIntentsUseCase(intentRepo),
   });
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { InMemoryIntentRepository } from "../../infra/persistence/InMemoryIntentRepository";
 import { InMemoryAuditLog } from "../../infra/audit/InMemoryAuditLog";
+import { InMemoryConversationLog } from "../../infra/audit/InMemoryConversationLog";
 import { StubCandidateSubmissionAdapter } from "../../infra/submission/StubCandidateSubmissionAdapter";
 import { CandidateMapper } from "../../core/application/services/CandidateMapper";
 import { StartIntentUseCase } from "../../core/application/use-cases/StartIntent";
@@ -19,6 +20,7 @@ function wire() {
   const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
+  const log = new InMemoryConversationLog();
   const mapper = new CandidateMapper(PARTY.USINA);
   const submission = new StubCandidateSubmissionAdapter();
   let n = 0;
@@ -26,11 +28,11 @@ function wire() {
   return {
     repo,
     audit,
-    start: new StartIntentUseCase(repo, clock, ids, audit),
-    advance: new AdvanceDialogUseCase(repo, clock, audit, directory),
+    start: new StartIntentUseCase(repo, clock, ids, log),
+    advance: new AdvanceDialogUseCase(repo, clock, log, directory),
     preview: new PreviewIntentUseCase(repo, mapper, directory),
     submit: new SubmitIntentUseCase(repo, mapper, submission, audit, clock, directory),
-    get: new GetIntentUseCase(repo, audit),
+    get: new GetIntentUseCase(repo, audit, log),
   };
 }
 
@@ -58,7 +60,7 @@ describe("submit flow", () => {
     expect(intent?.status).toBe(IntentStatus.AWAITING_CONFIRMATION); // unchanged by preview
   });
 
-  it("submits and is accepted, recording the ledger reference + audit trail", async () => {
+  it("submits and is accepted, recording the ledger reference and the whole history", async () => {
     const w = wire();
     const intentId = await fillAddCharge(w);
     const result = await w.submit.execute(intentId);

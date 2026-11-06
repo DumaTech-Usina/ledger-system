@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { InMemoryIntentRepository } from "../../infra/persistence/InMemoryIntentRepository";
-import { InMemoryAuditLog } from "../../infra/audit/InMemoryAuditLog";
+import { InMemoryConversationLog } from "../../infra/audit/InMemoryConversationLog";
 import { StubSlotExtractionAdapter } from "../../infra/nlp/StubSlotExtractionAdapter";
 import { StartIntentUseCase } from "../../core/application/use-cases/StartIntent";
 import { ApplyAnswersUseCase } from "../../core/application/use-cases/ApplyAnswers";
@@ -20,14 +20,14 @@ const fakePort = (result: SlotExtractionResult | (() => never)): SlotExtractionP
 async function wire(extractor: SlotExtractionPort, options?: InterpretOptions) {
   const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
-  const audit = new InMemoryAuditLog();
+  const log = new InMemoryConversationLog();
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
-  const apply = new ApplyAnswersUseCase(repo, clock, audit, directory);
-  const start = new StartIntentUseCase(repo, clock, ids, audit);
-  const interpret = new InterpretUtteranceUseCase(repo, extractor, apply, audit, clock, ids, directory, options);
+  const apply = new ApplyAnswersUseCase(repo, clock, log, directory);
+  const start = new StartIntentUseCase(repo, clock, ids, log);
+  const interpret = new InterpretUtteranceUseCase(repo, extractor, apply, log, clock, ids, directory, options);
   const { intentId } = await start.execute({ scenarioId: "register_payment", userId: "cfo" });
-  return { repo, audit, interpret, intentId };
+  return { repo, log, interpret, intentId };
 }
 
 describe("InterpretUtterance", () => {
@@ -109,7 +109,7 @@ describe("InterpretUtterance", () => {
   });
 
   it("degrades to asking the current question when the extractor throws", async () => {
-    const { repo, audit, interpret, intentId } = await wire(
+    const { repo, log, interpret, intentId } = await wire(
       fakePort(() => {
         throw new Error("model unavailable");
       }),
@@ -119,16 +119,16 @@ describe("InterpretUtterance", () => {
 
     expect(res.accepted).toHaveLength(0);
     expect(res.state?.kind).toBe("question"); // never crashes; still guiding the user
-    const trail = await audit.listByIntent(intentId);
+    const trail = await log.listByIntent(intentId);
     expect(trail.some((e) => e.type === "extraction.failed")).toBe(true);
     const intent = await repo.findById(intentId);
     expect(Object.keys(intent?.answers ?? {})).toHaveLength(0);
   });
 
-  it("records the utterance in the audit trail", async () => {
-    const { audit, interpret, intentId } = await wire(new StubSlotExtractionAdapter());
+  it("records the utterance in the conversation log", async () => {
+    const { log, interpret, intentId } = await wire(new StubSlotExtractionAdapter());
     await interpret.execute({ intentId, utterance: "hello 1500.00" });
-    const trail = await audit.listByIntent(intentId);
+    const trail = await log.listByIntent(intentId);
     expect(trail.some((e) => e.type === "utterance.received")).toBe(true);
   });
 

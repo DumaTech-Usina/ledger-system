@@ -2,7 +2,8 @@ import { AttributeSource } from "../../domain/enums/AttributeSource";
 import { AttributeState } from "../../domain/enums/AttributeState";
 import { RECOMMENDED_ATTRIBUTES } from "../../domain/services/PartyCompleteness";
 import type { Party } from "../../domain/entities/Party";
-import { userActor, type AuditLog } from "../ports/AuditLog";
+import { userActor } from "../ports/AuditLog";
+import type { ConversationLog } from "../ports/ConversationLog";
 import type { Clock } from "../ports/Clock";
 import type { PartyRepository } from "../repositories/PartyRepository";
 
@@ -30,7 +31,7 @@ export class RecordPartyAttributeUseCase {
   constructor(
     private readonly parties: PartyRepository,
     private readonly clock: Clock,
-    private readonly audit: AuditLog,
+    private readonly log: ConversationLog,
   ) {}
 
   async execute(input: RecordPartyAttributeInput): Promise<Party> {
@@ -67,7 +68,7 @@ export class RecordPartyAttributeUseCase {
     await this.parties.save(updated);
 
     if (input.intentId) {
-      await this.audit.record({
+      await this.log.record({
         actor: userActor(input.userId),
         intentId: input.intentId,
         at: now,

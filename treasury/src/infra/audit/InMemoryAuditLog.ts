@@ -1,14 +1,12 @@
 import { randomUUID } from "crypto";
-import type { AuditLog, AuditEntry } from "../../core/application/ports/AuditLog";
+import { assertIdentifiedAuthor, type AuditLog, type AuditEntry } from "../../core/application/ports/AuditLog";
 
 /** MVP append-only audit store. Entries are only ever appended, never mutated. */
 export class InMemoryAuditLog implements AuditLog {
   private readonly entries: AuditEntry[] = [];
 
   async record(entry: Omit<AuditEntry, "id">): Promise<void> {
-    if (!entry.actor?.id?.trim()) {
-      throw new Error(`An audit entry needs an identified author (type: ${entry.type}).`);
-    }
+    assertIdentifiedAuthor(entry);
     this.entries.push({ id: randomUUID(), ...entry });
   }
 

@@ -64,6 +64,15 @@ const envSchema = z.object({
    */
   PARTY_DB_FILE: z.string().min(1).default("./data/treasury.db"),
 
+  /**
+   * Where intents, the audit and the conversation's steps live: "memory" or "sqlite". Unset, it is
+   * sqlite against a real Ledger and memory otherwise; see `operationsStore.ts`.
+   */
+  OPERATIONS_STORE_MODE: z.enum(["memory", "sqlite"]).optional(),
+
+  /** Their file. The same one as the Party Directory by default, so one backup covers both. */
+  OPERATIONS_DB_FILE: z.string().min(1).default("./data/treasury.db"),
+
   /** Session lifetime in hours. */
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(12),
 

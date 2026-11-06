@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryIntentRepository } from "../../infra/persistence/InMemoryIntentRepository";
 import { InMemoryPartyRepository } from "../../infra/persistence/InMemoryPartyRepository";
-import { InMemoryAuditLog } from "../../infra/audit/InMemoryAuditLog";
+import { InMemoryConversationLog } from "../../infra/audit/InMemoryConversationLog";
 import { StubSlotExtractionAdapter } from "../../infra/nlp/StubSlotExtractionAdapter";
 import { StartIntentUseCase } from "../../core/application/use-cases/StartIntent";
 import { AdvanceDialogUseCase } from "../../core/application/use-cases/AdvanceDialog";
@@ -18,22 +18,22 @@ const clock: Clock = { now: () => "2026-08-03T00:00:00.000Z" };
 
 function wire(directory = partyDirectory()) {
   const repo = new InMemoryIntentRepository();
-  const audit = new InMemoryAuditLog();
+  const log = new InMemoryConversationLog();
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
-  const apply = new ApplyAnswersUseCase(repo, clock, audit, directory);
+  const apply = new ApplyAnswersUseCase(repo, clock, log, directory);
   return {
     repo,
-    audit,
+    log,
     directory,
-    start: new StartIntentUseCase(repo, clock, ids, audit),
-    advance: new AdvanceDialogUseCase(repo, clock, audit, directory),
+    start: new StartIntentUseCase(repo, clock, ids, log),
+    advance: new AdvanceDialogUseCase(repo, clock, log, directory),
     apply,
     interpret: new InterpretUtteranceUseCase(
       repo,
       new StubSlotExtractionAdapter(),
       apply,
-      audit,
+      log,
       clock,
       ids,
       directory,
@@ -177,10 +177,10 @@ describe("similarity is never promoted to identity", () => {
 });
 
 describe("the raw mention is never lost", () => {
-  it("keeps what the user actually said in the audit, with the rule that decided", async () => {
+  it("keeps what the user actually said in the conversation log, with the rule that decided", async () => {
     await w.advance.execute({ intentId, key: "payee", value: "corretor parceiro ltda" });
 
-    const entries = await w.audit.listByIntent(intentId);
+    const entries = await w.log.listByIntent(intentId);
     const identity = entries.find((e) => e.type === "identity.resolution");
     expect(identity?.detail).toContain("corretor parceiro ltda");
     expect(identity?.detail).toContain(PARTY.BROKER);
@@ -190,7 +190,7 @@ describe("the raw mention is never lost", () => {
   it("records why an unknown mention was refused", async () => {
     await w.advance.execute({ intentId, key: "payee", value: "Empresa Inexistente" });
 
-    const entries = await w.audit.listByIntent(intentId);
+    const entries = await w.log.listByIntent(intentId);
     const identity = entries.find((e) => e.type === "identity.resolution");
     expect(identity?.detail).toContain("Empresa Inexistente");
     expect(identity?.detail).toContain("no known party");

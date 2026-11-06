@@ -13,6 +13,7 @@ import { IntentStatus } from "../../core/domain/enums/IntentStatus";
 import { InMemoryIntentRepository } from "../../infra/persistence/InMemoryIntentRepository";
 import { InMemoryUserRepository } from "../../infra/persistence/InMemoryUserRepository";
 import { InMemoryAuditLog } from "../../infra/audit/InMemoryAuditLog";
+import { InMemoryConversationLog } from "../../infra/audit/InMemoryConversationLog";
 import { InMemorySessionStore } from "../../infra/auth/InMemorySessionStore";
 import { ScryptPasswordHasher } from "../../infra/auth/ScryptPasswordHasher";
 import { seedUsers } from "../../infra/auth/seedUsers";
@@ -39,6 +40,7 @@ let readyIntentId: string;
 const repo = new InMemoryIntentRepository();
 const submitted: Candidate[] = [];
 const audit = new InMemoryAuditLog();
+const log = new InMemoryConversationLog();
 
 const send = (method: string, path: string, cookie?: string, body?: unknown) =>
   fetch(`${baseUrl}${path}`, {
@@ -66,8 +68,8 @@ beforeAll(async () => {
   const simulator = new InMemoryLedgerSimulator();
   let n = 0;
   const ids: IdGenerator = { next: () => `intent-${++n}` };
-  const applyAnswers = new ApplyAnswersUseCase(repo, clock, audit, directory);
-  const startIntent = new StartIntentUseCase(repo, clock, ids, audit);
+  const applyAnswers = new ApplyAnswersUseCase(repo, clock, log, directory);
+  const startIntent = new StartIntentUseCase(repo, clock, ids, log);
   const submitIntent = new SubmitIntentUseCase(
     repo,
     new CandidateMapper(PARTY.USINA),
@@ -217,9 +219,10 @@ describe("REQ-401 — gestor financeiro", () => {
 
     expect((await send("POST", `/api/conversation/${intentId}/submit`, secondManager)).status).toBe(200);
 
-    const entries = await audit.listByIntent(intentId);
-    expect(entries.find((e) => e.type === "intent.started")?.actor.id).toBe("user-cfo");
-    expect(entries.find((e) => e.type === "intent.submitted")?.actor.id).toBe("user-gestora");
+    const steps = await log.listByIntent(intentId);
+    const audited = await audit.listByIntent(intentId);
+    expect(steps.find((e) => e.type === "intent.started")?.actor.id).toBe("user-cfo");
+    expect(audited.find((e) => e.type === "intent.submitted")?.actor.id).toBe("user-gestora");
   });
 
   it("§11.1: editar uma intenção aceita responde 409 e não muda nada", async () => {

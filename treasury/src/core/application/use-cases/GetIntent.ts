@@ -2,18 +2,21 @@ import { getScenario } from "../../domain/scenarios/Scenario";
 import type { IntentProps } from "../../domain/entities/Intent";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { AuditLog, AuditEntry } from "../ports/AuditLog";
+import type { ConversationLog, ConversationEntry } from "../ports/ConversationLog";
 
 export interface GetIntentResult {
   intent: IntentProps;
   scenarioTitle: string;
-  history: AuditEntry[];
+  /** The conversation's steps and the audit, in the order they happened. */
+  history: (AuditEntry | ConversationEntry)[];
 }
 
-/** Intent detail + its append-only history — powers the lifecycle/traceability view. */
+/** Intent detail + its history — powers the lifecycle/traceability view. */
 export class GetIntentUseCase {
   constructor(
     private readonly repo: IntentRepository,
     private readonly audit: AuditLog,
+    private readonly log: ConversationLog,
   ) {}
 
   async execute(intentId: string): Promise<GetIntentResult> {
@@ -21,10 +24,15 @@ export class GetIntentUseCase {
     if (!intent) throw new Error(`Unknown intent: ${intentId}`);
 
     const scenario = getScenario(intent.scenarioId);
+    const [steps, audited] = await Promise.all([
+      this.log.listByIntent(intentId),
+      this.audit.listByIntent(intentId),
+    ]);
     return {
       intent: intent.toJSON(),
       scenarioTitle: scenario?.title ?? intent.scenarioId,
-      history: await this.audit.listByIntent(intentId),
+      // Stable, so entries sharing a timestamp keep steps ahead of the submission they led to.
+      history: [...steps, ...audited].sort((a, b) => a.at.localeCompare(b.at)),
     };
   }
 }

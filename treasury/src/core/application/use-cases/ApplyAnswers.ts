@@ -3,7 +3,8 @@ import { DialogEngine, type DialogState, type SlotValidationError } from "../../
 import type { SlotValue } from "../../domain/value-objects/Slot";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { Clock } from "../ports/Clock";
-import { userActor, type AuditLog } from "../ports/AuditLog";
+import { userActor } from "../ports/AuditLog";
+import type { ConversationLog } from "../ports/ConversationLog";
 import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
 import {
   auditDetail,
@@ -53,7 +54,7 @@ export class ApplyAnswersUseCase {
   constructor(
     private readonly repo: IntentRepository,
     private readonly clock: Clock,
-    private readonly audit: AuditLog,
+    private readonly log: ConversationLog,
     private readonly directory: PartyDirectoryPort,
   ) {}
 
@@ -90,7 +91,7 @@ export class ApplyAnswersUseCase {
       if (error) {
         // Reject without recording — never persist an invalid answer.
         rejected.push(error);
-        await this.audit.record({ actor: userActor(intent.userId), intentId: intent.id, at: now, type: "slot.rejected", detail: `${key}: ${error.message}` });
+        await this.log.record({ actor: userActor(intent.userId), intentId: intent.id, at: now, type: "slot.rejected", detail: `${key}: ${error.message}` });
         continue;
       }
 
@@ -102,7 +103,7 @@ export class ApplyAnswersUseCase {
 
       if (resolution) {
         identity.push({ slot: key, resolution });
-        await this.audit.record({
+        await this.log.record({
           actor: userActor(intent.userId),
           intentId: intent.id,
           at: now,
@@ -116,7 +117,7 @@ export class ApplyAnswersUseCase {
       }
 
       intent.record(key, valueToRecord, now);
-      await this.audit.record({ actor: userActor(intent.userId), intentId: intent.id, at: now, type: "slot.answered", detail: key });
+      await this.log.record({ actor: userActor(intent.userId), intentId: intent.id, at: now, type: "slot.answered", detail: key });
       recorded += 1;
     }
 

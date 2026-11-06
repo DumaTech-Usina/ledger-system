@@ -2,7 +2,8 @@ import { getScenario } from "../../domain/scenarios/Scenario";
 import { DialogEngine, type DialogState, type SlotValidationError } from "../../domain/services/DialogEngine";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { Clock } from "../ports/Clock";
-import { userActor, type AuditLog } from "../ports/AuditLog";
+import { userActor } from "../ports/AuditLog";
+import type { ConversationLog } from "../ports/ConversationLog";
 import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
 import {
   auditDetail,
@@ -34,7 +35,7 @@ export class AdvanceDialogUseCase {
   constructor(
     private readonly repo: IntentRepository,
     private readonly clock: Clock,
-    private readonly audit: AuditLog,
+    private readonly log: ConversationLog,
     private readonly directory: PartyDirectoryPort,
   ) {}
 
@@ -52,7 +53,7 @@ export class AdvanceDialogUseCase {
     const error = DialogEngine.validateAnswer(slot, input.value);
     if (error) {
       // Reject without recording — never persist an invalid answer.
-      await this.audit.record({ actor: userActor(intent.userId), intentId: intent.id, at: this.clock.now(), type: "slot.rejected", detail: `${input.key}: ${error.message}` });
+      await this.log.record({ actor: userActor(intent.userId), intentId: intent.id, at: this.clock.now(), type: "slot.rejected", detail: `${input.key}: ${error.message}` });
       return { state: DialogEngine.nextState(scenario, intent.answers), error };
     }
 
@@ -63,7 +64,7 @@ export class AdvanceDialogUseCase {
     let valueToRecord = input.value;
 
     if (resolution) {
-      await this.audit.record({
+      await this.log.record({
         actor: userActor(intent.userId),
         intentId: intent.id,
         at: this.clock.now(),
@@ -82,7 +83,7 @@ export class AdvanceDialogUseCase {
     }
 
     intent.record(input.key, valueToRecord, this.clock.now());
-    await this.audit.record({ actor: userActor(intent.userId), intentId: intent.id, at: this.clock.now(), type: "slot.answered", detail: input.key });
+    await this.log.record({ actor: userActor(intent.userId), intentId: intent.id, at: this.clock.now(), type: "slot.answered", detail: input.key });
     const state = DialogEngine.nextState(scenario, intent.answers);
     if (state.kind === "ready") intent.markAwaitingConfirmation(this.clock.now());
     await this.repo.save(intent);

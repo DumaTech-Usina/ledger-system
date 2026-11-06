@@ -26,6 +26,7 @@
 > | 2026-11-03 | 5 — fechamento | `Q-026` respondida com a opção **A**: `REQ-221` vale para toda entrada que não passa pela máscara, como o texto livre (**alterado**; antes valia para valor "digitado"). O dono do produto **declarou atingido o critério de parada** da documentação do que existe. |
 > | 2026-11-04 | 6 — cadastro de partes | Depois de uma conversa de pesquisa (referências de mercado sobre cadastro mestre, ledgers e grupos), o dono do produto respondeu e **decidiu**: as partes vêm de um sistema separado, de planilhas e de anotações pessoais, e são cerca de 250; a carga é feita pelo próprio Treasury, não pelo `validators/`; só um usuário com poder de curadoria cadastra partes; parte não cadastrada → o fato é registrado com **identidade provisória** e incômodo visual persistente; o mapeamento de identidade fica **no Treasury, só de acréscimo**; o passado é mapeado, não corrigido ("o Treasury auxilia, o Ledger canoniza"); grupo: a priori uma empresa, uma pessoa pode estar em vários, e a relação nasce no **evento**; a visão por grupo é para **filtrar e enxergar**; sugestão a partir do **último evento**; o cliente final é **contexto**; Unimed, João e Argo são partes cadastradas; o fluxo do repasse de comissão foi descrito. **Retirado:** o comportamento antigo de contrapartes (criar parte durante a operação), substituído por `REQ-311`/`REQ-320`. **Abertas:** `Q-036`–`Q-046`. |
 > | 2026-11-04 | 7 — respostas e fechamento | **Decidido:** não identificável e provisória são coisas diferentes, e as duas continuam com a mesma notificação (`Q-036`); a curadoria é uma **permissão** dada a um usuário que já tem outro papel (`Q-037`); resolver uma provisória = **ligá-la a uma parte já cadastrada** (`Q-038`); todos veem a notificação (`Q-039`); grupo = parte do tipo empresa, por enquanto (`Q-040`); o filtro mostra **todos** os eventos em que a parte tem algum papel (`Q-041`); CPF/CNPJ obrigatório para quem recebe ou paga por conta bancária (`Q-042`); eventos do sistema externo **esperam a confirmação** de um usuário, e uma parte com dúvida vira provisória (`Q-044`); nome "cadastro de partes" confirmado (`Q-046`). **Adiado:** o repasse sai desta rodada, porque precisa antes de um ciclo próprio na álgebra do Ledger (`Q-043` → `DEC-017`). **Viraram decisão pendente:** desfazer uma ligação errada (`DEC-015`), a insistência da notificação ao longo do tempo e se ela bloqueia algo (`DEC-016`), a conciliação bancária (`DEC-018`). **Os `⚠ CONFIRMAR` restantes ficam para outra rodada.** O dono do produto **declarou fechado o ciclo** do cadastro de partes, para começar a planejar os primeiros testes. |
+> | 2026-11-06 | 8 — decisões da implementação | **Decidido:** os passos da conversa ficam fora da auditoria, num log separado que serve à tela de histórico (`REQ-804`, `DEC-012` segue aberta); a semelhança de nomes não confirma nem escolhe, mas a busca do operador pode listar nomes parecidos para ele escolher (`REQ-311`); a coluna e a linha de saldo calculadas na tela saem, e as barras diárias de entrada e saída ficam, com aviso quando a lista vier cortada (`REQ-601`); a mesma pessoa não cadastrada reaproveita a identidade provisória quando o nome normalizado é igual (`REQ-320`). **Direção:** usar o sistema pela identidade das partes é mais interessante do que por eventos e posições; por enquanto **só se acrescenta**, e a grade de operações e as posições continuam (§1). Nada foi revogado. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -88,6 +89,8 @@ ciclo de vida, e não como exceção.
 **A operação atual ainda é complexa para quem usa.** O Treasury de hoje mostra posições e cria
 eventos. A direção já declarada (fora desta versão) é mostrar **pessoas e ações**: o usuário vai
 à pessoa ou ao grupo, e o Treasury monta por baixo o esquema que o Ledger exige (`DEC-001`).
+Por decisão de 2026-11-06, esse caminho é **acrescentado**: a usabilidade atual não foi invalidada, e o
+que for removido ou alterado depois será decidido pelo dono do produto.
 
 ---
 
@@ -1017,10 +1020,9 @@ produto em 2026-11-03. Ficam abertas, por decisão dele, as `DEC-001` a `DEC-014
 
 **Rodada do cadastro de partes: ciclo fechado** pelo dono do produto em 2026-11-04.
 
-**O que não foi feito:** nenhum código foi escrito ou alterado, e nenhuma comparação com o
-código foi feita.
-**Próxima etapa:** planejar os primeiros testes, a partir dos critérios de aceitação (§14.3) e
-dos casos de rejeição (§14.4). §4.4 (repasse) fica fora, porque está adiado.
+**Comparação com o código:** `comparacao_requisitos_codigo.md` (2026-11-04).
+**Execução:** o plano, com o estado de cada bloco, está em `plano_testes_e_remocao.md`.
+§4.4 (repasse) fica fora, porque está adiado.
 
 ---
 

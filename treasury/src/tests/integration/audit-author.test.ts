@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { InMemoryIntentRepository } from "../../infra/persistence/InMemoryIntentRepository";
 import { InMemoryAuditLog } from "../../infra/audit/InMemoryAuditLog";
+import { InMemoryConversationLog } from "../../infra/audit/InMemoryConversationLog";
 import { StubCandidateSubmissionAdapter } from "../../infra/submission/StubCandidateSubmissionAdapter";
 import { StartIntentUseCase } from "../../core/application/use-cases/StartIntent";
 import { ApplyAnswersUseCase } from "../../core/application/use-cases/ApplyAnswers";
@@ -18,12 +19,13 @@ async function submitPayroll(submittedBy?: string, submission = new StubCandidat
   const directory = partyDirectory();
   const repo = new InMemoryIntentRepository();
   const audit = new InMemoryAuditLog();
+  const log = new InMemoryConversationLog();
   const ids: IdGenerator = { next: () => "i1" };
-  const { intentId } = await new StartIntentUseCase(repo, clock, ids, audit).execute({
+  const { intentId } = await new StartIntentUseCase(repo, clock, ids, log).execute({
     scenarioId: "register_payroll",
     userId: "cfo",
   });
-  await new ApplyAnswersUseCase(repo, clock, audit, directory).execute({
+  await new ApplyAnswersUseCase(repo, clock, log, directory).execute({
     intentId,
     answers: [
       { key: "payee", value: PARTY.ACME },
@@ -36,7 +38,7 @@ async function submitPayroll(submittedBy?: string, submission = new StubCandidat
     intentId,
     submittedBy,
   );
-  return audit.listByIntent(intentId);
+  return [...(await log.listByIntent(intentId)), ...(await audit.listByIntent(intentId))];
 }
 
 const ofType = (entries: AuditEntry[], type: string) => entries.find((e) => e.type === type);

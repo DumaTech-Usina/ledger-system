@@ -6,6 +6,13 @@ export interface AuditActor {
 
 export const userActor = (id: string): AuditActor => ({ kind: "user", id });
 
+/** REQ-802, for every store: there is no audit entry without an author. */
+export function assertIdentifiedAuthor(entry: { actor?: AuditActor; type: string }): void {
+  if (!entry.actor?.id?.trim()) {
+    throw new Error(`An audit entry needs an identified author (type: ${entry.type}).`);
+  }
+}
+
 export interface AuditEntry {
   id: string;
   actor: AuditActor;
@@ -16,8 +23,9 @@ export interface AuditEntry {
 }
 
 /**
- * Append-only human-action / provenance journal. Owned by the User App (never the Ledger, which
- * keeps its own financial-event audit). Records every step of an intent's life for traceability.
+ * The permanent audit of what is sent to the Ledger and how the Ledger answered (REQ-801, REQ-804).
+ * Owned by the User App, never the Ledger. Append-only: the port has no way to change or remove an
+ * entry. What happens before sending belongs to the ConversationLog.
  */
 export interface AuditLog {
   record(entry: Omit<AuditEntry, "id">): Promise<void>;

@@ -9,7 +9,8 @@ import {
 import type { Party } from "../../domain/entities/Party";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { PartyRepository } from "../repositories/PartyRepository";
-import { userActor, type AuditLog } from "../ports/AuditLog";
+import { userActor } from "../ports/AuditLog";
+import type { ConversationLog } from "../ports/ConversationLog";
 import type { Clock } from "../ports/Clock";
 import type { IdGenerator } from "../ports/IdGenerator";
 
@@ -50,7 +51,7 @@ export class DecideIdentityUseCase {
     private readonly parties: PartyRepository,
     private readonly clock: Clock,
     private readonly ids: IdGenerator,
-    private readonly audit: AuditLog,
+    private readonly log: ConversationLog,
   ) {}
 
   async execute(input: DecideIdentityInput): Promise<DecideIdentityResult> {
@@ -88,7 +89,7 @@ export class DecideIdentityUseCase {
       intentId: intent.id,
     };
 
-    await this.audit.record({
+    await this.log.record({
       actor: userActor(input.userId),
       intentId: intent.id,
       at: now,
@@ -97,7 +98,7 @@ export class DecideIdentityUseCase {
         `${input.kind} · ${input.slot} · "${mention}" → ${party.partyId} · by ${input.userId}` +
         (decision.justification ? ` · ${decision.justification}` : ""),
     });
-    await this.audit.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "slot.answered", detail: input.slot });
+    await this.log.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "slot.answered", detail: input.slot });
 
     const state = DialogEngine.nextState(scenario, intent.answers);
     if (state.kind === "ready") intent.markAwaitingConfirmation(now);

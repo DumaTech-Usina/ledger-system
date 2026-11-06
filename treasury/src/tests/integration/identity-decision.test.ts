@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { InMemoryIntentRepository } from "../../infra/persistence/InMemoryIntentRepository";
 import { InMemoryPartyRepository } from "../../infra/persistence/InMemoryPartyRepository";
-import { InMemoryAuditLog } from "../../infra/audit/InMemoryAuditLog";
+import { InMemoryConversationLog } from "../../infra/audit/InMemoryConversationLog";
 import { StartIntentUseCase } from "../../core/application/use-cases/StartIntent";
 import { AdvanceDialogUseCase } from "../../core/application/use-cases/AdvanceDialog";
 import { DecideIdentityUseCase } from "../../core/application/use-cases/DecideIdentity";
@@ -16,18 +16,18 @@ const clock: Clock = { now: () => "2026-08-03T00:00:00.000Z" };
 function wire() {
   const intents = new InMemoryIntentRepository();
   const parties = new InMemoryPartyRepository();
-  const audit = new InMemoryAuditLog();
+  const log = new InMemoryConversationLog();
   const directory = new PartyDirectory(parties);
   let n = 0;
   const ids: IdGenerator = { next: () => `0000-${++n}` };
   return {
     intents,
     parties,
-    audit,
+    log,
     directory,
-    start: new StartIntentUseCase(intents, clock, ids, audit),
-    advance: new AdvanceDialogUseCase(intents, clock, audit, directory),
-    decide: new DecideIdentityUseCase(intents, parties, clock, ids, audit),
+    start: new StartIntentUseCase(intents, clock, ids, log),
+    advance: new AdvanceDialogUseCase(intents, clock, log, directory),
+    decide: new DecideIdentityUseCase(intents, parties, clock, ids, log),
   };
 }
 
@@ -197,13 +197,13 @@ describe("every issued id traces to a decision", () => {
       intentId,
     });
 
-    const entry = (await w.audit.listByIntent(intentId)).find((e) => e.type === "identity.decision");
+    const entry = (await w.log.listByIntent(intentId)).find((e) => e.type === "identity.decision");
     expect(entry?.detail).toContain("Fornecedor Novo");
     expect(entry?.detail).toContain(decision.partyId);
     expect(entry?.detail).toContain("cfo");
   });
 
-  it("keeps the justification in the audit trail", async () => {
+  it("keeps the justification in the conversation log", async () => {
     const intentId = await startCommission();
     await w.decide.execute({
       intentId,
@@ -213,7 +213,7 @@ describe("every issued id traces to a decision", () => {
       userId: "cfo",
     });
 
-    const entry = (await w.audit.listByIntent(intentId)).find((e) => e.type === "identity.decision");
+    const entry = (await w.log.listByIntent(intentId)).find((e) => e.type === "identity.decision");
     expect(entry?.detail).toContain("Remetente não informado pelo banco.");
   });
 

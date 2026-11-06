@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { InMemoryIntentRepository } from "../../infra/persistence/InMemoryIntentRepository";
-import { InMemoryAuditLog } from "../../infra/audit/InMemoryAuditLog";
+import { InMemoryConversationLog } from "../../infra/audit/InMemoryConversationLog";
 import { StubSlotExtractionAdapter } from "../../infra/nlp/StubSlotExtractionAdapter";
 import { StubCandidateSubmissionAdapter } from "../../infra/submission/StubCandidateSubmissionAdapter";
 import { ApplyAnswersUseCase } from "../../core/application/use-cases/ApplyAnswers";
@@ -29,13 +29,13 @@ const ANSWERS = { payee: PARTY.ACME, amount: "1500.00", currency: "BRL", occurre
 async function wire(status: IntentStatus) {
   const { directory, repo: parties } = seededDirectory();
   const repo = new InMemoryIntentRepository();
-  const audit = new InMemoryAuditLog();
+  const log = new InMemoryConversationLog();
   let n = 0;
   const ids: IdGenerator = { next: () => `id-${++n}` };
-  const apply = new ApplyAnswersUseCase(repo, clock, audit, directory);
-  const advance = new AdvanceDialogUseCase(repo, clock, audit, directory);
-  const interpret = new InterpretUtteranceUseCase(repo, new StubSlotExtractionAdapter(), apply, audit, clock, ids, directory);
-  const decide = new DecideIdentityUseCase(repo, parties, clock, ids, audit);
+  const apply = new ApplyAnswersUseCase(repo, clock, log, directory);
+  const advance = new AdvanceDialogUseCase(repo, clock, log, directory);
+  const interpret = new InterpretUtteranceUseCase(repo, new StubSlotExtractionAdapter(), apply, log, clock, ids, directory);
+  const decide = new DecideIdentityUseCase(repo, parties, clock, ids, log);
 
   await repo.save(
     Intent.rehydrate({
@@ -64,7 +64,7 @@ async function wire(status: IntentStatus) {
         userId: "cfo",
       }),
   };
-  return { repo, audit, parties, doors };
+  return { repo, log, parties, doors };
 }
 
 const DOORS = ["/answer", "/apply", "/interpret", "/identity"];
@@ -73,7 +73,7 @@ const cases = CLOSED.flatMap((status) => DOORS.map((door) => [status, door] as c
 
 describe("§11.1 — enviada, aceita e recusada não aceitam edição", () => {
   it.each(cases)("%s por %s é recusada, sem deixar rastro", async (status, door) => {
-    const { repo, audit, parties, doors } = await wire(status);
+    const { repo, log, parties, doors } = await wire(status);
     const partiesBefore = (await parties.findAll()).length;
 
     await expect(doors[door]()).rejects.toBeInstanceOf(IntentNotEditableError);
@@ -81,7 +81,7 @@ describe("§11.1 — enviada, aceita e recusada não aceitam edição", () => {
     const intent = (await repo.findById("i1"))!;
     expect(intent.status).toBe(status);
     expect(intent.answers).toEqual(ANSWERS);
-    expect(await audit.listByIntent("i1")).toEqual([]);
+    expect(await log.listByIntent("i1")).toEqual([]);
     expect((await parties.findAll()).length).toBe(partiesBefore);
   });
 
@@ -100,9 +100,9 @@ describe("§11.1 — enviada, aceita e recusada não aceitam edição", () => {
   });
 
   it("uma leitura vazia de uma intenção encerrada continua respondendo", async () => {
-    const { repo, audit, parties } = await wire(IntentStatus.ACCEPTED);
+    const { repo, log, parties } = await wire(IntentStatus.ACCEPTED);
     void parties;
-    const apply = new ApplyAnswersUseCase(repo, clock, audit, seededDirectory().directory);
+    const apply = new ApplyAnswersUseCase(repo, clock, log, seededDirectory().directory);
 
     await expect(apply.execute({ intentId: "i1", answers: [] })).resolves.toMatchObject({ rejected: [] });
   });
@@ -128,13 +128,13 @@ describe("o caso que motivou a guarda", () => {
   it("uma intenção aceita continua aceita, com a referência do fato, depois de uma tentativa de edição", async () => {
     const { directory } = seededDirectory();
     const repo = new InMemoryIntentRepository();
-    const audit = new InMemoryAuditLog();
-    const apply = new ApplyAnswersUseCase(repo, clock, audit, directory);
+    const log = new InMemoryConversationLog();
+    const apply = new ApplyAnswersUseCase(repo, clock, log, directory);
     const submit = new SubmitIntentUseCase(
       repo,
       new CandidateMapper(PARTY.USINA),
       new StubCandidateSubmissionAdapter(),
-      audit,
+      log,
       clock,
       directory,
     );
