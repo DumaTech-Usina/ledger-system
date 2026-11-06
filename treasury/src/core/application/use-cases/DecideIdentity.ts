@@ -9,7 +9,7 @@ import {
 import type { Party } from "../../domain/entities/Party";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { PartyRepository } from "../repositories/PartyRepository";
-import type { AuditLog } from "../ports/AuditLog";
+import { userActor, type AuditLog } from "../ports/AuditLog";
 import type { Clock } from "../ports/Clock";
 import type { IdGenerator } from "../ports/IdGenerator";
 
@@ -56,6 +56,7 @@ export class DecideIdentityUseCase {
   async execute(input: DecideIdentityInput): Promise<DecideIdentityResult> {
     const intent = await this.intents.findById(input.intentId);
     if (!intent) throw new Error(`Unknown intent: ${input.intentId}`);
+    intent.assertEditable(); // before minting: a refused decision must not leave a party behind
 
     const scenario = getScenario(intent.scenarioId);
     if (!scenario) throw new Error(`Unknown scenario: ${intent.scenarioId}`);
@@ -88,6 +89,7 @@ export class DecideIdentityUseCase {
     };
 
     await this.audit.record({
+      actor: userActor(input.userId),
       intentId: intent.id,
       at: now,
       type: "identity.decision",
@@ -95,7 +97,7 @@ export class DecideIdentityUseCase {
         `${input.kind} · ${input.slot} · "${mention}" → ${party.partyId} · by ${input.userId}` +
         (decision.justification ? ` · ${decision.justification}` : ""),
     });
-    await this.audit.record({ intentId: intent.id, at: now, type: "slot.answered", detail: input.slot });
+    await this.audit.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "slot.answered", detail: input.slot });
 
     const state = DialogEngine.nextState(scenario, intent.answers);
     if (state.kind === "ready") intent.markAwaitingConfirmation(now);

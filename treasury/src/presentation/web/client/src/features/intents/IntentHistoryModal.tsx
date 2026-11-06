@@ -50,7 +50,9 @@ export function IntentHistoryModal({
               <li key={entry.id}>
                 <div className="text-[13.5px] font-medium text-ink">{eventLabels[entry.type] ?? entry.type}</div>
                 {entry.detail && <div className="text-[12px] text-muted">{entry.detail}</div>}
-                <div className="tabular text-[11px] text-muted">{formatDateTime(entry.at)}</div>
+                <div className="tabular text-[11px] text-muted">
+                  {formatDateTime(entry.at)} · {entry.actor.id}
+                </div>
               </li>
             ))}
           </ul>

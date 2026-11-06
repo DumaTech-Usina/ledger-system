@@ -94,12 +94,13 @@ export class StubSlotExtractionAdapter implements SlotExtractionPort {
   ): SlotProposal | null {
     switch (slot.type) {
       case SlotType.MONEY: {
-        // First monetary-looking token, most-specific form first so a plain decimal (1500.00) is not
-        // truncated by the thousands rule. Handles: 1.500,00 (pt-BR), 1,500.00 (US), 1500.00 / 1500,00,
-        // and a bare 1500. (A bare integer inside an ISO date can still be a false positive — a known
-        // stub limitation, harmless because the value is validated downstream and replaced in Phase 5.)
+        // First monetary-looking token, most-specific form first. Handles: 1.500,00 (pt-BR), 1,500.00
+        // (US), 1.500 (pt-BR thousands), 1500.00 / 1500,00, and a bare 1500. Every decimal digit is
+        // captured: dropping any would change the amount in silence, so "10,125" travels whole and is
+        // refused downstream with a suggestion (REQ-221). (A bare integer inside an ISO date can still
+        // be a false positive — a known stub limitation, harmless because it is validated downstream.)
         const m = text.match(
-          /(?:r\$|\$)?\s*(\d{1,3}(?:\.\d{3})+,\d{2}|\d{1,3}(?:,\d{3})+\.\d{2}|\d+[.,]\d{2}|\d+)/i,
+          /(?:r\$|\$)?\s*(\d{1,3}(?:\.\d{3})+,\d+|\d{1,3}(?:,\d{3})+\.\d+|\d{1,3}(?:\.\d{3})+(?![\d,])|\d+[.,]\d+|\d+)/i,
         );
         if (!m) return null;
         const value = this.normalizeMoney(m[1]);
@@ -139,8 +140,11 @@ export class StubSlotExtractionAdapter implements SlotExtractionPort {
     } else if (hasComma) {
       // Lone comma → decimal separator: 1500,00 → 1500.00
       s = s.replace(",", ".");
+    } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+      // Dots grouping thousands, with no decimal part: 1.500 → 1500
+      s = s.replace(/\./g, "");
     }
-    if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
+    if (!/^\d+(\.\d+)?$/.test(s)) return null;
     if (Number(s) <= 0) return null;
     return s;
   }

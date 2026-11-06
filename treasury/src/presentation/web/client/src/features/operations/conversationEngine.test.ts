@@ -472,3 +472,38 @@ describe("offerablePositions", () => {
     });
   });
 });
+
+describe("REQ-221 — valor recusado com sugestão de arredondamento", () => {
+  const interpretation = (rejected: { key: string; message: string; suggestedValue?: string }[]) => ({
+    state: { kind: "question" as const, slot: { key: "amount", type: "money" as const, prompt: "Valor?", required: true }, answered: 0, total: 4 },
+    accepted: [],
+    rejected,
+    skipped: [],
+    lowConfidence: [],
+    identity: [],
+  });
+  const refused = { key: "amount", message: "An amount has at most 2 decimal places.", suggestedValue: "10.12" };
+
+  it("no texto livre, oferece a sugestão no lugar de um erro", () => {
+    expect(interpretationMessages(interpretation([refused]), "register_service_fee")).toEqual([
+      expect.objectContaining({ kind: "suggestion", proposalKey: "amount", value: "10.12", rounded: true }),
+    ]);
+  });
+
+  it("não cai na resposta direta, que só seria recusada de novo", () => {
+    expect(shouldFallbackToDirectAnswer("amount", interpretation([refused]))).toBe(false);
+  });
+
+  it("sem sugestão, continua sendo um erro e continua caindo na resposta direta", () => {
+    const plain = interpretation([{ key: "amount", message: "Enter a valid amount, e.g. 1500.00." }]);
+
+    expect(interpretationMessages(plain, "register_service_fee")[0].kind).toBe("error");
+    expect(shouldFallbackToDirectAnswer("amount", plain)).toBe(true);
+  });
+
+  it("na resposta direta, oferece a mesma sugestão", () => {
+    const decision = decideAdvance(interpretation([]).state, refused, "register_service_fee");
+
+    expect(decision).toMatchObject({ kind: "error", message: { kind: "suggestion", value: "10.12", rounded: true } });
+  });
+});

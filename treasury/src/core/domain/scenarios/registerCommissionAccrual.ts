@@ -18,6 +18,8 @@ export const registerCommissionAccrual: Scenario = {
     { key: "currency", type: SlotType.CHOICE, prompt: "Which currency?", required: true, choices: ["BRL", "USD"] },
     { key: "occurredAt", type: SlotType.DATE, prompt: "As of what date is it expected?", required: true },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
+    // Only a rectification fills this: it keeps the restated entry on the position being corrected.
+    { key: "restatesObject", type: SlotType.STRING, prompt: "The position this entry restates.", required: false, internal: true },
   ],
   keywords: { "pt-BR": ["provisao", "prevista", "esperada"] },
 };

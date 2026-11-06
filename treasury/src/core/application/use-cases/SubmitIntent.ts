@@ -4,7 +4,7 @@ import type { Candidate } from "../../domain/value-objects/Candidate";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { CandidateMapper } from "../services/CandidateMapper";
 import type { CandidateSubmissionPort, SubmissionStatus, RejectionDetail } from "../ports/CandidateSubmissionPort";
-import type { AuditLog } from "../ports/AuditLog";
+import { userActor, type AuditLog } from "../ports/AuditLog";
 import type { Clock } from "../ports/Clock";
 import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
 import { unidentifiedPartiesOf } from "../services/UnidentifiedParties";
@@ -42,12 +42,14 @@ export class SubmitIntentUseCase {
     private readonly directory: PartyDirectoryPort,
   ) {}
 
-  async execute(intentId: string): Promise<SubmitIntentResult> {
+  /** `submittedBy` is who pressed "enviar"; it may differ from whoever started the intent. */
+  async execute(intentId: string, submittedBy?: string): Promise<SubmitIntentResult> {
     const intent = await this.repo.findById(intentId);
     if (!intent) throw new Error(`Unknown intent: ${intentId}`);
 
     const scenario = getScenario(intent.scenarioId);
     if (!scenario) throw new Error(`Unknown scenario: ${intent.scenarioId}`);
+    const actor = userActor(submittedBy ?? intent.userId);
 
     intent.markSubmitted(this.clock.now()); // guard first: throws if not awaiting confirmation
     const draft = this.mapper.build(intent, scenario);
@@ -56,13 +58,13 @@ export class SubmitIntentUseCase {
       scenario,
       await unidentifiedPartiesOf(draft, this.directory),
     );
-    await this.audit.record({ intentId, at: this.clock.now(), type: "intent.submitted", detail: candidate.sourceReference });
+    await this.audit.record({ actor: actor, intentId, at: this.clock.now(), type: "intent.submitted", detail: candidate.sourceReference });
 
     const outcome = await this.submission.submit(candidate);
 
     if (outcome.status === "accepted") {
       intent.markAccepted(outcome.ledgerReference ?? "", this.clock.now());
-      await this.audit.record({ intentId, at: this.clock.now(), type: "intent.accepted", detail: outcome.ledgerReference });
+      await this.audit.record({ actor: actor, intentId, at: this.clock.now(), type: "intent.accepted", detail: outcome.ledgerReference });
       await this.repo.save(intent);
       return {
         intentId,
@@ -87,7 +89,7 @@ export class SubmitIntentUseCase {
     if (correctionSlots.length > 0) {
       // Non-terminal: the user fixes these slots (ApplyAnswers `edit`) and resubmits.
       intent.markAwaitingCorrection(this.clock.now());
-      await this.audit.record({ intentId, at: this.clock.now(), type: "intent.correction", detail: correctionSlots.join(", ") });
+      await this.audit.record({ actor: actor, intentId, at: this.clock.now(), type: "intent.correction", detail: correctionSlots.join(", ") });
       await this.repo.save(intent);
       return {
         intentId,
@@ -102,7 +104,7 @@ export class SubmitIntentUseCase {
 
     // Terminal: duplicate / internal, or a fixable rejection with no mappable slot.
     intent.markRejected(outcome.reason ?? "Rejected by the Ledger.", this.clock.now());
-    await this.audit.record({ intentId, at: this.clock.now(), type: "intent.rejected", detail: outcome.reason });
+    await this.audit.record({ actor: actor, intentId, at: this.clock.now(), type: "intent.rejected", detail: outcome.reason });
     await this.repo.save(intent);
     return {
       intentId,

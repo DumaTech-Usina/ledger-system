@@ -22,6 +22,8 @@ export type DialogState =
 export interface SlotValidationError {
   key: string;
   message: string;
+  /** The rounded amount to offer (REQ-221). Recorded only if the user accepts it. */
+  suggestedValue?: string;
 }
 
 export interface ScenarioSummary {
@@ -292,6 +294,7 @@ export interface IntentProps {
 
 export interface AuditEntry {
   id: string;
+  actor: { kind: "user" | "external_system"; id: string };
   intentId: string;
   at: string;
   type: string;

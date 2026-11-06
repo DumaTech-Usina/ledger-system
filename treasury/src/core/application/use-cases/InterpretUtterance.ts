@@ -2,7 +2,7 @@ import { Intent } from "../../domain/entities/Intent";
 import { getScenario, listScenarios } from "../../domain/scenarios/Scenario";
 import type { DialogState, SlotValidationError } from "../../domain/services/DialogEngine";
 import type { IntentRepository } from "../repositories/IntentRepository";
-import type { AuditLog } from "../ports/AuditLog";
+import { userActor, type AuditLog } from "../ports/AuditLog";
 import type { Clock } from "../ports/Clock";
 import type { IdGenerator } from "../ports/IdGenerator";
 import type {
@@ -95,10 +95,11 @@ export class InterpretUtteranceUseCase {
   private async interpretBound(intentId: string, utterance: string): Promise<InterpretUtteranceResult> {
     const intent = await this.repo.findById(intentId);
     if (!intent) throw new Error(`Unknown intent: ${intentId}`);
+    intent.assertEditable();
     const scenario = getScenario(intent.scenarioId);
     if (!scenario) throw new Error(`Unknown scenario: ${intent.scenarioId}`);
 
-    await this.audit.record({ intentId, at: this.clock.now(), type: "utterance.received", detail: utterance });
+    await this.audit.record({ actor: userActor(intent.userId), intentId, at: this.clock.now(), type: "utterance.received", detail: utterance });
 
     const result = await this.safeExtract(
       {
@@ -107,6 +108,7 @@ export class InterpretUtteranceUseCase {
         priorAnswers: intent.answers,
         knownParties: await this.knownParties(),
       },
+      intent.userId,
       intentId,
     );
     const merged = await this.mergeProposals(intentId, result.slots);
@@ -131,7 +133,7 @@ export class InterpretUtteranceUseCase {
       utterance: input.utterance,
       scenarios: catalog,
       knownParties: await this.knownParties(),
-    });
+    }, input.userId);
 
     // No confident, real scenario → ask which operation. Nothing is created.
     const scenario = result.scenarioId ? getScenario(result.scenarioId) : undefined;
@@ -142,8 +144,8 @@ export class InterpretUtteranceUseCase {
     const now = this.clock.now();
     const intent = Intent.start(this.ids.next(), scenario.id, input.userId, now);
     await this.repo.save(intent);
-    await this.audit.record({ intentId: intent.id, at: now, type: "intent.started", detail: scenario.id });
-    await this.audit.record({ intentId: intent.id, at: now, type: "utterance.received", detail: input.utterance });
+    await this.audit.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "intent.started", detail: scenario.id });
+    await this.audit.record({ actor: userActor(input.userId), intentId: intent.id, at: now, type: "utterance.received", detail: input.utterance });
 
     const merged = await this.mergeProposals(intent.id, result.slots);
     return { intentId: intent.id, scenarioId: scenario.id, ...merged };
@@ -178,11 +180,12 @@ export class InterpretUtteranceUseCase {
    * Extraction must never break the conversation. On any failure, propose nothing — bound mode then
    * simply asks the current question; classify mode falls back to a clarification.
    */
-  private async safeExtract(request: SlotExtractionRequest, intentId?: string): Promise<SlotExtractionResult> {
+  private async safeExtract(request: SlotExtractionRequest, userId: string, intentId?: string): Promise<SlotExtractionResult> {
     try {
       return await this.extractor.extract(request);
     } catch (err) {
       await this.audit.record({
+        actor: userActor(userId),
         intentId: intentId ?? "-",
         at: this.clock.now(),
         type: "extraction.failed",

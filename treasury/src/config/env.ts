@@ -40,17 +40,6 @@ const envSchema = z.object({
   LEDGER_ALGEBRA_PATH: z.string().default("../ledger/algebra.json"),
 
   /**
-   * How often the navigation snapshot walks what the Ledger recorded since it last looked.
-   *
-   * 60 minutes is deliberate and the cost is understood: treasury's own writes invalidate
-   * immediately, so what waits up to an hour is what OTHER producers wrote — the staging pipeline
-   * and the workers. That is tolerable only because the snapshot never answers anything: the
-   * positions listing still comes from the Ledger, so a position created by normalization is
-   * visible at once regardless of what the cache remembers.
-   */
-  SNAPSHOT_REFRESH_MINUTES: z.coerce.number().int().positive().default(60),
-
-  /**
    * How treasury extracts slot values from natural language:
    *  - "stub": deterministic regex/keyword extractor (no external model). The default until the
    *            conversational workflow is complete.

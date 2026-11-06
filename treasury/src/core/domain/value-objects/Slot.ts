@@ -25,6 +25,11 @@ export interface SlotDefinition {
    * required. The exception has to be granted somewhere explicit; it is never a global escape.
    */
   allowUnidentifiable?: boolean;
+  /**
+   * Filled by the system, never asked: it does not count towards the conversation's progress and no
+   * question is ever raised for it. Always optional, since nobody is there to answer it.
+   */
+  internal?: boolean;
 }
 
 export type SlotValue = string;

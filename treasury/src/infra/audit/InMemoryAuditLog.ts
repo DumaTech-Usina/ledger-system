@@ -6,6 +6,9 @@ export class InMemoryAuditLog implements AuditLog {
   private readonly entries: AuditEntry[] = [];
 
   async record(entry: Omit<AuditEntry, "id">): Promise<void> {
+    if (!entry.actor?.id?.trim()) {
+      throw new Error(`An audit entry needs an identified author (type: ${entry.type}).`);
+    }
     this.entries.push({ id: randomUUID(), ...entry });
   }
 

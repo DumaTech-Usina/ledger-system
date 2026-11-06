@@ -38,7 +38,15 @@ export type StreamItem =
   | { id: string; kind: "bot"; text: string }
   | { id: string; kind: "user"; text: string }
   | { id: string; kind: "error"; text: string }
-  | { id: string; kind: "suggestion"; proposalKey: string; value: string; label: string }
+  | {
+      id: string;
+      kind: "suggestion";
+      proposalKey: string;
+      value: string;
+      label: string;
+      /** The value is not what was said: it is that amount rounded by NBR 5891 (REQ-221). */
+      rounded?: boolean;
+    }
   | { id: string; kind: "identity"; slot: string; text: string; options: IdentityOption[] }
   | {
       id: string;
@@ -85,6 +93,19 @@ export const slotPrompt = (scenarioId: string, slot: SlotDefinition): string =>
 
 export const labelFor = (scenarioId: string, key: string): string => scenarioSlotPrompts[scenarioId]?.[key] ?? key;
 
+/** A refused answer: the refusal itself, or the rounded amount to accept when there is one. */
+function refusalMessage(error: SlotValidationError, scenarioId: string): NewMessage {
+  return error.suggestedValue
+    ? {
+        kind: "suggestion",
+        proposalKey: error.key,
+        value: error.suggestedValue,
+        label: labelFor(scenarioId, error.key),
+        rounded: true,
+      }
+    : { kind: "error", text: translateMessage(error.message) };
+}
+
 export type AdvanceDecision =
   | { kind: "error"; message: NewMessage }
   | { kind: "ready" }
@@ -101,7 +122,7 @@ export function decideAdvance(
   scenarioId: string,
 ): AdvanceDecision {
   if (error) {
-    return { kind: "error", message: { kind: "error", text: translateMessage(error.message) } };
+    return { kind: "error", message: refusalMessage(error, scenarioId) };
   }
   if (state.kind === "ready") {
     return { kind: "ready" };
@@ -207,7 +228,7 @@ export function pendingIdentity(
 export function interpretationMessages(result: InterpretResult, scenarioId: string): NewMessage[] {
   const messages: NewMessage[] = [];
   for (const err of result.rejected) {
-    messages.push({ kind: "error", text: translateMessage(err.message) });
+    messages.push(refusalMessage(err, scenarioId));
   }
   for (const proposal of result.lowConfidence) {
     messages.push({
@@ -229,7 +250,9 @@ export function shouldFallbackToDirectAnswer(askedSlotKey: string | null, result
   if (!askedSlotKey) return false;
   const stillOnSameQuestion = result.state?.kind === "question";
   const extractedNothing = result.accepted.length === 0;
-  return stillOnSameQuestion && extractedNothing;
+  // A rounded amount is already on offer: the raw text would only be refused again.
+  const offeredRounding = result.rejected.some((r) => r.suggestedValue);
+  return stillOnSameQuestion && extractedNothing && !offeredRounding;
 }
 
 /**

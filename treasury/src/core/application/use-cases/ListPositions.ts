@@ -96,12 +96,6 @@ export class ListPositionsUseCase {
     /** Which party is us. Applied to the DISPLAY of parties, never to the filter sent to the Ledger. */
     private readonly usinaPartyId: string = "",
     /**
-     * Remembers what this page answered with, so opening one of these positions can paint before
-     * the Ledger replies. Optional: the listing works identically without it, because the snapshot
-     * is never the source of the answer — only a head start on it.
-     */
-    private readonly remember: (positions: PositionsPage["data"]) => void = () => {},
-    /**
      * Optional: without it the listing answers with ids alone, which is exactly what it does for a
      * party the Directory does not know. Names are legibility, not truth, so their absence never
      * changes what the screen asserts.
@@ -123,7 +117,6 @@ export class ListPositionsUseCase {
         sortBy: input.sortBy,
         sortOrder: input.sortOrder,
       });
-      this.remember(page.data);
       return {
         available: true,
         page,

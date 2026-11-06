@@ -1,5 +1,16 @@
 import { IntentStatus } from "../enums/IntentStatus";
 import { SlotValue } from "../value-objects/Slot";
+import { IntentNotEditableError } from "../errors/IntentNotEditableError";
+
+/**
+ * Where answers may still change (§11.1). Listed rather than excluded, so that a status added later
+ * is closed until someone decides otherwise.
+ */
+const EDITABLE: ReadonlySet<IntentStatus> = new Set([
+  IntentStatus.GATHERING,
+  IntentStatus.AWAITING_CONFIRMATION,
+  IntentStatus.AWAITING_CORRECTION,
+]);
 
 export interface IntentProps {
   id: string;
@@ -47,8 +58,17 @@ export class Intent {
   get ledgerReference(): string | undefined { return this.props.ledgerReference; }
   get rejectionReason(): string | undefined { return this.props.rejectionReason; }
 
+  /**
+   * Throws once the candidate has left for the Ledger and its fate is settled. Use cases call it up
+   * front so that a refused edit leaves nothing behind; `record` calls it too, so no path can skip it.
+   */
+  assertEditable(): void {
+    if (!EDITABLE.has(this.props.status)) throw new IntentNotEditableError(this.props.id, this.props.status);
+  }
+
   /** Record an answer for a slot. Stays in GATHERING; the use case decides when it's ready. */
   record(key: string, value: SlotValue, now: string): void {
+    this.assertEditable();
     this.props.answers[key] = value;
     this.props.status = IntentStatus.GATHERING;
     this.props.updatedAt = now;

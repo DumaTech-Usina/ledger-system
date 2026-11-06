@@ -3,7 +3,7 @@ import { DialogEngine, type DialogState, type SlotValidationError } from "../../
 import type { SlotValue } from "../../domain/value-objects/Slot";
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { Clock } from "../ports/Clock";
-import type { AuditLog } from "../ports/AuditLog";
+import { userActor, type AuditLog } from "../ports/AuditLog";
 import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
 import {
   auditDetail,
@@ -60,6 +60,7 @@ export class ApplyAnswersUseCase {
   async execute(input: ApplyAnswersInput): Promise<ApplyAnswersResult> {
     const intent = await this.repo.findById(input.intentId);
     if (!intent) throw new Error(`Unknown intent: ${input.intentId}`);
+    if (input.answers.length > 0) intent.assertEditable();
 
     const scenario = getScenario(intent.scenarioId);
     if (!scenario) throw new Error(`Unknown scenario: ${intent.scenarioId}`);
@@ -89,7 +90,7 @@ export class ApplyAnswersUseCase {
       if (error) {
         // Reject without recording — never persist an invalid answer.
         rejected.push(error);
-        await this.audit.record({ intentId: intent.id, at: now, type: "slot.rejected", detail: `${key}: ${error.message}` });
+        await this.audit.record({ actor: userActor(intent.userId), intentId: intent.id, at: now, type: "slot.rejected", detail: `${key}: ${error.message}` });
         continue;
       }
 
@@ -102,6 +103,7 @@ export class ApplyAnswersUseCase {
       if (resolution) {
         identity.push({ slot: key, resolution });
         await this.audit.record({
+          actor: userActor(intent.userId),
           intentId: intent.id,
           at: now,
           type: "identity.resolution",
@@ -114,7 +116,7 @@ export class ApplyAnswersUseCase {
       }
 
       intent.record(key, valueToRecord, now);
-      await this.audit.record({ intentId: intent.id, at: now, type: "slot.answered", detail: key });
+      await this.audit.record({ actor: userActor(intent.userId), intentId: intent.id, at: now, type: "slot.answered", detail: key });
       recorded += 1;
     }
 

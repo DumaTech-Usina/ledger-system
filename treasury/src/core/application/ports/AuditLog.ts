@@ -1,5 +1,14 @@
+/** REQ-802: who did it — an identified user or an identified external system, never nobody. */
+export interface AuditActor {
+  kind: "user" | "external_system";
+  id: string;
+}
+
+export const userActor = (id: string): AuditActor => ({ kind: "user", id });
+
 export interface AuditEntry {
   id: string;
+  actor: AuditActor;
   intentId: string;
   at: string;
   type: string;

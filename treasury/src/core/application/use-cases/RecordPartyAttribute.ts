@@ -2,7 +2,7 @@ import { AttributeSource } from "../../domain/enums/AttributeSource";
 import { AttributeState } from "../../domain/enums/AttributeState";
 import { RECOMMENDED_ATTRIBUTES } from "../../domain/services/PartyCompleteness";
 import type { Party } from "../../domain/entities/Party";
-import type { AuditLog } from "../ports/AuditLog";
+import { userActor, type AuditLog } from "../ports/AuditLog";
 import type { Clock } from "../ports/Clock";
 import type { PartyRepository } from "../repositories/PartyRepository";
 
@@ -68,6 +68,7 @@ export class RecordPartyAttributeUseCase {
 
     if (input.intentId) {
       await this.audit.record({
+        actor: userActor(input.userId),
         intentId: input.intentId,
         at: now,
         type: "party.enriched",

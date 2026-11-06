@@ -1,6 +1,7 @@
 import type { Scenario } from "../scenarios/Scenario";
 import type { SlotDefinition, SlotValue } from "../value-objects/Slot";
 import { SlotType } from "../enums/SlotType";
+import { roundNbr5891 } from "./MoneyRounding";
 
 export type DialogState =
   | { kind: "question"; slot: SlotDefinition; answered: number; total: number }
@@ -9,6 +10,11 @@ export type DialogState =
 export interface SlotValidationError {
   key: string;
   message: string;
+  /**
+   * REQ-221: the rounded amount to offer instead. Only ever offered: it is recorded if the user
+   * accepts it, as an answer of its own. Absent when rounding would leave nothing above zero.
+   */
+  suggestedValue?: string;
 }
 
 const isBlank = (v: SlotValue | undefined): boolean => v === undefined || v.trim() === "";
@@ -22,8 +28,9 @@ const isBlank = (v: SlotValue | undefined): boolean => v === undefined || v.trim
 export const DialogEngine = {
   /** The next required slot to ask, or `ready` when all required slots are filled. */
   nextState(scenario: Scenario, answers: Record<string, SlotValue>): DialogState {
-    const total = scenario.slots.length;
-    const answered = scenario.slots.filter((s) => !isBlank(answers[s.key])).length;
+    const conversational = scenario.slots.filter((s) => !s.internal);
+    const total = conversational.length;
+    const answered = conversational.filter((s) => !isBlank(answers[s.key])).length;
     const next = scenario.slots.find((s) => s.required && isBlank(answers[s.key]));
     return next
       ? { kind: "question", slot: next, answered, total }
@@ -39,6 +46,14 @@ export const DialogEngine = {
 
     switch (slot.type) {
       case SlotType.MONEY:
+        if (/^\d+\.\d{3,}$/.test(value)) {
+          const rounded = roundNbr5891(value);
+          return {
+            key: slot.key,
+            message: "An amount has at most 2 decimal places.",
+            ...(Number(rounded) > 0 ? { suggestedValue: rounded } : {}),
+          };
+        }
         if (!/^\d+(\.\d{1,2})?$/.test(value)) {
           return { key: slot.key, message: "Enter a valid amount, e.g. 1500.00." };
         }

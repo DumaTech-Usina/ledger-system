@@ -9,6 +9,11 @@
 > MDM (`DEC-007`, `DEC-008`).
 > A seção **Contrapartes (§5) já nasce depreciada**: o MDM vai substituí-la.
 >
+> **Rodada do cadastro de partes (2026-11-04, fechada).** Cobre o cadastro de partes (§5, que
+> substitui Contrapartes) e a visão por pessoa e grupo (§8.2). O repasse de comissão (§4.4) foi
+> **adiado** até ter um ciclo na álgebra do Ledger (`DEC-017`). O nome "MDM" não é usado nas regras; o termo de negócio é **cadastro de
+> partes** (`Q-046`).
+>
 > **Fonte — diário de decisões**
 >
 > | Data | Rodada | O que aconteceu |
@@ -19,6 +24,8 @@
 > | 2026-11-03 | 3 — respostas | **Decidido:** quem aparece como parte em cada registro fica para a rodada do MDM (`Q-012` → `DEC-010`); o usuário pode corrigir na prévia antes de enviar, e o estado "aguardando confirmação" passa a se chamar **"pronta para envio"** (`Q-021`); só BRL até surgir requisito de outra moeda (`Q-023` → `DEC-011`); a auditoria cobre só o que é operação, e os logs de comportamento da conversa ficam em aberto (`Q-024` → `REQ-804`, `DEC-012`); data de ocorrência futura é recusada, e a provisão ou lançamento futuro fica em aberto (`Q-025` → `REQ-226`, `REQ-227`, `DEC-013`); máscara de digitação em centavos e proibição da convenção brasileira fora da digitação e exibição (`REQ-224`, `REQ-228`). **Alterado:** `REQ-224` (antes: "ponto separa milhar, vírgula separa decimais", com o exemplo "2.000 → 2.000,00 ⚠"; agora: máscara que preenche a partir dos centavos, em que "2000" → R$ 20,00). **Contradição levantada:** com a máscara em centavos, não dá para digitar mais de 2 casas, e `REQ-221` deixa de ter onde se aplicar na coleta guiada (`Q-026`). |
 > | 2026-11-03 | 4 — respostas | **Confirmados todos os `⚠ CONFIRMAR` pendentes** (`Q-027`–`Q-035`): resposta inválida não é registrada (`REQ-211`); envio só após a prévia e o clique em "enviar" (`REQ-213`); a intenção aceita guarda a referência do fato, para consultar o caderno (`REQ-501`); na correção pode-se mudar **qualquer campo** (`REQ-510`); a retirada não apaga o original (`REQ-524`); o campo não aplicado do texto livre é perguntado (`REQ-703`); auditoria = quem, quando e o quê (`REQ-803`); estorno ≠ retificação (§2); as três notas de §4.1. **Novo:** premissa "a Usina vive de exceções" (§1); abrir o caderno a usuários contábeis vira `DEC-014`. **Continua sem resposta:** `Q-026`. Nada foi revogado. |
 > | 2026-11-03 | 5 — fechamento | `Q-026` respondida com a opção **A**: `REQ-221` vale para toda entrada que não passa pela máscara, como o texto livre (**alterado**; antes valia para valor "digitado"). O dono do produto **declarou atingido o critério de parada** da documentação do que existe. |
+> | 2026-11-04 | 6 — cadastro de partes | Depois de uma conversa de pesquisa (referências de mercado sobre cadastro mestre, ledgers e grupos), o dono do produto respondeu e **decidiu**: as partes vêm de um sistema separado, de planilhas e de anotações pessoais, e são cerca de 250; a carga é feita pelo próprio Treasury, não pelo `validators/`; só um usuário com poder de curadoria cadastra partes; parte não cadastrada → o fato é registrado com **identidade provisória** e incômodo visual persistente; o mapeamento de identidade fica **no Treasury, só de acréscimo**; o passado é mapeado, não corrigido ("o Treasury auxilia, o Ledger canoniza"); grupo: a priori uma empresa, uma pessoa pode estar em vários, e a relação nasce no **evento**; a visão por grupo é para **filtrar e enxergar**; sugestão a partir do **último evento**; o cliente final é **contexto**; Unimed, João e Argo são partes cadastradas; o fluxo do repasse de comissão foi descrito. **Retirado:** o comportamento antigo de contrapartes (criar parte durante a operação), substituído por `REQ-311`/`REQ-320`. **Abertas:** `Q-036`–`Q-046`. |
+> | 2026-11-04 | 7 — respostas e fechamento | **Decidido:** não identificável e provisória são coisas diferentes, e as duas continuam com a mesma notificação (`Q-036`); a curadoria é uma **permissão** dada a um usuário que já tem outro papel (`Q-037`); resolver uma provisória = **ligá-la a uma parte já cadastrada** (`Q-038`); todos veem a notificação (`Q-039`); grupo = parte do tipo empresa, por enquanto (`Q-040`); o filtro mostra **todos** os eventos em que a parte tem algum papel (`Q-041`); CPF/CNPJ obrigatório para quem recebe ou paga por conta bancária (`Q-042`); eventos do sistema externo **esperam a confirmação** de um usuário, e uma parte com dúvida vira provisória (`Q-044`); nome "cadastro de partes" confirmado (`Q-046`). **Adiado:** o repasse sai desta rodada, porque precisa antes de um ciclo próprio na álgebra do Ledger (`Q-043` → `DEC-017`). **Viraram decisão pendente:** desfazer uma ligação errada (`DEC-015`), a insistência da notificação ao longo do tempo e se ela bloqueia algo (`DEC-016`), a conciliação bancária (`DEC-018`). **Os `⚠ CONFIRMAR` restantes ficam para outra rodada.** O dono do produto **declarou fechado o ciclo** do cadastro de partes, para começar a planejar os primeiros testes. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -47,7 +54,7 @@
 > | --- | --- |
 > | `1xx` | Fronteira Treasury × Ledger |
 > | `2xx` | Operações e coleta guiada (bloco principal) |
-> | `3xx` | Contrapartes (**depreciado**) |
+> | `3xx` | Cadastro de partes (substitui Contrapartes, depreciado) |
 > | `4xx` | Acesso |
 > | `5xx` | Envio, recusa, correção e retificação |
 > | `6xx` | Consultas |
@@ -110,12 +117,30 @@ eventos. A direção já declarada (fora desta versão) é mostrar **pessoas e a
 | **Retirada** | O primeiro passo da retificação: o lançamento deixa de contar, mas continua no histórico. |
 | **Reemissão** | O segundo passo, opcional, da retificação: registrar o que de fato aconteceu. |
 | **Estorno** | Desfazer algo que **aconteceu**. |
+| **Parte** | Pessoa ou empresa com relacionamento financeiro com a Usina, direto ou indireto, registrada no cadastro de partes. |
+| **Cadastro de partes** | A lista de partes mantida pelo Treasury. Substitui o antigo diretório de contrapartes. |
+| **Curadoria** | A permissão de cadastrar partes e resolver identidades provisórias. É dada a um usuário que já tem outro papel. |
+| **Identidade provisória** | A identidade dada a alguém **ainda não cadastrado**, para que o fato possa ser registrado. Fica pendente até ser resolvida. |
+| **Mapeamento de identidade** | O registro, no Treasury, de que identificadores diferentes são a mesma parte. Só de acréscimo. |
+| **Grupo** | Por enquanto, uma **parte do tipo empresa** (razão social, CNPJ). Não existe conceito separado de grupo (`Q-040`). |
+| **Recebedor** | Quem recebe o dinheiro na conta (ex.: a Argo). ⚠ CONFIRMAR (termo) |
+| **Destinatário final** | A quem o dinheiro de fato se destina (ex.: o João). ⚠ CONFIRMAR (termo) |
+| **Contexto** | Informação que descreve um evento sem ser parte dele (ex.: o cliente final, o plano). |
+| **Repasse** | A parte de uma comissão recebida que a Usina passa a outra parte. |
+| **Demonstrativo de recebimento** | Documento que mostra o que alguém vai receber, emitido **antes** do pagamento bancário. |
+| **Recibo de pagamento** | Documento emitido **depois** do pagamento bancário, com os dados do evento. |
 
 > **Intenção, candidato e fato não são sinônimos.** A intenção é a conversa. O candidato é a
 > proposta que sai dela. O fato é o candidato que o Ledger aceitou.
 >
 > **Retificação e estorno não são sinônimos.** A retificação diz que o lançamento nunca
 > aconteceu. O estorno desfaz algo que aconteceu.
+>
+> **Não identificável e provisória não são sinônimos.** Não identificável: não se sabe quem é.
+> Provisória: sabe-se quem é, mas a parte ainda não está cadastrada.
+>
+> **Recebedor e destinatário final não são sinônimos.** No repasse ao João pela conta da Argo, a
+> Argo é a recebedora e o João é o destinatário final.
 >
 > **Origem e posição não são sinônimos.** A origem é um **fato** anterior. A posição é aquilo que
 > esse fato abriu e que outros fatos movimentam.
@@ -299,47 +324,164 @@ futuro**.
 
 > O vencimento não é a data de um fato: é o que o documento que estabeleceu a obrigação diz.
 
+### 4.4 Repasse de comissão — **adiado** (`DEC-017`)
+
+> **Fora da rodada do cadastro de partes** (decidido em 2026-11-04, `Q-043`). O repasse precisa
+> antes de um **ciclo próprio na álgebra do Ledger** (`REQ-202`). As regras abaixo registram o que
+> o dono do produto descreveu e **não serão testadas** até `DEC-017` ser decidida. O valor do
+> repasse não foi definido. A conciliação com o extrato é `DEC-018`.
+
+```
+1. Comissão prevista: plano X da Unimed, cliente Y, corretor João   ← sinalizada pelo sistema externo
+2. Comissão recebida da Unimed                                       ← sinalizada pelo sistema externo
+3. O Treasury mostra o repasse → o usuário define: João recebe pela conta da Argo
+4. Demonstrativo de recebimento
+5. Pagamento bancário Usina → Argo
+6. Anotado como pago → recibo do evento + recibo-resumo (extrato bancário anexo, opcional)
+```
+
+`REQ-240` A comissão prevista e a comissão recebida podem chegar **sinalizadas pelo sistema
+externo** (cadastro visto lá; comissão baixada lá). O Treasury as anota no Ledger.
+
+`REQ-241` Depois do recebimento de uma comissão com repasse, o Treasury **mostra o repasse** ao
+usuário.
+
+`REQ-242` **Somente o usuário** define como o repasse acontece (ex.: o João recebe pela conta da
+Argo). O Treasury **não decide**.
+
+`REQ-243` O Ledger anota a forma do repasse definida pelo usuário, com recebedor e destinatário
+final (`REQ-613`).
+
+`REQ-244` Um **demonstrativo de recebimento** é emitido e **precede** o pagamento bancário.
+
+`REQ-245` Concluído o pagamento bancário, o Treasury anota que **foi pago** e emite: um **recibo
+de pagamento** com os dados do evento e dos eventos relacionados; e um **recibo-resumo**, com o
+**extrato bancário** como anexo opcional.
+
 ---
 
-## 5. Contrapartes — **depreciado**
+## 5. Cadastro de partes
 
-> **Esta seção será substituída pelo MDM na próxima rodada** (`DEC-002`). Ela registra o que vale
-> até lá e as diretrizes que já foram dadas para o que vem depois.
+> Substitui a seção "Contrapartes" (depreciada em 2026-11-03, `DEC-002`). Já decidido em
+> 2026-11-04: o cadastro é prévio e feito por quem tem curadoria; a parte não cadastrada recebe
+> identidade provisória com incômodo visual; o mapeamento de identidade fica no Treasury, só de
+> acréscimo; o passado é mapeado, não corrigido; o cliente final é contexto. Em 2026-11-04
+> (rodada 7) também: curadoria é permissão; resolver é ligar; CPF/CNPJ para quem tem conta
+> bancária; eventos externos esperam confirmação. Pendências: `DEC-015`, `DEC-016`.
+>
+> **Contexto (não é regra):** a Usina se relaciona com cerca de **250 partes**. Hoje elas estão
+> num sistema separado, em planilhas e em anotações pessoais de quem trabalha na Usina. A carga
+> no Treasury é feita pelo próprio Treasury; o mecanismo é decisão técnica, fora deste documento.
 
-### 5.1 Regras que valem até o MDM
+### 5.1 O cadastro
+
+`REQ-310` O Treasury mantém um **cadastro de partes**: pessoas e empresas com relacionamento
+financeiro com a Usina, **direto** (entrada ou saída de dinheiro) ou **indireto** (promessa de
+entrada ou de saída).
+
+`REQ-311` **Somente quem tem curadoria** cadastra uma parte (`REQ-402`). Quem opera **não cria
+parte** no momento da operação: busca uma parte já cadastrada.
+
+> Protege o caderno: uma parte duplicada ou errada dentro de um fato imutável vira erro
+> permanente. Origem: diretriz de 2026-11-03.
+
+`REQ-312` São partes cadastradas todos os que têm papel financeiro no evento. No repasse de uma
+comissão da Unimed ao João, que recebe pela empresa Argo, **Unimed, João e Argo** são partes
+cadastradas.
+
+> "Temos que ter um controle financeiro": o extrato só mostra a Argo; o Treasury precisa saber
+> dos três.
+
+`REQ-313` O **cliente final** (ex.: o cliente Y de um plano) **não é parte cadastrada**. Ele é
+**contexto** do evento, como o plano.
+
+`REQ-314` O **CPF/CNPJ é obrigatório** para a parte que **recebe ou paga por conta bancária**.
+Para as demais, é **opcional**.
+
+> É a chave para ligar uma linha do extrato ao evento: o extrato só mostra o documento da conta
+> (ex.: "Usina pagou X para Argo, CNPJ def456").
+
+### 5.2 Identidade provisória
+
+`REQ-320` Quando um fato envolve alguém **ainda não cadastrado**, o fato **é registrado** mesmo
+assim, com uma **identidade provisória**. O registro do fato **não espera** o cadastro.
+
+> Um pagamento que aconteceu não deixa de ter acontecido porque a parte não está cadastrada. A
+> ideia é a mesma da conta transitória da contabilidade.
+
+`REQ-321` Enquanto existir identidade provisória sem resolução, o Treasury mostra um **incômodo
+visual persistente**: uma notificação insistente, "chata", como as das redes sociais, até a
+identidade ser resolvida. **Todos os usuários** veem a notificação. Se ela fica mais insistente
+com o tempo e se bloqueia algo: `DEC-016`.
+
+`REQ-322` Quem tem curadoria resolve uma identidade provisória **ligando-a a uma parte já
+cadastrada**. Desfazer uma ligação errada: `DEC-015`.
+
+```
+Fato: folha de 1.500,00 paga a "Maria Souza" → identidade provisória-123
+O curador cadastra a parte "Maria Souza" (CPF ...) → liga provisória-123 a ela
+A notificação some; a visão da Maria mostra a folha
+```
+
+`REQ-323` Um evento que chega do **sistema externo** **espera a confirmação** de um usuário no
+Treasury antes de ir para o Ledger.
+
+`REQ-324` Quando um evento do sistema externo traz uma parte com **dúvida** (ex.: a empresa que
+paga, ou o corretor relacionado ao evento), essa parte recebe uma **identidade provisória**
+(`REQ-320`).
+
+### 5.3 Mapeamento de identidade
+
+`REQ-330` O **mapeamento de identidade** ("estes identificadores são a mesma parte") fica **no
+Treasury**, não no Ledger.
+
+`REQ-331` O mapeamento é **só de acréscimo**: uma ligação **nunca é apagada nem reescrita**. Como
+desfazer uma ligação errada está em `DEC-015`.
+
+`REQ-332` **O passado não é corrigido, é mapeado.** Os fatos já no Ledger com identificadores
+diferentes para a mesma parte continuam como estão; o Treasury liga esses identificadores à parte
+correta.
+
+```
+No Ledger:   pagamento 1 → "Fornecedor Alfa" · pagamento 2 → "ALFA LTDA" · pagamento 3 → provisória-123
+No Treasury: os três identificadores → parte "Alfa Serviços Ltda"
+Visão da Alfa: os três pagamentos. Nenhum fato do Ledger foi alterado.
+```
+
+`REQ-333` O **Ledger canoniza** os fatos financeiros (imutáveis, só de acréscimo). O **Treasury
+auxilia**: identifica, mapeia e sugere.
+
+### 5.4 Regras anteriores que continuam valendo
 
 `REQ-301` Uma contraparte **não identificável** só é aceita na **comissão recebida**. Em qualquer
-outra operação, ela é recusada.
+outra operação, ela é recusada. Ela **não é** a identidade provisória (§2); as duas continuam
+(`Q-036`).
 
 > Protege contra uma saída de dinheiro sem destinatário conhecido. O dinheiro que **entra** pode
 > chegar sem remetente conhecido; o que **sai** não.
 
 `REQ-302` Uma movimentação com contraparte não identificável fica **pendente de validação**. O
 sistema cobra o complemento futuro de forma insistente, quase obrigatória. A forma dessa
-cobrança (alerta, notificação) está em `DEC-003`.
+cobrança é a mesma notificação de `REQ-321` (`Q-036`).
 
 > Contraparte não identificada **não é o estado ideal**. O Ledger a aceita porque calcula do seu
 > modo, mas o Treasury precisa mapeá-la com cuidado (`DEC-006`).
 
-### 5.2 Registro do comportamento atual (não é requisito)
+### 5.5 Retirado em 2026-11-04 (registro)
 
-Descrito só para servir de base à comparação futura com o MDM:
+O comportamento antigo de contrapartes **foi retirado** e não é requisito:
 
-- A contraparte digitada é procurada no diretório do Treasury. Se não existe, o usuário pode
-  **criá-la durante a operação** ou declará-la não identificável, com justificativa.
-- Uma contraparte parecida, mas não igual, pede confirmação. Várias parecidas pedem escolha.
-- Na prévia, o sistema pode fazer **uma** pergunta opcional de enriquecimento (documento ou tipo).
-  Uma pergunta recusada não volta a ser feita.
-- Contrapartes podem ser importadas de fonte externa sem sobrescrever o que já se sabe.
+| Antes | Por quê / substituído por |
+| --- | --- |
+| A contraparte digitada podia ser **criada durante a operação** | Contraria a diretriz "nada de criar no momento da operação" → `REQ-311`, `REQ-320` |
+| Contraparte parecida pedia confirmação; várias pediam escolha | Busca no cadastro prévio (`REQ-311`); resolução por ligação (`REQ-322`) |
+| Na prévia, **uma** pergunta opcional de enriquecimento (documento ou tipo) | O documento passou a ser obrigatório para quem tem conta bancária (`REQ-314`) |
+| Importação de contrapartes de fonte externa | A carga passa a ser feita pelo Treasury a partir das três fontes (§5, contexto) |
 
-### 5.3 Diretrizes já dadas para o MDM (entram na próxima rodada, `DEC-002`)
-
-- A resolução de contraparte precisa ser **concisa e forte do início ao fim**.
-- **Não se cria contraparte no momento da operação.** O caminho é buscar algo **previamente
-  cadastrado**.
-- **Toda e qualquer parte** de um evento deve ser identificada.
-- Um evento com **dúvida sobre uma entidade** deve ficar **sinalizado**. Isso vale também para
-  eventos que **vêm de fora** do Treasury.
+As diretrizes de 2026-11-03 viraram regra assim: "resolução concisa e forte" → §5 inteira; "não
+se cria contraparte no momento da operação" → `REQ-311`; "toda e qualquer parte identificada" →
+`REQ-312` e `DEC-010`; "evento com dúvida sinalizado, inclusive vindo de fora" → `REQ-321` e
+`REQ-324`.
 
 ---
 
@@ -354,6 +496,12 @@ Descrito só para servir de base à comparação futura com o MDM:
 
 > Papéis mais customizáveis, como "quem prepara mas não envia" com a aprovação de outra pessoa,
 > ficam em aberto (`DEC-004`).
+
+`REQ-402` A **curadoria de partes** é uma **permissão**, não um papel: ela é dada a um usuário que
+já tem outro papel. Só quem a tem cadastra partes (`REQ-311`) e resolve identidades provisórias
+(`REQ-322`).
+
+> Com poucos usuários, um terceiro papel seria custo sem ganho (`Q-037`).
 
 ---
 
@@ -414,6 +562,8 @@ Interrompido após o passo 1 → posição: 0,00 (subestimada), nunca 850,00 (du
 
 ## 8. Consultas
 
+### 8.1 Consultas atuais
+
 `REQ-601` As consultas mostram **só o que o Ledger publicou**. O Treasury **não recalcula
 dinheiro**.
 
@@ -433,6 +583,43 @@ perguntada.
 
 > Quais telas de consulta são requisito (painel, exposição, posições, movimentos, contas a pagar,
 > ciclo de vida, saúde de classificação) continua em aberto (`DEC-009`).
+
+### 8.2 Visão por pessoa e grupo
+
+> Decidido em 2026-11-04: uma pessoa pode estar em vários grupos; grupo é uma parte do tipo
+> empresa; a relação nasce no evento; a visão é para filtrar e enxergar; o filtro mostra todos os
+> eventos em que a parte tem algum papel; a sugestão vem do último evento.
+
+`REQ-610` Uma pessoa pode se relacionar com **uma ou mais** empresas ou grupos.
+
+`REQ-611` Pessoa e grupo são **independentes**. A relação entre eles **nasce no evento**
+financeiro, não numa regra de cadastro.
+
+> Evita regras de agregação e normas cadastrais: o determinismo fica no evento. Também preserva a
+> história: se o João recebeu pela Argo em março e por conta própria em outubro, cada evento diz
+> a verdade da sua época.
+
+`REQ-612` A visão por pessoa ou grupo serve para **filtrar e enxergar** os eventos. Somar valores
+por grupo **não** é objetivo. ⚠ CONFIRMAR (a segunda frase)
+
+`REQ-613` Quando um pagamento vai para uma empresa em nome de uma pessoa (o João recebe pela
+Argo), o Treasury **sabe** disso e o Ledger **anota as duas**: a recebedora (Argo) e o
+destinatário final (João).
+
+> O extrato bancário mostra só "Usina pagou X para Argo (CNPJ)". O Treasury e o Ledger guardam o
+> fato completo, com a cadeia e as identidades.
+
+`REQ-614` Ao registrar um novo pagamento a uma pessoa, o Treasury **sugere** a forma usada **no
+último evento** dela (ex.: "da última vez, o João recebeu pela Argo"). A sugestão **não decide**:
+o usuário confirma ou muda.
+
+`REQ-615` O filtro por uma parte mostra **todos** os eventos em que ela tem **algum papel**
+(paga, recebe, é destinatária final ou outro).
+
+```
+Filtro "João": a comissão prevista em que ele é o corretor + o repasse em que ele é destinatário
+final + o adiantamento que ele recebeu → os três aparecem
+```
 
 ---
 
@@ -519,9 +706,15 @@ por esta regra.
 **Não utilizados:** **rascunho** e **confirmada** existem no código, mas nenhum fluxo os usa
 (`Q-006`). Não são estados do negócio.
 
-### 11.2 Contraparte — **depreciado**
+### 11.2 Parte
 
-Os estados identificada / não identificável / mesclada serão substituídos pelo MDM (`DEC-002`).
+Os estados antigos (identificada / não identificável / mesclada) foram substituídos. Em definição:
+
+| Estado | Significado | Quem / o quê move |
+| --- | --- | --- |
+| **Provisória** | Fato registrado com alguém ainda não cadastrado (`REQ-320`) | Uma operação com parte não cadastrada |
+| **Resolvida** | Ligada a uma parte cadastrada (`REQ-322`) | Quem tem curadoria |
+| **Cadastrada** | Parte criada por quem tem curadoria (`REQ-311`) | Quem tem curadoria |
 
 ---
 
@@ -532,7 +725,7 @@ Os estados identificada / não identificável / mesclada serão substituídos pe
 - **Depois do aceite:** o fato **não muda**. A única correção é a **retificação** (§7.3), que é
   auditada com autor identificado (`REQ-801`, `REQ-802`), quando foi feita e o que foi feito
   (`REQ-803`, `REQ-804`).
-- **Contrapartes:** bloqueado por `DEC-002`.
+- **Partes:** uma parte cadastrada ou um mapeamento de identidade **nunca é apagado nem reescrito**; como desfazer uma ligação errada está em `DEC-015` (`REQ-331`). O fato no Ledger nunca muda por causa de identidade (`REQ-332`).
 
 ---
 
@@ -559,7 +752,7 @@ Os estados identificada / não identificável / mesclada serão substituídos pe
    - classificou → segue FP-01 a partir do passo 2, com os campos propostos já validados;
    - não classificou → o usuário escolhe a operação no catálogo.
 
-**FP-03 — Resolução de contraparte** — **depreciado** (`DEC-002`).
+**FP-03 — Resolução de contraparte** — **retirado em 2026-11-04**, substituído por FP-10.
 
 **FP-04 — Enriquecimento na prévia** — **depreciado** (`DEC-002`).
 
@@ -587,7 +780,31 @@ Os estados identificada / não identificável / mesclada serão substituídos pe
 2. O sistema mostra o que o Ledger publicou (`REQ-601`).
    - Ledger fora do ar → "indisponível" (`REQ-602`).
 
-**FP-09 — Importação de contrapartes** — **depreciado** (`DEC-002`).
+**FP-09 — Importação de contrapartes** — **retirado em 2026-11-04** (a carga é feita pelo
+Treasury a partir das três fontes, §5).
+
+**FP-10 — Fato com parte não cadastrada**
+1. O operador procura a parte no cadastro (`REQ-311`).
+   - encontrou → segue FP-01;
+   - não encontrou → 2.
+2. O fato é registrado com identidade provisória (`REQ-320`).
+3. A notificação insistente aparece (`REQ-321`).
+4. Quem tem curadoria liga a provisória a uma parte cadastrada (`REQ-322`); o mapeamento ganha
+   uma entrada (`REQ-330`, `REQ-331`).
+5. A notificação some, e a visão da parte passa a mostrar o fato (`REQ-332`, `REQ-612`).
+
+**FP-12 — Evento do sistema externo**
+1. O evento chega do sistema externo (`REQ-323`).
+   - parte com dúvida → identidade provisória (`REQ-324`, `REQ-320`).
+2. Um usuário confere e confirma no Treasury (`REQ-323`).
+3. O fato vai para o Ledger, com o sistema externo identificado na auditoria (`REQ-802`).
+
+**FP-11 — Repasse de comissão** (**adiado**, `DEC-017`)
+1. Comissão prevista e recebida chegam do sistema externo e são anotadas (`REQ-240`).
+2. O Treasury mostra o repasse (`REQ-241`) e sugere a forma do último evento (`REQ-614`).
+3. O usuário define a forma do repasse (`REQ-242`), anotada no Ledger (`REQ-243`, `REQ-613`).
+4. Emite-se o demonstrativo de recebimento (`REQ-244`).
+5. Depois do pagamento bancário, anota-se o pagamento e emitem-se os recibos (`REQ-245`).
 
 ---
 
@@ -638,6 +855,16 @@ Os estados identificada / não identificável / mesclada serão substituídos pe
 | `CA-604b` | Recebimento de comissão aberto a partir de uma comissão a receber → o sistema pergunta quem pagou | `REQ-604` |
 | `CA-701` | "conceder um adiantamento de 2000,00 em 2026-07-10" → operação adiantamento, valor 2.000,00, data 10/07/2026; o sistema pergunta quem recebe | `REQ-701`, `REQ-702` |
 | `CA-703` | Proposta com confiança 0,49 → não aplicada · com 0,50 → validada e registrada | `REQ-703` |
+| `CA-311` | Usuário sem curadoria tenta cadastrar a parte "Maria Souza" → negado | `REQ-311`, `REQ-402` |
+| `CA-320` | Folha de 1.500,00 paga a "Maria Souza", não cadastrada → fato registrado com identidade provisória; a notificação aparece | `REQ-320`, `REQ-321` |
+| `CA-314` | Cadastrar a Argo, que recebe por conta bancária, sem CNPJ → negado · cadastrar uma parte sem conta bancária, sem documento → aceito | `REQ-314` |
+| `CA-322` | Provisória-123 ligada à parte "Maria Souza" → a notificação some; a visão da Maria mostra a folha | `REQ-322`, `REQ-321` |
+| `CA-323` | Comissão recebida chega do sistema externo → fica esperando confirmação; só vai ao Ledger depois de um usuário confirmar | `REQ-323` |
+| `CA-324` | Evento externo com corretor "J. Silva" sem correspondente no cadastro → o corretor recebe identidade provisória | `REQ-324` |
+| `CA-615` | Filtro "João" com três eventos em papéis diferentes → os três aparecem | `REQ-615` |
+| `CA-332` | Três pagamentos com "Fornecedor Alfa", "ALFA LTDA" e provisória-123, mapeados para a Alfa → a visão da Alfa mostra os três; o Ledger não muda | `REQ-332` |
+| `CA-613` | Repasse de 300,00 ao João pela Argo → o evento cita Argo (recebedora) e João (destinatário final); o filtro "João" e o filtro "Argo" mostram o evento | `REQ-613`, `REQ-612` |
+| `CA-614` | O último repasse do João foi pela Argo → o novo repasse sugere Argo; o usuário troca para conta própria → registrado conta própria | `REQ-614` |
 | `CA-801` | O gestor "cfo" envia uma folha → a auditoria registra "cfo" como autor | `REQ-801`, `REQ-802` |
 | `CA-802` | Um evento chega de um sistema externo → a auditoria registra a identificação desse sistema como autor | `REQ-802` |
 
@@ -659,6 +886,21 @@ Os estados identificada / não identificável / mesclada serão substituídos pe
 | `REJ-225` | Gravar 10/07/2026 como 09/07/2026 por causa de fuso | `REQ-225` |
 | `REJ-604` | Pré-preencher a contraparte numa operação fora das três de `REQ-604` | `REQ-604` |
 | `REJ-703` | Aplicar proposta com confiança abaixo de 0,5 | `REQ-703` |
+| `REJ-242` | O Treasury definir sozinho a forma do repasse | `REQ-242` |
+| `REJ-244` | Pagamento bancário de repasse sem demonstrativo antes | `REQ-244` |
+| `REJ-311` | O operador criar uma parte durante a operação | `REQ-311` |
+| `REJ-313` | Cadastrar o cliente final como parte | `REQ-313` |
+| `REJ-320` | Deixar de registrar um fato porque a parte não está cadastrada | `REQ-320` |
+| `REJ-321` | Identidade provisória sem resolução e sem notificação | `REQ-321` |
+| `REJ-314` | Cadastrar parte que recebe ou paga por conta bancária sem CPF/CNPJ | `REQ-314` |
+| `REJ-322` | Operador sem curadoria resolver uma identidade provisória | `REQ-322`, `REQ-402` |
+| `REJ-323` | Evento do sistema externo ir ao Ledger sem confirmação de um usuário | `REQ-323` |
+| `REJ-615` | Filtro "João" omitir um evento em que ele é destinatário final | `REQ-615` |
+| `REJ-330` | Gravar o mapeamento de identidade no Ledger | `REQ-330` |
+| `REJ-331` | Apagar ou reescrever uma ligação do mapeamento | `REQ-331` |
+| `REJ-332` | Reescrever um fato do Ledger para corrigir a identidade | `REQ-332` |
+| `REJ-611` | Exigir vínculo cadastral pessoa–grupo para registrar um evento | `REQ-611` |
+| `REJ-614` | Aplicar a sugestão do último evento sem o usuário confirmar | `REQ-614` |
 | `REJ-801` | Apagar um registro de auditoria | `REQ-801` |
 | `REJ-802` | Registro de auditoria sem autor identificado | `REQ-802` |
 | `REJ-301` | Contraparte não identificável num pagamento de folha | `REQ-301` |
@@ -681,9 +923,9 @@ Os estados identificada / não identificável / mesclada serão substituídos pe
 
 | ID | Pendência | Impacto (comportamento enquanto não decide) |
 | --- | --- | --- |
-| `DEC-001` | **Visão por pessoa e por grupo de pessoas, com encadeamento** — "no gatilho" para a próxima rodada | As consultas seguem por posição e movimento (§8) |
-| `DEC-002` | **MDM substitui Contrapartes** (diretrizes em §5.3) | §5.1 vale; §5.2 é só registro |
-| `DEC-003` | Forma da cobrança de "pendente de validação" (alerta, notificação) | A marca existe (`REQ-302`), mas sem forma de cobrança definida |
+| `DEC-001` | **Visão por pessoa e por grupo de pessoas, com encadeamento** — **regras definidas em 2026-11-04** (§8.2); o encadeamento depende do repasse (`DEC-017`) | Vale §8.2 |
+| `DEC-002` | **Cadastro de partes substitui Contrapartes** — **regras definidas em 2026-11-04** (§5) | Vale §5 |
+| `DEC-003` | Forma da cobrança de "pendente de validação" — **respondida em 2026-11-04**: notificação insistente vista por todos (`REQ-321`); o que falta passou para `DEC-016` | Vale `REQ-321` |
 | `DEC-004` | Papel que prepara sem enviar, com aprovação de outra pessoa | Só os dois papéis de `REQ-401` |
 | `DEC-005` | Revisão da classificação do texto livre (IA ou recomendação) com a pergunta "Você deseja fazer um **adiantamento** com os dados a seguir?" e troca de operação reaproveitando os dados | Vale `REQ-701`/`REQ-702`; trocar de operação não está definido |
 | `DEC-006` | Tratamento cuidadoso de eventos sem contraparte identificada ("podemos falar quando chegar a hora") | Vale `REQ-301`/`REQ-302` |
@@ -695,10 +937,16 @@ Os estados identificada / não identificável / mesclada serão substituídos pe
 | `DEC-012` | Logs de comportamento: observar cada passo da conversa, mesmo antes de o usuário confirmar uma ação (veio de `Q-024`) | Só a operação é auditada (`REQ-804`) |
 | `DEC-013` | **Provisão de pagamento futuro / lançamento futuro**: "pode e até deve existir", mas fatos não podem ser previstos (veio de `Q-025`) | Data de ocorrência futura é recusada (`REQ-226`); não há como registrar uma provisão |
 | `DEC-014` | Abrir o caderno (Ledger) para visualização por usuários com formação contábil (veio de `Q-029`) | O caderno é acessível só pela referência guardada na intenção (`REQ-501`) |
+| `DEC-015` | Como desfazer uma **ligação errada** de identidade provisória (veio de `Q-038`) | Uma ligação feita não é apagada (`REQ-331`); ainda não há como desfazê-la |
+| `DEC-016` | Se a notificação **fica mais insistente com o tempo** e se **bloqueia** algo (veio de `Q-039`) | Notificação constante, sem escalada; não bloqueia o registro de fatos (`REQ-320`) |
+| `DEC-017` | **Repasse de comissão**: precisa de um ciclo próprio na álgebra do Ledger; inclui como o valor é definido (veio de `Q-043`) | §4.4 fica registrado e não é testado |
+| `DEC-018` | **Conciliação bancária**: ligar cada linha do extrato a um evento (veio de `Q-045`) | Não há conciliação; o extrato é só anexo opcional (`REQ-245`, adiado) |
 
 ### 15.2 Perguntas abertas
 
-Nenhuma. A documentação do que existe está fechada (§16).
+Nenhuma pergunta numerada em aberto. Ficam para uma próxima rodada, por decisão do dono do
+produto em 2026-11-04, os `⚠ CONFIRMAR` de: §2 (termos **recebedor** e **destinatário final**) e
+`REQ-612` (a visão **não soma** valores por grupo).
 
 ### 15.3 Respondidas em 2026-11-03
 
@@ -723,6 +971,24 @@ envio") · `Q-023` (`REQ-222`, → `DEC-011`) · `Q-024` (`REQ-804`, → `DEC-01
 
 **Rodada 5:** `Q-026` (`REQ-221` alterado)
 
+### 15.4 Respostas da conversa de pesquisa de 2026-11-04
+
+Não tinham ID de pergunta; ficam registradas aqui com o destino:
+fontes e número de partes (§5, contexto) · curadoria por um usuário (`REQ-311`, `REQ-402`) ·
+pessoa não cadastrada → opção (b), provisória com incômodo (`REQ-320`, `REQ-321`) · "o Treasury
+auxilia, o Ledger canoniza" (`REQ-332`, `REQ-333`) · mapeamento no Treasury (`REQ-330`,
+`REQ-331`) · grupo: empresa a priori, vários por pessoa, relação no evento (`REQ-610`, `REQ-611`,
+`Q-040`) · filtrar e enxergar (`REQ-612`) · sugestão pelo último evento (`REQ-614`) · cliente
+final é contexto (`REQ-313`) · Unimed, João e Argo cadastrados (`REQ-312`, `REQ-613`) · fluxo do
+repasse (§4.4)
+
+### 15.5 Respondidas em 2026-11-04 (rodada 7)
+
+`Q-036` (`REQ-301`, `REQ-302`, §2) · `Q-037` (`REQ-402`) · `Q-038` (`REQ-322`, → `DEC-015`) ·
+`Q-039` (`REQ-321`, → `DEC-016`) · `Q-040` (§2, §8.2) · `Q-041` (`REQ-615`) · `Q-042`
+(`REQ-314`) · `Q-043` (§4.4 adiado, → `DEC-017`) · `Q-044` (`REQ-323`, `REQ-324`) · `Q-045`
+(→ `DEC-018`) · `Q-046` (cabeçalho, §5)
+
 ---
 
 ## 16. Critério de parada — situação
@@ -733,7 +999,7 @@ envio") · `Q-023` (`REQ-222`, → `DEC-011`) · `Q-024` (`REQ-804`, → `DEC-01
 | Catálogo de operações | ✅ §4.1 (partes por registro na rodada do MDM, `DEC-010`) |
 | Coleta guiada e prévia | ✅ §4.2 |
 | Valores, moeda, datas e limites | ✅ §4.3 |
-| Contrapartes | ⬜ depreciado — MDM na próxima rodada (`DEC-002`) |
+| Cadastro de partes | ✅ §5 (pendências: `DEC-015`, `DEC-016`) |
 | Acesso | ✅ §6 |
 | Envio, recusa e correção | ✅ §7.1–7.2 |
 | Retificação | ✅ §7.3 |
@@ -741,17 +1007,20 @@ envio") · `Q-023` (`REQ-222`, → `DEC-011`) · `Q-024` (`REQ-804`, → `DEC-01
 | Texto livre | ✅ §9 (melhoria futura em `DEC-005`) |
 | Auditoria | ✅ §10 |
 | Estados | ✅ §11 |
-| Nenhum `⚠ CONFIRMAR` em aberto | ✅ |
-| Visão por pessoa/grupo | ⬜ `DEC-001` (próxima rodada) |
+| Nenhum `⚠ CONFIRMAR` em aberto | 🔶 dois, adiados para outra rodada (§15.2) |
+| Visão por pessoa/grupo | ✅ §8.2 (`⚠` em `REQ-612`) |
+| Repasse de comissão | ⬜ adiado — `DEC-017` |
+| Conciliação bancária | ⬜ `DEC-018` |
 
 **Critério de parada desta parte (documentação do que existe): atingido**, declarado pelo dono do
 produto em 2026-11-03. Ficam abertas, por decisão dele, as `DEC-001` a `DEC-014`.
 
+**Rodada do cadastro de partes: ciclo fechado** pelo dono do produto em 2026-11-04.
+
 **O que não foi feito:** nenhum código foi escrito ou alterado, e nenhuma comparação com o
 código foi feita.
-**Próxima etapa, nesta ordem:** (1) comparar este documento com o código em `treasury/`, que até
-aqui foi só lido; (2) abrir a rodada do MDM e da visão por pessoa ou grupo (`DEC-001`, `DEC-002`,
-`DEC-010`). A ordem entre as duas é decisão do dono do produto.
+**Próxima etapa:** planejar os primeiros testes, a partir dos critérios de aceitação (§14.3) e
+dos casos de rejeição (§14.4). §4.4 (repasse) fica fora, porque está adiado.
 
 ---
 

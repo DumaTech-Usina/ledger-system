@@ -127,7 +127,7 @@ export class SubmitRectificationUseCase {
       userId: input.userId,
     });
 
-    return this.fill(intentId, [
+    return this.fill(intentId, input.userId, [
       { key: "target", value: target.eventId },
       { key: "objectRef", value: moved.objectId },
       { key: "objectType", value: moved.objectType },
@@ -176,17 +176,18 @@ export class SubmitRectificationUseCase {
       return { missingSlot: merged.state.slot.key };
     }
 
-    return this.submitIntent.execute(intentId);
+    return this.submitIntent.execute(intentId, input.userId);
   }
 
   private async fill(
     intentId: string,
+    userId: string,
     answers: { key: string; value: string }[],
   ): Promise<SubmitIntentResult> {
     const merged = await this.applyAnswers.execute({ intentId, answers });
     if (merged.rejected.length > 0) {
       throw new Error(`Could not describe the entry: ${merged.rejected.map((r) => r.message).join("; ")}`);
     }
-    return this.submitIntent.execute(intentId);
+    return this.submitIntent.execute(intentId, userId);
   }
 }

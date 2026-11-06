@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { setTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
+import { LanguageProvider } from "@/i18n/i18n";
 
 /**
  * The conversation opened from a position, when the position could answer everything.
@@ -72,7 +73,7 @@ beforeEach(() => {
 
 describe("a conversation adopted from a position", () => {
   it("opens the confirmation when the position already answered everything", async () => {
-    const { result } = renderHook(() => useConversation(adoptedAndReady));
+    const { result } = renderHook(() => useConversation(adoptedAndReady), { wrapper: LanguageProvider });
 
     // What the user sees: the operation is ready to confirm, and the card is on screen. Without it
     // the chat simply stops — no question, no card, no error — and there is nothing left to do.
@@ -83,7 +84,7 @@ describe("a conversation adopted from a position", () => {
   });
 
   it("asks the Ledger for that confirmation exactly once, for the adopted operation", async () => {
-    renderHook(() => useConversation(adoptedAndReady));
+    renderHook(() => useConversation(adoptedAndReady), { wrapper: LanguageProvider });
 
     await waitFor(() => expect(preview).toHaveBeenCalledWith("intent-adopted"));
     expect(preview).toHaveBeenCalledTimes(1);
@@ -92,16 +93,18 @@ describe("a conversation adopted from a position", () => {
   it("still asks the question when the position could not answer everything", async () => {
     // The counterpart case, so the two are pinned together: a conversation that DOES have something
     // left to ask must ask it, and must not jump to a confirmation.
-    const { result } = renderHook(() =>
-      useConversation({
-        ...adoptedAndReady,
-        state: {
-          kind: "question" as const,
-          slot: { key: "amount", type: "money" as const, prompt: "Qual é o valor?", required: true },
-          answered: 3,
-          total: 4,
-        },
-      }),
+    const { result } = renderHook(
+      () =>
+        useConversation({
+          ...adoptedAndReady,
+          state: {
+            kind: "question" as const,
+            slot: { key: "amount", type: "money" as const, prompt: "Qual é o valor?", required: true },
+            answered: 3,
+            total: 4,
+          },
+        }),
+      { wrapper: LanguageProvider },
     );
 
     await waitFor(() => expect(result.current.currentSlot?.key).toBe("amount"));

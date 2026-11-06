@@ -15,6 +15,7 @@ import type { ListPositionActionsUseCase } from "../../../../core/application/us
 import type { StartPositionActionUseCase } from "../../../../core/application/use-cases/StartPositionAction";
 import { IdentityDecisionKind } from "../../../../core/domain/value-objects/IdentityDecision";
 import { Permission } from "../../../../core/domain/enums/Permission";
+import { IntentNotEditableError } from "../../../../core/domain/errors/IntentNotEditableError";
 import { currentUser, requirePermission } from "../middleware/auth";
 
 /**
@@ -35,20 +36,8 @@ export function conversationRoutes(
   listSettlementCandidates: ListSettlementCandidatesUseCase,
   listPositionActions: ListPositionActionsUseCase,
   startPositionAction: StartPositionActionUseCase,
-  /**
-   * Forgets the positions a successful write touched.
-   *
-   * Wired HERE and not inside the use cases on purpose: a use case has no business knowing a cache
-   * exists, and the import barrier (`snapshot-isolation.test.ts`) keeps the write path free of it
-   * mechanically. Invalidating is composition, not domain — this is the seam where the two meet.
-   */
-  forgetPositions: (objectIds: readonly string[]) => void = () => {},
 ): Router {
   const router = Router();
-
-  /** The positions a submitted candidate moved, as the candidate itself declares them. */
-  const movedBy = (result: { candidate?: { objects?: { objectId: string }[] } } | undefined) =>
-    (result?.candidate?.objects ?? []).map((o) => o.objectId);
 
   /**
    * What can be recorded about a position. Derived from the Ledger's algebra crossed with what
@@ -180,6 +169,10 @@ export function conversationRoutes(
       });
       res.json(result);
     } catch (err) {
+      if (err instanceof IntentNotEditableError) {
+        next(err);
+        return;
+      }
       // A refused decision (not admissible, missing justification) is the user's to fix, not a fault.
       res.status(422).json({ error: err instanceof Error ? err.message : String(err) });
     }
@@ -236,9 +229,7 @@ export function conversationRoutes(
     requirePermission(Permission.INTENT_SUBMIT),
     async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const result = await submitIntent.execute(req.params.intentId);
-        if (result.status === "accepted") forgetPositions(movedBy(result));
-        res.json(result);
+        res.json(await submitIntent.execute(req.params.intentId, currentUser(req).id));
       } catch (err) {
         next(err);
       }
@@ -274,11 +265,6 @@ export function conversationRoutes(
             userId: currentUser(req).id,
         });
 
-        // A correction writes up to two events, both on the same position. Forgetting once is
-        // enough, and forgetting is all that happens: the fresh figures come from the Ledger.
-        for (const step of [outcome.retraction, outcome.reissue]) {
-          if (step?.status === "accepted") forgetPositions(movedBy(step));
-        }
         res.json(outcome);
       } catch (err) {
         next(err);

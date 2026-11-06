@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { StrictMode } from "react";
+import { createElement, StrictMode, type ReactNode } from "react";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { setTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
+import { LanguageProvider } from "@/i18n/i18n";
 
 /**
  * A conversation opened from a position, under the StrictMode the app actually runs in.
@@ -92,9 +93,13 @@ beforeEach(() => {
   setTypingAnimationDisabled(true);
 });
 
+/** The app's own nesting: StrictMode outside, the language the conversation is written in inside. */
+const AppProviders = ({ children }: { children: ReactNode }) =>
+  createElement(StrictMode, null, createElement(LanguageProvider, null, children));
+
 /** Renders the hook the way the app does: inside StrictMode. */
 const renderAdopted = () =>
-  renderHook(() => useConversation(openedFromPosition), { wrapper: StrictMode });
+  renderHook(() => useConversation(openedFromPosition), { wrapper: AppProviders });
 
 describe("a conversation adopted from a position, under StrictMode", () => {
   it("keeps showing messages after the greeting", async () => {

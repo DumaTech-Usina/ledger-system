@@ -6,6 +6,7 @@ import { intentRoutes } from "./routes/intentRoutes";
 import { authRoutes } from "./routes/authRoutes";
 import { dashboardRoutes } from "./routes/dashboardRoutes";
 import { attachUser, requireAuth, requirePermission } from "./middleware/auth";
+import { IntentNotEditableError } from "../../../core/domain/errors/IntentNotEditableError";
 import { Permission } from "../../../core/domain/enums/Permission";
 import type { AuthService } from "../../../core/application/services/AuthService";
 import type { GetTreasuryDashboardUseCase } from "../../../core/application/use-cases/GetTreasuryDashboard";
@@ -48,8 +49,6 @@ export interface ServerDeps {
   listSettlementCandidates: ListSettlementCandidatesUseCase;
   listPositionActions: ListPositionActionsUseCase;
   startPositionAction: StartPositionActionUseCase;
-  /** Forgets the positions a successful write touched. Composition, never domain. */
-  forgetPositions?: (objectIds: readonly string[]) => void;
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
@@ -93,7 +92,6 @@ export function createServer(deps: ServerDeps) {
       deps.listSettlementCandidates,
       deps.listPositionActions,
       deps.startPositionAction,
-      deps.forgetPositions,
     ),
   );
   app.use(
@@ -119,6 +117,10 @@ export function createServer(deps: ServerDeps) {
 
   // Minimal error boundary: unknown scenario/intent/slot → 400 with a legible message.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    if (err instanceof IntentNotEditableError) {
+      res.status(409).json({ error: err.message });
+      return;
+    }
     res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
   });
 

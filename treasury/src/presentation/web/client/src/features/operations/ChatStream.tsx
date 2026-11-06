@@ -185,9 +185,16 @@ export function ChatStream({
                     "flex flex-col gap-2 rounded-2xl rounded-bl-md border border-white/40 bg-panel-solid/85 text-ink shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-panel-solid/80",
                   )}
                 >
-                  <span>
-                    Achei <strong>"{item.value}"</strong> para {item.label.toLowerCase()} — confirma?
-                  </span>
+                  {item.rounded ? (
+                    <span>
+                      Um valor tem no máximo 2 casas decimais. Sugestão pela ABNT NBR 5891:{" "}
+                      <strong>{formatMoney(item.value, "BRL")}</strong> — confirma?
+                    </span>
+                  ) : (
+                    <span>
+                      Achei <strong>"{item.value}"</strong> para {item.label.toLowerCase()} — confirma?
+                    </span>
+                  )}
                   <div className="flex gap-2">
                     <button
                       type="button"

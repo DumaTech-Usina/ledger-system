@@ -4,7 +4,7 @@ import { DialogEngine, type DialogState } from "../../domain/services/DialogEngi
 import type { IntentRepository } from "../repositories/IntentRepository";
 import type { Clock } from "../ports/Clock";
 import type { IdGenerator } from "../ports/IdGenerator";
-import type { AuditLog } from "../ports/AuditLog";
+import { userActor, type AuditLog } from "../ports/AuditLog";
 
 export interface StartIntentInput {
   scenarioId: string;
@@ -31,7 +31,7 @@ export class StartIntentUseCase {
 
     const intent = Intent.start(this.ids.next(), scenario.id, input.userId, this.clock.now());
     await this.repo.save(intent);
-    await this.audit.record({ intentId: intent.id, at: this.clock.now(), type: "intent.started", detail: scenario.id });
+    await this.audit.record({ actor: userActor(input.userId), intentId: intent.id, at: this.clock.now(), type: "intent.started", detail: scenario.id });
 
     return {
       intentId: intent.id,

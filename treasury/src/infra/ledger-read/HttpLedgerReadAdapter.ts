@@ -5,7 +5,6 @@ import type {
 } from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
 import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
-import type { LedgerEventFeedPort, RecordedEvent } from "../../core/application/ports/LedgerEventFeedPort";
 import type { PositionCandidate, PositionLookupPort } from "../../core/application/ports/PositionLookupPort";
 import type {
   BookExposure,
@@ -91,7 +90,7 @@ function standingOrigination(
  * timeout so a slow/hung Ledger can't hang a treasury request.
  */
 export class HttpLedgerReadAdapter
-  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort, LedgerEventFeedPort
+  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort
 {
   constructor(
     private readonly baseUrl: string,
@@ -407,30 +406,6 @@ export class HttpLedgerReadAdapter
         .map((o) => ({ objectId: o.objectId, objectType: o.objectType ?? "", relation: o.relation })),
       parties: mapParties(originating.parties),
     };
-  }
-
-  /**
-   * What was written to the Ledger most recently — by RECORDING order, not by when it happened.
-   *
-   * `sortBy=recordedAt` is the whole point: a fact may be recorded long after it occurred, so an
-   * occurrence-ordered read cannot answer "what is new since I last looked". The Ledger validates
-   * both parameters against a whitelist, so an unrecognised value falls back rather than travelling.
-   */
-  async recentlyRecorded(limit: number, page = 1): Promise<RecordedEvent[]> {
-    const q = new URLSearchParams({
-      sortBy: "recordedAt",
-      sortOrder: "DESC",
-      limit: String(limit),
-      page: String(page),
-    });
-    const raw = await this.get<{
-      data: Array<{ id: string; objects?: Array<{ objectId: string }> }>;
-    }>(`/api/events?${q.toString()}`);
-
-    return (raw.data ?? []).map((event) => ({
-      eventId: event.id,
-      objectIds: [...new Set((event.objects ?? []).map((o) => o.objectId))],
-    }));
   }
 
   /**

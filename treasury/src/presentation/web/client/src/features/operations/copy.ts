@@ -336,6 +336,7 @@ export const partyTypeLabels: Record<string, string> = {
 const messageTranslations: Record<string, string> = {
   "Enter a valid amount, e.g. 1500.00.": "Informe um valor válido, ex.: 1500.00.",
   "Amount must be greater than zero.": "O valor deve ser maior que zero.",
+  "An amount has at most 2 decimal places.": "Um valor tem no máximo 2 casas decimais.",
   "Enter a valid date.": "Informe uma data válida.",
   "Flagged for manual review (description contains 'test').":
     "Sinalizado para revisão manual (a descrição contém 'test').",

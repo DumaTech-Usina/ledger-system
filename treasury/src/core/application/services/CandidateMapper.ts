@@ -73,6 +73,13 @@ interface ScenarioMapping {
    */
   objectIdSlot?: string;
   /**
+   * For a scenario that opens a position and so has no continuity question: where a rectification
+   * says which position the restated entry belongs to. Kept apart from `objectIdSlot` on purpose,
+   * because that one also makes the conversation offer open positions, and an operator registering
+   * a new advance has no position to point at.
+   */
+  restatedObjectSlot?: string;
+  /**
    * When the origin slot is left empty, record the fact as an explicit orphan instead of gating it:
    * the reason declares the lineage unresolved (UNKNOWN_ORIGIN + follow-up). Only where the Ledger
    * contract admits UNKNOWN_ORIGIN (COMMISSION_RECEIVED). Absent ⇒ the origin slot must be required.
@@ -247,6 +254,7 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     objects: [{ objectType: "advance", relation: "originates" }],
     reasonType: "advance_payment",
     reasonText: "Advance disbursement",
+    restatedObjectSlot: "restatesObject",
   },
   register_loan: {
     eventType: "loan_origination",
@@ -256,6 +264,7 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     objects: [{ objectType: "loan", relation: "originates" }],
     reasonType: "loan_origination",
     reasonText: "Loan origination",
+    restatedObjectSlot: "restatesObject",
   },
 
   // ── NON_CASH operations (no cash moves; a single BENEFICIARY party carries no amount) ──────────
@@ -286,6 +295,7 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     objects: [{ objectType: "commission_receivable", relation: "originates" }],
     reasonType: "commission_accrual",
     reasonText: "Accrual of an expected commission",
+    restatedObjectSlot: "restatesObject",
   },
   // The operator paid the broker directly (bypassing the usina); the usina acknowledges the
   // settlement of BOTH its commission receivable and the broker's entitlement — no cash arrived.
@@ -616,8 +626,9 @@ export function planReissue(
     const counterparty = event.parties.find((p) => p.partyId !== usinaPartyId);
     if (counterparty) answers.push({ key: m.counterpartySlot, value: counterparty.partyId });
   }
-  if (m.objectIdSlot && moved) {
-    answers.push({ key: m.objectIdSlot, value: moved.objectId });
+  const objectSlot = m.objectIdSlot ?? m.restatedObjectSlot;
+  if (objectSlot && moved) {
+    answers.push({ key: objectSlot, value: moved.objectId });
   }
   if (m.relatedEventSlot && event.relatedEventId) {
     answers.push({ key: m.relatedEventSlot, value: event.relatedEventId });
@@ -679,7 +690,8 @@ export class CandidateMapper {
     // be originated, then partially settled, then closed. Absent or blank, the id is minted exactly
     // as before. Treasury never verifies the asserted id exists: like lineage, that is the Ledger's
     // business, and an unknown position is a legitimate state, not a reason to refuse the fact.
-    const assertedObjectId = m.objectIdSlot ? a[m.objectIdSlot]?.trim() || undefined : undefined;
+    const objectSlot = m.objectIdSlot ?? m.restatedObjectSlot;
+    const assertedObjectId = objectSlot ? a[objectSlot]?.trim() || undefined : undefined;
 
     // Continuity that points at something already on the book means this fact is being recorded
     // after the one it explains. That is a different cause, and the candidate says so rather than

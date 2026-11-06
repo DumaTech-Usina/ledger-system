@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { GetBookExposureUseCase } from "../../../core/application/use-cases/GetBookExposure";
 import { ListPositionsUseCase } from "../../../core/application/use-cases/ListPositions";
+import { GetTreasuryDashboardUseCase } from "../../../core/application/use-cases/GetTreasuryDashboard";
 import type { LedgerReadPort } from "../../../core/application/ports/LedgerReadPort";
-import type { BookExposure, PositionsPage } from "../../../core/application/dtos/LedgerReadModels";
+import type { BookExposure, CashPosition, PositionsPage } from "../../../core/application/dtos/LedgerReadModels";
 
 const exposure: BookExposure = {
   currency: "BRL",
@@ -49,6 +50,40 @@ describe("GetBookExposureUseCase", () => {
       ledger({ bookExposure: () => Promise.reject(new Error("down")) }),
     ).execute();
     expect(result).toEqual({ available: false, exposure: null });
+  });
+});
+
+describe("REJ-102 — o Treasury não oculta um déficit que o Ledger expõe", () => {
+  it("a exposição mantém o caixa líquido negativo e a direção publicada", async () => {
+    const deficit: BookExposure = { ...exposure, cashIn: "400.00", cashOut: "1000.00", netCash: "600.00", netCashNegative: true };
+
+    const result = await new GetBookExposureUseCase(ledger({ bookExposure: async () => deficit })).execute();
+
+    expect(result.exposure).toEqual(deficit);
+  });
+
+  it("o painel mantém o fluxo negativo como o Ledger o publicou", async () => {
+    const cashPosition = {
+      totalCashIn: "400.00",
+      totalCashOut: "1000.00",
+      netCashFlow: "-600.00",
+      openReceivables: "0.00",
+      contingentExposure: "0.00",
+      currency: "BRL",
+      asOf: "2026-11-03T00:00:00.000Z",
+    } as CashPosition;
+
+    const result = await new GetTreasuryDashboardUseCase(
+      ledger({
+        cashPosition: async () => cashPosition,
+        cashMovements: async () => ({ items: [], nextCursor: null, hasMore: false }) as never,
+      }),
+      "party-usina",
+      { get: async () => undefined } as never,
+    ).execute();
+
+    expect(result.available).toBe(true);
+    expect(result.cashPosition).toEqual(cashPosition);
   });
 });
 
@@ -172,7 +207,6 @@ describe("ListPositionsUseCase — naming the parties", () => {
     new ListPositionsUseCase(
       ledger({ positions: async () => page }),
       "party-usina",
-      () => {},
       dir as never,
     );
 
@@ -247,7 +281,6 @@ describe("ListPositionsUseCase — naming the parties", () => {
     const result = await new ListPositionsUseCase(
       ledger({ positions: () => Promise.reject(new Error("down")) }),
       "party-usina",
-      () => {},
       directory({ "party-broker": "Corretor Parceiro" }) as never,
     ).execute();
 

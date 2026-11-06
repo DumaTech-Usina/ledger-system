@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { renderHook, waitFor, act } from "@testing-library/react";
 import { setTypingAnimationDisabled } from "@/hooks/useAnimationsDisabled";
+import { LanguageProvider } from "@/i18n/i18n";
 
 /**
  * Registering a payment against a position that was recognized first.
@@ -99,7 +100,7 @@ describe("registering a payment from a recognized position", () => {
       .mockResolvedValueOnce(serverReplies({ kind: "question", slot: dateSlot, answered: 4, total: 6 }, ["amount"]))
       .mockResolvedValueOnce(serverReplies({ kind: "ready", answered: 5, total: 6 }, ["occurredAt"]));
 
-    const { result } = renderHook(() => useConversation(openedFromPosition));
+    const { result } = renderHook(() => useConversation(openedFromPosition), { wrapper: LanguageProvider });
     await waitFor(() => expect(result.current.currentSlot?.key).toBe("amount"));
 
     await act(async () => {
@@ -123,7 +124,7 @@ describe("registering a payment from a recognized position", () => {
       .mockResolvedValueOnce(serverReplies({ kind: "question", slot: dateSlot, answered: 4, total: 6 }, ["amount"]))
       .mockResolvedValueOnce(serverReplies({ kind: "ready", answered: 5, total: 6 }, ["occurredAt"]));
 
-    const { result } = renderHook(() => useConversation(openedFromPosition));
+    const { result } = renderHook(() => useConversation(openedFromPosition), { wrapper: LanguageProvider });
     await waitFor(() => expect(result.current.currentSlot?.key).toBe("amount"));
 
     await act(async () => {
