@@ -111,6 +111,11 @@ beforeAll(async () => {
     listPayablePositions: unused,
     listCashMovements: unused,
     getLedgerEvent: unused,
+    partyDirectory: unused,
+    registerParty: unused,
+    linkIdentity: unused,
+    listPendingIdentities: unused,
+    getPartyEvents: unused,
   });
   server = app.listen(0);
   await new Promise<void>((resolve) => server.once("listening", () => resolve()));

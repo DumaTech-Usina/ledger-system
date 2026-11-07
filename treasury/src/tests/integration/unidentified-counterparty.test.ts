@@ -144,7 +144,7 @@ describe("a known counterparty is never marked", () => {
     const { decision } = await w.decide.execute({
       intentId,
       slot: "payee",
-      kind: IdentityDecisionKind.CREATE,
+      kind: IdentityDecisionKind.PROVISIONAL,
       mention: "Fornecedor Novo",
       userId: "cfo",
     });

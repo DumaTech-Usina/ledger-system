@@ -59,7 +59,7 @@ async function wire(status: IntentStatus) {
       decide.execute({
         intentId: "i1",
         slot: "payee",
-        kind: IdentityDecisionKind.CREATE,
+        kind: IdentityDecisionKind.PROVISIONAL,
         mention: "Parte Nova",
         userId: "cfo",
       }),

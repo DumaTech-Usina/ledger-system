@@ -1,7 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import type { AuthService } from "../../../../core/application/services/AuthService";
 import type { User } from "../../../../core/domain/entities/User";
-import { permissionsFor } from "../../../../core/domain/policies/rolePermissions";
 import {
   parseCookies,
   serializeSessionCookie,
@@ -11,7 +10,7 @@ import {
   SESSION_COOKIE,
 } from "../middleware/auth";
 
-const publicUser = (user: User) => ({ ...user.toPublic(), permissions: permissionsFor(user.role) });
+const publicUser = (user: User) => ({ ...user.toPublic(), permissions: user.permissions });
 
 export function authRoutes(auth: AuthService, secureCookies: boolean, sessionTtlSeconds: number): Router {
   const router = Router();

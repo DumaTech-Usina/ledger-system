@@ -5,4 +5,6 @@ export interface IntentRepository {
   save(intent: Intent): Promise<void>;
   findById(id: string): Promise<Intent | null>;
   listByUser(userId: string): Promise<Intent[]>;
+  /** Everyone's intents the Ledger accepted: the facts that came through here. */
+  listAccepted(): Promise<Intent[]>;
 }

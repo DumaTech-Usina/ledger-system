@@ -48,6 +48,8 @@ export const scenarioIcons: Record<string, ReactElement> = {
   register_obligation_recognition: <FileClock {...iconProps} />,
   // A service fee paid to a supplier/provider.
   register_service_fee: <Wrench {...iconProps} />,
+  // A commission the usina owed, handed on to the person it belongs to.
+  register_commission_payment: <HandCoins {...iconProps} />,
   // A tax paid to an authority.
   register_tax: <Percent {...iconProps} />,
 };

@@ -17,7 +17,16 @@ export const registerCommissionAccrual: Scenario = {
   slots: [
     { key: "amount", type: SlotType.MONEY, prompt: "What commission amount is expected?", required: true },
     CURRENCY_SLOT,
-    { key: "occurredAt", type: SlotType.DATE, prompt: "As of what date is it expected?", required: true },
+    { key: "occurredAt", type: SlotType.DATE, prompt: "On what date did this expectation arise (e.g. the policy was issued)?", required: true },
+    {
+      // When the money should arrive: a date ahead of today is the ordinary case. Optional, because
+      // the document behind the expectation may not say, and left empty it is reported as unknown.
+      key: "dueAt",
+      type: SlotType.DATE,
+      prompt: "When do you expect to receive it? (leave empty if you do not know)",
+      required: false,
+      allowFuture: true,
+    },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
     // Only a rectification fills this: it keeps the restated entry on the position being corrected.
     { key: "restatesObject", type: SlotType.STRING, prompt: "The position this entry restates.", required: false, internal: true },

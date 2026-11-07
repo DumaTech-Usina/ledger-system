@@ -145,14 +145,14 @@ export function conversationRoutes(
     }
   });
 
-  // Deliberately its own endpoint, not another way to answer the slot: creating an identity — or
-  // declaring one cannot be identified — is an act distinct from replying to a question, and it is
-  // the only conversational path that mints a PartyId.
+  // Deliberately its own endpoint, not another way to answer the slot: giving someone a provisional
+  // identity — or declaring one cannot be identified — is an act distinct from replying to a
+  // question, and it is the only conversational path that mints a PartyId.
   router.post("/:intentId/identity", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { slot, kind, mention, justification } = req.body ?? {};
-      if (kind !== IdentityDecisionKind.CREATE && kind !== IdentityDecisionKind.UNIDENTIFIABLE) {
-        res.status(422).json({ error: "kind must be 'create' or 'unidentifiable'." });
+      if (kind !== IdentityDecisionKind.PROVISIONAL && kind !== IdentityDecisionKind.UNIDENTIFIABLE) {
+        res.status(422).json({ error: "kind must be 'provisional' or 'unidentifiable'." });
         return;
       }
       const result = await decideIdentity.execute({

@@ -6,6 +6,11 @@ import { OperationsPage } from "@/features/operations/OperationsPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { PositionsPage } from "@/features/dashboard/PositionsPage";
 import { IntentsPage } from "@/features/intents/IntentsPage";
+import { PartiesPage } from "@/features/parties/PartiesPage";
+import { PartyViewPage } from "@/features/parties/PartyViewPage";
+import { PendingIdentitiesBanner } from "@/features/parties/PendingIdentitiesBanner";
+import { partiesCopy } from "@/features/parties/partiesCopy";
+import { usePendingIdentities } from "@/features/parties/usePendingIdentities";
 import { useLanguage } from "@/i18n/i18n";
 import type { Role } from "@/types/auth";
 import type { AdoptedIntent } from "@/features/operations/useConversation";
@@ -21,13 +26,17 @@ export function App() {
    * re-opens an operation the user already finished or abandoned.
    */
   const [adopted, setAdopted] = useState<AdoptedIntent | null>(null);
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const canCurate = user?.permissions.includes("party:curate") ?? false;
+  const { pending, refresh: refreshPending } = usePendingIdentities(status === "authenticated");
 
   const navItems = [
     { id: "operations", label: t.nav.operations, icon: "operations" as const },
     { id: "dashboards", label: t.nav.dashboards, icon: "dashboards" as const },
     { id: "positions", label: t.nav.positions, icon: "positions" as const },
     { id: "intents", label: t.nav.intents, icon: "intents" as const },
+    { id: "partyView", label: partiesCopy[language].viewHeading, icon: "partyView" as const },
+    ...(canCurate ? [{ id: "parties", label: partiesCopy[language].heading, icon: "parties" as const }] : []),
   ];
 
   const pageTitles: Record<string, string> = {
@@ -35,6 +44,8 @@ export function App() {
     dashboards: t.nav.dashboards,
     positions: t.nav.positions,
     intents: t.nav.intents,
+    partyView: partiesCopy[language].viewHeading,
+    parties: partiesCopy[language].heading,
   };
 
   const roleLabels: Record<Role, string> = {
@@ -63,8 +74,18 @@ export function App() {
       userName={user.displayName}
       userRole={roleLabels[user.role]}
       onSignOut={logout}
+      notice={
+        <PendingIdentitiesBanner
+          pending={pending}
+          onResolve={canCurate ? () => setActiveNav("parties") : undefined}
+        />
+      }
     >
-      {activeNav === "intents" ? (
+      {activeNav === "parties" && canCurate ? (
+        <PartiesPage pending={pending} onChanged={refreshPending} />
+      ) : activeNav === "partyView" ? (
+        <PartyViewPage />
+      ) : activeNav === "intents" ? (
         <IntentsPage />
       ) : activeNav === "positions" ? (
         <PositionsPage

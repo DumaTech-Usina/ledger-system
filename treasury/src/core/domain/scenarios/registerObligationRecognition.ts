@@ -27,7 +27,7 @@ export const registerObligationRecognition: Scenario = {
       type: SlotType.CHOICE,
       prompt: "What kind of obligation is it?",
       required: true,
-      choices: ["payroll", "service", "infrastructure", "tax", "other"],
+      choices: ["commission", "payroll", "service", "infrastructure", "tax", "other"],
     },
     { key: "payee", type: SlotType.PARTY, prompt: "Who is it owed to?", required: true, suggestionSource: "parties" },
     { key: "amount", type: SlotType.MONEY, prompt: "What is the amount owed?", required: true },

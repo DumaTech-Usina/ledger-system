@@ -6,6 +6,12 @@ import { intentRoutes } from "./routes/intentRoutes";
 import { authRoutes } from "./routes/authRoutes";
 import { dashboardRoutes } from "./routes/dashboardRoutes";
 import { attachUser, requireAuth, requirePermission } from "./middleware/auth";
+import type { PartyDirectoryPort } from "../../../core/application/ports/PartyDirectoryPort";
+import type { RegisterPartyUseCase } from "../../../core/application/use-cases/RegisterParty";
+import type { LinkIdentityUseCase } from "../../../core/application/use-cases/LinkIdentity";
+import type { ListPendingIdentitiesUseCase } from "../../../core/application/use-cases/ListPendingIdentities";
+import type { GetPartyEventsUseCase } from "../../../core/application/use-cases/GetPartyEvents";
+import { partyRoutes } from "./routes/partyRoutes";
 import { IntentNotEditableError } from "../../../core/domain/errors/IntentNotEditableError";
 import { Permission } from "../../../core/domain/enums/Permission";
 import type { AuthService } from "../../../core/application/services/AuthService";
@@ -45,6 +51,11 @@ export interface ServerDeps {
   listSettlementCandidates: ListSettlementCandidatesUseCase;
   listPositionActions: ListPositionActionsUseCase;
   startPositionAction: StartPositionActionUseCase;
+  partyDirectory: PartyDirectoryPort;
+  registerParty: RegisterPartyUseCase;
+  linkIdentity: LinkIdentityUseCase;
+  listPendingIdentities: ListPendingIdentitiesUseCase;
+  getPartyEvents: GetPartyEventsUseCase;
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
@@ -87,6 +98,10 @@ export function createServer(deps: ServerDeps) {
       deps.listPositionActions,
       deps.startPositionAction,
     ),
+  );
+  app.use(
+    "/api/parties",
+    partyRoutes(deps.partyDirectory, deps.registerParty, deps.linkIdentity, deps.listPendingIdentities, deps.getPartyEvents),
   );
   app.use(
     "/api/intents",

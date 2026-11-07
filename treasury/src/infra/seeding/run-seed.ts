@@ -1,4 +1,5 @@
 import { env } from "../../config/env";
+import { resolveStore } from "../../config/operationsStore";
 import { ImportPartiesUseCase } from "../../core/application/use-cases/ImportParties";
 import { MeasureResolutionUseCase } from "../../core/application/use-cases/MeasureResolution";
 import { PartyDirectory } from "../../core/application/services/PartyDirectory";
@@ -16,7 +17,7 @@ import { LedgerPartySweepSource } from "./LedgerPartySweepSource";
  * The measurement it prints is the figure that gates turning the resolution barrier on later.
  */
 async function main(): Promise<void> {
-  if (env.PARTY_DIRECTORY_MODE !== "sqlite") {
+  if (resolveStore(env.LEDGER_MODE, "PARTY_DIRECTORY_MODE", env.PARTY_DIRECTORY_MODE) !== "sqlite") {
     throw new Error(
       "Seeding a volatile directory would be pointless — set PARTY_DIRECTORY_MODE=sqlite.",
     );

@@ -2,7 +2,6 @@ import type { Request, Response, NextFunction, RequestHandler } from "express";
 import type { AuthService } from "../../../../core/application/services/AuthService";
 import type { User } from "../../../../core/domain/entities/User";
 import { Permission } from "../../../../core/domain/enums/Permission";
-import { can } from "../../../../core/domain/policies/rolePermissions";
 
 export const SESSION_COOKIE = "sid";
 
@@ -74,7 +73,7 @@ export function requirePermission(permission: Permission): RequestHandler {
       res.status(401).json({ error: "Authentication required." });
       return;
     }
-    if (!can(user.role, permission)) {
+    if (!user.can(permission)) {
       res.status(403).json({ error: "You do not have permission for this action." });
       return;
     }

@@ -18,12 +18,12 @@ export const USINA_RECEIVABLE_OBJECT_TYPES = new Set<ObjectType>([
  * them was a cash-basis fact that originated nothing. They are kept out of `openExposure`, which
  * measures what is owed TO Usina: a total mixing the two directions would mean nothing.
  *
- * COMMISSION_PAYABLE is deliberately absent. It is originated by COMMISSION_SPLIT and has counted
- * toward openExposure since long before this work; moving it now would silently restate a
- * published figure. Reclassifying it is a separate decision, on its own evidence.
+ * COMMISSION_PAYABLE moved here from openExposure by decision of 2026-11-06 (REQ-254), which restates
+ * that figure: a balance of this type already open changes sides.
  */
 export const USINA_PAYABLE_OBJECT_TYPES = new Set<ObjectType>([
   ObjectType.PAYABLE,
+  ObjectType.COMMISSION_PAYABLE,
   ObjectType.PAYROLL,
   ObjectType.SERVICE_FEE,
   ObjectType.INFRASTRUCTURE_COST,

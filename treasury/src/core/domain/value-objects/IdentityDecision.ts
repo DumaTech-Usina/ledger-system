@@ -1,15 +1,17 @@
 /**
- * The act that authorizes a PartyId to exist. Only two of these happen in a conversation, and both
- * are deliberate: creating a new party, or declaring that the counterparty cannot be identified.
- * Associating with a party that already exists is not here — it issues nothing.
+ * The act that authorizes a PartyId to exist during a conversation. Only two of these happen, and
+ * both are deliberate. Choosing a party that already exists is not here: it issues nothing.
+ * Registering a party is not here either: that is curation (REQ-311), and it happens outside any
+ * operation.
  *
  * Every conversational PartyId traces back to one of these records, with an author and a moment.
- * That is what separates "an identity was created" from "a string was typed", which is the whole
- * point: before this, the second was silently the first.
  */
 export enum IdentityDecisionKind {
-  /** A party the Directory did not know. The user confirmed it is genuinely new. */
-  CREATE = "create",
+  /**
+   * Someone known who is not registered yet. The fact is recorded under this identity (REQ-320), the
+   * notification shows until a curator links it, and a second fact with the same name reuses it.
+   */
+  PROVISIONAL = "provisional",
   /**
    * The counterparty cannot be identified. Still issues a PartyId — the Ledger rejects a party
    * without one, so this can never be expressed as an absence.
@@ -19,7 +21,7 @@ export enum IdentityDecisionKind {
 
 export interface IdentityDecision {
   kind: IdentityDecisionKind;
-  /** The PartyId this decision brought into existence. */
+  /** The PartyId this decision brought into existence, or reused. */
   partyId: string;
   /** What the user actually said. Empty when they had nothing to say — a valid state. */
   mention: string;

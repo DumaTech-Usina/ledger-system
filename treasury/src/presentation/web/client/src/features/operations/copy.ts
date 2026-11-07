@@ -27,6 +27,10 @@ export const scenarioCopy: Record<string, { title: string; description: string }
     title: "Registrar pagamento de multa",
     description: "Registrar uma multa ou penalidade paga pela usina (saída de caixa).",
   },
+  register_commission_payment: {
+    title: "Pagar repasse de comissão",
+    description: "Registrar que a usina pagou uma comissão que devia a um corretor, supervisor ou parceiro (saída de caixa).",
+  },
   register_obligation_recognition: {
     title: "Reconhecer obrigação a pagar",
     description:
@@ -88,6 +92,14 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     currency: "Qual é a moeda?",
     occurredAt: "Em que data o pagamento foi feito?",
     objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
+    description: "Uma breve descrição (opcional).",
+  },
+  register_commission_payment: {
+    payee: "Quem recebeu o repasse?",
+    amount: "Qual valor foi pago?",
+    currency: "Qual é a moeda?",
+    occurredAt: "Em que data o dinheiro saiu da conta?",
+    objectRef: "Qual obrigação de comissão este pagamento quita? (opcional)",
     description: "Uma breve descrição (opcional).",
   },
   register_obligation_recognition: {
@@ -171,7 +183,8 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
   register_commission_accrual: {
     amount: "Qual é o valor da comissão prevista?",
     currency: "Qual é a moeda?",
-    occurredAt: "A partir de que data ela é esperada?",
+    occurredAt: "Em que data essa expectativa surgiu (ex.: a apólice foi emitida)?",
+    dueAt: "Quando você espera receber? (deixe em branco se não souber)",
     description: "Uma breve descrição (opcional).",
   },
   register_direct_payment: {
@@ -249,8 +262,10 @@ export const eventLabels: Record<string, string> = {
 export const identityCopy = {
   /** Close names, listed for the operator to choose from. The system never picks one. */
   similar: (mention: string) => `Encontrei nomes parecidos com "${mention}". É algum destes?`,
-  unknown: (mention: string) => `Ainda não conheço "${mention}". Quer cadastrar?`,
-  create: (mention: string) => `Cadastrar "${mention}"`,
+  unknown: (mention: string) =>
+    `Não encontrei "${mention}" no cadastro. O registro pode seguir agora com uma identidade provisória, que fica pendente até alguém com curadoria resolver.`,
+  provisional: (mention: string) => `Seguir com "${mention}" como provisória`,
+  provisionalName: (name: string) => `${name} (provisória)`,
   unidentifiable: "Não é possível identificar",
   justificationLabel: "Por que a contraparte não pode ser identificada?",
   justificationConfirm: "Registrar assim",
@@ -302,6 +317,16 @@ const messageTranslations: Record<string, string> = {
   "An amount has at most 2 decimal places.": "Um valor tem no máximo 2 casas decimais.",
   "The date cannot be in the future.": "A data não pode ser futura.",
   "Enter a valid date.": "Informe uma data válida.",
+  "A party needs a name.": "Informe o nome.",
+  "A party is a person or a company.": "Uma parte é uma pessoa ou uma empresa.",
+  "A party with a bank account needs a CPF or CNPJ.": "Quem recebe ou paga por conta bancária precisa de CPF ou CNPJ.",
+  "A CPF has 11 digits.": "Um CPF tem 11 dígitos.",
+  "A CNPJ has 14 digits.": "Um CNPJ tem 14 dígitos.",
+  "Another party already has this document.": "Já existe uma parte com este documento.",
+  "This identifier is already linked.": "Esta identidade já foi ligada.",
+  "An identifier can only be linked to a registered party.": "Só é possível ligar a uma parte cadastrada.",
+  "That party is itself linked to another one; link to that one instead.":
+    "Essa parte já está ligada a outra. Ligue à outra.",
   "Flagged for manual review (description contains 'test').":
     "Sinalizado para revisão manual (a descrição contém 'test').",
   "Duplicate: this intent was already submitted to the Ledger.":

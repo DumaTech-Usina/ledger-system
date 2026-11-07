@@ -105,6 +105,12 @@ interface ScenarioMapping {
    */
   followupSlot?: string;
   /**
+   * Answer key holding further positions this event names, as a JSON list of
+   * `{ objectId, objectType }`, all under the relation of the first object. For an event whose
+   * positions depend on the entry it speaks about, which a fixed template cannot declare.
+   */
+  additionalObjectsSlot?: string;
+  /**
    * Whether the counterparty is NECESSARILY the same party the position was opened with, so an
    * action started from that position can carry it over instead of asking again.
    *
@@ -363,11 +369,13 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
         advance: { objectType: "advance" },
         loan: { objectType: "loan" },
         commission_receivable: { objectType: "commission_receivable" },
+        commission_payable: { objectType: "commission_payable" },
       },
     },
     relatedEventSlot: "target",
     objectIdSlot: "objectRef",
     followupSlot: "reissue",
+    additionalObjectsSlot: "otherPositions",
   },
 
   // Loan repayment SETTLES the loan a LOAN_ORIGINATION originated. Origin is required.
@@ -416,6 +424,8 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
         infrastructure: { objectType: "infrastructure_cost" },
         tax: { objectType: "tax" },
         other: { objectType: "payable" },
+        // Opened by the user, ideally with a fact behind it such as a commission to pass on (REQ-253).
+        commission: { objectType: "commission_payable" },
       },
     },
     objectIdSlot: "objectRef",
@@ -424,6 +434,21 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
       reasonType: "late_awareness",
       reasonText: "Obligation identified after the payment was already recorded",
     },
+  },
+
+  // Paying what the usina owes on a commission: SETTLES the position a recognition with kind
+  // "commission" opened. Same mold as every other cash expense.
+  register_commission_payment: {
+    eventType: "commission_split",
+    economicEffect: "cash_out",
+    counterpartySlot: "payee",
+    parties: cashOutParties,
+    objects: [{ objectType: "commission_payable", relation: "settles" }],
+    reasonType: "commission_split",
+    reasonText: "Commission pass-through paid",
+    objectIdSlot: "objectRef",
+    // Paid to whoever the obligation is owed to, the same party the recognition named.
+    inheritsCounterparty: true,
   },
 };
 
@@ -707,6 +732,11 @@ export class CandidateMapper {
       objectType: o.objectType,
       relation: o.relation,
     }));
+    const additional = m.additionalObjectsSlot ? a[m.additionalObjectsSlot]?.trim() : "";
+    if (additional) {
+      const further = JSON.parse(additional) as { objectId: string; objectType: string }[];
+      objects.push(...further.map((o) => ({ ...o, relation: objectTemplates[0].relation })));
+    }
 
     const parties = m.parties.map((pt) => {
       const partyId = pt.who === "usina" ? this.usinaPartyId : a[m.counterpartySlot!];

@@ -144,11 +144,11 @@ beforeEach(async () => {
 afterEach(() => new Promise<void>((r) => server.close(() => r())));
 
 describe("POST /:intentId/identity", () => {
-  it("mints a party and fills the slot", async () => {
+  it("gives a provisional identity and fills the slot", async () => {
     const intentId = await startIntentOver("register_payment");
     const res = await post(`/${intentId}/identity`, {
       slot: "payee",
-      kind: "create",
+      kind: "provisional",
       mention: "Fornecedor Novo",
     });
 
@@ -164,7 +164,7 @@ describe("POST /:intentId/identity", () => {
     const res = await post(`/${intentId}/identity`, { slot: "payee", kind: "whatever" });
 
     expect(res.status).toBe(422);
-    expect((await json(res)).error).toMatch(/create.*unidentifiable/i);
+    expect((await json(res)).error).toMatch(/provisional.*unidentifiable/i);
     expect(await ctx.parties.findAll()).toHaveLength(6); // the fixture's parties, nothing minted
   });
 
@@ -237,7 +237,7 @@ describe("POST /:intentId/answer — the barrier over the wire", () => {
 describe("GET /:intentId/preview", () => {
   it("carries display names, and asks nothing about the party (§5.5)", async () => {
     const intentId = await startIntentOver("register_payment");
-    const created = await json(await post(`/${intentId}/identity`, { slot: "payee", kind: "create", mention: "Padaria do Zé" }));
+    const created = await json(await post(`/${intentId}/identity`, { slot: "payee", kind: "provisional", mention: "Padaria do Zé" }));
     for (const [key, value] of [["amount", "2500.00"], ["currency", "BRL"], ["occurredAt", "2026-08-03"]]) {
       await post(`/${intentId}/answer`, { key, value });
     }

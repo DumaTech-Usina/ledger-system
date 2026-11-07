@@ -1,6 +1,6 @@
 export type Role = "finance_manager" | "viewer";
 
-export type Permission = "intent:create" | "intent:submit" | "intent:read" | "dashboard:read";
+export type Permission = "intent:create" | "intent:submit" | "intent:read" | "dashboard:read" | "party:curate";
 
 export interface User {
   id: string;

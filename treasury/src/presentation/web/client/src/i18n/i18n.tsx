@@ -642,7 +642,7 @@ const ptBR: Translations = {
     service_fee_payment: "Pagamento de taxa de serviço",
     tax_payment: "Pagamento de imposto",
     commission_received: "Comissão recebida",
-    commission_split: "Divisão de comissão",
+    commission_split: "Repasse de comissão",
     commission_waiver: "Isenção de comissão",
     penalty_payment: "Pagamento de multa",
     advance_payment: "Pagamento de adiantamento",
@@ -658,6 +658,7 @@ const ptBR: Translations = {
   },
   slotChoice: {
     // "Reconhecer obrigação a pagar" — que tipo de obrigação está sendo reconhecida.
+    commission: "Comissão a repassar",
     payroll: "Folha de pagamento",
     service: "Taxa de serviço",
     infrastructure: "Infraestrutura",
@@ -1012,7 +1013,7 @@ const en: Translations = {
     service_fee_payment: "Service fee payment",
     tax_payment: "Tax payment",
     commission_received: "Commission received",
-    commission_split: "Commission split",
+    commission_split: "Commission pass-through",
     commission_waiver: "Commission waiver",
     penalty_payment: "Penalty payment",
     advance_payment: "Advance payment",
@@ -1028,6 +1029,7 @@ const en: Translations = {
   },
   slotChoice: {
     // "Recognize an obligation" — which kind of obligation is being recognized.
+    commission: "Commission to pass on",
     payroll: "Payroll",
     service: "Service fee",
     infrastructure: "Infrastructure",

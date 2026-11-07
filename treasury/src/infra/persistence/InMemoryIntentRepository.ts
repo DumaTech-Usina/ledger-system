@@ -1,4 +1,5 @@
 import { Intent, type IntentProps } from "../../core/domain/entities/Intent";
+import { IntentStatus } from "../../core/domain/enums/IntentStatus";
 import type { IntentRepository } from "../../core/application/repositories/IntentRepository";
 
 /** MVP persistence. Stores plain props so rehydration produces a fresh entity each read. */
@@ -12,6 +13,12 @@ export class InMemoryIntentRepository implements IntentRepository {
   async findById(id: string): Promise<Intent | null> {
     const props = this.store.get(id);
     return props ? Intent.rehydrate(props) : null;
+  }
+
+  async listAccepted(): Promise<Intent[]> {
+    return [...this.store.values()]
+      .filter((p) => p.status === IntentStatus.ACCEPTED)
+      .map((p) => Intent.rehydrate(p));
   }
 
   async listByUser(userId: string): Promise<Intent[]> {

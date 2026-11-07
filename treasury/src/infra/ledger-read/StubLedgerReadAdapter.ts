@@ -1,8 +1,10 @@
+import type { PartyEventsPort } from "../../core/application/ports/PartyEventsPort";
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
 import type { PositionCandidate, PositionLookupPort } from "../../core/application/ports/PositionLookupPort";
 import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
 import type {
+  PartyEvent,
   BookExposure,
   CashPosition,
   CashMovementsPage,
@@ -16,7 +18,7 @@ import type {
  * ("1250000.00"), so display formatting behaves identically to the real HTTP adapter. Selected via
  * LEDGER_READS=stub when no Ledger is reachable.
  */
-export class StubLedgerReadAdapter implements LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort {
+export class StubLedgerReadAdapter implements PartyEventsPort, LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort {
   /**
    * An object's life is projected from a real event chain, which this adapter does not have. It
    * answers "unknown" rather than inventing a history — a fabricated lifecycle would be worse than
@@ -29,6 +31,11 @@ export class StubLedgerReadAdapter implements LedgerReadPort, PositionLifecycleP
   /** No event store behind this adapter, so no event can be looked up — and none is invented. */
   async event(_eventId: string): Promise<LedgerEventRef | null> {
     return null;
+  }
+
+  /** No event store behind this adapter: no party has any event here. */
+  async eventsOfParty(_identifier: string): Promise<PartyEvent[]> {
+    return [];
   }
 
   async cashPosition(): Promise<CashPosition> {

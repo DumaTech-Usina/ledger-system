@@ -19,14 +19,15 @@ export interface PartyAttribute {
 }
 
 /**
- * Well-known attribute keys. Two of them (DOCUMENT, TYPE) participate in resolution or
- * classification, so they are named rather than left to convention.
+ * Well-known attribute keys, named rather than left to convention.
  */
 export const PartyAttributeKey = {
   /** CPF/CNPJ. An attribute with a uniqueness constraint — never the identity. */
   DOCUMENT: "document",
-  /** The Ledger's published party vocabulary (company | client | supplier | bank | gateway). */
+  /** person | company on what is registered; a load may carry its source's own vocabulary. */
   TYPE: "type",
+  /** "yes" | "no": whether the party receives or pays through a bank account (REQ-314). */
+  BANK_ACCOUNT: "bank_account",
 } as const;
 
 /** Reading an absent attribute yields UNKNOWN, which is a legitimate answer — never a default. */

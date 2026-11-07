@@ -51,12 +51,11 @@ const envSchema = z.object({
   USINA_PARTY_ID: z.string().default("party-usina"),
 
   /**
-   * Where the Party Directory lives:
-   *  - "memory": volatile. Fine for tests and for exercising resolution, never for issuing ids.
-   *  - "sqlite": durable, at PARTY_DB_FILE. Required before any PartyId reaches a production
-   *              Ledger — an id lost on restart would be orphaned inside an immutable event.
+   * Where the Party Directory and its identity mapping live: "memory" or "sqlite", at PARTY_DB_FILE.
+   * Unset, it is sqlite against a real Ledger and memory otherwise; see `operationsStore.ts`. An id
+   * lost on restart would be orphaned inside an immutable event.
    */
-  PARTY_DIRECTORY_MODE: z.enum(["memory", "sqlite"]).default("memory"),
+  PARTY_DIRECTORY_MODE: z.enum(["memory", "sqlite"]).optional(),
 
   /**
    * The Party Directory's file. Under Docker it lives on a mounted volume, so the ids the Directory
@@ -72,6 +71,9 @@ const envSchema = z.object({
 
   /** Their file. The same one as the Party Directory by default, so one backup covers both. */
   OPERATIONS_DB_FILE: z.string().min(1).default("./data/treasury.db"),
+
+  /** Who holds curation, by username, comma-separated (REQ-402). A permission, not a role. */
+  CURATOR_USERNAMES: z.string().default("cfo"),
 
   /** Session lifetime in hours. */
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(12),

@@ -66,7 +66,10 @@ export class CreateLedgerEventUseCase {
     //    ambiguous — a repeat or a double negative? With it, retractions form a chain, never a tree,
     //    and the chain can be folded deterministically by every reader;
     //  - depth 1 (approved). A retraction may be retracted; a retraction OF a retraction may not.
-    //    This caps the fold at two hops, so no reader ever needs a recursive walk.
+    //    This caps the fold at two hops, so no reader ever needs a recursive walk;
+    //  - all or nothing. Retracting says the whole event never happened, so it names every position
+    //    the event moved. Naming only some would reopen those and leave the others counting what was
+    //    declared false. Contextual citations are not positions: nothing moved there to undo.
     const isRetraction = command.objects.some((o) => o.relation === Relation.RETRACTS);
 
     if (originEvent && isRetraction) {
@@ -79,6 +82,17 @@ export class CreateLedgerEventUseCase {
       if (existingRetractions.length > 0) {
         throw new Error(
           `Event ${command.relatedEventId} has already been retracted by ${existingRetractions[0].id.value}`,
+        );
+      }
+
+      const cited = new Set(command.objects.map((o) => o.objectId));
+      const missing = originEvent
+        .getObjects()
+        .filter((o) => o.relation !== Relation.REFERENCES && !cited.has(o.objectId.value));
+      if (missing.length > 0) {
+        throw new Error(
+          `A retraction must cite every position of the event it retracts; missing: ` +
+          missing.map((o) => o.objectId.value).join(", "),
         );
       }
 

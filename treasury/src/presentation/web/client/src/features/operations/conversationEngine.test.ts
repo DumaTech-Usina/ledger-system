@@ -187,7 +187,7 @@ describe("identityDecision", () => {
     expect(message.text).toBe('Encontrei nomes parecidos com "Fornec. Sul". É algum destes?');
     expect(message.options).toEqual([
       { kind: "select", partyId: "party-1", label: "Fornecedor Sul" },
-      { kind: "create", mention: "Fornec. Sul", label: 'Cadastrar "Fornec. Sul"' },
+      { kind: "provisional", mention: "Fornec. Sul", label: 'Seguir com "Fornec. Sul" como provisória' },
     ]);
   });
 
@@ -208,17 +208,17 @@ describe("identityDecision", () => {
     expect(message.options.map((o) => o.label)).toEqual([
       "Fornecedor Sul",
       "Sul Distribuidora",
-      'Cadastrar "Sul"',
+      'Seguir com "Sul" como provisória',
     ]);
   });
 
-  it("offers creation for a mention no party matches", () => {
+  it("offers a provisional identity for a mention no party matches, never a registration (REQ-311)", () => {
     const outcome: IdentityOutcome = { slot: "payee", resolution: { kind: "new", mention: mention("Padaria Aurora") } };
     const message = identityDecision(outcome, payeeSlot);
     if (message?.kind !== "identity") return;
-    expect(message.text).toBe('Ainda não conheço "Padaria Aurora". Quer cadastrar?');
+    expect(message.text).toContain('Não encontrei "Padaria Aurora" no cadastro');
     expect(message.options).toEqual([
-      { kind: "create", mention: "Padaria Aurora", label: 'Cadastrar "Padaria Aurora"' },
+      { kind: "provisional", mention: "Padaria Aurora", label: 'Seguir com "Padaria Aurora" como provisória' },
     ]);
   });
 
@@ -226,14 +226,14 @@ describe("identityDecision", () => {
     const outcome: IdentityOutcome = { slot: "payee", resolution: { kind: "new", mention: mention("alguém") } };
     const admitted = identityDecision(outcome, unidentifiableSlot);
     if (admitted?.kind !== "identity") return;
-    expect(admitted.options.map((o) => o.kind)).toEqual(["create", "unidentifiable"]);
+    expect(admitted.options.map((o) => o.kind)).toEqual(["provisional", "unidentifiable"]);
   });
 
   it("treats an unknown slot as not admitting 'unidentifiable' — absence is never an escape", () => {
     const outcome: IdentityOutcome = { slot: "payee", resolution: { kind: "new", mention: mention("alguém") } };
     const message = identityDecision(outcome, undefined);
     if (message?.kind !== "identity") return;
-    expect(message.options.map((o) => o.kind)).toEqual(["create"]);
+    expect(message.options.map((o) => o.kind)).toEqual(["provisional"]);
   });
 });
 

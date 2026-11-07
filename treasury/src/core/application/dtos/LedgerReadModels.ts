@@ -260,6 +260,12 @@ export interface LedgerEventRef {
   source: { system: string; reference: string };
 }
 
+/** One event in a party's history. `retracted` is the Ledger's answer, because it cannot be derived here. */
+export interface PartyEvent extends LedgerEventRef {
+  recordedAt: string;
+  retracted: boolean;
+}
+
 /**
  * The Ledger's own read of the book's economic state — what the position math says about the whole
  * book, rather than about one object. Mirrors the fields treasury displays from `GET /api/dashboard`

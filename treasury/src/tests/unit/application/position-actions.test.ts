@@ -84,6 +84,7 @@ describe("producibleTuples — what treasury can actually record", () => {
   it("expands variants, because they offer different things to different positions", () => {
     const tuples = producibleTuples().filter((t) => t.scenarioId === "register_obligation_recognition");
     expect(tuples.map((t) => t.objectType).sort()).toEqual([
+      "commission_payable",
       "infrastructure_cost",
       "payable",
       "payroll",

@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/utils/cn";
 
@@ -13,6 +14,31 @@ export interface SelectProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  /** Hint for the filter box a long list gets. */
+  searchPlaceholder?: string;
+}
+
+/** A list longer than this gets a filter box: past it, finding a name by scrolling stops being easy. */
+const SEARCH_FROM = 7;
+const LIST_MAX_HEIGHT = 288;
+const LIST_GAP = 8;
+/** Above Modal's z-[100], since a Select can sit inside one. */
+const LIST_Z_INDEX = 110;
+
+const folded = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const matches = (label: string, query: string) => folded(label).includes(folded(query.trim()));
+
+/** Opens downward, unless only the space above the button fits the list. */
+function placementBelowOrAbove(button: DOMRect): CSSProperties {
+  const below = window.innerHeight - button.bottom;
+  const opensUp = below < LIST_MAX_HEIGHT + LIST_GAP && button.top > below;
+  return {
+    position: "fixed",
+    left: button.left,
+    minWidth: button.width,
+    zIndex: LIST_Z_INDEX,
+    ...(opensUp ? { bottom: window.innerHeight - button.top + LIST_GAP } : { top: button.bottom + LIST_GAP }),
+  };
 }
 
 function ChevronDownIcon() {
@@ -29,23 +55,46 @@ function CheckIcon() {
  * browser's own chrome, which is exactly the inconsistency this replaces. Picking an option commits
  * and closes immediately; there is nothing to apply separately, unlike a date or a multi-value filter.
  */
-export function Select({ label, options, value, onChange, className }: SelectProps) {
+export function Select({ label, options, value, onChange, className, searchPlaceholder }: SelectProps) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [placement, setPlacement] = useState<CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   const id = useId();
   const current = options.find((o) => o.value === value);
+  const searchable = options.length > SEARCH_FROM;
+  const visible = query.trim() === "" ? options : options.filter((o) => matches(o.label, query));
+
+  const toggle = () => {
+    if (!open) {
+      setPlacement(placementBelowOrAbove(buttonRef.current!.getBoundingClientRect()));
+      setQuery("");
+    }
+    setOpen((v) => !v);
+  };
 
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!containerRef.current?.contains(target) && !popoverRef.current?.contains(target)) setOpen(false);
+    };
+    // The list is pinned to where the button was; once the page moves, that place is wrong.
+    const onViewportChange = (event: Event) => {
+      if (!popoverRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("scroll", onViewportChange, true);
+    window.addEventListener("resize", onViewportChange);
     return () => {
+      window.removeEventListener("scroll", onViewportChange, true);
+      window.removeEventListener("resize", onViewportChange);
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
@@ -59,10 +108,11 @@ export function Select({ label, options, value, onChange, className }: SelectPro
         </span>
       )}
       <button
+        ref={buttonRef}
         type="button"
         aria-labelledby={label ? id : undefined}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         className={cn(
           "flex h-10 items-center justify-between gap-2 rounded-2xl border border-line bg-ink/[0.03] px-3 text-sm text-ink dark:bg-white/5",
           "outline-none transition hover:bg-ink/6 focus:border-accent focus:ring-2 focus:ring-accent-soft dark:hover:bg-white/8",
@@ -74,9 +124,25 @@ export function Select({ label, options, value, onChange, className }: SelectPro
         </span>
       </button>
 
-      {open && (
-        <div className="glass-popover motion-safe:animate-[glass-pop_320ms_cubic-bezier(0.34,1.56,0.64,1)_both] absolute top-full left-0 z-50 mt-2 max-h-72 w-full min-w-max overflow-y-auto p-2">
-          {options.map((option) => {
+      {/* Rendered on <body>: a card's backdrop-filter makes it a stacking context, so a list drawn
+          inside one stays beneath the next card no matter its z-index. */}
+      {open && createPortal(
+        <div
+          ref={popoverRef}
+          style={placement}
+          className="glass-popover motion-safe:animate-[glass-pop_320ms_cubic-bezier(0.34,1.56,0.64,1)_both] max-h-72 overflow-y-auto p-2"
+        >
+          {searchable && (
+            <input
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={searchPlaceholder}
+              aria-label={searchPlaceholder ?? label}
+              className="mb-1 h-9 w-full rounded-xl border border-line bg-transparent px-2.5 text-[13px] text-ink outline-none focus:border-accent"
+            />
+          )}
+          {visible.map((option) => {
             const selected = option.value === value;
             return (
               <button
@@ -97,7 +163,8 @@ export function Select({ label, options, value, onChange, className }: SelectPro
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

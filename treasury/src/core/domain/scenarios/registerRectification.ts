@@ -24,7 +24,7 @@ export const registerRectification: Scenario = {
     { key: "target", type: SlotType.EVENT_REF, prompt: "Which entry never happened?", required: true, suggestionSource: "origin_events" },
     // Derived from the corrected event; declared so the deterministic merge accepts them.
     { key: "objectRef", type: SlotType.STRING, prompt: "The position the corrected entry moved.", required: true },
-    { key: "objectType", type: SlotType.CHOICE, prompt: "The kind of position the corrected entry moved.", required: true, choices: ["advance", "loan", "commission_receivable"] },
+    { key: "objectType", type: SlotType.CHOICE, prompt: "The kind of position the corrected entry moved.", required: true, choices: ["advance", "loan", "commission_receivable", "commission_payable"] },
     { key: "amount", type: SlotType.MONEY, prompt: "The amount the corrected entry asserted.", required: true },
     CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the error established?", required: true },
@@ -33,6 +33,9 @@ export const registerRectification: Scenario = {
     // halfway can be recognised and resumed. Derived, never asked: a withdrawal that stands alone
     // leaves it blank.
     { key: "reissue", type: SlotType.STRING, prompt: "Whether a corrected entry is to follow.", required: false },
+    // The entry's other positions, as JSON, when it moved more than one. A withdrawal has to name them
+    // all (REQ-525). Derived from the Ledger's record, never asked.
+    { key: "otherPositions", type: SlotType.STRING, prompt: "The other positions the corrected entry moved.", required: false },
   ],
   keywords: { "pt-BR": ["retificar", "retificacao", "corrigir", "estava errado"] },
 };

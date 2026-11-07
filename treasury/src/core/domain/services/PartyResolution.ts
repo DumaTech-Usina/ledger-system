@@ -37,6 +37,8 @@ export interface ResolutionCandidate {
   displayName: string;
   /** In [0, 1]. */
   score: number;
+  /** Someone not registered yet: a choice the operator should see for what it is. */
+  provisional?: boolean;
 }
 
 /**
@@ -77,11 +79,26 @@ function nameKeys(party: Party): string[] {
   return [party.displayName, ...party.aliases].map(normalizeName);
 }
 
+function candidateFrom(party: Party, score: number): ResolutionCandidate {
+  return {
+    partyId: effectiveId(party),
+    displayName: party.displayName,
+    score,
+    ...(party.identityState === PartyIdentityState.PROVISIONAL ? { provisional: true } : {}),
+  };
+}
+
+/** Best first, ties broken by id, one row per entity: a merged party and its survivor are one. */
+function distinctCandidates(candidates: ResolutionCandidate[]): ResolutionCandidate[] {
+  const sorted = [...candidates].sort((a, b) => b.score - a.score || a.partyId.localeCompare(b.partyId));
+  return sorted.filter((c, i) => sorted.findIndex((o) => o.partyId === c.partyId) === i);
+}
+
 /**
  * The deterministic resolution cascade, strongest rung first. Pure: it reads the supplied parties
  * and returns an answer, mutating nothing and reaching nothing outside its arguments.
  *
- *   1. exact PartyId            4. exact display name or alias
+ *   1. exact PartyId            4. exact display name or alias (several parties → similar)
  *   2. exact document           5. close names                    → similar, for the operator to pick
  *   3. exact external id        6. nothing                        → new
  *
@@ -128,27 +145,24 @@ export function resolveParty(
     if (byExternal) return resolved(byExternal, ResolutionRule.EXACT_EXTERNAL_ID, 1);
   }
 
-  // 4 — exact normalized name or alias.
+  // 4 — exact normalized name or alias. Two different parties can share a name, and picking the first
+  // would sum them into one, so more than one is a choice for the operator, like close names.
   if (mention.normalized !== "") {
-    const byName = parties.find((p) => nameKeys(p).includes(mention.normalized));
-    if (byName) return resolved(byName, ResolutionRule.EXACT_NAME, 1);
+    const byName = parties.filter((p) => nameKeys(p).includes(mention.normalized));
+    if (new Set(byName.map(effectiveId)).size === 1) return resolved(byName[0], ResolutionRule.EXACT_NAME, 1);
+    if (byName.length > 1) {
+      return { kind: "similar", mention, candidates: distinctCandidates(byName.map((p) => candidateFrom(p, 1))) };
+    }
   }
 
   // 5 — close names. Best score per party, then everything at or above the threshold.
   if (mention.normalized === "") return { kind: "new", mention };
 
-  const candidates: ResolutionCandidate[] = parties
-    .map((p) => ({
-      partyId: effectiveId(p),
-      displayName: p.displayName,
-      score: Math.max(...nameKeys(p).map((key) => similarity(mention.normalized, key))),
-    }))
-    .filter((c) => c.score >= threshold)
-    // Stable ordering: best first, ties broken by id so the same input always yields the same list.
-    .sort((a, b) => b.score - a.score || a.partyId.localeCompare(b.partyId));
-
-  // A merged party and its survivor can both clear the threshold; they are one entity, not two.
-  const distinct = candidates.filter((c, i) => candidates.findIndex((o) => o.partyId === c.partyId) === i);
+  const distinct = distinctCandidates(
+    parties
+      .map((p) => candidateFrom(p, Math.max(...nameKeys(p).map((key) => similarity(mention.normalized, key)))))
+      .filter((c) => c.score >= threshold),
+  );
 
   if (distinct.length > 0) return { kind: "similar", mention, candidates: distinct };
 

@@ -140,12 +140,43 @@ describe("resolveParty — rung 5: close names", () => {
 });
 
 describe("resolveParty — two parties with exactly the same name", () => {
-  it("resolves to the first in the list today (a known gap, to be closed with the party registry)", () => {
-    // Pinned so the behaviour is visible: nothing stops the registry from holding two identical
-    // names, and an exact name match does not look further than the first.
-    const r = resolveParty({ mention: "Alfa" }, [party("party-alfa-1", "Alfa"), party("party-alfa-2", "Alfa")]);
+  const twins = [party("party-alfa-1", "Alfa"), party("party-alfa-2", "Alfa")];
 
-    expect(r.kind).toBe("resolved");
+  it("lists both for the operator to choose, and picks neither", () => {
+    const r = resolveParty({ mention: "Alfa" }, twins);
+
+    expect(r.kind).toBe("similar");
+    if (r.kind === "similar") {
+      expect(r.candidates.map((c) => c.partyId)).toEqual(["party-alfa-1", "party-alfa-2"]);
+      expect(r.candidates.every((c) => c.score === 1)).toBe(true);
+    }
+  });
+
+  it("the same goes for a name that matches one party and an alias of another", () => {
+    const r = resolveParty({ mention: "Alfa" }, [party("party-a", "Alfa"), { ...party("party-b", "Beta"), aliases: ["Alfa"] }]);
+
+    expect(r.kind).toBe("similar");
+  });
+
+  it("the id or the document still decides on its own", () => {
+    expect(resolveParty({ mention: "party-alfa-2" }, twins)).toMatchObject({ kind: "resolved", partyId: "party-alfa-2" });
+  });
+
+  it("a merged party and its survivor are one party, not a choice", () => {
+    const merged = { ...party("party-old", "Alfa"), identityState: PartyIdentityState.MERGED, mergedInto: "party-new" };
+
+    expect(resolveParty({ mention: "Alfa" }, [merged, party("party-new", "Alfa")])).toMatchObject({
+      kind: "resolved",
+      partyId: "party-new",
+    });
+  });
+
+  it("marks a provisional identity, so the operator sees what they are choosing", () => {
+    const provisional = { ...party("party-prov", "Alfa"), identityState: PartyIdentityState.PROVISIONAL };
+    const r = resolveParty({ mention: "Alfa" }, [provisional, party("party-a", "Alfa")]);
+
+    expect(r.kind === "similar" && r.candidates.find((c) => c.partyId === "party-prov")?.provisional).toBe(true);
+    expect(r.kind === "similar" && r.candidates.find((c) => c.partyId === "party-a")?.provisional).toBeUndefined();
   });
 });
 

@@ -5,8 +5,10 @@ import type {
 } from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
 import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
+import type { PartyEventsPort } from "../../core/application/ports/PartyEventsPort";
 import type { PositionCandidate, PositionLookupPort } from "../../core/application/ports/PositionLookupPort";
 import type {
+  PartyEvent,
   BookExposure,
   CashPosition,
   CashMovementsPage,
@@ -90,7 +92,7 @@ function standingOrigination(
  * timeout so a slow/hung Ledger can't hang a treasury request.
  */
 export class HttpLedgerReadAdapter
-  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort
+  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort, PartyEventsPort
 {
   constructor(
     private readonly baseUrl: string,
@@ -408,6 +410,27 @@ export class HttpLedgerReadAdapter
     };
   }
 
+  async eventsOfParty(identifier: string): Promise<PartyEvent[]> {
+    const raw = await this.get<{ data: RawPartyEvent[] }>(
+      `/api/events/by-party?partyId=${encodeURIComponent(identifier)}`,
+    );
+    return raw.data.map((e) => ({
+      eventId: e.id,
+      eventType: e.eventType,
+      economicEffect: e.economicEffect,
+      amount: e.amount,
+      currency: e.currency,
+      occurredAt: e.occurredAt,
+      recordedAt: e.recordedAt,
+      description: e.description ?? null,
+      relatedEventId: e.relatedEventId ?? null,
+      objects: e.objects ?? [],
+      parties: (e.parties ?? []).map((p) => ({ ...p, amount: p.amount ?? null })),
+      source: { system: e.source?.system ?? "", reference: e.source?.reference ?? "" },
+      retracted: e.retracted === true,
+    }));
+  }
+
   /**
    * One event, as the Ledger stored it. Used to describe a rectification in the Ledger's own terms
    * — the amount and the object come from the record being corrected, never from a second typing.
@@ -451,4 +474,20 @@ export class HttpLedgerReadAdapter
       source: { system: raw.source?.system ?? "", reference: raw.source?.reference ?? "" },
     };
   }
+}
+
+interface RawPartyEvent {
+  id: string;
+  eventType: string;
+  economicEffect: string;
+  amount: string;
+  currency: string;
+  occurredAt: string;
+  recordedAt: string;
+  description: string | null;
+  relatedEventId: string | null;
+  objects: { objectId: string; objectType: string; relation: string }[];
+  parties: { partyId: string; role: string; direction: string; amount: string | null }[];
+  source: { system: string; reference: string };
+  retracted?: boolean;
 }

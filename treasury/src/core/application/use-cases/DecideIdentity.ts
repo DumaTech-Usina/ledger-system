@@ -2,6 +2,7 @@ import { getScenario } from "../../domain/scenarios/Scenario";
 import { DialogEngine, type DialogState } from "../../domain/services/DialogEngine";
 import { SlotType } from "../../domain/enums/SlotType";
 import { PartyIdentityState } from "../../domain/enums/PartyIdentityState";
+import { normalizeName } from "../../domain/services/PartyNormalization";
 import {
   IdentityDecisionKind,
   type IdentityDecision,
@@ -19,7 +20,7 @@ export interface DecideIdentityInput {
   /** The PARTY slot the decision answers. */
   slot: string;
   kind: IdentityDecisionKind;
-  /** What the user said. Required to CREATE — it becomes the display name. */
+  /** What the user said. Required for a provisional identity — it becomes the display name. */
   mention?: string;
   /** Required to declare UNIDENTIFIABLE. */
   justification?: string;
@@ -43,7 +44,7 @@ const UNIDENTIFIABLE_LABEL = "Contraparte não identificada";
  *
  * That concentration is the point. A conversational PartyId now always traces to a decision with an
  * author and a moment, so "someone created this identity" and "someone typed a string" stop being
- * the same event. Imports mint too, but through their own use case and with their own provenance.
+ * the same event. Registration and imports mint too, through their own use cases.
  */
 export class DecideIdentityUseCase {
   constructor(
@@ -71,9 +72,9 @@ export class DecideIdentityUseCase {
     const mention = (input.mention ?? "").trim();
     const now = this.clock.now();
     const party =
-      input.kind === IdentityDecisionKind.CREATE
-        ? this.buildCreated(mention)
-        : this.buildUnidentifiable(slot.allowUnidentifiable === true, mention, input.justification);
+      input.kind === IdentityDecisionKind.PROVISIONAL
+        ? await this.provisionalFor(mention, input.userId, now)
+        : this.buildUnidentifiable(slot.allowUnidentifiable === true, mention, input.justification, input.userId, now);
 
     await this.parties.save(party);
     intent.record(input.slot, party.partyId, now);
@@ -108,18 +109,29 @@ export class DecideIdentityUseCase {
   }
 
   /**
-   * Creation asks for one attribute — the name the user already said. Demanding a document here
-   * would make enrichment a precondition for recording a fact, and the payment happened whether or
-   * not the system knows the supplier's CNPJ.
+   * A provisional identity asks for one thing — the name the user already said. Demanding a document
+   * here would make the registry a precondition for recording a fact, and the payment happened
+   * whether or not the system knows who that is yet. The same name reuses the same identity, so one
+   * person does not become one pending item per fact.
    */
-  private buildCreated(mention: string): Party {
+  private async provisionalFor(mention: string, userId: string, now: string): Promise<Party> {
     if (mention === "") {
-      throw new Error("Creating a party needs the name the user used — there is nothing to record.");
+      throw new Error("A provisional identity needs the name the user used — there is nothing to record.");
     }
-    return this.newParty(PartyIdentityState.IDENTIFIED, mention);
+    const key = normalizeName(mention);
+    const existing = (await this.parties.findAll()).find(
+      (p) => p.identityState === PartyIdentityState.PROVISIONAL && normalizeName(p.displayName) === key,
+    );
+    return existing ?? this.newParty(PartyIdentityState.PROVISIONAL, mention, userId, now);
   }
 
-  private buildUnidentifiable(admissible: boolean, mention: string, justification?: string): Party {
+  private buildUnidentifiable(
+    admissible: boolean,
+    mention: string,
+    justification: string | undefined,
+    userId: string,
+    now: string,
+  ): Party {
     if (!admissible) {
       throw new Error("This operation does not admit an unidentifiable counterparty.");
     }
@@ -127,11 +139,11 @@ export class DecideIdentityUseCase {
       throw new Error("Declaring a counterparty unidentifiable requires a justification.");
     }
     // A mention, when there is one, is still the best label available; otherwise say nothing was known.
-    return this.newParty(PartyIdentityState.UNIDENTIFIABLE, mention || UNIDENTIFIABLE_LABEL);
+    return this.newParty(PartyIdentityState.UNIDENTIFIABLE, mention || UNIDENTIFIABLE_LABEL, userId, now);
   }
 
   /** Minted ids carry the canonical shape. Ids ADOPTED from the book keep whatever the book has. */
-  private newParty(identityState: PartyIdentityState, displayName: string): Party {
+  private newParty(identityState: PartyIdentityState, displayName: string, userId: string, now: string): Party {
     return {
       partyId: `party-${this.ids.next()}`,
       identityState,
@@ -139,6 +151,8 @@ export class DecideIdentityUseCase {
       aliases: [],
       externalIds: [],
       attributes: {},
+      createdBy: userId,
+      createdAt: now,
     };
   }
 }

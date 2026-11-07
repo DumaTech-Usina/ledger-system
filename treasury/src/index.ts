@@ -11,7 +11,15 @@ import { InMemoryConversationLog } from "./infra/audit/InMemoryConversationLog";
 import { SqliteAuditLog } from "./infra/audit/SqliteAuditLog";
 import { SqliteConversationLog } from "./infra/audit/SqliteConversationLog";
 import { SqliteIntentRepository } from "./infra/persistence/SqliteIntentRepository";
-import { resolveOperationsStore } from "./config/operationsStore";
+import { resolveStore } from "./config/operationsStore";
+import { InMemoryIdentityLinkRepository } from "./infra/persistence/InMemoryIdentityLinkRepository";
+import { SqliteIdentityLinkRepository } from "./infra/persistence/SqliteIdentityLinkRepository";
+import { RegisterPartyUseCase } from "./core/application/use-cases/RegisterParty";
+import { LinkIdentityUseCase } from "./core/application/use-cases/LinkIdentity";
+import { ListPendingIdentitiesUseCase } from "./core/application/use-cases/ListPendingIdentities";
+import { GetPartyEventsUseCase } from "./core/application/use-cases/GetPartyEvents";
+import type { PartyEventsPort } from "./core/application/ports/PartyEventsPort";
+import { Permission } from "./core/domain/enums/Permission";
 import { StubCandidateSubmissionAdapter } from "./infra/submission/StubCandidateSubmissionAdapter";
 import { HttpCandidateSubmissionAdapter } from "./infra/submission/HttpCandidateSubmissionAdapter";
 import { HttpLedgerReadAdapter } from "./infra/ledger-read/HttpLedgerReadAdapter";
@@ -59,7 +67,7 @@ async function bootstrap(): Promise<void> {
   // Intents, the audit and the conversation's steps. Durable whenever the Ledger is real, so that the
   // audit (REQ-801) and the link back to each fact (REQ-501) outlive a restart.
   const durableOperations =
-    resolveOperationsStore(env.LEDGER_MODE, env.OPERATIONS_STORE_MODE) === "sqlite";
+    resolveStore(env.LEDGER_MODE, "OPERATIONS_STORE_MODE", env.OPERATIONS_STORE_MODE) === "sqlite";
   const intentRepo = durableOperations
     ? new SqliteIntentRepository(env.OPERATIONS_DB_FILE)
     : new InMemoryIntentRepository();
@@ -75,11 +83,13 @@ async function bootstrap(): Promise<void> {
   // A PARTY answer is only recorded once it resolves here, so this is on the critical path of every
   // conversation. In "memory" it is empty at boot and every mention falls through unresolved —
   // usable for a disconnected demo, never for issuing ids that reach a Ledger.
-  const partyRepo =
-    env.PARTY_DIRECTORY_MODE === "sqlite"
-      ? new SqlitePartyRepository(env.PARTY_DB_FILE)
-      : new InMemoryPartyRepository();
-  const partyDirectory = new PartyDirectory(partyRepo);
+  const durableParties =
+    resolveStore(env.LEDGER_MODE, "PARTY_DIRECTORY_MODE", env.PARTY_DIRECTORY_MODE) === "sqlite";
+  const partyRepo = durableParties ? new SqlitePartyRepository(env.PARTY_DB_FILE) : new InMemoryPartyRepository();
+  const identityLinks = durableParties
+    ? new SqliteIdentityLinkRepository(env.PARTY_DB_FILE)
+    : new InMemoryIdentityLinkRepository();
+  const partyDirectory = new PartyDirectory(partyRepo, undefined, identityLinks);
 
   // An empty Directory is not a broken one — it resolves nothing, honestly. But it also means every
   // counterparty mention falls through, so no scenario with a PARTY slot can be completed by simply
@@ -87,13 +97,13 @@ async function bootstrap(): Promise<void> {
   const knownParties = (await partyDirectory.list()).length;
   if (knownParties === 0) {
     console.warn(
-      "[party-directory] EMPTY (mode: " + env.PARTY_DIRECTORY_MODE + "). No counterparty will resolve, " +
-        "so every party slot needs an explicit creation decision.\n" +
+      "[party-directory] EMPTY (" + (durableParties ? "sqlite" : "memory") + "). No counterparty will " +
+        "resolve, so every party starts as a provisional identity until it is registered.\n" +
         "  Seed it with: PARTY_DIRECTORY_MODE=sqlite npm run seed:directory",
     );
   } else {
     console.log("[party-directory] " + knownParties + " known part" + (knownParties === 1 ? "y" : "ies") +
-      " (mode: " + env.PARTY_DIRECTORY_MODE + ")");
+      " (" + (durableParties ? "sqlite" : "memory") + ")");
   }
 
   const applyAnswers = new ApplyAnswersUseCase(intentRepo, clock, conversationLog, partyDirectory);
@@ -119,6 +129,8 @@ async function bootstrap(): Promise<void> {
   const hasher = new ScryptPasswordHasher();
   const sessionTtlSeconds = env.SESSION_TTL_HOURS * 3600;
   const sessions = new InMemorySessionStore(sessionTtlSeconds * 1000);
+  const curators = new Set(env.CURATOR_USERNAMES.split(",").map((name) => name.trim()));
+  const grantsFor = (username: string) => (curators.has(username) ? [Permission.PARTY_CURATE] : []);
   const users = new InMemoryUserRepository(
     seedUsers(hasher, [
       {
@@ -127,6 +139,7 @@ async function bootstrap(): Promise<void> {
         displayName: "CFO",
         role: Role.FINANCE_MANAGER,
         password: env.AUTH_MANAGER_PASSWORD,
+        grants: grantsFor("cfo"),
       },
       {
         id: "user-viewer",
@@ -134,6 +147,7 @@ async function bootstrap(): Promise<void> {
         displayName: "Analista",
         role: Role.VIEWER,
         password: env.AUTH_VIEWER_PASSWORD,
+        grants: grantsFor("viewer"),
       },
     ]),
   );
@@ -145,7 +159,8 @@ async function bootstrap(): Promise<void> {
   let ledgerRead: LedgerReadPort &
     PositionLifecyclePort &
     LedgerEventLookupPort &
-    PositionLookupPort;
+    PositionLookupPort &
+    PartyEventsPort;
   if (env.LEDGER_MODE === "simulate") {
     // One in-memory fake Ledger for BOTH submit + reads → the full create→dashboard loop works.
     const simulator = new InMemoryLedgerSimulator();
@@ -227,6 +242,11 @@ async function bootstrap(): Promise<void> {
       env.USINA_PARTY_ID,
     ),
     decideIdentity: new DecideIdentityUseCase(intentRepo, partyRepo, clock, ids, conversationLog),
+    partyDirectory,
+    registerParty: new RegisterPartyUseCase(partyRepo, clock, ids),
+    linkIdentity: new LinkIdentityUseCase(partyRepo, identityLinks, clock, ids),
+    listPendingIdentities: new ListPendingIdentitiesUseCase(partyRepo, identityLinks, intentRepo),
+    getPartyEvents: new GetPartyEventsUseCase(ledgerRead, partyDirectory),
     listSettlementCandidates: new ListSettlementCandidatesUseCase(intentRepo, ledgerRead, partyDirectory),
     // The algebra is a build artifact of the Ledger, read once at boot. A snapshot this build
     // cannot read is refused loudly here rather than producing a silently empty offer.

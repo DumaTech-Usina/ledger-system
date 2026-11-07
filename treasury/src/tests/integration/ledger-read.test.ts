@@ -147,6 +147,7 @@ describe("GetTreasuryDashboardUseCase", () => {
       get: () => Promise.reject(new Error("directory down")),
       list: () => Promise.reject(new Error("directory down")),
       resolve: () => Promise.reject(new Error("directory down")),
+      identifiersOf: () => Promise.reject(new Error("down")),
     };
     const uc = new GetTreasuryDashboardUseCase(new HttpLedgerReadAdapter(baseUrl), PARTY.USINA, brokenDirectory);
     const d = await uc.execute();

@@ -13,6 +13,8 @@ export interface AppShellProps {
   userName: string;
   userRole: string;
   onSignOut: () => void;
+  /** Shown above every page, whatever the page is. */
+  notice?: ReactNode;
   children: ReactNode;
 }
 
@@ -24,6 +26,7 @@ export function AppShell({
   userName,
   userRole,
   onSignOut,
+  notice,
   children,
 }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -58,6 +61,7 @@ export function AppShell({
           onMenuClick={() => setMenuOpen(true)}
           onSignOut={onSignOut}
         />
+        {notice}
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>

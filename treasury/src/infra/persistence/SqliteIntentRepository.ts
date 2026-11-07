@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { Intent, type IntentProps } from "../../core/domain/entities/Intent";
+import { IntentStatus } from "../../core/domain/enums/IntentStatus";
 import type { IntentRepository } from "../../core/application/repositories/IntentRepository";
 import { openSqlite } from "./openSqlite";
 
@@ -35,6 +36,11 @@ export class SqliteIntentRepository implements IntentRepository {
   async findById(id: string): Promise<Intent | null> {
     const row = this.db.prepare("SELECT body FROM intents WHERE id = ?").get(id) as Row | undefined;
     return row ? toIntent(row) : null;
+  }
+
+  async listAccepted(): Promise<Intent[]> {
+    const rows = this.db.prepare("SELECT body FROM intents ORDER BY rowid ASC").all() as Row[];
+    return rows.map(toIntent).filter((intent) => intent.status === IntentStatus.ACCEPTED);
   }
 
   async listByUser(userId: string): Promise<Intent[]> {

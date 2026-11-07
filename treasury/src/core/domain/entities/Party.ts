@@ -9,8 +9,8 @@ import type { PartyAttribute } from "../value-objects/PartyAttribute";
  * names, documents and classifications are mutable operational state and the Ledger is an immutable
  * chain of financial facts.
  *
- * Phase 1 note: this is a read model. Nothing here emits a PartyId or mutates a Party — emission is
- * an explicit decision and arrives with the phase that introduces it.
+ * Parties come into being by registration (RegisterParty), by a provisional identity or a declared
+ * unidentifiable one (DecideIdentity), or through a load (ImportParties).
  */
 export interface Party {
   /** Opaque, immutable, surrogate. Issued only by the Directory. Never derived from a document. */
@@ -30,4 +30,7 @@ export interface Party {
   attributes: Record<string, PartyAttribute>;
   /** Set only when identityState is MERGED — the surviving party this one resolves to. */
   mergedInto?: string;
+  /** Who brought this party into being, and when. Absent on what a load adopted. */
+  createdBy?: string;
+  createdAt?: string;
 }

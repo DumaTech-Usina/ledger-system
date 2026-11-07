@@ -81,7 +81,7 @@ async function bothAnswer(options: PositionAggregateOptions) {
 }
 
 /** Declares that a settlement never corresponded to the world. Depth 1, as the ledger approves. */
-const retractLoanSettlement = (targetId: string): CreateLedgerEventCommand => ({
+const retractLoanSettlement = (targetId: string, objectId = "pg-retracted"): CreateLedgerEventCommand => ({
   eventType: EventType.LEDGER_CORRECTION,
   economicEffect: EconomicEffect.NON_CASH,
   occurredAt: new Date("2025-05-01"),
@@ -93,7 +93,7 @@ const retractLoanSettlement = (targetId: string): CreateLedgerEventCommand => ({
   normalizationWorkerId: "worker-test",
   relatedEventId: targetId,
   parties: [{ partyId: USINA, role: PartyRole.PLATFORM, direction: Direction.NEUTRAL }],
-  objects: [{ objectId: "pg-retracted", objectType: ObjectType.LOAN, relation: Relation.RETRACTS }],
+  objects: [{ objectId, objectType: ObjectType.LOAN, relation: Relation.RETRACTS }],
   reason: {
     type: ReasonType.DATA_RECONCILIATION,
     description: "verified by accounting: this entry never happened",
@@ -337,7 +337,7 @@ describe("SQLite read paths — SQL and memory answer the same book", () => {
       const undonePayment = await run(
         loanRepayment(ref, "agg-retracted", undone.id.value, EconomicEffect.CASH_IN, Relation.SETTLES, ReasonType.LOAN_REPAYMENT, "100.00"),
       );
-      await run(retractLoanSettlement(undonePayment.id.value));
+      await run(retractLoanSettlement(undonePayment.id.value, "agg-retracted"));
     }
 
     it("totals cash in and out the same way", async () => {

@@ -1,3 +1,4 @@
+import type { PartyEventsPort } from "../../core/application/ports/PartyEventsPort";
 import { randomUUID } from "crypto";
 import type { Candidate } from "../../core/domain/value-objects/Candidate";
 import type { CandidateSubmissionPort, SubmissionOutcome } from "../../core/application/ports/CandidateSubmissionPort";
@@ -6,6 +7,7 @@ import type { PositionLifecyclePort } from "../../core/application/ports/Positio
 import type { PositionCandidate, PositionLookupPort } from "../../core/application/ports/PositionLookupPort";
 import type { LedgerEventLookupPort } from "../../core/application/ports/LedgerEventLookupPort";
 import type {
+  PartyEvent,
   BookExposure,
   CashPosition,
   CashMovementsPage,
@@ -54,12 +56,14 @@ interface RecordInput {
   description: string | null;
 }
 
-export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort {
+export class InMemoryLedgerSimulator implements PartyEventsPort, CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort {
   private readonly movementStore: CashMovement[] = [];
   private readonly positionStore: PositionItem[] = [];
   private readonly seen = new Set<string>();
   private currency = "BRL";
   private seq = 0;
+  /** What was submitted here, so a party's history can be read back in simulate mode. */
+  private readonly accepted: PartyEvent[] = [];
 
   constructor() {
     // A little seeded history so the dashboard isn't empty before the first intent.
@@ -93,6 +97,26 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
       sourceReference: candidate.sourceReference,
       counterparty: candidate.parties.find((p) => p.direction === "neutral")?.partyId ?? null,
       description: candidate.description ?? null,
+    });
+    this.accepted.push({
+      eventId: ledgerReference,
+      eventType: candidate.eventType,
+      economicEffect: candidate.economicEffect,
+      amount: candidate.amount,
+      currency: candidate.currency,
+      occurredAt: candidate.occurredAt,
+      recordedAt: new Date().toISOString(),
+      description: candidate.description ?? null,
+      relatedEventId: candidate.relatedEventId ?? null,
+      objects: candidate.objects.map((o) => ({ ...o })),
+      parties: candidate.parties.map((p) => ({
+        partyId: p.partyId,
+        role: p.role,
+        direction: p.direction,
+        amount: p.amount ?? null,
+      })),
+      source: { system: "treasury", reference: candidate.sourceReference },
+      retracted: false,
     });
     return { status: "accepted", ledgerReference };
   }
@@ -174,6 +198,10 @@ export class InMemoryLedgerSimulator implements CandidateSubmissionPort, LedgerR
    */
   async lifecycle(_objectId: string): Promise<PositionLifecycle | null> {
     return null;
+  }
+
+  async eventsOfParty(identifier: string): Promise<PartyEvent[]> {
+    return this.accepted.filter((e) => e.parties.some((p) => p.partyId === identifier));
   }
 
   /** No event store behind this adapter, so no event can be looked up — and none is invented. */

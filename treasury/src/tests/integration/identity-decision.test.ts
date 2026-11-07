@@ -47,14 +47,14 @@ async function startCommission() {
   return (await w.start.execute({ scenarioId: "register_commission_received", userId: "cfo" })).intentId;
 }
 
-describe("creating an identity is a distinct act", () => {
+describe("a provisional identity is a distinct act", () => {
   it("mints a canonical id and records it in the slot", async () => {
     const intentId = await startPayment();
 
     const { decision, state } = await w.decide.execute({
       intentId,
       slot: "payee",
-      kind: IdentityDecisionKind.CREATE,
+      kind: IdentityDecisionKind.PROVISIONAL,
       mention: "Fornecedor Novo",
       userId: "cfo",
     });
@@ -69,22 +69,22 @@ describe("creating an identity is a distinct act", () => {
     const { decision } = await w.decide.execute({
       intentId,
       slot: "payee",
-      kind: IdentityDecisionKind.CREATE,
+      kind: IdentityDecisionKind.PROVISIONAL,
       mention: "Fornecedor Novo",
       userId: "cfo",
     });
 
     const party = await w.parties.findById(decision.partyId);
     expect(party?.displayName).toBe("Fornecedor Novo");
-    expect(party?.identityState).toBe(PartyIdentityState.IDENTIFIED);
-    // Nothing else is demanded: no document, no type. Enrichment is never a precondition for a fact.
+    expect(party?.identityState).toBe(PartyIdentityState.PROVISIONAL);
+    // Nothing else is demanded: no document, no type. The registry is never a precondition for a fact.
     expect(party?.attributes).toEqual({});
   });
 
   it("refuses to create from nothing", async () => {
     const intentId = await startPayment();
     await expect(
-      w.decide.execute({ intentId, slot: "payee", kind: IdentityDecisionKind.CREATE, userId: "cfo" }),
+      w.decide.execute({ intentId, slot: "payee", kind: IdentityDecisionKind.PROVISIONAL, userId: "cfo" }),
     ).rejects.toThrow(/nothing to record/i);
   });
 
@@ -93,7 +93,7 @@ describe("creating an identity is a distinct act", () => {
     await w.decide.execute({
       intentId,
       slot: "payee",
-      kind: IdentityDecisionKind.CREATE,
+      kind: IdentityDecisionKind.PROVISIONAL,
       mention: "Fornecedor Novo",
       userId: "cfo",
     });
@@ -183,13 +183,13 @@ describe("every issued id traces to a decision", () => {
     const { decision } = await w.decide.execute({
       intentId,
       slot: "payee",
-      kind: IdentityDecisionKind.CREATE,
+      kind: IdentityDecisionKind.PROVISIONAL,
       mention: "Fornecedor Novo",
       userId: "cfo",
     });
 
     expect(decision).toMatchObject({
-      kind: IdentityDecisionKind.CREATE,
+      kind: IdentityDecisionKind.PROVISIONAL,
       slot: "payee",
       mention: "Fornecedor Novo",
       decidedBy: "cfo",
@@ -223,7 +223,7 @@ describe("every issued id traces to a decision", () => {
       w.decide.execute({
         intentId,
         slot: "amount",
-        kind: IdentityDecisionKind.CREATE,
+        kind: IdentityDecisionKind.PROVISIONAL,
         mention: "1500.00",
         userId: "cfo",
       }),
@@ -233,7 +233,7 @@ describe("every issued id traces to a decision", () => {
   it("issues nothing when the decision is refused", async () => {
     const intentId = await startPayment();
     await expect(
-      w.decide.execute({ intentId, slot: "payee", kind: IdentityDecisionKind.CREATE, userId: "cfo" }),
+      w.decide.execute({ intentId, slot: "payee", kind: IdentityDecisionKind.PROVISIONAL, userId: "cfo" }),
     ).rejects.toThrow();
 
     expect(await w.parties.findAll()).toEqual([]);
@@ -250,7 +250,7 @@ describe("the decision closes the dialog", () => {
     const { state } = await w.decide.execute({
       intentId,
       slot: "payee",
-      kind: IdentityDecisionKind.CREATE,
+      kind: IdentityDecisionKind.PROVISIONAL,
       mention: "Fornecedor Novo",
       userId: "cfo",
     });

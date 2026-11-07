@@ -384,6 +384,10 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
   [EventType.COMMISSION_EXPECTED]: {
     economicEffects: [EconomicEffect.NON_CASH],
 
+    // When the commission is expected to arrive, which may be ahead of today. The expectation itself
+    // is a fact of the moment it was established, so `occurredAt` stays in the past.
+    admitsDueAt: true,
+
     objects: [
       {
         objectType: ObjectType.COMMISSION_RECEIVABLE,
@@ -425,6 +429,9 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
       { objectType: ObjectType.INFRASTRUCTURE_COST, relations: [Relation.ORIGINATES] },
       { objectType: ObjectType.TAX,                 relations: [Relation.ORIGINATES] },
       { objectType: ObjectType.PAYABLE,             relations: [Relation.ORIGINATES] },
+      // What the usina owes a person for a commission, opened by the user with no cash moving. Paid
+      // later by COMMISSION_SPLIT, which SETTLES this same position.
+      { objectType: ObjectType.COMMISSION_PAYABLE,  relations: [Relation.ORIGINATES] },
     ],
 
     reasons: [

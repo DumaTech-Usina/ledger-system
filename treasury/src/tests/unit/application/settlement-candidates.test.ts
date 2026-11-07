@@ -257,6 +257,7 @@ describe("ListSettlementCandidatesUseCase", () => {
       get: () => Promise.reject(new Error("down")),
       list: () => Promise.reject(new Error("down")),
       resolve: () => Promise.reject(new Error("down")),
+      identifiersOf: () => Promise.reject(new Error("down")),
     };
     const uc = new ListSettlementCandidatesUseCase(
       intents("register_advance_settlement"),

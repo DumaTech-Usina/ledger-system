@@ -52,7 +52,7 @@ export interface SubmitRectificationResult {
 }
 
 /** Object kinds a rectification can name; the Ledger admits more, treasury maps these. */
-const SUPPORTED_OBJECT_TYPES = new Set(["advance", "loan", "commission_receivable"]);
+const SUPPORTED_OBJECT_TYPES = new Set(["advance", "loan", "commission_receivable", "commission_payable"]);
 
 /**
  * Rectify a recorded entry: declare that it never corresponded to the world, and — when the entry
@@ -93,9 +93,10 @@ export class SubmitRectificationUseCase {
       throw new Error(`Unknown entry: ${input.targetEventId}`);
     }
 
-    // The position the entry moved. Contextual objects only annotate — they are never what a
+    // The positions the entry moved. Contextual objects only annotate — they are never what a
     // rectification names, because removing the entry's contribution has nothing to do with them.
-    const moved = target.objects.find((o) => o.relation !== "references");
+    // The first one selects the tuple; the withdrawal names them all (REQ-525).
+    const [moved, ...others] = target.objects.filter((o) => o.relation !== "references");
     if (!moved) {
       throw new Error(`Entry ${input.targetEventId} moved no position, so there is nothing to rectify.`);
     }
@@ -118,7 +119,7 @@ export class SubmitRectificationUseCase {
     // the operator could simply have fixed and sent again.
     if (plan) this.assertDescribable(plan.scenarioId, this.reissueAnswers(input, plan));
 
-    const retraction = await this.retract(input, target, moved, plan !== null);
+    const retraction = await this.retract(input, target, moved, others, plan !== null);
     if (!plan || retraction.status !== "accepted") return { retraction };
 
     const reissue = await this.reissue(input, plan);
@@ -132,6 +133,7 @@ export class SubmitRectificationUseCase {
     input: SubmitRectificationInput,
     target: { eventId: string; amount: string; currency: string },
     moved: { objectId: string; objectType: string },
+    others: { objectId: string; objectType: string }[],
     awaitingReissue: boolean,
   ): Promise<SubmitIntentResult> {
     const { intentId } = await this.startIntent.execute({
@@ -150,6 +152,12 @@ export class SubmitRectificationUseCase {
       // The correction occurs when the error is established, not when the corrected entry occurred.
       { key: "occurredAt", value: this.clock.now() },
       ...(awaitingReissue ? [{ key: "reissue", value: "pending" }] : []),
+      ...(others.length > 0
+        ? [{
+            key: "otherPositions",
+            value: JSON.stringify(others.map(({ objectId, objectType }) => ({ objectId, objectType }))),
+          }]
+        : []),
       ...(input.description ? [{ key: "description", value: input.description }] : []),
     ]);
   }

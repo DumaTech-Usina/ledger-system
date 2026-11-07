@@ -26,12 +26,12 @@ import type {
 /**
  * One way out of an unresolved counterparty. `select` is not a decision at all — it answers the
  * slot with the canonical PartyId, which the backend's cascade resolves by `exact_id` and records
- * like any other answer. Only `create` and `unidentifiable` mint an identity, and only those two
+ * like any other answer. Only `provisional` and `unidentifiable` mint an identity, and only those two
  * go through the identity route.
  */
 export type IdentityOption =
   | { kind: "select"; partyId: string; label: string }
-  | { kind: "create"; mention: string; label: string }
+  | { kind: "provisional"; mention: string; label: string }
   | { kind: "unidentifiable"; mention: string; label: string };
 
 export type StreamItem =
@@ -190,13 +190,17 @@ export function identityDecision(outcome: IdentityOutcome, slot: SlotDefinition 
     // two real counterparties become one aggregate — irreversibly, since events are immutable.
     text = identityCopy.similar(mention);
     for (const candidate of resolution.candidates) {
-      options.push({ kind: "select", partyId: candidate.partyId, label: candidate.displayName });
+      options.push({
+        kind: "select",
+        partyId: candidate.partyId,
+        label: candidate.provisional ? identityCopy.provisionalName(candidate.displayName) : candidate.displayName,
+      });
     }
   } else {
     text = identityCopy.unknown(mention);
   }
 
-  options.push({ kind: "create", mention, label: identityCopy.create(mention) });
+  options.push({ kind: "provisional", mention, label: identityCopy.provisional(mention) });
   if (slot?.allowUnidentifiable) {
     options.push({ kind: "unidentifiable", mention, label: identityCopy.unidentifiable });
   }

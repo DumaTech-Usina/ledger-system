@@ -127,7 +127,42 @@ export function eventRoutes(ledgerRepo: LedgerEventRepository): Router {
   });
 
   /**
-   * A single event by id. Declared AFTER `/feed` so the literal route wins over the parameter.
+   * Every event a party takes part in, in any role. Read-only, and not paged: this is one party's
+   * history, read whole.
+   *
+   * `retracted` is on each event because a reader could not work it out from this list. A retraction
+   * names only the usina as a party, so it never appears among the corrected party's own events, and
+   * the withdrawn entry would otherwise read as standing. Two hops, as in the cash statement: the
+   * retractions of each event, and any that were themselves retracted.
+   */
+  router.get("/by-party", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const partyId = req.query.partyId;
+      if (typeof partyId !== "string" || partyId.trim() === "") {
+        res.status(400).json({ error: "partyId is required" });
+        return;
+      }
+
+      const events = await ledgerRepo.findByPartyId(partyId);
+      const firstHop = (
+        await Promise.all(events.map((e) => ledgerRepo.findByRelatedEventId(e.id.value)))
+      ).flat();
+      const secondHop = (
+        await Promise.all(firstHop.map((e) => ledgerRepo.findByRelatedEventId(e.id.value)))
+      ).flat();
+      const retracted = retractedEventIds([...firstHop, ...secondHop]);
+
+      res.json({
+        data: events.map((event) => ({ ...serializeEvent(event), retracted: retracted.has(event.id.value) })),
+        total: events.length,
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /**
+   * A single event by id. Declared AFTER `/feed` and `/by-party` so the literal route wins over the parameter.
    *
    * A producer that wants to rectify an event needs to know what that event asserted — its amount,
    * and the object it moved. Without this, the only way to build a correction is to retype figures

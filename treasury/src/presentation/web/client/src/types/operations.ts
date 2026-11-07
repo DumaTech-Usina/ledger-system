@@ -56,6 +56,8 @@ export interface ResolutionCandidate {
   displayName: string;
   /** In [0, 1]. */
   score: number;
+  /** Someone not registered yet. */
+  provisional?: boolean;
 }
 
 /**
@@ -81,7 +83,7 @@ export interface IdentityOutcome {
 }
 
 /** The two acts that may bring a PartyId into existence from a conversation. */
-export type IdentityDecisionKind = "create" | "unidentifiable";
+export type IdentityDecisionKind = "provisional" | "unidentifiable";
 
 export interface AdvanceDialogResult {
   state: DialogState;

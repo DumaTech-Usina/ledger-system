@@ -1,12 +1,12 @@
 import { type ReactElement } from "react";
-import { BarChart3, ChevronLeft, FileText, LayoutDashboard, MessageSquare, Warehouse } from "lucide-react";
+import { BarChart3, ChevronLeft, FileText, LayoutDashboard, MessageSquare, UserCog, Users, Warehouse } from "lucide-react";
 import { useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
 
 export interface NavItem {
   id: string;
   label: string;
-  icon: "operations" | "dashboards" | "positions" | "intents";
+  icon: "operations" | "dashboards" | "positions" | "intents" | "partyView" | "parties";
 }
 
 export interface SidebarProps {
@@ -24,6 +24,8 @@ const icons: Record<NavItem["icon"], ReactElement> = {
   dashboards: <LayoutDashboard className="size-4" strokeWidth={1.5} />,
   positions: <BarChart3 className="size-4" strokeWidth={1.5} />,
   intents: <FileText className="size-4" strokeWidth={1.5} />,
+  partyView: <Users className="size-4" strokeWidth={1.5} />,
+  parties: <UserCog className="size-4" strokeWidth={1.5} />,
 };
 
 export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, onToggleCollapse }: SidebarProps) {

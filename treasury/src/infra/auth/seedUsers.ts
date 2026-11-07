@@ -1,5 +1,6 @@
 import { User } from "../../core/domain/entities/User";
 import { Role } from "../../core/domain/enums/Role";
+import type { Permission } from "../../core/domain/enums/Permission";
 import type { PasswordHasher } from "../../core/application/ports/PasswordHasher";
 
 export interface UserSeed {
@@ -8,6 +9,7 @@ export interface UserSeed {
   displayName: string;
   role: Role;
   password: string;
+  grants?: Permission[];
 }
 
 /** Builds seed users with hashed passwords. Seed credentials come from env (dev defaults only). */
@@ -21,6 +23,7 @@ export function seedUsers(hasher: PasswordHasher, seeds: UserSeed[]): User[] {
       role: s.role,
       passwordHash: hash,
       passwordSalt: salt,
+      grants: s.grants,
     });
   });
 }

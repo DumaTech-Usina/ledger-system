@@ -5,9 +5,7 @@ import type { Resolution, ResolutionQuery } from "../../domain/services/PartyRes
  * The boundary behind which the Party Directory lives — the Treasury's owner of operational
  * identity. Only `partyId` ever crosses into the Ledger; everything the Directory holds stays here.
  *
- * Read-only for now, deliberately. Issuing a PartyId is an explicit decision (associate, create, or
- * declare not identifiable) and belongs to the phase that introduces those decisions; declaring the
- * write surface before it can be honoured would put an unfulfillable contract in the codebase.
+ * Read-only, deliberately. Issuing a PartyId is an explicit act, with its own use cases.
  */
 export interface PartyDirectoryPort {
   /** Run the deterministic cascade against the directory. Never creates anything. */
@@ -18,4 +16,7 @@ export interface PartyDirectoryPort {
 
   /** Every party the directory holds. Used for grounding context and for measurement. */
   list(): Promise<Party[]>;
+
+  /** Every identifier that means this party, for reading what the Ledger recorded under each (REQ-332). */
+  identifiersOf(partyId: string): Promise<string[]>;
 }
