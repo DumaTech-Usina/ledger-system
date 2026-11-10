@@ -42,6 +42,7 @@
 > | 2026-11-06 | 12 — fluxo do repasse | O dono do produto descreveu o fluxo da venda ao pagamento e aceitou as recomendações. **Decidido:** o repasse sai de "adiado" (`DEC-017`); o molde do evento não muda e o autor registrado diz quem anotou (`REQ-805`); confiança conforme a origem do conhecimento (`REQ-806`); o sinal externo só entra no Ledger depois da confirmação (`REQ-323`); extrato de recebível é o demonstrativo e não cria fato (`REQ-244`); qualquer operador registra o pagamento (`REQ-248`); lote é um evento por pessoa (`REQ-246`, `DEC-026`); anexo opcional, guardado no Treasury e auditado (`REQ-247`, `REQ-804`). |
 > | 2026-11-07 | 13 — teste na tela e sistema de seguro | O dono do produto testou os passos 2 e 3 e achou o sistema ainda difícil para um leigo, com eventos desconexos das partes. **Corrigido:** data esperada da comissão prevista (`REQ-229`) e lista de seleção encoberta. **Levantado:** o sistema de seguro (Anexo B). **Em aberto:** `DEC-028`–`DEC-032` e `Q-047`–`Q-051`. A situação está em §16.1. |
 > | 2026-11-09 | 14 — sinal externo do sistema de seguro | Discussão de negócio e arquitetura sobre como o Treasury absorve o que o sistema de seguro sabe, sem API. O dono do produto aceitou as recomendações. **Decidido:** o **sinal externo** é um conceito do Treasury, uma cópia imutável que nunca vai ao Ledger e gera um fato proposto por acontecimento (`REQ-260`, `REQ-261`); o sistema de seguro só gera expectativas, e a obrigação com o corretor nasce na elegibilidade (`REQ-262`, `Q-047`); a elegibilidade diz que a seguradora declarou ter pago, o que não é recebimento (`REQ-263`); o valor retido não é evento e isso fica explícito (`REQ-264`); referência da origem para evitar duplicidade (`REQ-265`); mudança na origem vira novo sinal (`REQ-266`); partes pelo id externo e apólice como contexto `contract` (`REQ-267`, `DEC-029`); o Treasury recomenda ligações e avisa o repasse sem entrada (`REQ-268`); quatro cenários de recebimento e conciliação opcional por lote (`REQ-269`, `Q-049`); obrigação inteira, com o adiantamento à mostra (`REQ-270`); data esperada opcional com alerta de pendência (`REQ-271`); nesta etapa o usuário preenche a partir da tela (`REQ-261`). **Em aberto:** alcance da retificação × ajuste (`DEC-033`), outros beneficiários vindos do sistema de seguro (`DEC-034`), elegibilidade por parcela (`Q-052`). **Depois, no mesmo dia:** ordem dos blocos (`DEC-031`); blocos A, B e C implementados; contextos fora da lista de posições (`DEC-035` → `REQ-605`); a elegibilidade também propõe a comissão prevista, com a seguradora como pagadora e a data da apólice (`REQ-272`–`REQ-274`, `DEC-010` em parte). **Alterado:** a tabela de `REQ-262` (antes, a elegibilidade propunha só a obrigação). **Corrigido:** id externo guardado com o cadastro de origem, depois que a seguradora e o corretor "123" viraram a mesma parte (`REQ-267`). **Decidido:** herdar o contexto e contar a história da apólice (`REQ-275`, `REQ-276`); bloco E adiado por não ser caso real; crédito da seguradora em lote, com o resto como recebimento sem origem (`REQ-277`); a lacuna de enriquecer a origem depois ficou em `DEC-036`. Nada foi revogado. |
+> | 2026-11-09 | 15 — integração com o sistema de seguro | **Decidido:** só a elegibilidade é publicada; leitura a cada 5 minutos; RabbitMQ em servidor próprio, conectado por `.env`, fora do `docker-compose`. **Implementado:** produtor, contrato único, consumidor com descarte de leitura repetida e fila de mortas, autoria do sistema, aviso no menu (`REQ-278`, `REQ-279`). Falta validar com um broker de verdade. Nada foi revogado. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -703,6 +704,30 @@ Apólice 5177202641312121285
   09/11  A Usina pagou R$ 77,26 ao Halisson.
   09/11  O sistema de seguro informou a elegibilidade (registrado por cfo). É um sinal, não um fato.
 ```
+
+`REQ-278` **Integração com o sistema de seguro** (rodada 15, 2026-11-09). Um **produtor** lê a API do
+sistema de seguro a cada 5 minutos e publica **uma mensagem por apólice elegível** no broker (RabbitMQ,
+em servidor próprio, conectado por `.env`). Um **consumidor** registra cada mensagem como sinal, de
+autoria do **sistema** (`REQ-805`); os fatos propostos chegam ao Ledger com o reporter `system` e
+confiança média, e a auditoria guarda quem confirmou. A integração só **preenche**: nada vai ao Ledger
+sem um usuário confirmar (`REQ-261`, `REQ-323`). O formulário continua disponível como alternativa.
+
+| Contrato | Valor |
+| --- | --- |
+| Exchange / routing key / fila | `treasury` (direct) / `signal.insurance` / `treasury.signals`, com mortas em `treasury.dlx` → `treasury.signals.dead` |
+| Envelope | `messageId` (`seguro:eligibility:<apólice>:<sha256 dos campos>`), `type` `insurance.signal.observed`, `version` 1, `source` `seguro`, `publisher`, `observedAt`, `signal.kind` `eligibility`, `signal.fields` |
+| Campos | Os do sinal (§4.6), na forma do formulário; o cliente nunca entra |
+| Repetida (mesma leitura da mesma apólice) | Nada é gravado; confirmada no broker |
+| Leitura diferente da mesma apólice | Novo sinal; as propostas existentes são reaproveitadas (`REQ-265`) |
+| Inválida (JSON, envelope, versão, campo) | Vai para a fila de mortas, com o motivo no log |
+
+O contrato é um arquivo só (`insuranceSignalMessage.ts`), usado pelos dois lados. De onde vem cada
+campo: `GET /payouts/eligible` (valores, CT, CR, CTU, data da elegibilidade), `GET /policies/:id` (id do
+corretor; `registeredAt` como data da apólice) e `GET /proposals/:id` (id da seguradora, produto). O
+nome da seguradora não vem na API; o id faz as vezes de nome visto.
+
+`REQ-279` O item **"Sistema de seguro"** do menu lateral mostra quantas propostas esperam conferência,
+relido a cada 20 segundos, como o aviso de identidades provisórias.
 
 `REQ-271` A **data esperada** da comissão prevista (`REQ-229`) continua opcional. Sem ela, a comissão
 fica com um **alerta de pendência**, porque essa data serve ao controle de inadimplência. O alerta é
@@ -1585,13 +1610,12 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 
 **O que decidir para continuar, nesta ordem.**
 
-**Próximo passo (combinado em 2026-11-09, ao fechar o dia):** a **integração com o sistema de seguro**,
-em no máximo duas rodadas, num commit próprio. A preferência do dono do produto é por **mensageria
-(broker)**, e não por chamadas diretas à API. A integração só **preenche** sinais (`REQ-261`, `REQ-323`):
-nada vai ao Ledger sem um usuário confirmar, e o desenho de §4.6 não muda. Pontos a conversar no começo
-da rodada: qual broker, quem publica (o sistema de seguro ou um adaptador lendo a API), o formato da
-mensagem, como evitar sinal repetido (a referência da origem já protege o Ledger, `REQ-265`), o autor do
-sinal (`REQ-805`: o sistema, com o usuário que confirmou na auditoria) e o alerta no menu lateral.
+**Integração com o sistema de seguro (rodada 15, 2026-11-09): implementada, sem commit** (`REQ-278`,
+`REQ-279`). Produtor validado contra a API real (duas apólices elegíveis viraram duas mensagens válidas).
+**Falta validar com um RabbitMQ de verdade**: o Docker não estava rodando. Para isso:
+`docker run -d --name rabbit -p 5672:5672 -p 15672:15672 rabbitmq:3-management`, preencher
+`INSURANCE_API_EMAIL`/`INSURANCE_API_PASSWORD` no `.env` e rodar `npm run consume:signals` e
+`npm run worker:insurance -- --once`.
 
 `DEC-028` e `DEC-029` foram decididas em 2026-11-09 (§4.6), e os blocos A a D estão implementados.
 

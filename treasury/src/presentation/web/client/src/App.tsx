@@ -10,6 +10,7 @@ import { PartiesPage } from "@/features/parties/PartiesPage";
 import { PartyViewPage } from "@/features/parties/PartyViewPage";
 import { SignalsPage } from "@/features/signals/SignalsPage";
 import { signalsCopy } from "@/features/signals/signalsCopy";
+import { useOpenProposals } from "@/features/signals/useOpenProposals";
 import { PendingIdentitiesBanner } from "@/features/parties/PendingIdentitiesBanner";
 import { partiesCopy } from "@/features/parties/partiesCopy";
 import { usePendingIdentities } from "@/features/parties/usePendingIdentities";
@@ -31,6 +32,7 @@ export function App() {
   const { t, language } = useLanguage();
   const canCurate = user?.permissions.includes("party:curate") ?? false;
   const { pending, refresh: refreshPending } = usePendingIdentities(status === "authenticated");
+  const { count: openProposals } = useOpenProposals(status === "authenticated");
 
   const navItems = [
     { id: "operations", label: t.nav.operations, icon: "operations" as const },
@@ -38,7 +40,13 @@ export function App() {
     { id: "positions", label: t.nav.positions, icon: "positions" as const },
     { id: "intents", label: t.nav.intents, icon: "intents" as const },
     { id: "partyView", label: partiesCopy[language].viewHeading, icon: "partyView" as const },
-    { id: "signals", label: signalsCopy[language].nav, icon: "signals" as const },
+    {
+      id: "signals",
+      label: signalsCopy[language].nav,
+      icon: "signals" as const,
+      badge: openProposals,
+      badgeLabel: signalsCopy[language].openBadge(openProposals),
+    },
     ...(canCurate ? [{ id: "parties", label: partiesCopy[language].heading, icon: "parties" as const }] : []),
   ];
 

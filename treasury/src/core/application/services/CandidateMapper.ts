@@ -808,7 +808,10 @@ export class CandidateMapper {
       parties,
       objects,
       reason: { type: reasonType, description: reasonText, confidence, requiresFollowup },
-      reporter: { reporterType: "user", reporterId: intent.userId, channel: "web" },
+      // REQ-805: what the integration brought in is reported by the system, whoever confirms it.
+      reporter: intent.origin?.reporter
+        ? { reporterType: intent.origin.reporter.type, reporterId: intent.origin.reporter.id, channel: "broker" }
+        : { reporterType: "user", reporterId: intent.userId, channel: "web" },
     };
   }
 

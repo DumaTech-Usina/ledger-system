@@ -9,6 +9,11 @@ export class InMemoryExternalSignalRepository implements ExternalSignalRepositor
     this.store.push(signal.toJSON());
   }
 
+  async latestFor(kind: string, recordId: string): Promise<ExternalSignal | null> {
+    const found = [...this.store].reverse().find((p) => p.kind === kind && p.recordId === recordId);
+    return found ? ExternalSignal.rehydrate(found) : null;
+  }
+
   async list(): Promise<ExternalSignal[]> {
     return [...this.store].reverse().map((p) => ExternalSignal.rehydrate(p));
   }

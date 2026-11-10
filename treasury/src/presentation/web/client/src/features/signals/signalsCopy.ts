@@ -2,6 +2,8 @@ import type { Language } from "@/i18n/i18n";
 
 const ptBR = {
   nav: "Sistema de seguro",
+  author: (who: string) => (who === "system:seguro" ? "sistema de seguro (automático)" : who),
+  openBadge: (n: number) => (n === 1 ? "1 proposta esperando conferência" : `${n} propostas esperando conferência`),
   heading: "Sinais do sistema de seguro",
   subheading:
     "O que o sistema de seguro mostra vira uma proposta. Nada vai ao Ledger até você conferir e enviar cada fato.",
@@ -112,6 +114,8 @@ const ptBR = {
 
 const en: typeof ptBR = {
   nav: "Insurance system",
+  author: (who: string) => (who === "system:seguro" ? "insurance system (automatic)" : who),
+  openBadge: (n: number) => (n === 1 ? "1 proposal waiting for review" : `${n} proposals waiting for review`),
   heading: "Insurance system signals",
   subheading: "What the insurance system shows becomes a proposal. Nothing reaches the Ledger until you review and submit each fact.",
   registerTitle: "Record what you saw",

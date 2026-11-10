@@ -147,7 +147,7 @@ function PolicyHistory({ history, partyNames }: { history: PolicyHistoryEntry[];
   const sentence = (entry: PolicyHistoryEntry): string => {
     switch (entry.kind) {
       case "signal":
-        return copy.story.signal(copy.story.signalKinds[entry.signalKind], entry.recordedBy);
+        return copy.story.signal(copy.story.signalKinds[entry.signalKind], signalsCopy[language].author(entry.recordedBy));
       case "expected":
         return copy.story.expected(money(entry.amount), name(entry.from));
       case "obligation":

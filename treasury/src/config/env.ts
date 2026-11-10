@@ -75,6 +75,17 @@ const envSchema = z.object({
   /** Who holds curation, by username, comma-separated (REQ-402). A permission, not a role. */
   CURATOR_USERNAMES: z.string().default("cfo"),
 
+  /** The broker the insurance producer publishes to and the signal consumer reads from (round 15). */
+  RABBITMQ_URL: z.string().default("amqp://guest:guest@localhost:5672"),
+
+  /** The insurance system's API, read by the producer. Its credentials only ever come from `.env`. */
+  INSURANCE_API_URL: z.string().default("http://localhost:3100"),
+  INSURANCE_API_EMAIL: z.string().default(""),
+  INSURANCE_API_PASSWORD: z.string().default(""),
+
+  /** How often the producer reads the insurance system, in minutes. */
+  INSURANCE_POLL_MINUTES: z.coerce.number().positive().default(5),
+
   /** Session lifetime in hours. */
   SESSION_TTL_HOURS: z.coerce.number().int().positive().default(12),
 

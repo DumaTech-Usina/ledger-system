@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   ExternalSignal,
   type ExternalSignalProps,
@@ -24,13 +23,24 @@ import type { IntentRepository } from "../repositories/IntentRepository";
 import type { Clock } from "../ports/Clock";
 import type { IdGenerator } from "../ports/IdGenerator";
 import { localDay } from "../utils/instant";
+import { signalFingerprint } from "../services/signalFingerprint";
 import type { StartIntentUseCase } from "./StartIntent";
 import type { ApplyAnswersUseCase } from "./ApplyAnswers";
+
+/** Who brings a signal in through the integration (REQ-805). */
+export const INTEGRATION_AUTHOR = "system:seguro";
 
 export interface RegisterExternalSignalInput {
   kind: SignalKind;
   fields: Record<string, unknown>;
+  /** The user who filled the form. Ignored when `bySystem` is set. */
   userId: string;
+  /**
+   * Brought in by the integration: authored by the system, and a reading identical to the last one
+   * of the same record is not stored again — the producer re-reads on a schedule, and the same
+   * reading is not new knowledge.
+   */
+  bySystem?: boolean;
 }
 
 export interface RegisteredProposal extends ProposedFact {
@@ -40,6 +50,8 @@ export interface RegisteredProposal extends ProposedFact {
 export interface RegisterExternalSignalResult {
   signal: ExternalSignalProps;
   proposals: RegisteredProposal[];
+  /** True when the reading was identical to the last one and nothing was stored. */
+  duplicate?: boolean;
 }
 
 /**
@@ -76,6 +88,15 @@ export class RegisterExternalSignalUseCase {
     const { fields, errors } = validateSignalFields(input.kind, input.fields ?? {});
     if (errors.length > 0) throw new Error(`Sinal recusado: ${errors.join("; ")}`);
 
+    const author = input.bySystem ? INTEGRATION_AUTHOR : input.userId;
+    const contentHash = signalFingerprint(input.kind, fields);
+    if (input.bySystem) {
+      const last = await this.signals.latestFor(input.kind, fields.policyId);
+      if (last && last.toJSON().contentHash === contentHash) {
+        return { signal: last.toJSON(), proposals: [], duplicate: true };
+      }
+    }
+
     const plans = proposalsFor(input.kind, fields);
     this.assertAnswersValid(plans);
 
@@ -90,7 +111,7 @@ export class RegisterExternalSignalUseCase {
         continue;
       }
 
-      const party = plan.party ? await this.partyFor(plan.party, input.userId) : undefined;
+      const party = plan.party ? await this.partyFor(plan.party, author) : undefined;
       const answers =
         plan.party && party && (party.outcome === "linked" || party.outcome === "provisional")
           ? [...plan.answers, { key: plan.party.slot, value: party.partyId }]
@@ -98,8 +119,13 @@ export class RegisterExternalSignalUseCase {
 
       const { intentId } = await this.startIntent.execute({
         scenarioId: plan.scenarioId,
-        userId: input.userId,
-        origin: { signalId, sourceReference: plan.sourceReference, confidence: "medium" },
+        userId: author,
+        origin: {
+          signalId,
+          sourceReference: plan.sourceReference,
+          confidence: "medium",
+          ...(input.bySystem ? { reporter: { type: "system" as const, id: "seguro" } } : {}),
+        },
         contexts: [plan.context],
       });
       const merged = await this.applyAnswers.execute({ intentId, answers });
@@ -124,9 +150,9 @@ export class RegisterExternalSignalUseCase {
       kind: input.kind,
       recordId: fields.policyId,
       fields,
-      contentHash: fingerprint(input.kind, fields),
+      contentHash,
       receivedAt: this.clock.now(),
-      recordedBy: input.userId,
+      recordedBy: author,
       proposals: proposals.map(({ intentStatus: _, ...p }) => p),
     });
     await this.signals.add(signal);
@@ -182,12 +208,4 @@ export class RegisterExternalSignalUseCase {
     }
     if (problems.length > 0) throw new Error(`Sinal recusado: ${problems.join("; ")}`);
   }
-}
-
-/** Kind and fields in a fixed key order, so the same reading always hashes the same. */
-function fingerprint(kind: SignalKind, fields: Record<string, string>): string {
-  const ordered = Object.keys(fields)
-    .sort()
-    .map((key) => [key, fields[key]]);
-  return createHash("sha256").update(JSON.stringify({ kind, fields: ordered })).digest("hex");
 }

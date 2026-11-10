@@ -7,6 +7,9 @@ export interface NavItem {
   id: string;
   label: string;
   icon: "operations" | "dashboards" | "positions" | "intents" | "partyView" | "parties" | "signals";
+  /** Something waiting for the user here, e.g. signals not yet reviewed. Hidden when zero or absent. */
+  badge?: number;
+  badgeLabel?: string;
 }
 
 export interface SidebarProps {
@@ -75,7 +78,7 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
                   onSelect(item.id);
                   onClose();
                 }}
-                title={collapsed ? item.label : undefined}
+                title={collapsed ? item.label : item.badge ? item.badgeLabel : undefined}
                 className={cn(
                   "flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition-all duration-300",
                   collapsed && "md:justify-center md:px-0",
@@ -84,7 +87,20 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
                     : "text-muted hover:translate-x-1 hover:bg-accent-soft hover:text-accent",
                 )}
               >
-                <span className={cn("flex-shrink-0", !active && "opacity-80")}>{icons[item.icon]}</span>
+                <span className={cn("relative flex-shrink-0", !active && "opacity-80")}>
+                  {icons[item.icon]}
+                  {item.badge ? (
+                    <span
+                      aria-label={item.badgeLabel}
+                      className={cn(
+                        "absolute -right-2 -top-2 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold leading-4",
+                        active ? "bg-accent-ink text-accent" : "bg-warn text-white",
+                      )}
+                    >
+                      {item.badge > 99 ? "99+" : item.badge}
+                    </span>
+                  ) : null}
+                </span>
                 <span className={cn(collapsed && "md:hidden")}>{item.label}</span>
               </button>
             );

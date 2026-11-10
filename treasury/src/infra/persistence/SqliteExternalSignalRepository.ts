@@ -24,6 +24,17 @@ export class SqliteExternalSignalRepository implements ExternalSignalRepository 
     this.db.prepare("INSERT INTO external_signals (id, body) VALUES (?, ?)").run(signal.id, JSON.stringify(signal.toJSON()));
   }
 
+  async latestFor(kind: string, recordId: string): Promise<ExternalSignal | null> {
+    const row = this.db
+      .prepare(
+        `SELECT body FROM external_signals
+         WHERE json_extract(body, '$.kind') = ? AND json_extract(body, '$.recordId') = ?
+         ORDER BY rowid DESC LIMIT 1`,
+      )
+      .get(kind, recordId) as { body: string } | undefined;
+    return row ? ExternalSignal.rehydrate(JSON.parse(row.body) as ExternalSignalProps) : null;
+  }
+
   async list(): Promise<ExternalSignal[]> {
     const rows = this.db.prepare("SELECT body FROM external_signals ORDER BY rowid DESC").all() as { body: string }[];
     return rows.map((row) => ExternalSignal.rehydrate(JSON.parse(row.body) as ExternalSignalProps));

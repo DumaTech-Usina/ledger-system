@@ -22,6 +22,11 @@ export interface IntentOrigin {
   signalId: string;
   sourceReference: string;
   confidence: "medium";
+  /**
+   * Who reported it, when not the user (REQ-805): a signal the integration brought in is authored by
+   * the system; the user who confirms it is recorded by the audit.
+   */
+  reporter?: { type: "system"; id: string };
   /** Read only from intents stored before `contexts` existed (2026-11-09); carried over on rehydrate. */
   context?: ContextRef;
 }
@@ -169,4 +174,8 @@ export class Intent {
   }
 }
 
-const cloneOrigin = (o: IntentOrigin): IntentOrigin => ({ ...o, ...(o.context ? { context: { ...o.context } } : {}) });
+const cloneOrigin = (o: IntentOrigin): IntentOrigin => ({
+  ...o,
+  ...(o.context ? { context: { ...o.context } } : {}),
+  ...(o.reporter ? { reporter: { ...o.reporter } } : {}),
+});

@@ -304,7 +304,7 @@ function SignalItem({
         <p className="text-xs text-muted">
           {copy.receivedAt(
             formatDateTime(signal.receivedAt),
-            signal.recordedBy,
+            copy.author(signal.recordedBy),
           )}
         </p>
       </div>
