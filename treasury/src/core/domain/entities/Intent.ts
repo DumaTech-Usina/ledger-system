@@ -12,6 +12,30 @@ const EDITABLE: ReadonlySet<IntentStatus> = new Set([
   IntentStatus.AWAITING_CORRECTION,
 ]);
 
+/**
+ * Where a proposed fact came from, when it was not the user's own conversation (§4.6). The source
+ * reference replaces `intent:<id>` on the candidate, so the Ledger's duplicate check covers the same
+ * external record however many times it is read (REQ-265). The confidence is what the way of knowing
+ * allows (REQ-806): a signal seen on another system's screen is medium, never high.
+ */
+export interface IntentOrigin {
+  signalId: string;
+  sourceReference: string;
+  confidence: "medium";
+  /** Read only from intents stored before `contexts` existed (2026-11-09); carried over on rehydrate. */
+  context?: ContextRef;
+}
+
+/**
+ * What a fact is about, cited with `references`: a policy (`contract`), a proposal, a batch. It
+ * annotates the event without moving any balance, and lets the Ledger answer "every fact of this
+ * policy" (REQ-267, REQ-275).
+ */
+export interface ContextRef {
+  objectId: string;
+  objectType: string;
+}
+
 export interface IntentProps {
   id: string;
   scenarioId: string;
@@ -24,6 +48,13 @@ export interface IntentProps {
   ledgerReference?: string;
   /** Set once the Ledger rejects the candidate — the legible reason. */
   rejectionReason?: string;
+  /** Present only on a fact proposed from an external signal. */
+  origin?: IntentOrigin;
+  /**
+   * The contexts the fact will cite: those of the signal it came from, or those of the fact that
+   * opened the position it continues (REQ-275).
+   */
+  contexts?: ContextRef[];
 }
 
 /**
@@ -40,6 +71,8 @@ export class Intent {
     userId: string,
     now: string,
     answers: Record<string, SlotValue> = {},
+    origin?: IntentOrigin,
+    contexts: ContextRef[] = [],
   ): Intent {
     return new Intent({
       id,
@@ -49,11 +82,19 @@ export class Intent {
       answers: { ...answers },
       createdAt: now,
       updatedAt: now,
+      ...(origin ? { origin: cloneOrigin(origin) } : {}),
+      ...(contexts.length > 0 ? { contexts: contexts.map((c) => ({ ...c })) } : {}),
     });
   }
 
   static rehydrate(props: IntentProps): Intent {
-    return new Intent({ ...props, answers: { ...props.answers } });
+    const contexts = props.contexts ?? (props.origin?.context ? [props.origin.context] : []);
+    return new Intent({
+      ...props,
+      answers: { ...props.answers },
+      ...(props.origin ? { origin: cloneOrigin(props.origin) } : {}),
+      ...(contexts.length > 0 ? { contexts: contexts.map((c) => ({ ...c })) } : {}),
+    });
   }
 
   get id(): string { return this.props.id; }
@@ -63,6 +104,8 @@ export class Intent {
   get answers(): Record<string, SlotValue> { return { ...this.props.answers }; }
   get ledgerReference(): string | undefined { return this.props.ledgerReference; }
   get rejectionReason(): string | undefined { return this.props.rejectionReason; }
+  get origin(): IntentOrigin | undefined { return this.props.origin ? cloneOrigin(this.props.origin) : undefined; }
+  get contexts(): ContextRef[] { return (this.props.contexts ?? []).map((c) => ({ ...c })); }
 
   /**
    * Throws once the candidate has left for the Ledger and its fate is settled. Use cases call it up
@@ -117,6 +160,13 @@ export class Intent {
   }
 
   toJSON(): IntentProps {
-    return { ...this.props, answers: { ...this.props.answers } };
+    return {
+      ...this.props,
+      answers: { ...this.props.answers },
+      ...(this.props.origin ? { origin: cloneOrigin(this.props.origin) } : {}),
+      ...(this.props.contexts ? { contexts: this.props.contexts.map((c) => ({ ...c })) } : {}),
+    };
   }
 }
+
+const cloneOrigin = (o: IntentOrigin): IntentOrigin => ({ ...o, ...(o.context ? { context: { ...o.context } } : {}) });

@@ -43,6 +43,13 @@ export class SqliteIntentRepository implements IntentRepository {
     return rows.map(toIntent).filter((intent) => intent.status === IntentStatus.ACCEPTED);
   }
 
+  async findByOriginReference(sourceReference: string): Promise<Intent[]> {
+    const rows = this.db
+      .prepare("SELECT body FROM intents WHERE json_extract(body, '$.origin.sourceReference') = ? ORDER BY rowid ASC")
+      .all(sourceReference) as Row[];
+    return rows.map(toIntent);
+  }
+
   async listByUser(userId: string): Promise<Intent[]> {
     const rows = this.db
       .prepare("SELECT body FROM intents WHERE user_id = ? ORDER BY rowid ASC")

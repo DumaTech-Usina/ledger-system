@@ -16,6 +16,7 @@ import { InMemoryRejectedEventRepository } from "../persistence/rejected/InMemor
 import { InMemoryStagingRepository } from "../persistence/staging/InMemoryStagingRepository";
 import { StagingPostingJob } from "../jobs/StagingPostingJob";
 import { createServer } from "../../presentation/web/api/server";
+import { FILLED_EXAMPLE_FLAG, seedsFor } from "./devSeeds";
 
 // ─── Seed helpers ─────────────────────────────────────────────────────────────
 
@@ -678,9 +679,10 @@ async function main(): Promise<void> {
   const ledgerRepo = new InMemoryLedgerEventRepository();
   const rejectedRepo = new InMemoryRejectedEventRepository();
 
+  // In memory, empty by default. `npm run dev -- --filled-example` loads the example below.
   // Order matters: each commission_expected must precede the commission_received
   // that settles its receivable, so the lineage lookup below finds it.
-  const allSeeds = [
+  const allSeeds = seedsFor(process.argv, [
     expectedA,
     receivedA,
     b1,
@@ -693,7 +695,7 @@ async function main(): Promise<void> {
     expected001,
     commissionReceived,
     advancePayment,
-  ];
+  ]);
   const stagingRepo = new InMemoryStagingRepository(allSeeds);
 
   const audit = new FileAuditLogger("./logs/audit");
@@ -710,7 +712,11 @@ async function main(): Promise<void> {
   console.log("=".repeat(64));
   console.log("  StagingPostingJob — simulação financeira");
   console.log("=".repeat(64));
-  console.log(`  ${allSeeds.length} registros de staging carregados\n`);
+  console.log(
+    allSeeds.length > 0
+      ? `  ${allSeeds.length} registros de staging carregados (${FILLED_EXAMPLE_FLAG})\n`
+      : `  Ledger vazio, em memória. Use ${FILLED_EXAMPLE_FLAG} para carregar o exemplo.\n`,
+  );
 
   // Dev-harness lineage resolution — a preview of the Step 2 ReceiptLineageResolver.
   // A commission_received must link to the commission_expected that originated its

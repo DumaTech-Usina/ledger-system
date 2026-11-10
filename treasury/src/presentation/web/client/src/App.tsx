@@ -8,6 +8,8 @@ import { PositionsPage } from "@/features/dashboard/PositionsPage";
 import { IntentsPage } from "@/features/intents/IntentsPage";
 import { PartiesPage } from "@/features/parties/PartiesPage";
 import { PartyViewPage } from "@/features/parties/PartyViewPage";
+import { SignalsPage } from "@/features/signals/SignalsPage";
+import { signalsCopy } from "@/features/signals/signalsCopy";
 import { PendingIdentitiesBanner } from "@/features/parties/PendingIdentitiesBanner";
 import { partiesCopy } from "@/features/parties/partiesCopy";
 import { usePendingIdentities } from "@/features/parties/usePendingIdentities";
@@ -36,6 +38,7 @@ export function App() {
     { id: "positions", label: t.nav.positions, icon: "positions" as const },
     { id: "intents", label: t.nav.intents, icon: "intents" as const },
     { id: "partyView", label: partiesCopy[language].viewHeading, icon: "partyView" as const },
+    { id: "signals", label: signalsCopy[language].nav, icon: "signals" as const },
     ...(canCurate ? [{ id: "parties", label: partiesCopy[language].heading, icon: "parties" as const }] : []),
   ];
 
@@ -45,6 +48,7 @@ export function App() {
     positions: t.nav.positions,
     intents: t.nav.intents,
     partyView: partiesCopy[language].viewHeading,
+    signals: signalsCopy[language].nav,
     parties: partiesCopy[language].heading,
   };
 
@@ -83,6 +87,15 @@ export function App() {
     >
       {activeNav === "parties" && canCurate ? (
         <PartiesPage pending={pending} onChanged={refreshPending} />
+      ) : activeNav === "signals" ? (
+        <SignalsPage
+          canCreate={user.permissions.includes("intent:create")}
+          canSubmit={user.permissions.includes("intent:submit")}
+          onReview={(intent) => {
+            setAdopted(intent);
+            setActiveNav("operations");
+          }}
+        />
       ) : activeNav === "partyView" ? (
         <PartyViewPage />
       ) : activeNav === "intents" ? (

@@ -27,6 +27,15 @@ export const registerCommissionAccrual: Scenario = {
       required: false,
       allowFuture: true,
     },
+    {
+      // REQ-274: who is expected to pay — the insurer, the operator. Optional: an expectation can be
+      // known before its payer is, and a blank here is recorded as "not stated", never guessed.
+      key: "payer",
+      type: SlotType.PARTY,
+      prompt: "Who is expected to pay it? (optional)",
+      required: false,
+      suggestionSource: "parties",
+    },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
     // Only a rectification fills this: it keeps the restated entry on the position being corrected.
     { key: "restatesObject", type: SlotType.STRING, prompt: "The position this entry restates.", required: false, internal: true },

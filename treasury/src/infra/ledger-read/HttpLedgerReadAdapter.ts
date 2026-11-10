@@ -45,6 +45,7 @@ interface LedgerPositionDetail {
     parties?: Array<{ partyId: string; role: string; direction: string; amount?: string | null }>;
     objects: Array<{ objectId: string; objectType?: string; relation: string }>;
     source?: { system: string; reference: string };
+    dueAt?: string | null;
   }>;
 }
 
@@ -378,6 +379,7 @@ export class HttpLedgerReadAdapter
         })),
         source: e.source ? { system: e.source.system, reference: e.source.reference } : null,
         parties: mapParties(e.parties),
+        dueAt: e.dueAt ?? null,
       })),
       origin: this.originOf(raw, objectId),
     };

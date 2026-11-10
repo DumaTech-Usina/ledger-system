@@ -18,6 +18,8 @@ export interface StartPositionActionInput {
   userId: string;
   /** The branch, when the scenario has variants — chosen with the action, not asked again. */
   variantChoice?: string;
+  /** Contexts this operation cites beyond the inherited ones — e.g. the batch it belongs to (REQ-277). */
+  extraContexts?: { objectId: string; objectType: string }[];
 }
 
 export interface StartPositionActionResult {
@@ -65,9 +67,17 @@ export class StartPositionActionUseCase {
       throw new Error(`This position is in ${position.currency}; only ${THE_CURRENCY} can be recorded.`);
     }
 
+    // REQ-275: the operation is about what the opening fact was about. Its contexts (the policy, a
+    // proposal) are carried over; positions it named beside this one are not — they are other balances.
+    const contexts = (position.origin?.relatedObjects ?? [])
+      .filter((o) => o.relation === "references")
+      .map((o) => ({ objectId: o.objectId, objectType: o.objectType }))
+      .concat(input.extraContexts ?? []);
+
     const { intentId } = await this.startIntent.execute({
       scenarioId: input.scenarioId,
       userId: input.userId,
+      contexts,
     });
 
     const answers: { key: string; value: string }[] = [{ key: "currency", value: position.currency }];

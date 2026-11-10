@@ -12,6 +12,12 @@ import type { LinkIdentityUseCase } from "../../../core/application/use-cases/Li
 import type { ListPendingIdentitiesUseCase } from "../../../core/application/use-cases/ListPendingIdentities";
 import type { GetPartyEventsUseCase } from "../../../core/application/use-cases/GetPartyEvents";
 import { partyRoutes } from "./routes/partyRoutes";
+import { signalRoutes } from "./routes/signalRoutes";
+import type { RegisterExternalSignalUseCase } from "../../../core/application/use-cases/RegisterExternalSignal";
+import type { ListExternalSignalsUseCase } from "../../../core/application/use-cases/ListExternalSignals";
+import type { GetPolicySituationUseCase } from "../../../core/application/use-cases/GetPolicySituation";
+import type { RegisterInsurerCreditUseCase } from "../../../core/application/use-cases/RegisterInsurerCredit";
+import type { ListInsurerReceivablesUseCase } from "../../../core/application/use-cases/ListInsurerReceivables";
 import { IntentNotEditableError } from "../../../core/domain/errors/IntentNotEditableError";
 import { Permission } from "../../../core/domain/enums/Permission";
 import type { AuthService } from "../../../core/application/services/AuthService";
@@ -58,6 +64,11 @@ export interface ServerDeps {
   getPartyEvents: GetPartyEventsUseCase;
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
+  registerExternalSignal: RegisterExternalSignalUseCase;
+  listExternalSignals: ListExternalSignalsUseCase;
+  getPolicySituation: GetPolicySituationUseCase;
+  registerInsurerCredit: RegisterInsurerCreditUseCase;
+  listInsurerReceivables: ListInsurerReceivablesUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
   getObjectLifecycle: GetObjectLifecycleUseCase;
   getBookExposure: GetBookExposureUseCase;
@@ -109,6 +120,13 @@ export function createServer(deps: ServerDeps) {
     requirePermission(Permission.INTENT_READ),
     intentRoutes(deps.getIntent, deps.listIntents),
   );
+  app.use("/api/signals", requireAuth, signalRoutes(
+      deps.registerExternalSignal,
+      deps.listExternalSignals,
+      deps.getPolicySituation,
+      deps.registerInsurerCredit,
+      deps.listInsurerReceivables,
+    ));
   app.use(
     "/api/dashboard",
     requireAuth,

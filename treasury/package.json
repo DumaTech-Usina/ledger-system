@@ -9,7 +9,9 @@
     "dev:client": "npm --prefix src/presentation/web/client run dev",
     "start": "node dist/index.js",
     "build": "tsc && npm run build:client",
-    "test": "vitest run",
+    "test": "npm run test:server && npm run test:client",
+    "test:server": "vitest run",
+    "test:client": "npm --prefix src/presentation/web/client test",
     "test:watch": "vitest",
     "seed:directory": "tsx src/infra/seeding/run-seed.ts",
     "build:client": "npm --prefix src/presentation/web/client ci && npm --prefix src/presentation/web/client run build && mkdir -p dist/presentation/web/client && cp -R src/presentation/web/client/dist/. dist/presentation/web/client/"

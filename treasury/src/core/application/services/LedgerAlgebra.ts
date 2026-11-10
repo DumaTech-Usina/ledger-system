@@ -85,6 +85,11 @@ export class LedgerAlgebra {
     return this.snapshot.objectNature[objectType] === "positional";
   }
 
+  /** Every kind the algebra declares as positional: the ones that hold a balance. */
+  positionalObjectTypes(): string[] {
+    return Object.keys(this.snapshot.objectNature).filter((type) => this.isPositional(type)).sort();
+  }
+
   private index(): void {
     for (const [eventType, contract] of Object.entries(this.snapshot.contracts)) {
       for (const object of contract.objects) {

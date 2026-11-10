@@ -1,4 +1,4 @@
-import { Intent } from "../../domain/entities/Intent";
+import { Intent, type ContextRef, type IntentOrigin } from "../../domain/entities/Intent";
 import { getScenario, type Scenario, defaultAnswers } from "../../domain/scenarios/Scenario";
 import { DialogEngine, type DialogState } from "../../domain/services/DialogEngine";
 import type { IntentRepository } from "../repositories/IntentRepository";
@@ -10,6 +10,10 @@ import type { ConversationLog } from "../ports/ConversationLog";
 export interface StartIntentInput {
   scenarioId: string;
   userId: string;
+  /** Set only when the intent is a fact proposed from an external signal (§4.6). */
+  origin?: IntentOrigin;
+  /** What the fact will cite as context (REQ-275). */
+  contexts?: ContextRef[];
 }
 
 export interface StartIntentResult {
@@ -30,7 +34,15 @@ export class StartIntentUseCase {
     const scenario = getScenario(input.scenarioId);
     if (!scenario) throw new Error(`Unknown scenario: ${input.scenarioId}`);
 
-    const intent = Intent.start(this.ids.next(), scenario.id, input.userId, this.clock.now(), defaultAnswers(scenario));
+    const intent = Intent.start(
+      this.ids.next(),
+      scenario.id,
+      input.userId,
+      this.clock.now(),
+      defaultAnswers(scenario),
+      input.origin,
+      input.contexts,
+    );
     await this.repo.save(intent);
     await this.log.record({ actor: userActor(input.userId), intentId: intent.id, at: this.clock.now(), type: "intent.started", detail: scenario.id });
 

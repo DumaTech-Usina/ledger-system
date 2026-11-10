@@ -7,4 +7,6 @@ export interface IntentRepository {
   listByUser(userId: string): Promise<Intent[]>;
   /** Everyone's intents the Ledger accepted: the facts that came through here. */
   listAccepted(): Promise<Intent[]>;
+  /** Intents proposed from an external record with this source reference (REQ-265), oldest first. */
+  findByOriginReference(sourceReference: string): Promise<Intent[]>;
 }

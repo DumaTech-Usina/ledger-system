@@ -113,7 +113,7 @@ async function boot() {
     getDashboard: unused, startIntent: world.start, advanceDialog: world.advance, applyAnswers: world.apply,
     interpretUtterance: unused, previewIntent: world.preview, submitIntent: world.submit, submitRectification: unused,
     decideIdentity: world.decide, listSettlementCandidates: unused, listPositionActions: unused,
-    startPositionAction: unused, getIntent: unused, listIntents: unused, getObjectLifecycle: unused,
+    startPositionAction: unused, getIntent: unused, listIntents: unused, registerExternalSignal: unused, listExternalSignals: unused, getPolicySituation: unused, registerInsurerCredit: unused, listInsurerReceivables: unused, getObjectLifecycle: unused,
     getBookExposure: unused, listPositions: unused, listPayablePositions: unused, listCashMovements: unused,
     getLedgerEvent: unused,
   });

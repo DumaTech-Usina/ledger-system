@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { PreviewNoticeList } from "./PreviewNoticeList";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
@@ -783,6 +784,8 @@ function ConfirmCard({
         <SummaryRow label="Data" value={formatDate(candidate.occurredAt)} mono />
         {candidate.description && <SummaryRow label="Descrição" value={candidate.description} />}
       </dl>
+
+      <PreviewNoticeList notices={preview.notices ?? []} partyNames={preview.partyNames} />
 
       <button
         type="button"

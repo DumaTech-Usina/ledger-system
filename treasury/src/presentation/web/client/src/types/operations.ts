@@ -177,7 +177,19 @@ export interface PreviewIntentResult {
    * absent here and keeps its id on screen — unknown is shown as unknown, never given a label.
    */
   partyNames: Record<string, string>;
+  /** What to read beside the candidate (§4.6, block C). Absent against an older backend. */
+  notices?: PreviewNotice[];
 }
+
+/** Shown, never applied: the candidate is the same with or without them. */
+export type PreviewNotice =
+  | { code: "payout_before_receipt"; policyId: string }
+  | {
+      code: "open_with_party";
+      partyId: string;
+      positions: { objectId: string; objectType: string; openBalance: string | null }[];
+    }
+  | { code: "notices_unavailable" };
 
 export type SubmissionStatus = "accepted" | "rejected";
 

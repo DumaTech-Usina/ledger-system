@@ -174,6 +174,11 @@ export interface PositionLifecycleEvent {
    * is treasury's own knowledge and travels beside the payload, never inside this mirror.
    */
   parties: { partyId: string; role: string; direction: string; amount: string | null }[];
+  /**
+   * When what this event originated falls due, as it stated. Null when it stated none; absent against
+   * a Ledger that does not publish it. Neither is "due today".
+   */
+  dueAt?: string | null;
 }
 
 /**

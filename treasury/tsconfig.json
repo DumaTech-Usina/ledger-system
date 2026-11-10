@@ -15,7 +15,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "src/presentation/web/client",
-    "src/tests/unit/infra/llm-slot-extraction.test.ts"
+    "src/presentation/web/client"
   ]
 }

@@ -105,6 +105,11 @@ beforeAll(async () => {
     startPositionAction: unused,
     getIntent: unused,
     listIntents: unused,
+    registerExternalSignal: unused,
+    listExternalSignals: unused,
+    getPolicySituation: unused,
+    registerInsurerCredit: unused,
+    listInsurerReceivables: unused,
     getObjectLifecycle: unused,
     getBookExposure: unused,
     listPositions: unused,
@@ -153,6 +158,8 @@ describe("REQ-401 — visualizador", () => {
     ["iniciar por texto livre", "/api/conversation/interpret"],
     ["iniciar a partir de uma posição", "/api/conversation/positions/any/start"],
     ["retificar", "/api/conversation/rectify"],
+    ["registrar um sinal do sistema de seguro", "/api/signals"],
+    ["registrar um crédito da seguradora", "/api/signals/credits"],
   ])("REJ-401: não pode %s", async (_label, path) => {
     const before = (await repo.listByUser("user-viewer")).length;
     const res = await send("POST", path, viewer, { scenarioId: "register_payroll", utterance: "folha" });
@@ -186,6 +193,8 @@ describe("REQ-401 — quem não entrou no sistema", () => {
   it.each([
     ["GET", "/api/dashboard/overview"],
     ["POST", "/api/conversation/start"],
+    ["GET", "/api/signals"],
+    ["POST", "/api/signals"],
   ])("%s %s responde 401", async (method, path) => {
     expect((await send(method, path)).status).toBe(401);
   });

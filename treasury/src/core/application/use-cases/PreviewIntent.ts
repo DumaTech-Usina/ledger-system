@@ -5,6 +5,7 @@ import type { IntentRepository } from "../repositories/IntentRepository";
 import type { CandidateMapper } from "../services/CandidateMapper";
 import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
 import { unidentifiedPartiesOf } from "../services/UnidentifiedParties";
+import type { PreviewNotice, PreviewNotices } from "../services/PreviewNotices";
 
 export interface PreviewIntentResult {
   intentId: string;
@@ -16,6 +17,8 @@ export interface PreviewIntentResult {
    * it: the candidate is what crosses into the Ledger, and a name has no business going there.
    */
   partyNames: Record<string, string>;
+  /** What the user should see beside the candidate (§4.6, block C). Never changes the candidate. */
+  notices: PreviewNotice[];
 }
 
 /**
@@ -27,6 +30,8 @@ export class PreviewIntentUseCase {
     private readonly repo: IntentRepository,
     private readonly mapper: CandidateMapper,
     private readonly directory: PartyDirectoryPort,
+    /** Omitted: no notices are read. */
+    private readonly notices?: PreviewNotices,
   ) {}
 
   async execute(intentId: string): Promise<PreviewIntentResult> {
@@ -65,6 +70,17 @@ export class PreviewIntentUseCase {
       answers: intent.answers,
       candidate,
       partyNames,
+      notices: await this.noticesFor(intent),
     };
+  }
+
+  /** A Ledger that cannot be read makes the notices unknown, never absent: the preview says so. */
+  private async noticesFor(intent: Parameters<PreviewNotices["for"]>[0]): Promise<PreviewNotice[]> {
+    if (!this.notices) return [];
+    try {
+      return await this.notices.for(intent);
+    } catch {
+      return [{ code: "notices_unavailable" }];
+    }
   }
 }

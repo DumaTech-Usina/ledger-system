@@ -7,3 +7,6 @@ logs
 !.env.example
 *.log
 .DS_Store
+
+# Local SQLite files: real financial data when running against a real Ledger
+data/

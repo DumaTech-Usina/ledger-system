@@ -345,7 +345,7 @@ describe("pelo servidor", () => {
       registerParty: unused, linkIdentity: unused, getDashboard: unused, startIntent: unused, advanceDialog: unused,
       applyAnswers: unused, interpretUtterance: unused, previewIntent: unused, submitIntent: unused,
       submitRectification: unused, decideIdentity: unused, listSettlementCandidates: unused, listPositionActions: unused,
-      startPositionAction: unused, getIntent: unused, listIntents: unused, getObjectLifecycle: unused,
+      startPositionAction: unused, getIntent: unused, listIntents: unused, registerExternalSignal: unused, listExternalSignals: unused, getPolicySituation: unused, registerInsurerCredit: unused, listInsurerReceivables: unused, getObjectLifecycle: unused,
       getBookExposure: unused, listPositions: unused, listPayablePositions: unused, listCashMovements: unused,
       getLedgerEvent: unused,
     });

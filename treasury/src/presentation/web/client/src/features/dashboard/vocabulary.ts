@@ -17,7 +17,10 @@ export const POSITION_STATUSES = [
 /** `positions` `outcome`. Single value. */
 export const POSITION_OUTCOMES = ["gain", "partial_loss", "full_loss", "cancelled", "pending"] as const;
 
-/** `positions` `objectType`. Several are read as OR. */
+/**
+ * `positions` `objectType`. Several are read as OR. Only the kinds that hold a balance: contracts,
+ * proposals, installments, batches and campaigns are contexts, which the listing leaves out (DEC-035).
+ */
 export const OBJECT_TYPES = [
   "commission_entitlement",
   "commission_pool",
@@ -27,16 +30,11 @@ export const OBJECT_TYPES = [
   "advance",
   "receivable",
   "payable",
-  "contract",
-  "proposal",
-  "installment",
-  "settlement_batch",
   "penalty",
   "chargeback",
   "contingent_claim",
   "dispute",
   "incentive",
-  "campaign",
   "bonus",
   "payroll",
   "service_fee",

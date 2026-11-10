@@ -167,9 +167,12 @@ export class SubmitRectificationUseCase {
     input: SubmitRectificationInput,
     plan: Extract<ReturnType<typeof planReissue>, { reissuable: true }>,
   ): Promise<SubmitIntentResult | { missingSlot: string }> {
+    // REQ-275: what actually happened is about the same things the withdrawn entry was about.
+    const contexts = plan.contexts;
     const { intentId } = await this.startIntent.execute({
       scenarioId: plan.scenarioId,
       userId: input.userId,
+      contexts,
     });
 
     const answers = this.reissueAnswers(input, plan);

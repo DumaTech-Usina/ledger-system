@@ -21,6 +21,12 @@ export class InMemoryIntentRepository implements IntentRepository {
       .map((p) => Intent.rehydrate(p));
   }
 
+  async findByOriginReference(sourceReference: string): Promise<Intent[]> {
+    return [...this.store.values()]
+      .filter((p) => p.origin?.sourceReference === sourceReference)
+      .map((p) => Intent.rehydrate(p));
+  }
+
   async listByUser(userId: string): Promise<Intent[]> {
     return [...this.store.values()]
       .filter((p) => p.userId === userId)

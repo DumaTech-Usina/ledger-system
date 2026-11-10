@@ -37,6 +37,8 @@ interface PartyTemplate {
   direction: string;
   /** Whether this party carries the event amount. False for every party of a NON_CASH event. */
   carriesAmount?: boolean;
+  /** A counterparty the scenario may leave unstated: left out of the candidate when blank. */
+  optional?: boolean;
 }
 
 interface ObjectTemplate {
@@ -292,12 +294,17 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
       },
     },
   },
-  // Accrual: the usina records the commission it EXPECTS to receive before cash arrives. The single
-  // party is the usina itself (the beneficiary of the future receivable); no counterparty is recorded.
+  // Accrual: the usina records the commission it EXPECTS to receive before cash arrives. The usina is
+  // the beneficiary of the future receivable; who is expected to pay is named when known (REQ-273,
+  // REQ-274) and left out when not — an unstated payer is not a payer of nobody.
   register_commission_accrual: {
     eventType: "commission_expected",
     economicEffect: "non_cash",
-    parties: [{ who: "usina", role: "beneficiary", direction: "neutral" }],
+    counterpartySlot: "payer",
+    parties: [
+      { who: "usina", role: "beneficiary", direction: "neutral" },
+      { who: "counterparty", role: "payer", direction: "neutral", optional: true },
+    ],
     objects: [{ objectType: "commission_receivable", relation: "originates" }],
     reasonType: "commission_accrual",
     reasonText: "Accrual of an expected commission",
@@ -332,6 +339,9 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     relatedEventSlot: "origin",
     objectIdSlot: "objectRef",
     orphan: { reasonType: "unknown_origin", reasonText: "Commission received; originating expected unknown" },
+    // REQ-274: received from whoever the expectation named as payer (the insurer). Prefilled, not
+    // imposed — the preview shows it and the user can change it before submitting.
+    inheritsCounterparty: true,
   },
   // Advance recovery SETTLES the advance an ADVANCE_PAYMENT originated. Origin is required (the
   // contract does not admit an orphan advance settlement).
@@ -586,7 +596,13 @@ export function producibleTuples(): ProducibleTuple[] {
 
 /** What it takes to record the corrected entry again, or why treasury cannot. */
 export type ReissuePlan =
-  | { reissuable: true; scenarioId: string; answers: { key: string; value: string }[] }
+  | {
+      reissuable: true;
+      scenarioId: string;
+      answers: { key: string; value: string }[];
+      /** The contexts the corrected entry cited, which the reissue cites again (REQ-275). */
+      contexts: { objectId: string; objectType: string }[];
+    }
   | { reissuable: false; reason: "no_scenario" | "ambiguous_variant" | "is_a_correction" };
 
 /**
@@ -659,7 +675,11 @@ export function planReissue(
     answers.push({ key: m.relatedEventSlot, value: event.relatedEventId });
   }
 
-  return { reissuable: true, scenarioId, answers };
+  // REQ-275: the reissue cites the same contexts, or the corrected fact would drop out of their story.
+  const contexts = event.objects
+    .filter((o) => o.relation === "references")
+    .map((o) => ({ objectId: o.objectId, objectType: o.objectType }));
+  return { reissuable: true, scenarioId, answers, contexts };
 }
 
 export class CandidateMapper {
@@ -681,7 +701,10 @@ export class CandidateMapper {
 
     const a = intent.answers;
     const amount = a.amount;
-    const sourceReference = `intent:${intent.id}`;
+    // A fact proposed from an external signal carries the signal's own reference, so the Ledger
+    // refuses the same external record twice (REQ-265); everything else is known by its intent.
+    const sourceReference = intent.origin?.sourceReference ?? `intent:${intent.id}`;
+    const confidence = intent.origin?.confidence ?? "high";
 
     // Apply the per-instance tuple override selected by the variant slot, if any. Absent variants
     // (or an unrecognized choice) leaves the base tuple untouched.
@@ -732,17 +755,25 @@ export class CandidateMapper {
       objectType: o.objectType,
       relation: o.relation,
     }));
+    // REQ-267: a fact proposed from a signal says what it is about. Contextual, so `references` and
+    // never a balance; the Ledger exempts it from the event's position contract.
+    // REQ-275: and a fact continuing a position cites what the fact that opened it cited. Once each.
+    for (const context of intent.contexts) {
+      if (!objects.some((o) => o.objectId === context.objectId)) objects.push({ ...context, relation: "references" });
+    }
     const additional = m.additionalObjectsSlot ? a[m.additionalObjectsSlot]?.trim() : "";
     if (additional) {
       const further = JSON.parse(additional) as { objectId: string; objectType: string }[];
       objects.push(...further.map((o) => ({ ...o, relation: objectTemplates[0].relation })));
     }
 
-    const parties = m.parties.map((pt) => {
-      const partyId = pt.who === "usina" ? this.usinaPartyId : a[m.counterpartySlot!];
-      const base = { partyId, role: pt.role, direction: pt.direction };
-      return pt.carriesAmount ? { ...base, amount } : base;
-    });
+    const parties = m.parties
+      .filter((pt) => !(pt.optional && pt.who === "counterparty" && !(a[m.counterpartySlot!]?.trim())))
+      .map((pt) => {
+        const partyId = pt.who === "usina" ? this.usinaPartyId : a[m.counterpartySlot!];
+        const base = { partyId, role: pt.role, direction: pt.direction };
+        return pt.carriesAmount ? { ...base, amount } : base;
+      });
 
     // An unidentified counterparty is a gap in what is KNOWN, and the book must show it rather than
     // let it pass as an ordinary party. `reason.type` is deliberately left alone: it names the
@@ -776,7 +807,7 @@ export class CandidateMapper {
       ...(relatedEventId ? { relatedEventId } : {}),
       parties,
       objects,
-      reason: { type: reasonType, description: reasonText, confidence: "high", requiresFollowup },
+      reason: { type: reasonType, description: reasonText, confidence, requiresFollowup },
       reporter: { reporterType: "user", reporterId: intent.userId, channel: "web" },
     };
   }

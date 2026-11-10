@@ -17,7 +17,8 @@ Monorepo with two independent services:
 
 ```bash
 cd ledger
-npm run dev              # Start development server (tsx, hot-reload)
+npm run dev              # Start development server, in memory and empty
+npm run dev -- --filled-example   # Same, loaded with the example events
 npm run build            # Compile TypeScript
 npm test                 # Run all tests once (Vitest)
 npm run test:watch       # Watch mode

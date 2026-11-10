@@ -61,6 +61,15 @@ import { StartPositionActionUseCase } from "./core/application/use-cases/StartPo
 import { LedgerAlgebra, type LedgerAlgebraSnapshot } from "./core/application/services/LedgerAlgebra";
 import { GetIntentUseCase } from "./core/application/use-cases/GetIntent";
 import { ListIntentsUseCase } from "./core/application/use-cases/ListIntents";
+import { RegisterExternalSignalUseCase } from "./core/application/use-cases/RegisterExternalSignal";
+import { ListExternalSignalsUseCase } from "./core/application/use-cases/ListExternalSignals";
+import { GetPolicySituationUseCase } from "./core/application/use-cases/GetPolicySituation";
+import { RegisterInsurerCreditUseCase } from "./core/application/use-cases/RegisterInsurerCredit";
+import { ListInsurerReceivablesUseCase } from "./core/application/use-cases/ListInsurerReceivables";
+import { PreviewNotices } from "./core/application/services/PreviewNotices";
+import { positionsOnly } from "./core/application/services/PositionsOnly";
+import { InMemoryExternalSignalRepository } from "./infra/persistence/InMemoryExternalSignalRepository";
+import { SqliteExternalSignalRepository } from "./infra/persistence/SqliteExternalSignalRepository";
 
 async function bootstrap(): Promise<void> {
   // ── Composition root ─────────────────────────────────────────────────────────
@@ -71,6 +80,10 @@ async function bootstrap(): Promise<void> {
   const intentRepo = durableOperations
     ? new SqliteIntentRepository(env.OPERATIONS_DB_FILE)
     : new InMemoryIntentRepository();
+  // What the insurance system said (§4.6): kept with the operations, since its proposals are intents.
+  const signalRepo = durableOperations
+    ? new SqliteExternalSignalRepository(env.OPERATIONS_DB_FILE)
+    : new InMemoryExternalSignalRepository();
   const audit = durableOperations ? new SqliteAuditLog(env.OPERATIONS_DB_FILE) : new InMemoryAuditLog();
   const conversationLog = durableOperations
     ? new SqliteConversationLog(env.OPERATIONS_DB_FILE)
@@ -182,8 +195,11 @@ async function bootstrap(): Promise<void> {
       env.USINA_PARTY_ID,
     );
   }
+  // DEC-035: the listings ask only for kinds that hold a balance; a policy is not something open.
+  const positionalTypes = ledgerAlgebra.positionalObjectTypes();
+  const positionsRead = positionsOnly(ledgerRead, positionalTypes);
   const getDashboard = new GetTreasuryDashboardUseCase(
-    ledgerRead,
+    positionsRead,
     env.USINA_PARTY_ID,
     partyDirectory,
   );
@@ -191,7 +207,7 @@ async function bootstrap(): Promise<void> {
   const getLedgerEvent = new GetLedgerEventUseCase(ledgerRead);
   const getBookExposure = new GetBookExposureUseCase(ledgerRead);
   const listPositions = new ListPositionsUseCase(
-    ledgerRead,
+    positionsRead,
     env.USINA_PARTY_ID,
     partyDirectory,
   );
@@ -231,7 +247,7 @@ async function bootstrap(): Promise<void> {
       ids,
       partyDirectory,
     ),
-    previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper, partyDirectory),
+    previewIntent: new PreviewIntentUseCase(intentRepo, candidateMapper, partyDirectory, new PreviewNotices(ledgerRead, positionsRead)),
     submitIntent,
     submitRectification: new SubmitRectificationUseCase(
       ledgerRead,
@@ -260,6 +276,19 @@ async function bootstrap(): Promise<void> {
     ),
     getIntent: new GetIntentUseCase(intentRepo, audit, conversationLog),
     listIntents: new ListIntentsUseCase(intentRepo),
+    registerExternalSignal: new RegisterExternalSignalUseCase(signalRepo, intentRepo, startIntent, applyAnswers, partyDirectory, partyRepo, clock, ids),
+    listExternalSignals: new ListExternalSignalsUseCase(signalRepo, intentRepo),
+    getPolicySituation: new GetPolicySituationUseCase(ledgerRead, signalRepo, env.USINA_PARTY_ID, partyDirectory),
+    registerInsurerCredit: new RegisterInsurerCreditUseCase(
+      ledgerRead,
+      new StartPositionActionUseCase(ledgerRead, ledgerRead, startIntent, applyAnswers, env.USINA_PARTY_ID),
+      startIntent,
+      applyAnswers,
+      submitIntent,
+      clock,
+      ids,
+    ),
+    listInsurerReceivables: new ListInsurerReceivablesUseCase(ledgerRead),
   });
 
   const server = app.listen(env.PORT, () => {
