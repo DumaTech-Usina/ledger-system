@@ -40,6 +40,18 @@ export class SqliteExternalSignalRepository implements ExternalSignalRepository 
     return rows.map((row) => ExternalSignal.rehydrate(JSON.parse(row.body) as ExternalSignalProps));
   }
 
+  async listPage({ before, limit }: { before?: string; limit: number }): Promise<{ signal: ExternalSignal; cursor: string }[]> {
+    const after = before === undefined ? Number.MAX_SAFE_INTEGER : Number(before);
+    if (!Number.isFinite(after)) return [];
+    const rows = this.db
+      .prepare("SELECT rowid AS cursor, body FROM external_signals WHERE rowid < ? ORDER BY rowid DESC LIMIT ?")
+      .all(after, limit) as { cursor: number; body: string }[];
+    return rows.map((row) => ({
+      signal: ExternalSignal.rehydrate(JSON.parse(row.body) as ExternalSignalProps),
+      cursor: String(row.cursor),
+    }));
+  }
+
   close(): void {
     this.db.close();
   }

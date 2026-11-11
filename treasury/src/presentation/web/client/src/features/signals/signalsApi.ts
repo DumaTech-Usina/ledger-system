@@ -21,6 +21,14 @@ export interface SignalProposal {
   ledgerReference?: string;
 }
 
+export type SignalFilter = "needs_action" | "all";
+export const SIGNALS_PAGE_SIZE = 20;
+
+export interface SignalPage {
+  signals: SignalView[];
+  nextCursor: string | null;
+}
+
 export interface SignalView {
   id: string;
   kind: SignalKind;
@@ -99,7 +107,13 @@ export const signalsApi = {
   }) => apiPost<CreditResult | { error: string }>("/api/signals/credits", input),
   situation: (policyId: string) =>
     apiGet<PolicySituation | { error: string }>(`/api/signals/policies/${encodeURIComponent(policyId)}`),
-  list: () => apiGet<{ signals: SignalView[] } | { error: string }>("/api/signals"),
+  /** One page, newest first. Pass the previous page's `nextCursor` as `before` to go on. */
+  list: (options: { filter: SignalFilter; before?: string; limit?: number }) => {
+    const params = new URLSearchParams({ filter: options.filter, limit: String(options.limit ?? SIGNALS_PAGE_SIZE) });
+    if (options.before) params.set("before", options.before);
+    return apiGet<SignalPage | { error: string }>(`/api/signals?${params}`);
+  },
+  openCount: () => apiGet<{ count: number } | { error: string }>("/api/signals/open-count"),
   register: (kind: SignalKind, fields: Record<string, string>) =>
     apiPost<{ signal: SignalView; proposals: SignalProposal[] } | { error: string }>("/api/signals", { kind, fields }),
   /** Where the proposal's conversation stands, without answering anything. */

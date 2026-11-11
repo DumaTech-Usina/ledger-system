@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { Badge } from "@/components/Badge";
@@ -21,6 +21,7 @@ import {
 } from "./signalForm";
 import {
   signalsApi,
+  type SignalFilter,
   type SignalKind,
   type SignalProposal,
   type SignalView,
@@ -58,17 +59,47 @@ export function SignalsPage({
   const { language } = useLanguage();
   const copy = signalsCopy[language];
   const [signals, setSignals] = useState<SignalView[] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [filter, setFilter] = useState<SignalFilter>("needs_action");
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // Only the latest request may write: a slow answer for an old filter must not replace a newer one.
+  const requestId = useRef(0);
 
+  /** Reads the first (newest) page again, e.g. on open, on a filter change, after a registration. */
   const load = useCallback(async () => {
-    const { ok, data } = await signalsApi.list();
+    const mine = ++requestId.current;
+    const { ok, data } = await signalsApi.list({ filter });
+    if (mine !== requestId.current) return;
     if (ok && "signals" in data) {
       setSignals(data.signals);
+      setNextCursor(data.nextCursor);
       setLoadError(false);
     } else {
       setLoadError(true);
     }
-  }, []);
+  }, [filter]);
+
+  const loadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    const mine = requestId.current;
+    setLoadingMore(true);
+    const { ok, data } = await signalsApi.list({ filter, before: nextCursor });
+    setLoadingMore(false);
+    if (mine !== requestId.current) return;
+    if (ok && "signals" in data) {
+      const page = data;
+      // Older pages are appended; a signal that was already shown is not repeated.
+      setSignals((current) => {
+        const seen = new Set((current ?? []).map((s) => s.id));
+        return [...(current ?? []), ...page.signals.filter((s) => !seen.has(s.id))];
+      });
+      setNextCursor(page.nextCursor);
+      setLoadError(false);
+    } else {
+      setLoadError(true);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -83,25 +114,41 @@ export function SignalsPage({
         <p className="mt-1 text-sm text-muted">{copy.subheading}</p>
       </div>
 
-      {canCreate && (
-        <RegisterSignal
-          onRegistered={load}
-          startOpen={signals !== null && signals.length === 0}
-        />
-      )}
-
-      {canSubmit && <InsurerCreditCard onRecorded={load} />}
-
       <Card>
         <h3 className="font-display text-lg font-semibold text-ink">
           {copy.listTitle}
         </h3>
         <p className="mt-1 text-xs text-muted">{copy.notAFact}</p>
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={copy.listTitle}>
+          {(["needs_action", "all"] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={filter === option}
+              onClick={() => {
+                if (option === filter) return;
+                setSignals(null);
+                setNextCursor(null);
+                setFilter(option);
+              }}
+              className={cn(
+                "rounded-full border px-3 py-1 text-[13px] font-semibold transition",
+                filter === option
+                  ? "border-accent bg-accent/10 text-accent"
+                  : "border-line text-muted hover:text-ink",
+              )}
+            >
+              {copy.filters[option]}
+            </button>
+          ))}
+        </div>
         {loadError && (
           <p className="mt-3 text-sm font-medium text-bad">{copy.loadError}</p>
         )}
         {signals !== null && signals.length === 0 && (
-          <p className="mt-3 text-sm text-muted">{copy.listEmpty}</p>
+          <p className="mt-3 text-sm text-muted">
+            {filter === "needs_action" ? copy.listEmptyNeedsAction : copy.listEmpty}
+          </p>
         )}
         <ul className="mt-3 flex flex-col gap-3">
           {(signals ?? []).map((signal) => (
@@ -113,7 +160,23 @@ export function SignalsPage({
             />
           ))}
         </ul>
+        {nextCursor && (
+          <div className="mt-4 flex justify-center">
+            <Button variant="ghost" loading={loadingMore} onClick={loadMore}>
+              {copy.loadMore}
+            </Button>
+          </div>
+        )}
       </Card>
+
+      {canSubmit && <InsurerCreditCard onRecorded={load} />}
+
+      {canCreate && (
+        <RegisterSignal
+          onRegistered={load}
+          startOpen={signals !== null && signals.length === 0}
+        />
+      )}
     </div>
   );
 }

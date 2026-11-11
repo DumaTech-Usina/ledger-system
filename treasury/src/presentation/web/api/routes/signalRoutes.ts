@@ -75,9 +75,26 @@ export function signalRoutes(
     },
   );
 
-  router.get("/", requirePermission(Permission.INTENT_READ), async (_req: Request, res: Response, next: NextFunction) => {
+  /** How many proposals still wait for the user, over all signals. */
+  router.get("/open-count", requirePermission(Permission.INTENT_READ), async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json({ signals: await list.execute() });
+      res.json({ count: await list.countOpenProposals() });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  /** `?limit=&before=&filter=needs_action|all`: a page of signals, newest first (default: needing action). */
+  router.get("/", requirePermission(Permission.INTENT_READ), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { limit, before, filter } = req.query;
+      res.json(
+        await list.page({
+          limit: typeof limit === "string" ? Number(limit) : undefined,
+          before: typeof before === "string" ? before : undefined,
+          filter: filter === "all" ? "all" : "needs_action",
+        }),
+      );
     } catch (err) {
       next(err);
     }

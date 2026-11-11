@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { isOpenProposal } from "./signalForm";
 import { signalsApi } from "./signalsApi";
 
 const REFRESH_MS = 20_000;
@@ -14,13 +13,9 @@ export function useOpenProposals(signedIn: boolean) {
 
   const refresh = useCallback(async () => {
     try {
-      const { ok, data } = await signalsApi.list();
-      if (!ok || !("signals" in data)) return;
-      const open = new Set<string>();
-      for (const signal of data.signals) {
-        for (const p of signal.proposals) if (isOpenProposal(p.intentStatus)) open.add(p.intentId);
-      }
-      setCount(open.size);
+      const { ok, data } = await signalsApi.openCount();
+      if (!ok || !("count" in data)) return;
+      setCount(data.count);
     } catch {
       /* keep what was last known */
     }

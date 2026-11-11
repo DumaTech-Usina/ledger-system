@@ -90,18 +90,29 @@ export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, o
                 <span className={cn("relative flex-shrink-0", !active && "opacity-80")}>
                   {icons[item.icon]}
                   {item.badge ? (
+                    // Only the collapsed rail (no label) puts the count on the icon corner.
                     <span
                       aria-label={item.badgeLabel}
                       className={cn(
-                        "absolute -right-2 -top-2 grid min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold leading-4",
-                        active ? "bg-accent-ink text-accent" : "bg-warn text-white",
+                        "absolute -right-2 -top-2 hidden min-w-4 place-items-center rounded-full bg-bad px-1 text-[10px] font-bold leading-4 text-white",
+                        collapsed && "md:grid",
                       )}
                     >
                       {item.badge > 99 ? "99+" : item.badge}
                     </span>
                   ) : null}
                 </span>
-                <span className={cn(collapsed && "md:hidden")}>{item.label}</span>
+                <span className={cn("flex flex-1 items-center justify-between gap-2", collapsed && "md:hidden")}>
+                  {item.label}
+                  {item.badge ? (
+                    <span
+                      aria-label={item.badgeLabel}
+                      className="grid min-w-5 place-items-center rounded-full bg-bad px-1.5 text-[11px] font-bold leading-5 text-white"
+                    >
+                      {item.badge > 99 ? "99+" : item.badge}
+                    </span>
+                  ) : null}
+                </span>
               </button>
             );
           })}

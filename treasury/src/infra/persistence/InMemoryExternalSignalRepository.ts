@@ -17,4 +17,14 @@ export class InMemoryExternalSignalRepository implements ExternalSignalRepositor
   async list(): Promise<ExternalSignal[]> {
     return [...this.store].reverse().map((p) => ExternalSignal.rehydrate(p));
   }
+
+  async listPage({ before, limit }: { before?: string; limit: number }): Promise<{ signal: ExternalSignal; cursor: string }[]> {
+    const after = before === undefined ? this.store.length : Number(before);
+    if (!Number.isFinite(after)) return [];
+    const page: { signal: ExternalSignal; cursor: string }[] = [];
+    for (let i = Math.min(after, this.store.length) - 1; i >= 0 && page.length < limit; i--) {
+      page.push({ signal: ExternalSignal.rehydrate(this.store[i]), cursor: String(i) });
+    }
+    return page;
+  }
 }
