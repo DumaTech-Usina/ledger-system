@@ -1,6 +1,7 @@
 import { EVENT_CONTRACTS } from "../contracts/EventContract";
 import { CreateLedgerEventProps } from "../entities/LedgerEvent";
 import { ConfidenceLevel } from "../enums/ConfidenceLevel";
+import { EventType } from "../enums/EventType";
 import { ObjectNature } from "../enums/ObjectNature";
 import { ReasonType } from "../enums/ReasonType";
 import { Relation } from "../enums/Relation";
@@ -11,6 +12,7 @@ import {
   REASON_EFFECT_MATRIX,
   REASON_RELATION_MATRIX,
 } from "./FormalMatrices";
+import { USINA_PAYABLE_OBJECT_TYPES, USINA_RECEIVABLE_OBJECT_TYPES } from "./CashPositionPolicy";
 
 export class InvariantPolicy {
   static validateSemantic(props: CreateLedgerEventProps) {
@@ -272,6 +274,28 @@ export class InvariantPolicy {
       if (!originating) {
         throw new Error(
           "A dueAt requires an object with relation ORIGINATES: a due date belongs to the obligation being originated",
+        );
+      }
+    }
+
+    // ===============================
+    // 1️⃣4️⃣ A compensation names both sides
+    // ===============================
+    //
+    // What makes it a compensation (treasury REQ-251): something owed TO the usina and something
+    // the usina OWES, reduced by the same amount. Without a side of each, two debts — or two
+    // credits — would vanish with no cash, which is not a compensation but a disappearance. The
+    // side of each type is the ledger's own classification, the one exposure already reads.
+    //
+    // Whether the positions belong to the same party is NOT checked here (REQ-252): the ledger keeps
+    // no owner per position, and who is "the same party" is a call the treasury's directory makes.
+
+    if (props.eventType === EventType.COMPENSATION) {
+      const receivable = positionalObjects.some((o) => USINA_RECEIVABLE_OBJECT_TYPES.has(o.objectType));
+      const payable = positionalObjects.some((o) => USINA_PAYABLE_OBJECT_TYPES.has(o.objectType));
+      if (!receivable || !payable) {
+        throw new Error(
+          "A compensation must settle at least one receivable and one payable position",
         );
       }
     }

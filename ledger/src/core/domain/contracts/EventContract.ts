@@ -444,4 +444,25 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     // fact can state a due date. Optional: an obligation recognized without stated terms is ordinary.
     admitsDueAt: true,
   },
+
+  /**
+   * A receivable and a payable settled against each other, with no cash (treasury REQ-250–252,
+   * DEC-025). Initial types, decided 2026-11-11: ADVANCE and LOAN owed to the usina, against
+   * COMMISSION_PAYABLE owed by it. Any other type enters only with a real case and its own test.
+   *
+   * At least one side of each is required — enforced by the invariant policy, which reads the sides
+   * from CashPositionPolicy. The conservation guard measures every settled position, so an amount
+   * that does not fit one of them refuses the whole event.
+   */
+  [EventType.COMPENSATION]: {
+    economicEffects: [EconomicEffect.NON_CASH],
+
+    objects: [
+      { objectType: ObjectType.ADVANCE,            relations: [Relation.SETTLES] },
+      { objectType: ObjectType.LOAN,               relations: [Relation.SETTLES] },
+      { objectType: ObjectType.COMMISSION_PAYABLE, relations: [Relation.SETTLES] },
+    ],
+
+    reasons: [ReasonType.COMPENSATION],
+  },
 };

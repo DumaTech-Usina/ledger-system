@@ -19,6 +19,7 @@ export function serializePositionListItem(item: PositionListItem) {
     overSettlement:  item.overSettlement?.toString() ?? null,
     cashRecovered:   item.cashRecovered.toString(),
     nonCashClosed:   item.nonCashClosed.toString(),
+    compensatedClosed: item.compensatedClosed.toString(),
     allocationGap:   item.allocationGap.toString(),
     eventCount:     item.eventCount,
     lastEventAt:    item.lastEventAt,
@@ -58,6 +59,7 @@ export function serializePositionSummary(summary: PositionSummary) {
     overSettlement:  summary.overSettlement?.toString() ?? null,
     cashRecovered:   summary.cashRecovered.toString(),
     nonCashClosed:   summary.nonCashClosed.toString(),
+    compensatedClosed: summary.compensatedClosed.toString(),
     allocationGap:   summary.allocationGap.toString(),
     eventCount:      summary.eventCount,
     events:          [...summary.events].map((event) => ({

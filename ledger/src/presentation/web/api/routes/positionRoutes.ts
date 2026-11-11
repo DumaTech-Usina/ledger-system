@@ -7,7 +7,7 @@ import { serializePositionListItem, serializePositionSummary } from "../serializ
 import { parseInstant } from "../../../../core/application/utils/instant";
 
 const VALID_STATUSES  = new Set<string>(["open", "partially_settled", "fully_settled", "reversed", "unknown_origin"]);
-const VALID_OUTCOMES  = new Set<string>(["gain", "partial_loss", "full_loss", "cancelled", "pending"]);
+const VALID_OUTCOMES  = new Set<string>(["gain", "compensated", "partial_loss", "full_loss", "cancelled", "pending"]);
 const VALID_OBJ_TYPES = new Set<string>(Object.values(ObjectType));
 // Closed sets: the repository interpolates the sort key into SQL, so an unrecognised value must fall
 // back to the default here rather than travelling any further.

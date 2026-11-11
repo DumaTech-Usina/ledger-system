@@ -175,6 +175,10 @@ describe("SQLite read paths — SQL and memory answer the same book", () => {
       ["one status", { status: "fully_settled" }],
       ["several statuses", { status: ["open", "partially_settled"] }],
       ["outcome", { outcome: "pending" }],
+      // A payable paid in cash is a gain on both sides, never a full loss: the SQL used to match it
+      // as full_loss because its predicate did not require anything written off (fixed 2026-11-11).
+      ["outcome gain", { outcome: "gain" }],
+      ["outcome full_loss", { outcome: "full_loss" }],
       ["period around now", { from: new Date(Date.now() - hour), to: new Date(Date.now() + hour) }],
       ["period ahead", { from: new Date(Date.now() + hour) }],
       ["party of the origination", { partyId: SUPPLIER }],
@@ -196,6 +200,62 @@ describe("SQLite read paths — SQL and memory answer the same book", () => {
       expect([...answers.sql.ids].sort(), `${label}: ids`).toEqual([...answers.memory.ids].sort());
       expect(answers.sql.total, `${label}: total`).toBe(answers.memory.total);
     }
+  });
+
+  // REQ-624 (decided 2026-11-11): the outcome is derived in the SQL too, so a position closed by
+  // compensation must leave the loss filters there as well.
+  it("answers the same for a position closed by compensation, which is never a loss", async () => {
+    const neutral = (partyId: string) => ({ partyId, role: PartyRole.BENEFICIARY, direction: Direction.NEUTRAL });
+    const base = {
+      currency: "BRL",
+      sourceSystem: "acceptance",
+      normalizationVersion: "1.0",
+      normalizationWorkerId: "worker-test",
+      reporter: reporter(),
+    };
+    await run({
+      ...base,
+      eventType: EventType.ADVANCE_PAYMENT,
+      economicEffect: EconomicEffect.CASH_OUT,
+      occurredAt: new Date("2025-05-01"),
+      amount: "300.00",
+      sourceReference: ref("pg-comp-adv"),
+      parties: [{ partyId: USINA, role: PartyRole.PAYER, direction: Direction.OUT, amount: "300.00" }, neutral("broker-joao")],
+      objects: [{ objectId: "pg-comp-adv", objectType: ObjectType.ADVANCE, relation: Relation.ORIGINATES }],
+      reason: { type: ReasonType.ADVANCE_PAYMENT, description: "t", confidence: ConfidenceLevel.HIGH, requiresFollowup: false },
+    });
+    await run({
+      ...base,
+      eventType: EventType.OBLIGATION_RECOGNIZED,
+      economicEffect: EconomicEffect.NON_CASH,
+      occurredAt: new Date("2025-05-02"),
+      amount: "300.00",
+      sourceReference: ref("pg-comp-cp"),
+      parties: [{ partyId: USINA, role: PartyRole.PAYER, direction: Direction.NEUTRAL }, neutral("broker-joao")],
+      objects: [{ objectId: "pg-comp-cp", objectType: ObjectType.COMMISSION_PAYABLE, relation: Relation.ORIGINATES }],
+      reason: { type: ReasonType.OBLIGATION_RECOGNITION, description: "t", confidence: ConfidenceLevel.HIGH, requiresFollowup: false },
+    });
+    await run({
+      ...base,
+      eventType: "compensation" as EventType,
+      economicEffect: EconomicEffect.NON_CASH,
+      occurredAt: new Date("2025-05-03"),
+      amount: "300.00",
+      sourceReference: ref("pg-comp"),
+      parties: [neutral("broker-joao")],
+      objects: [
+        { objectId: "pg-comp-adv", objectType: ObjectType.ADVANCE, relation: Relation.SETTLES },
+        { objectId: "pg-comp-cp", objectType: ObjectType.COMMISSION_PAYABLE, relation: Relation.SETTLES },
+      ],
+      reason: { type: "compensation" as ReasonType, description: "t", confidence: ConfidenceLevel.HIGH, requiresFollowup: false },
+    });
+
+    for (const outcome of ["compensated", "full_loss", "partial_loss", "gain"] as const) {
+      const answers = await bothAnswer({ outcome: outcome as PositionAggregateOptions["outcome"] });
+      expect([...answers.sql.ids].sort(), outcome).toEqual([...answers.memory.ids].sort());
+    }
+    const compensated = await bothAnswer({ outcome: "compensated" as PositionAggregateOptions["outcome"] });
+    expect([...compensated.sql.ids].sort()).toEqual(["pg-comp-adv", "pg-comp-cp"]);
   });
 
   it("publishes the same parties from both, retracted events excluded", async () => {

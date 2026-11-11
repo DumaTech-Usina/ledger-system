@@ -31,8 +31,9 @@ function compareIds(a: string, b: string, direction: 'ASC' | 'DESC'): number {
 function deriveOutcomeFromAggregate(status: PositionStatus, agg: PositionAggregate): EconomicOutcome {
   if (status === "reversed") return "cancelled";
   if (status === "open" || status === "partially_settled") return "pending";
-  if (agg.nonCashClosedUnits === 0n) return "gain";
-  if (agg.cashRecoveredUnits === 0n) return "full_loss";
+  // Mirrors PositionProjectionService.deriveOutcome and outcomeToSql (treasury REQ-624).
+  if (agg.nonCashClosedUnits === 0n) return agg.compensatedClosedUnits === 0n ? "gain" : "compensated";
+  if (agg.cashRecoveredUnits === 0n && agg.compensatedClosedUnits === 0n) return "full_loss";
   return "partial_loss";
 }
 
@@ -294,6 +295,7 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
             totalAdjustedUnits:   0n,
             cashRecoveredUnits:   0n,
             nonCashClosedUnits:   0n,
+            compensatedClosedUnits: 0n,
             refCashInUnits:       0n,
             refCashOutUnits:      0n,
             hasReversal: false,
@@ -337,7 +339,9 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
           case Relation.SETTLES:
             agg.totalSettledUnits += units;
             if (event.economicEffect === EconomicEffect.CASH_IN)  agg.cashRecoveredUnits += units;
-            if (event.economicEffect === EconomicEffect.NON_CASH) agg.nonCashClosedUnits += units;
+            // Mirrors the SQL aggregate: a compensation is kept apart from what was written off.
+            if (event.eventType === EventType.COMPENSATION) agg.compensatedClosedUnits += units;
+            else if (event.economicEffect === EconomicEffect.NON_CASH) agg.nonCashClosedUnits += units;
             break;
           case Relation.ADJUSTS:
             agg.totalAdjustedUnits += units;

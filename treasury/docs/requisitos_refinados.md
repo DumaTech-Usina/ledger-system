@@ -21,7 +21,8 @@
 > próximo passo estão em §16.
 >
 > **Rodada do sistema de seguro (2026-11-09).** §4.6 registra como o Treasury absorve o que o sistema
-> de seguro sabe, sem API: sinal externo, fatos propostos e só expectativas. Nada está implementado.
+> de seguro sabe: sinal externo, fatos propostos e só expectativas. Implementados os blocos A a D, a
+> integração (rodada 15) e a lista de sinais (`REQ-280`); o bloco E foi adiado.
 >
 > **Fonte — diário de decisões**
 >
@@ -43,6 +44,8 @@
 > | 2026-11-07 | 13 — teste na tela e sistema de seguro | O dono do produto testou os passos 2 e 3 e achou o sistema ainda difícil para um leigo, com eventos desconexos das partes. **Corrigido:** data esperada da comissão prevista (`REQ-229`) e lista de seleção encoberta. **Levantado:** o sistema de seguro (Anexo B). **Em aberto:** `DEC-028`–`DEC-032` e `Q-047`–`Q-051`. A situação está em §16.1. |
 > | 2026-11-09 | 14 — sinal externo do sistema de seguro | Discussão de negócio e arquitetura sobre como o Treasury absorve o que o sistema de seguro sabe, sem API. O dono do produto aceitou as recomendações. **Decidido:** o **sinal externo** é um conceito do Treasury, uma cópia imutável que nunca vai ao Ledger e gera um fato proposto por acontecimento (`REQ-260`, `REQ-261`); o sistema de seguro só gera expectativas, e a obrigação com o corretor nasce na elegibilidade (`REQ-262`, `Q-047`); a elegibilidade diz que a seguradora declarou ter pago, o que não é recebimento (`REQ-263`); o valor retido não é evento e isso fica explícito (`REQ-264`); referência da origem para evitar duplicidade (`REQ-265`); mudança na origem vira novo sinal (`REQ-266`); partes pelo id externo e apólice como contexto `contract` (`REQ-267`, `DEC-029`); o Treasury recomenda ligações e avisa o repasse sem entrada (`REQ-268`); quatro cenários de recebimento e conciliação opcional por lote (`REQ-269`, `Q-049`); obrigação inteira, com o adiantamento à mostra (`REQ-270`); data esperada opcional com alerta de pendência (`REQ-271`); nesta etapa o usuário preenche a partir da tela (`REQ-261`). **Em aberto:** alcance da retificação × ajuste (`DEC-033`), outros beneficiários vindos do sistema de seguro (`DEC-034`), elegibilidade por parcela (`Q-052`). **Depois, no mesmo dia:** ordem dos blocos (`DEC-031`); blocos A, B e C implementados; contextos fora da lista de posições (`DEC-035` → `REQ-605`); a elegibilidade também propõe a comissão prevista, com a seguradora como pagadora e a data da apólice (`REQ-272`–`REQ-274`, `DEC-010` em parte). **Alterado:** a tabela de `REQ-262` (antes, a elegibilidade propunha só a obrigação). **Corrigido:** id externo guardado com o cadastro de origem, depois que a seguradora e o corretor "123" viraram a mesma parte (`REQ-267`). **Decidido:** herdar o contexto e contar a história da apólice (`REQ-275`, `REQ-276`); bloco E adiado por não ser caso real; crédito da seguradora em lote, com o resto como recebimento sem origem (`REQ-277`); a lacuna de enriquecer a origem depois ficou em `DEC-036`. Nada foi revogado. |
 > | 2026-11-09 | 15 — integração com o sistema de seguro | **Decidido:** só a elegibilidade é publicada; leitura a cada 5 minutos; RabbitMQ em servidor próprio, conectado por `.env`, fora do `docker-compose`. **Implementado:** produtor, contrato único, consumidor com descarte de leitura repetida e fila de mortas, autoria do sistema, aviso no menu (`REQ-278`, `REQ-279`). Falta validar com um broker de verdade. Nada foi revogado. |
+> | 2026-11-11 | 16 — lista de sinais e commits | **Registrado:** a lista de sinais passou a ser paginada e, por padrão, mostra só o que ainda espera o usuário; o aviso do menu conta todos os sinais, não só a primeira página (`REQ-280`). **Commits:** blocos A a D (`0fd5a62`, 2026-11-09), integração (`874a260`, 2026-11-10) e lista de sinais (`308e90e`, 2026-11-11). Nada foi revogado. |
+> | 2026-11-11 | 17 — lote, antecipação e compensação | Investigação dos cenários de lote ao corretor. **Confirmado:** o extrato bancário continua opcional, inclusive no lote (`REQ-247`). **Decidido:** um evento por obrigação quitada, inclusive várias da mesma pessoa, e pagamento parcial dentro do lote (`REQ-246`); o envio do lote não para num recusado (`REQ-249`). **Alterado:** `REQ-246` (antes, "um evento por pessoa"). **Em aberto:** `DEC-037`. Nada implementado; o Ledger não muda. **Depois, no mesmo dia:** aprovado o desenho do evento de compensação no Ledger e a compensação parcial (`REQ-250`, `CA-250c`, Anexo A); decididos os tipos iniciais: adiantamento e empréstimo contra obrigação de comissão (`DEC-025`, `REQ-251`); decidido o resultado da posição compensada: em dinheiro, compensado e baixado lado a lado, e "fechada por compensação" sem ganho nem perda (`REQ-624`); a exposição coberta só por expectativa ficou em `DEC-038`. A compensação está pronta para testes e implementação (passo 5). **Depois:** a perda parcial quando há compensação e baixa (`REQ-624`); "pessoa" → "parte" em `REQ-252`, com João × Argo em `DEC-022`; **implementada a compensação no Ledger**, validada por HTTP, sem commit. Nada foi revogado. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -415,30 +418,65 @@ conta como saído da conta da Usina. O Treasury emite um **recibo de pagamento**
 evento e dos eventos relacionados, e um **recibo-resumo**, com o **extrato bancário** como anexo
 opcional (`REQ-247`).
 
-`REQ-246` Um **lote** é um pagamento bancário para várias pessoas. Vira **um evento por pessoa**,
-todos citando o mesmo contexto de lote (`settlement_batch`). A soma dos eventos deve bater com o
-débito único no banco. O pagamento unitário é o mesmo evento, sem o contexto de lote.
+`REQ-246` Um **lote** é um único pagamento bancário que quita várias obrigações, da mesma pessoa, de
+várias pessoas ou as duas coisas. Vira **um evento por obrigação quitada**, todos citando o mesmo
+contexto de lote (`settlement_batch`). A soma dos eventos deve bater com o débito único no banco; quem
+confere é o Treasury, antes de enviar, porque o Ledger não conhece o débito. O pagamento unitário é o
+mesmo evento, sem o contexto de lote. Uma obrigação pode ser paga **em parte** dentro do lote: o
+usuário define o valor (`REQ-257`) e o restante continua aberto e visível.
 
+> **Alterado na rodada 17 (2026-11-11).** Antes: "um pagamento bancário para várias pessoas. Vira **um
+> evento por pessoa**". Com várias obrigações da mesma pessoa, um evento por pessoa não funciona (nota
+> abaixo). O Ledger não muda: o repasse já quita a obrigação, inteira ou em parte, e qualquer evento
+> pode citar o lote.
+>
 > Um único evento não serve: ele conta o valor inteiro em cada posição que cita, então não representa
-> posições de valores diferentes.
+> posições de valores diferentes. Os vários eventos não fabricam fatos: cada um diz quanto da
+> transferência real foi para cada obrigação, e o lote os liga a essa transferência.
 
 ```
 Lote de 500,00: João 300,00 e Maria 200,00
   dois eventos, mesmo contexto de lote · soma 500,00 · caixa da Usina: -500,00
   obrigação do João aberta: 0,00 · obrigação da Maria aberta: 0,00
+
+Lote de 1.200,00 ao Halisson: 10 obrigações de 120,00
+  10 repasses, cada um quitando a sua obrigação e citando o mesmo lote
+  soma 1.200,00 = débito no banco · caixa: -1.200,00 · as 10 obrigações com 0,00 em aberto
+
+Lote com 100,00 numa obrigação de 120,00 → 20,00 continuam abertos nela
 ```
+
+`REQ-249` **Envio do lote** (decidido em 2026-11-11). Os eventos do lote são enviados **todos**, um de
+cada vez. Um evento recusado **não impede** o envio dos demais: cada um é um fato verdadeiro, porque o
+dinheiro já saiu do banco ("a validade de um fato independe da sua linhagem", `CLAUDE.md`). O recusado
+fica visível para ser corrigido, e a diferença entre o débito no banco e o que foi registrado aparece
+no lote.
+
+```
+Lote de 1.200,00 ao Halisson; a obrigação nº 3 já tinha sido paga por outro operador
+  o Ledger recusa o nº 3 · os outros nove são registrados (1.080,00)
+  diferença com o banco: 120,00, exatamente onde está o problema (pago a mais, Q-048)
+```
+
+> Difere de `REQ-277`, em que o recebimento em lote da seguradora para no primeiro recusado. A
+> diferença ficou em `DEC-037`.
 
 `REQ-247` O **extrato bancário** é um anexo **opcional**, guardado **no Treasury**, com uma impressão
 digital (hash) que permite provar que o arquivo não foi trocado. Pode ser anexado depois do
 pagamento, e um mesmo arquivo pode valer para vários eventos. Anexar **não altera** o evento no
 Ledger.
 
+> **Confirmado em 2026-11-11 (rodada 17):** o extrato continua **opcional**, também no lote. O pagamento
+> conta como feito quando é anotado (`REQ-245`), com ou sem extrato. Exigir o extrato desde o início
+> dificultaria o uso; deixá-lo opcional permite questionar depois um pagamento que ficou sem ele.
+
 `REQ-248` **Qualquer operador** pode registrar o pagamento, e a auditoria mostra quem foi. Se o uso
 mostrar necessidade, isso vira uma permissão, como a de curadoria (`REQ-402`).
 
 ### 4.5 Compensação, obrigação de comissão e operação composta
 
-> Decidido em 2026-11-06. **Implementados:** `REQ-253` e `REQ-254`; o restante ainda não. O sistema é descritivo: o que não estiver
+> Decidido em 2026-11-06. **Implementados:** `REQ-253` e `REQ-254`; a compensação no Ledger (`REQ-250`, `REQ-251`,
+> `REQ-624`) em 2026-11-11, ainda sem tela no Treasury (passo 7); o restante ainda não. O sistema é descritivo: o que não estiver
 > mapeado no Ledger é criado e exposto, e quem movimenta os eventos é o usuário do Treasury. A
 > compensação e a obrigação de comissão dependem de contrato novo no Ledger (`REQ-202`) e entram com
 > os testes escritos antes do código, numa mudança isolada e fácil de remover enquanto nenhum fato
@@ -458,13 +496,38 @@ Adiantamento 300,00 e obrigação de comissão 600,00 com o João. Compensação
 Mesma compensação com obrigação de 200,00: recusada; nada muda.
 ```
 
+A compensação pode ser **parcial** (decidido em 2026-11-11): "mesmo valor" quer dizer que os dois lados
+descem pelo mesmo valor, não que um deles fecha inteiro. O usuário define o valor (`REQ-257`), até o
+menor saldo aberto entre as posições citadas, e o restante continua aberto e visível.
+
+```
+Adiantamento 300,00 e obrigação 600,00 com o João. Compensação de 100,00:
+  adiantamento em aberto: 200,00 · obrigação em aberto: 500,00 · caixa: não muda
+```
+
+> **Desenho no Ledger, aprovado em 2026-11-11 (rodada 17).** Um tipo de evento novo, `compensation`, sem
+> caixa (`NON_CASH`), com motivo próprio (`compensation`). Cita cada posição com `settles` pelo valor do
+> evento e, se houver, os contextos com `references` (`REQ-275`). Não exige `relatedEventId`: são duas
+> posições com origens diferentes, e cada uma é identificada pelo seu id. O molde é o do pagamento direto
+> ao corretor, que já quita duas posições sem caixa pelo mesmo valor. A recusa de quem não cabe já existe
+> (a trava de conservação mede cada posição). Os termos estão no Anexo A. Tipos iniciais em `REQ-251`;
+> a leitura da posição compensada em `REQ-624`.
+
 `REQ-251` A compensação cita **pelo menos uma posição a receber e uma a pagar**. O Ledger exige
 isso porque é o que define uma compensação: sem essa regra, duas dívidas sumiriam sem caixa. O lado
-de cada tipo de posição vem da classificação do próprio Ledger. Os tipos iniciais são `DEC-025`.
+de cada tipo de posição vem da classificação do próprio Ledger. Os tipos iniciais (decididos em
+2026-11-11, `DEC-025`) são adiantamento e empréstimo, a receber, contra obrigação de comissão, a pagar.
+Outro tipo entra quando aparecer um caso real, com o seu teste; o desconto de adiantamento na folha
+ainda não existe, porque o sistema não foi para produção.
 
-`REQ-252` O Treasury oferece compensação apenas entre posições da **mesma pessoa**. O Ledger **não
-bloqueia** outro caso, porque isso é qualitativo e não aritmético. A compensação entre pessoas fica
+`REQ-252` O Treasury oferece compensação apenas entre posições da **mesma parte**. O Ledger **não
+bloqueia** outro caso, porque isso é qualitativo e não aritmético: ele não guarda um "dono" da posição,
+e quem é a mesma parte é julgado pelo cadastro e pelo mapeamento do Treasury (`REQ-330`). Identificadores
+ligados à mesma parte (`REQ-332`) contam como a mesma parte. A compensação entre partes diferentes fica
 em `DEC-022`.
+
+> Alterado em 2026-11-11: "pessoa" → "**parte**", porque uma parte pode ser uma empresa (CNPJ), e não só
+> uma pessoa (CPF).
 
 `REQ-253` A obrigação de comissão pode nascer **sem caixa**, com `obligation_recognized`, e segue o
 mesmo ciclo das demais obrigações. O ideal é haver um fato por trás dela, como uma comissão a
@@ -512,7 +575,8 @@ existe entidade de fluxo nem evento de encerramento (ver `REQ-622`).
 
 > Decidido em 2026-11-09 (rodada 14, `DEC-028`). **Implementados:** blocos A (`REQ-260`, `REQ-261`,
 > `REQ-265`), B (`REQ-267`), C (`REQ-263`, `REQ-264`, `REQ-268`, `REQ-270`, `REQ-271`) e D (`REQ-269`,
-> `REQ-277`), na tela "Sistema de seguro" e na prévia. O bloco E (`REQ-266`) foi adiado. O reconhecimento
+> `REQ-277`), na tela "Sistema de seguro" e na prévia; a integração (`REQ-278`, `REQ-279`) e a lista de
+> sinais (`REQ-280`) também. O bloco E (`REQ-266`) foi adiado. O reconhecimento
 > operacional nasce fora; o controle financeiro acontece dentro. O sistema de seguro **não movimenta
 > dinheiro** (Anexo B.1): ele diz o que se espera, e o Treasury mantém a própria visão do que de fato
 > aconteceu. Esta etapa é **sem API**; a leitura automática fica para a etapa de integração, e o
@@ -728,6 +792,18 @@ nome da seguradora não vem na API; o id faz as vezes de nome visto.
 
 `REQ-279` O item **"Sistema de seguro"** do menu lateral mostra quantas propostas esperam conferência,
 relido a cada 20 segundos, como o aviso de identidades provisórias.
+
+`REQ-280` **Lista de sinais** (2026-11-11). A tela "Sistema de seguro" lista os sinais do mais novo para
+o mais antigo, em páginas ("carregar mais"), sem repetir um sinal já mostrado. Por padrão, mostra só os
+sinais com alguma proposta **ainda à espera do usuário** (coletando, pronta para envio ou aguardando
+correção); o filtro "todos" traz também os já registrados ou recusados. Esse estado é **lido da intenção
+a cada consulta**, nunca guardado no sinal, que continua imutável (`REQ-260`). O número do menu
+(`REQ-279`) conta as propostas abertas de **todos** os sinais, não só da primeira página.
+
+```
+7 sinais, 2 com proposta aberta, páginas de 20
+  padrão → os 2 abertos · "todos" → os 7 · a proposta é enviada e aceita → sai do padrão
+```
 
 `REQ-271` A **data esperada** da comissão prevista (`REQ-229`) continua opcional. Sem ela, a comissão
 fica com um **alerta de pendência**, porque essa data serve ao controle de inadimplência. O alerta é
@@ -1061,6 +1137,25 @@ Adiantamento 300,00 compensado com obrigação de 300,00:
 A compensação é igual nos dois casos.
 ```
 
+**Como a posição mostra isso** (decidido em 2026-11-11). A leitura de uma posição separa o que a
+fechou em três números: **em dinheiro**, **compensado** e **baixado sem caixa**. O resultado da posição
+quitada:
+
+| Como fechou | Resultado |
+| --- | --- |
+| Só dinheiro | Como hoje (`DEC-027` não muda) |
+| Compensação, com ou sem dinheiro, e nenhuma baixa | **Fechada por compensação**: não afirma ganho nem perda |
+| Houve baixa sem caixa de outra natureza | Perda: **parcial** se algo voltou em dinheiro **ou por compensação**; **total** só se nada voltou. A parte compensada nunca conta como perda |
+| Ainda aberta | Pendente, como hoje |
+
+```
+Adiantamento: aberto em 300,00 · em dinheiro 0,00 · compensado 100,00 · em aberto 200,00
+Os 200,00 restantes são declarados perdidos → perda parcial (100,00 voltaram por compensação)
+```
+
+> Uma posição zerada por compensação não é um ciclo fechado (`REQ-622`): o caixa que saiu continua
+> fora até outro fato o trazer de volta. Como alertar e mostrar de onde vem essa saída é `DEC-038`.
+
 `REQ-625` Para o resultado por corretor, o Treasury cita o corretor nos eventos em que ele é
 **conhecido**, inclusive tributos ligados à venda. Quando não é conhecido, o evento continua válido
 e entra como não atribuído.
@@ -1336,6 +1431,7 @@ Treasury a partir das três fontes, §5).
 | `CA-802` | Um evento chega de um sistema externo → a auditoria registra a identificação desse sistema como autor | `REQ-802` |
 | `CA-250` | Adiantamento 300,00 e obrigação 600,00; compensação de 300,00 → um evento; adiantamento aberto 0,00, obrigação aberta 300,00, caixa igual | `REQ-250` |
 | `CA-250b` | Adiantamento 300,00 e obrigação 200,00; compensação de 300,00 → recusada; adiantamento aberto 300,00 e obrigação aberta 200,00 | `REQ-250` |
+| `CA-250c` | Adiantamento 300,00 e obrigação 600,00; compensação de 100,00 → adiantamento aberto 200,00, obrigação aberta 500,00, caixa igual | `REQ-250` |
 | `CA-252` | Compensação no Treasury → só oferece posições da mesma pessoa | `REQ-252` |
 | `CA-253` | Obrigação de comissão de 600,00 com o João, sem caixa → aceita, aberta 600,00, caixa igual | `REQ-253` |
 | `CA-254` | Obrigação de comissão aberta de 600,00 → soma 600,00 no que a Usina tem a pagar e nada no que devem à Usina | `REQ-254` |
@@ -1356,6 +1452,9 @@ Treasury a partir das três fontes, §5).
 | `CA-244` | Extrato de recebível do João com 600,00 em aberto → mostra 600,00; o caixa e a posição não mudam, e nenhum evento é enviado | `REQ-244` |
 | `CA-245` | Extrato gerado e pagamento anotado de 600,00 → obrigação aberta 0,00 e caixa -600,00 | `REQ-245` |
 | `CA-246` | Lote de 500,00: João 300,00 e Maria 200,00 → dois eventos com o mesmo contexto de lote, soma 500,00, as duas obrigações fechadas | `REQ-246` |
+| `CA-246b` | Lote de 1.200,00 ao Halisson com 10 obrigações de 120,00 → 10 repasses com o mesmo lote, soma 1.200,00, as 10 obrigações fechadas | `REQ-246` |
+| `CA-246c` | Lote com 100,00 numa obrigação de 120,00 → a obrigação fica com 20,00 em aberto | `REQ-246` |
+| `CA-249` | Lote de 10 repasses com o nº 3 recusado → os outros nove são registrados; o nº 3 aparece como recusado e a diferença de 120,00 aparece no lote | `REQ-249` |
 | `CA-247` | Extrato bancário anexado a dois eventos do lote, depois do pagamento → os dois mostram o arquivo, o hash fica guardado e os eventos no Ledger não mudam | `REQ-247` |
 | `CA-247b` | Arquivo anexado → a auditoria registra quem anexou, quando e a qual fato | `REQ-247`, `REQ-804` |
 | `CA-248` | Operador sem acesso especial registra o pagamento → aceito, e a auditoria mostra quem foi | `REQ-248` |
@@ -1442,6 +1541,7 @@ Treasury a partir das três fontes, §5).
 | `REJ-627` | O Treasury somar por conta própria o resultado de uma parte | `REQ-627` |
 | `REJ-244` | Gerar o extrato de recebível baixar a obrigação ou enviar um evento ao Ledger | `REQ-244` |
 | `REJ-246` | Registrar o lote como um único evento com posições de valores diferentes | `REQ-246` |
+| `REJ-249` | Deixar de enviar os demais eventos do lote porque um deles foi recusado | `REQ-249` |
 | `REJ-247` | Anexar um arquivo sem registrar quem anexou | `REQ-247`, `REQ-804` |
 | `REJ-323b` | Comissão recebida com confiança baixa → o Ledger recusa, e o caixa não muda | `REQ-323`, `REQ-806` |
 | `REJ-260` | Enviar ao Ledger um sinal externo, ou um fato proposto, sem a confirmação de um usuário | `REQ-260`, `REQ-261`, `REQ-323` |
@@ -1484,10 +1584,10 @@ Treasury a partir das três fontes, §5).
 | `DEC-019` | **Fechar uma obrigação sem pagar**: desconto depois de reconhecida, desistência de um repasse, negociação. Hoje `commission_waiver` recusa `commission_payable` | A obrigação fica aberta e visível; não há como fechá-la sem pagamento ou compensação |
 | `DEC-020` | **Base do cálculo**: registrar sobre o que o percentual incidiu (parcela, valor recebido pela Usina ou parte do corretor) e onde isso fica. O Ledger guarda só o valor | O valor é registrado sem a base; a descrição é livre |
 | `DEC-021` | **Várias partes na mesma venda**: como dividir o valor no resultado por parte. O evento já guarda valor por parte, mas exige que a soma feche o total, o que impede registrar só a parte conhecida | O evento conta inteiro para cada parte citada, e a soma das partes não fecha nesses casos (`REQ-623`) |
-| `DEC-022` | **Compensação entre pessoas diferentes** (adiantamento da Maria abatendo dívida com o João). Sem caso real conhecido | O Treasury não oferece (`REQ-252`); o Ledger não bloqueia |
+| `DEC-022` | **Compensação entre partes diferentes**. Casos levantados em 2026-11-11: (1) **pessoa e a empresa dela**: adiantamento ao João (CPF) abatido na obrigação com a Argo (CNPJ), pela qual ele recebe (`REQ-613`); no Ledger são duas partes, na vida real o mesmo bolso. É o candidato mais provável. (2) **acordo entre três**: o adiantamento da Maria abatido na comissão do João, porque o João devia à Maria por fora. Raro. Por enquanto João e Argo são partes diferentes, porque a relação entre elas nasce no evento (`REQ-611`) | O Treasury não oferece (`REQ-252`); o Ledger não bloqueia |
 | `DEC-023` | **Categorias de resultado** além do produto, a partir do contexto do Ledger, com ou sem um padrão | Vale o contexto citado no evento (`REQ-621`) |
 | `DEC-024` | **Retomar uma operação composta interrompida**: estratégia para evitar ou concluir | O histórico fica incompleto e visível (`REQ-255`) |
-| `DEC-025` | **Tipos iniciais da compensação**: a intenção é um contrato genérico, começando por adiantamento e empréstimo contra comissão e demais contas a pagar. A multa fica de fora até se definir de que lado está: hoje ela é contingência da Usina, não um valor a receber do corretor | Só os tipos listados entram; cada novo tipo precisa de um caso de teste |
+| `DEC-025` | ~~Tipos iniciais da compensação~~ — **decidida em 2026-11-11**: adiantamento (`ADVANCE`) e empréstimo (`LOAN`) contra obrigação de comissão (`COMMISSION_PAYABLE`). Ficam de fora até aparecer um caso real: as demais contas a pagar (conta genérica, folha, serviço, infraestrutura, imposto), o a receber genérico (nenhum evento o abre), a comissão a receber (devida pela seguradora, `DEC-022`) e a multa (contingência da Usina) | Só os tipos listados entram; cada novo tipo precisa de um caso de teste |
 | `DEC-026` | ~~Lote~~ — **decidida em 2026-11-06**: um evento por pessoa, ligados pelo contexto do lote (`REQ-246`) | Vale `REQ-246` |
 | `DEC-027` | **Outros resultados por posição**: dívida paga aparece como `gain`, e `ledger_correction` com `ADJUSTS` aceita valor acima do saldo sem conferência | Continuam como estão; só a compensação muda (`REQ-624`) |
 | `DEC-028` | ~~Primeira conexão com o sistema de seguro, sem API~~ — **decidida em 2026-11-09**: sinal externo e fatos propostos (§4.6). A leitura automática pela API fica para a etapa de integração | Vale §4.6 (não implementado) |
@@ -1498,6 +1598,8 @@ Treasury a partir das três fontes, §5).
 | `DEC-033` | **Alcance da retificação e convivência com o ajuste**: `REQ-522` cita três posições e o Anexo A inclui `COMMISSION_PAYABLE`; a retificação pode alcançar outros eventos ou até deixar de existir, ficando só o ajuste. Não atrapalha §4.6 | Vale `REQ-522` |
 | `DEC-034` | **Outros beneficiários vindos do sistema de seguro** (supervisor e outros, `REQ-258`). Hoje o sistema de seguro não os conhece; pode vir a conhecer | O sinal só traz o corretor; os demais são abertos pelo usuário (`REQ-253`) |
 | `DEC-035` | ~~Contextos na lista de posições~~ — **decidida em 2026-11-09**: opção 2, escondidos da lista só no Treasury (`REQ-605`) | Vale `REQ-605` |
+| `DEC-037` | **Recusa no meio do lote**: no pagamento em lote, um recusado não impede os demais (`REQ-249`); no recebimento em lote da seguradora, os seguintes não são enviados (`REQ-277`). Rever `REQ-277` à luz do mesmo princípio | Cada lote segue a sua regra |
+| `DEC-038` | **Exposição: saída de caixa coberta só por expectativa** (o "coringa"). Adiantamento de 500,00 ao João, compensado com a obrigação de 500,00 da apólice X; a Allianz ainda deve 800,00 e nada entrou. As duas posições do João zeraram, mas o caixa continua em −500,00, e só uma expectativa pode trazê-lo de volta. Decidir quando e como alertar, e como mostrar a trilha do furo (caixa → adiantamento → compensação → obrigação → apólice → comissão prevista aberta), como **leitura** da cadeia de fatos, sem rateio (`REQ-623`). Para a trilha existir, a compensação herda o contexto da obrigação (`REQ-275`). A leitura por contexto sozinha não mostra o furo, porque o adiantamento não cita a apólice (`CA-621b`). Decidir junto com o passo 6 e `DEC-030`; não bloqueia a compensação | O −500,00 aparece no resultado do João (`REQ-620`, `REQ-622`); não há alerta nem trilha |
 | `DEC-036` | **Enriquecer a origem depois**: ligar um recebimento sem origem (ou outro fato isolado) à comissão prevista quando se descobre de onde veio, **sem reescrever o fato** ("a linhagem é progressiva", `CLAUDE.md`). Não existe hoje no Ledger nem no Treasury. Ideia do dono do produto: usar isso para olhar o passado a partir do saldo no banco (Bradesco, Itaú, corretora de investimentos), perguntando "de onde veio cada valor?", e construir a verdade financeira enquanto se concilia, independente do banco. Relaciona-se com `DEC-018` | O recebimento sem origem fica pendente e visível; não há como ligá-lo depois |
 
 ### 15.2 Perguntas abertas
@@ -1572,7 +1674,7 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 
 ### 16.1 Onde paramos e o que decidir
 
-> Atualizado em 2026-11-09, ao fechar o dia. Quando o dono do produto perguntar "onde paramos e o que precisamos
+> Atualizado em 2026-11-11, depois do commit `308e90e`. Quando o dono do produto perguntar "onde paramos e o que precisamos
 > decidir para continuar?", a resposta parte daqui. Confira no código antes de afirmar que algo existe.
 
 **Como trabalhamos, nesta ordem.** Só avance com o aval do dono do produto.
@@ -1595,9 +1697,13 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 | Data esperada da comissão prevista (`REQ-229`) e lista de seleção com busca | ✅ Implementados, com commit. A lista não foi vista no navegador; só tem teste de componente |
 | Suítes em 2026-11-07 | Ledger: 841 passam e 19 pendentes (compensação e leituras de resultado). Treasury: 717 no backend, com 13 `it.todo`, e 148 no cliente |
 | Teste do dono do produto | Fez os passos, mas só porque conhece o sistema. Um leigo ainda teria dificuldade |
-| Passos 4 a 8 de §16.2 | ⬜ Não iniciados |
-| Sinal externo do sistema de seguro (§4.6, rodada 14) | 🔶 Blocos A a D implementados, sem commit; E adiado. Testes em `treasury/src/tests/integration/acceptance-external-signal.test.ts` (os blocos D e E estão como `it.todo`) e, no Ledger, `insurance-signal-candidates.test.ts` |
-| Suítes em 2026-11-09 | Treasury: 792 no backend, com 14 `it.todo`, e 156 no cliente. Ledger: 852 e 19 falhas esperadas; o código do Ledger só mudou no `npm run dev` |
+| Passos 4 a 8 de §16.2 | 🔶 Passo 5 (compensação) feito no Ledger em 2026-11-11, sem commit; os demais não iniciados |
+| Sinal externo do sistema de seguro (§4.6, rodada 14) | ✅ Blocos A a D com commit (`0fd5a62`); E adiado. Testes em `treasury/src/tests/integration/acceptance-external-signal.test.ts` (só o bloco E está como `it.todo`) e, no Ledger, `insurance-signal-candidates.test.ts` |
+| Integração com o sistema de seguro (rodada 15) | ✅ Com commit (`874a260`). A validação com um RabbitMQ de verdade não foi registrada como feita |
+| Lista de sinais paginada (`REQ-280`) | ✅ Com commit (`308e90e`). Testes em `signal-pagination.test.ts` |
+| Suítes em 2026-11-11 | Treasury: 828 no backend, com 14 `it.todo`, e 156 no cliente. Ledger: não rodado desde 2026-11-09 (852 e 19 falhas esperadas) |
+| Suítes em 2026-11-11, depois da compensação | Ledger: 868 passam e 12 pendentes (passo 6). Treasury: 828 no backend, com 14 `it.todo`, e 156 no cliente. A cobertura do Ledger está em 84,36% de linhas e 84,78% de funções, abaixo do mínimo de 85%; **já estava abaixo antes** (84,11% e 84,71% no commit `308e90e`) |
+| Fora dos commits | `ledger/algebra.json` reexportado (`obligation_recognized` aceita `commission_payable`, `REQ-253`; e a compensação), variáveis do Treasury no `deploy/docker-compose.yml` e os READMEs |
 
 **O que o teste na tela mostrou.**
 
@@ -1610,7 +1716,7 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 
 **O que decidir para continuar, nesta ordem.**
 
-**Integração com o sistema de seguro (rodada 15, 2026-11-09): implementada, sem commit** (`REQ-278`,
+**Integração com o sistema de seguro (rodada 15, 2026-11-09): implementada, com commit** (`REQ-278`,
 `REQ-279`). Produtor validado contra a API real (duas apólices elegíveis viraram duas mensagens válidas).
 **Falta validar com um RabbitMQ de verdade**: o Docker não estava rodando. Para isso:
 `docker run -d --name rabbit -p 5672:5672 -p 15672:15672 rabbitmq:3-management`, preencher
@@ -1623,10 +1729,10 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 
 | Bloco | Regras | Situação |
 | --- | --- | --- |
-| A. Sinal externo e fatos propostos | `REQ-260`, `REQ-261`, `REQ-265` | ✅ 2026-11-09, sem commit. A tela não foi vista no navegador |
-| B. Partes e apólice como contexto | `REQ-267` | ✅ 2026-11-09, sem commit. Dois `⚠ CONFIRMAR` em `REQ-267` |
-| C. Avisos e ligações recomendadas | `REQ-263`, `REQ-264`, `REQ-268`, `REQ-270`, `REQ-271` | ✅ 2026-11-09, sem commit. Validado com o Ledger real por HTTP |
-| D. Recebimento por lote | `REQ-269`, `REQ-277` | ✅ 2026-11-09, sem commit. Validado com o Ledger real por HTTP |
+| A. Sinal externo e fatos propostos | `REQ-260`, `REQ-261`, `REQ-265` | ✅ 2026-11-09, com commit. A tela não foi vista no navegador |
+| B. Partes e apólice como contexto | `REQ-267` | ✅ 2026-11-09, com commit. Dois `⚠ CONFIRMAR` em `REQ-267` |
+| C. Avisos e ligações recomendadas | `REQ-263`, `REQ-264`, `REQ-268`, `REQ-270`, `REQ-271` | ✅ 2026-11-09, com commit. Validado com o Ledger real por HTTP |
+| D. Recebimento por lote | `REQ-269`, `REQ-277` | ✅ 2026-11-09, com commit. Validado com o Ledger real por HTTP |
 | E. Diferença quando a origem muda | `REQ-266` | ⏸ Adiado em 2026-11-09: não é um caso real ainda |
 
 **Ainda a decidir, em paralelo:**
@@ -1670,6 +1776,9 @@ não registrada no Ledger.
 - O cadastro de partes ainda não tem tela para acrescentar o id externo a uma parte já cadastrada; por
   enquanto, o caminho é ligar a provisória criada pelo sinal (`REQ-322`).
 - Falta confirmar no Ledger que o `allocationGap` do lote vale para recebimentos (`REQ-269`).
+- A quitação de empréstimo "via comissão" (`LOAN_REPAYMENT` com `LOAN_REPAYMENT_VIA_COMMISSION`, sem caixa)
+  baixa só o empréstimo, e a obrigação de comissão continua aberta. Com a compensação existindo, decidir
+  se o Treasury deixa de oferecer esse motivo (levantado em 2026-11-11).
 - Uma proposta aceita e depois retificada deixa a referência da origem usada no Ledger: um novo sinal
   da mesma apólice seria recusado como duplicado. Tratar junto com o bloco E e `DEC-033`.
 
@@ -1679,6 +1788,10 @@ não registrada no Ledger.
 - Reemitir um pagamento direto continua adiado, assim como a queda entre o aceite do Ledger e a
   gravação no Treasury e a entrada de eventos externos.
 - Quitar uma dívida aparece como "Recuperado" (`DEC-027`).
+- O filtro "perda total" do SQL também trazia posição a pagar quitada em dinheiro, que a memória lê como
+  ganho. Corrigido junto com a compensação em 2026-11-11, com teste de equivalência.
+- O Treasury ainda não traduz o resultado `compensated` (rótulos em `vocabulary.ts` e `i18n.tsx`). Só aparece
+  quando houver compensação gravada, o que o Treasury ainda não oferece; entra com o passo 7.
 - A recusa de pagamento acima do saldo traz, na API, o identificador interno da posição. Não foi
   verificado se a tela traduz esse texto.
 
@@ -1707,9 +1820,9 @@ O Treasury só lê `ledger/algebra.json` ao iniciar, então, depois de mudar um 
 | Visão por pessoa/grupo | ✅ §8.2 (`⚠` em `REQ-612`) |
 | Repasse de comissão | 🔶 §4.4 definido; extrato, lote e anexo não implementados |
 | Conciliação bancária | ⬜ `DEC-018` |
-| Compensação e operação composta | 🔶 §4.5 definido; obrigação de comissão implementada; compensação e operação composta não (`DEC-019`–`DEC-022`, `DEC-024`, `DEC-025`) |
+| Compensação e operação composta | 🔶 §4.5 definido; obrigação de comissão e compensação (no Ledger) implementadas; a oferta da compensação no Treasury e a operação composta não (`DEC-019`–`DEC-022`, `DEC-024`) |
 | Resultado por parte e contexto | 🔶 §8.3 definido, não implementado (`DEC-021`, `DEC-023`, `DEC-027`) |
-| Sinal externo do sistema de seguro | 🔶 §4.6 definido; blocos A a D implementados, E adiado (`DEC-033`, `DEC-034`, `Q-050`–`Q-052`) |
+| Sinal externo do sistema de seguro | 🔶 §4.6 definido; blocos A a D, integração e lista de sinais implementados, E adiado (`DEC-033`, `DEC-034`, `Q-050`–`Q-052`) |
 
 **Critério de parada desta parte (documentação do que existe): atingido**, declarado pelo dono do
 produto em 2026-11-03. Ficam abertas, por decisão dele, as `DEC-001` a `DEC-014`.
@@ -1733,9 +1846,14 @@ não são testes do projeto. A ordem é:
 3. Obrigação de comissão, junto com a classificação (`REQ-253`, `REQ-254`), e a tela para abrir e
    pagar. **Feito em 2026-11-06.** A obrigação ainda não cita o produto: o contexto é citado a partir
    do passo 7; até lá, o produto fica na descrição.
-4. Extrato de recebível, pagamento em lote, anexo e confiança (`REQ-241`, `REQ-244`–`REQ-248`,
+4. Extrato de recebível, pagamento em lote, anexo e confiança (`REQ-241`, `REQ-244`–`REQ-249`,
    `REQ-806`). Vem antes da compensação porque é o fluxo principal do dia a dia.
-5. Compensação (`REQ-250`, `REQ-251`).
+5. Compensação (`REQ-250`, `REQ-251`, `REQ-624`). **Feito no Ledger em 2026-11-11, sem commit.** Tipo e
+   motivo `compensation`, contrato com os tipos de `DEC-025`, a regra dos dois lados (`REQ-251`) e a leitura
+   da posição com o compensado à parte (`compensatedClosed`) e o resultado `compensated`, na memória e no
+   SQL. Validado por HTTP com o Ledger de `npm run dev`: compensação parcial aceita, acima do saldo recusada,
+   um lado só recusado, adiantamento fechado como `compensated`. Os totais por parte de `CA-624` ficam para
+   o passo 6; a oferta no Treasury, para o passo 7.
 6. Leituras por parte e por contexto, e o fechamento neutro (`REQ-620`–`REQ-624`), inclusive em SQL.
 7. Operação composta e tradução no Treasury (`REQ-252`, `REQ-255`–`REQ-258`, `REQ-625`–`REQ-627`).
 8. Entrada do sistema externo (`REQ-323`, `REQ-805`). Fica por último porque o evento é o mesmo, então
@@ -1768,6 +1886,7 @@ Referência para a comparação futura. **Não é regra de negócio**; a regra �
 | Pagamento direto ao corretor | `DIRECT_PAYMENT_ACKNOWLEDGED` | `NON_CASH` | `COMMISSION_RECEIVABLE` + `COMMISSION_ENTITLEMENT` | `SETTLES` | `DIRECT_COMMISSION_PAYMENT_AUTHORIZED` |
 | Renúncia de comissão | `COMMISSION_WAIVER` | `NON_CASH` | `COMMISSION_ENTITLEMENT` | `SETTLES` \| `REVERSES` | `COMMISSION_WAIVER` |
 | Reconhecimento de obrigação | `OBLIGATION_RECOGNIZED` | `NON_CASH` | `COMMISSION_PAYABLE` \| `PAYROLL` \| `SERVICE_FEE` \| `INFRASTRUCTURE_COST` \| `TAX` \| `PAYABLE` | `ORIGINATES` | `OBLIGATION_RECOGNITION` (tardio: `LATE_AWARENESS`) |
+| Compensação (no Ledger; o Treasury ainda não oferece) | `COMPENSATION` | `NON_CASH` | pelo menos uma a receber (`ADVANCE` \| `LOAN`) e uma a pagar (`COMMISSION_PAYABLE`) (`DEC-025`) | `SETTLES` (contextos: `REFERENCES`) | `COMPENSATION` |
 | Retificação | `LEDGER_CORRECTION` | `NON_CASH` | `ADVANCE` \| `LOAN` \| `COMMISSION_RECEIVABLE` \| `COMMISSION_PAYABLE`, mais as demais posições do lançamento (`REQ-525`) | `RETRACTS` | `DATA_RECONCILIATION` |
 
 ---

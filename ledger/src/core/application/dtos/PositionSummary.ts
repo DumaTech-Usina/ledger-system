@@ -49,12 +49,14 @@ export type PositionStatus =
 
 /**
  * gain         — fully settled via cash (no loss events)
- * partial_loss — some cash recovered, some recognised as lost or written off
- * full_loss    — originated but zero cash recovered (settled NON_CASH or loss-recognised)
+ * compensated  — fully settled with part or all of it by compensation, and nothing written off.
+ *                Asserts neither gain nor loss: that shows in the totals (treasury REQ-624).
+ * partial_loss — something written off, and something recovered — in cash or by compensation
+ * full_loss    — something written off, and nothing recovered at all
  * cancelled    — reversed before settlement
  * pending      — not yet fully settled
  */
-export type EconomicOutcome = "gain" | "partial_loss" | "full_loss" | "cancelled" | "pending";
+export type EconomicOutcome = "gain" | "compensated" | "partial_loss" | "full_loss" | "cancelled" | "pending";
 
 export interface PositionSummary {
   objectId: string;
@@ -80,8 +82,10 @@ export interface PositionSummary {
   overSettlement: Money | null;
   /** SETTLES events with CASH_IN effect — actual money returned. */
   cashRecovered: Money;
-  /** SETTLES events with NON_CASH effect — written off or debt-renegotiated amounts. */
+  /** SETTLES events with NON_CASH effect — written off or debt-renegotiated amounts. Compensation excluded. */
   nonCashClosed: Money;
+  /** SETTLES by COMPENSATION — recovered against something owed the other way, with no cash. */
+  compensatedClosed: Money;
   /**
    * For contextual objects (SETTLEMENT_BATCH): cash received (CASH_IN) minus cash distributed
    * (CASH_OUT). Positive value means unallocated cash is sitting in the batch. Zero when fully

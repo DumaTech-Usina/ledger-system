@@ -160,6 +160,7 @@ export const REASON_EFFECT_MATRIX: Partial<
   [ReasonType.INCENTIVE_PAYMENT]: [EconomicEffect.CASH_OUT, EconomicEffect.NON_CASH],
   // Recognizing an obligation moves no money — the payment that settles it is a separate fact.
   [ReasonType.OBLIGATION_RECOGNITION]: [EconomicEffect.NON_CASH],
+  [ReasonType.COMPENSATION]: [EconomicEffect.NON_CASH],
 
   // Governança — corrections are always bookkeeping entries (no cash movement)
   [ReasonType.MANUAL_CORRECTION]: [EconomicEffect.NON_CASH],
@@ -212,6 +213,7 @@ export const REASON_RELATION_MATRIX: Partial<
   [ReasonType.INCENTIVE_PAYMENT]: [Relation.ORIGINATES, Relation.SETTLES],
   // A recognition only ever originates an obligation — the twin of COMMISSION_ACCRUAL.
   [ReasonType.OBLIGATION_RECOGNITION]: [Relation.ORIGINATES],
+  [ReasonType.COMPENSATION]: [Relation.SETTLES],
 
   // Governança — corrections fully reverse or partially adjust a prior entry
   [ReasonType.MANUAL_CORRECTION]: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],

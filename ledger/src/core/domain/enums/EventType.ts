@@ -81,4 +81,18 @@ export enum EventType {
    * recognition: both orders of arrival are legitimate, and both derive to the same position.
    */
   OBLIGATION_RECOGNIZED = "obligation_recognized",
+
+  /**
+   * The usina and a party settle something the party owes against something the usina owes it,
+   * for the same amount, with no money moving (treasury REQ-250/251, decided 2026-11-06 and
+   * 2026-11-11). NON_CASH: it SETTLES at least one position owed to the usina (ADVANCE, LOAN) and at
+   * least one the usina owes (COMMISSION_PAYABLE), each by the event's amount — the whole of either
+   * or only part of both.
+   *
+   * One event, never two: recorded as two, one side could stand while the other is refused. Carries
+   * no relatedEventId — its positions have different origins and are named by their objectIds. The
+   * ledger does not judge whether the positions belong to the same party (REQ-252): that is a
+   * qualitative call the treasury makes.
+   */
+  COMPENSATION = "compensation",
 }

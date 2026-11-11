@@ -104,6 +104,27 @@ const obligation = (objectId: string, partyId: string, amount: string, contextId
     ReasonType.OBLIGATION_RECOGNITION,
   );
 
+const loan = (objectId: string, partyId: string, amount: string) =>
+  event(
+    EventType.LOAN_ORIGINATION,
+    EconomicEffect.CASH_OUT,
+    amount,
+    [{ partyId: USINA, role: PartyRole.PAYER, direction: Direction.OUT, amount }, neutral(partyId, PartyRole.BENEFICIARY)],
+    [{ objectId, objectType: ObjectType.LOAN, relation: Relation.ORIGINATES }],
+    ReasonType.LOAN_ORIGINATION,
+  );
+
+/** An obligation of a type outside DEC-025, to prove the compensation does not reach it. */
+const payrollObligation = (objectId: string, partyId: string, amount: string) =>
+  event(
+    EventType.OBLIGATION_RECOGNIZED,
+    EconomicEffect.NON_CASH,
+    amount,
+    [neutral(USINA, PartyRole.PAYER), neutral(partyId, PartyRole.BENEFICIARY)],
+    [{ objectId, objectType: ObjectType.PAYROLL, relation: Relation.ORIGINATES }],
+    ReasonType.OBLIGATION_RECOGNITION,
+  );
+
 const compensation = (amount: string, partyIds: string[], positions: [string, ObjectType][], contextId?: string) =>
   event(
     COMPENSATION,
@@ -253,7 +274,7 @@ const REFUSED_PARTIAL_RETRACTION = /every position/i;
 // ── §4.5 Compensação ──────────────────────────────────────────────────────────────────────────────
 
 describe("REQ-250 — compensação é um único evento", () => {
-  pending("CA-250: 300,00 reduz adiantamento e obrigação, sem mexer no caixa", async () => {
+  it("CA-250: 300,00 reduz adiantamento e obrigação, sem mexer no caixa", async () => {
     const { ledgerRepo, run } = setup();
     await run(advance("adv-250", JOAO, "300.00"));
     await run(obligation("cp-250", JOAO, "600.00"));
@@ -280,6 +301,62 @@ describe("REQ-250 — compensação é um único evento", () => {
     expect(await open(ledgerRepo, "adv-250b")).toBe("300.00");
     expect(await open(ledgerRepo, "cp-250b")).toBe("200.00");
   });
+
+  // "Mesmo valor" is the same amount on both sides, not the whole of either (decided 2026-11-11).
+  it("CA-250c: compensação parcial de 100,00 deixa o resto aberto nos dois lados", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(advance("adv-250c", JOAO, "300.00"));
+    await run(obligation("cp-250c", JOAO, "600.00"));
+    const before = await bookCash(ledgerRepo);
+
+    await run(compensation("100.00", [JOAO], [["adv-250c", ObjectType.ADVANCE], ["cp-250c", ObjectType.COMMISSION_PAYABLE]]));
+
+    expect(await open(ledgerRepo, "adv-250c")).toBe("200.00");
+    expect(await open(ledgerRepo, "cp-250c")).toBe("500.00");
+    expect(await bookCash(ledgerRepo)).toBe(before);
+  });
+
+  it("a compensação aparece no ciclo das duas posições", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(advance("adv-cycle", JOAO, "300.00"));
+    await run(obligation("cp-cycle", JOAO, "600.00"));
+    const entry = await run(
+      compensation("100.00", [JOAO], [["adv-cycle", ObjectType.ADVANCE], ["cp-cycle", ObjectType.COMMISSION_PAYABLE]]),
+    );
+
+    const projection = new PositionProjectionService(ledgerRepo);
+    for (const objectId of ["adv-cycle", "cp-cycle"]) {
+      const ids = (await projection.summarize(objectId))!.events.map((e) => e.id.value);
+      expect(ids, objectId).toContain(entry.id.value);
+    }
+  });
+});
+
+describe("DEC-025 — tipos iniciais: adiantamento e empréstimo contra obrigação de comissão", () => {
+  it("empréstimo contra obrigação de comissão é aceito", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(loan("loan-025", JOAO, "500.00"));
+    await run(obligation("cp-025", JOAO, "300.00"));
+
+    await run(compensation("300.00", [JOAO], [["loan-025", ObjectType.LOAN], ["cp-025", ObjectType.COMMISSION_PAYABLE]]));
+
+    expect(await open(ledgerRepo, "loan-025")).toBe("200.00");
+    expect(await open(ledgerRepo, "cp-025")).toBe("0.00");
+  });
+
+  // Out of DEC-025 until a real case appears: the refusal names the type the contract does not take.
+  it("REJ-025: adiantamento contra folha é recusado", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(advance("adv-025", JOAO, "300.00"));
+    await run(payrollObligation("pr-025", JOAO, "300.00"));
+
+    await expect(
+      run(compensation("100.00", [JOAO], [["adv-025", ObjectType.ADVANCE], ["pr-025", ObjectType.PAYROLL]])),
+    ).rejects.toThrow(/Object type payroll not allowed for event type compensation/);
+
+    expect(await open(ledgerRepo, "adv-025")).toBe("300.00");
+    expect(await open(ledgerRepo, "pr-025")).toBe("300.00");
+  });
 });
 
 describe("REQ-251 — compensação cita um lado a receber e um a pagar", () => {
@@ -289,7 +366,7 @@ describe("REQ-251 — compensação cita um lado a receber e um a pagar", () => 
     ["uma posição só", [["adv-j", ObjectType.ADVANCE]]],
   ];
 
-  pending.each(cases)("REJ-251: %s", async (_label, positions) => {
+  it.each(cases)("REJ-251: %s", async (_label, positions) => {
     const { run } = setup();
     await run(advance("adv-j", JOAO, "300.00"));
     await run(advance("adv-m", MARIA, "300.00"));
@@ -301,7 +378,7 @@ describe("REQ-251 — compensação cita um lado a receber e um a pagar", () => 
 });
 
 describe("REQ-252 — o Ledger não julga quem são as pessoas", () => {
-  pending("adiantamento da Maria com dívida do João é aceito: é decisão do Treasury oferecer ou não", async () => {
+  it("adiantamento da Maria com dívida do João é aceito: é decisão do Treasury oferecer ou não", async () => {
     const { ledgerRepo, run } = setup();
     await run(advance("adv-m252", MARIA, "300.00"));
     await run(obligation("cp-j252", JOAO, "300.00"));
@@ -414,7 +491,7 @@ describe("REQ-525 — a retirada cita todas as posições do lançamento", () =>
     expect(await open(ledgerRepo, "rec-525")).toBe("0.00");
   });
 
-  pending("CA-525: compensação retirada citando as duas posições devolve os dois saldos", async () => {
+  it("CA-525: compensação retirada citando as duas posições devolve os dois saldos", async () => {
     const { ledgerRepo, run } = setup();
     await run(advance("adv-525", JOAO, "300.00"));
     await run(obligation("cp-525", JOAO, "600.00"));
@@ -691,17 +768,23 @@ describe("REQ-624 — compensação não afirma ganho nem perda", () => {
     ["o produto nunca paga", false, "-300.00"],
   ];
 
-  pending.each(cases)("CA-624 / REJ-624: %s", async (_label, productPays, net) => {
+  // Passo 5: the position closed by compensation asserts neither gain nor loss.
+  it.each(cases)("CA-624 / REJ-624, posição: %s", async (_label, productPays) => {
     const ledgerRepo = await compensated(productPays);
 
     expect(await outcome(ledgerRepo, "adv-624")).toBe("compensated");
     expect(await outcome(ledgerRepo, "cp-624")).toBe("compensated");
+  });
+
+  // Passo 6: the gain or loss shows in the totals, never in the position.
+  pending.each(cases)("CA-624, totais por parte: %s", async (_label, productPays, net) => {
+    const ledgerRepo = await compensated(productPays);
 
     const { parties } = await (await results(ledgerRepo)).byParties({ partyIds: [JOAO] });
     expect(signed(parties[0])).toBe(net);
   });
 
-  pending("parte compensada e parte paga em dinheiro não vira perda", async () => {
+  it("parte compensada e parte paga em dinheiro não vira perda", async () => {
     const { ledgerRepo, run } = setup();
     await run(advance("adv-mix", JOAO, "300.00"));
     await run(obligation("cp-mix", JOAO, "600.00"));
@@ -709,6 +792,44 @@ describe("REQ-624 — compensação não afirma ganho nem perda", () => {
     await run(passOn("cp-mix", JOAO, "300.00"));
 
     expect(await open(ledgerRepo, "cp-mix")).toBe("0.00");
-    expect(["full_loss", "partial_loss"]).not.toContain(await outcome(ledgerRepo, "cp-mix"));
+    expect(await outcome(ledgerRepo, "cp-mix")).toBe("compensated");
+  });
+
+  // The cycle reads three figures side by side: in cash, compensated, written off (decided 2026-11-11).
+  it("a posição mostra o compensado separado do dinheiro e da baixa", async () => {
+    const { ledgerRepo, run } = setup();
+    await run(advance("adv-fig", JOAO, "300.00"));
+    await run(obligation("cp-fig", JOAO, "600.00"));
+    await run(compensation("100.00", [JOAO], [["adv-fig", ObjectType.ADVANCE], ["cp-fig", ObjectType.COMMISSION_PAYABLE]]));
+
+    const summary = (await new PositionProjectionService(ledgerRepo).summarize("adv-fig"))!;
+    expect(summary.cashRecovered.toString()).toBe("0.00");
+    expect((summary as unknown as { compensatedClosed: { toString(): string } }).compensatedClosed.toString()).toBe("100.00");
+    expect(summary.nonCashClosed.toString()).toBe("0.00");
+    expect(summary.openBalance?.toString()).toBe("200.00");
+    expect(summary.outcome).toBe("pending");
+  });
+
+  // Decided 2026-11-11: what was compensated was recovered, without cash. A position with part
+  // compensated and the rest written off is a partial loss, never a total one.
+  it("compensado em parte e o resto baixado como perda → perda parcial", async () => {
+    const { ledgerRepo, run } = setup();
+    const origin = await run(advance("adv-loss", JOAO, "300.00"));
+    await run(obligation("cp-loss", JOAO, "100.00"));
+    await run(compensation("100.00", [JOAO], [["adv-loss", ObjectType.ADVANCE], ["cp-loss", ObjectType.COMMISSION_PAYABLE]]));
+    await run(
+      event(
+        EventType.ADVANCE_SETTLEMENT,
+        EconomicEffect.NON_CASH,
+        "200.00",
+        [neutral(USINA, PartyRole.PAYEE), neutral(JOAO, PartyRole.PAYER)],
+        [{ objectId: "adv-loss", objectType: ObjectType.ADVANCE, relation: Relation.SETTLES }],
+        ReasonType.LOSS_RECOGNITION,
+        { relatedEventId: origin.id.value },
+      ),
+    );
+
+    expect(await open(ledgerRepo, "adv-loss")).toBe("0.00");
+    expect(await outcome(ledgerRepo, "adv-loss")).toBe("partial_loss");
   });
 });

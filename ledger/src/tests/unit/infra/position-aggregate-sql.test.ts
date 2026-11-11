@@ -45,6 +45,7 @@ function aggregateRow(overrides: Record<string, unknown> = {}) {
     total_adjusted: "0",
     cash_recovered: "0",
     non_cash_closed: "0",
+    compensated_closed: "0",
     ref_cash_in: "0",
     ref_cash_out: "0",
     // SQLite has no boolean storage class: an aggregated flag comes back as 0 or 1.

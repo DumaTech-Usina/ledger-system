@@ -21,6 +21,7 @@ function makeAggregate(
     totalAdjustedUnits: 0n,
     cashRecoveredUnits: 0n,
     nonCashClosedUnits: 0n,
+    compensatedClosedUnits: 0n,
     refCashInUnits: 0n,
     refCashOutUnits: 0n,
     hasReversal: false,

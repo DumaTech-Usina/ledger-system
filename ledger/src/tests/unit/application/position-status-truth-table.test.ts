@@ -104,6 +104,7 @@ const toAggregate = (row: Row): PositionAggregate => ({
   totalAdjustedUnits: row.totalAdjusted,
   cashRecoveredUnits: 0n,
   nonCashClosedUnits: 0n,
+  compensatedClosedUnits: 0n,
   refCashInUnits: 0n,
   refCashOutUnits: 0n,
   hasReversal: row.hasReversal,

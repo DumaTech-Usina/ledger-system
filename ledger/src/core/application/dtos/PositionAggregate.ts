@@ -80,7 +80,10 @@ export interface PositionAggregate {
   totalSettledUnits: bigint;
   totalAdjustedUnits: bigint;
   cashRecoveredUnits: bigint;
+  /** NON_CASH settlements other than compensation: what was written off or renegotiated. */
   nonCashClosedUnits: bigint;
+  /** Settlements by COMPENSATION, kept apart so they never read as a loss (treasury REQ-624). */
+  compensatedClosedUnits: bigint;
   refCashInUnits: bigint;
   refCashOutUnits: bigint;
   hasReversal: boolean;
@@ -143,6 +146,7 @@ export interface PositionListItem {
   overSettlement: Money | null;
   cashRecovered: Money;
   nonCashClosed: Money;
+  compensatedClosed: Money;
   allocationGap: Money;
   eventCount: number;
   lastEventAt: Date;

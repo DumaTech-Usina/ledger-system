@@ -42,4 +42,8 @@ export enum ReasonType {
   /** Neutral baseline cause: an ordinary payment with no special circumstance (the zero-point of
    *  the causal axis). Specialized causes replace it when they apply. */
   ORDINARY_SETTLEMENT = "ordinary_settlement",
+
+  /** A receivable and a payable of the same amount settled against each other, with no cash. The
+   *  cause of a COMPENSATION. */
+  COMPENSATION = "compensation",
 }

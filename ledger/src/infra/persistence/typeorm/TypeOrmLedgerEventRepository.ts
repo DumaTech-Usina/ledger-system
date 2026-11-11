@@ -85,7 +85,7 @@ const placeholders = (count: number): string => new Array(count).fill('?').join(
  */
 const MONEY_COLUMNS = [
   'total_originated', 'total_settled', 'total_adjusted',
-  'cash_recovered', 'non_cash_closed', 'ref_cash_in', 'ref_cash_out',
+  'cash_recovered', 'non_cash_closed', 'compensated_closed', 'ref_cash_in', 'ref_cash_out',
 ] as const;
 
 const moneyAsText = (): string =>
@@ -117,12 +117,16 @@ function outcomeToSql(outcome: EconomicOutcome): string {
       return `(NOT has_reversal AND (total_originated = 0 OR total_settled + total_adjusted < total_originated))`;
     case 'cancelled':
       return `has_reversal = 1`;
+    // The four below mirror PositionProjectionService.deriveOutcome: a compensation is never a
+    // write-off, and it counts as recovered when something else was written off (treasury REQ-624).
     case 'gain':
-      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND non_cash_closed = 0)`;
+      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND non_cash_closed = 0 AND compensated_closed = 0)`;
+    case 'compensated':
+      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND non_cash_closed = 0 AND compensated_closed > 0)`;
     case 'full_loss':
-      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND cash_recovered = 0)`;
+      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND non_cash_closed > 0 AND cash_recovered = 0 AND compensated_closed = 0)`;
     case 'partial_loss':
-      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND cash_recovered > 0 AND non_cash_closed > 0)`;
+      return `(NOT has_reversal AND total_originated > 0 AND total_settled + total_adjusted >= total_originated AND non_cash_closed > 0 AND (cash_recovered > 0 OR compensated_closed > 0))`;
   }
 }
 
@@ -359,7 +363,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
           COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0 END), 0)  AS total_settled,
           COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0 END), 0)  AS total_adjusted,
           COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0 END), 0) AS cash_recovered,
-          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'non_cash' THEN e.amount_units ELSE 0 END), 0) AS non_cash_closed,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'non_cash' AND e.event_type <> 'compensation' THEN e.amount_units ELSE 0 END), 0) AS non_cash_closed,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.event_type = 'compensation' THEN e.amount_units ELSE 0 END), 0) AS compensated_closed,
           COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0 END), 0) AS ref_cash_in,
           COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0 END), 0) AS ref_cash_out,
           ${anyOf(`o.relation = 'reverses'`)}                                                           AS has_reversal,
@@ -412,6 +417,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       totalAdjustedUnits:   BigInt(row.total_adjusted   as string),
       cashRecoveredUnits:   BigInt(row.cash_recovered   as string),
       nonCashClosedUnits:   BigInt(row.non_cash_closed  as string),
+      compensatedClosedUnits: BigInt(row.compensated_closed as string),
       refCashInUnits:       BigInt(row.ref_cash_in      as string),
       refCashOutUnits:      BigInt(row.ref_cash_out     as string),
       hasReversal:          toBool(row.has_reversal),
@@ -634,7 +640,8 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
           COALESCE(SUM(CASE WHEN o.relation = 'settles'    THEN e.amount_units ELSE 0 END), 0)  AS total_settled,
           COALESCE(SUM(CASE WHEN o.relation = 'adjusts'    THEN e.amount_units ELSE 0 END), 0)  AS total_adjusted,
           COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0 END), 0) AS cash_recovered,
-          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'non_cash' THEN e.amount_units ELSE 0 END), 0) AS non_cash_closed,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.economic_effect = 'non_cash' AND e.event_type <> 'compensation' THEN e.amount_units ELSE 0 END), 0) AS non_cash_closed,
+          COALESCE(SUM(CASE WHEN o.relation = 'settles' AND e.event_type = 'compensation' THEN e.amount_units ELSE 0 END), 0) AS compensated_closed,
           COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_in'  THEN e.amount_units ELSE 0 END), 0) AS ref_cash_in,
           COALESCE(SUM(CASE WHEN o.relation = 'references' AND e.economic_effect = 'cash_out' THEN e.amount_units ELSE 0 END), 0) AS ref_cash_out,
           ${anyOf(`o.relation = 'reverses'`)}                                                    AS has_reversal,
@@ -663,6 +670,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
       totalAdjustedUnits:   BigInt(row.total_adjusted   as string),
       cashRecoveredUnits:   BigInt(row.cash_recovered   as string),
       nonCashClosedUnits:   BigInt(row.non_cash_closed  as string),
+      compensatedClosedUnits: BigInt(row.compensated_closed as string),
       refCashInUnits:       BigInt(row.ref_cash_in      as string),
       refCashOutUnits:      BigInt(row.ref_cash_out     as string),
       hasReversal:          toBool(row.has_reversal),

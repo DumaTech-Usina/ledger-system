@@ -200,6 +200,9 @@
     "commission_waiver": [
       "non_cash"
     ],
+    "compensation": [
+      "non_cash"
+    ],
     "data_reconciliation": [
       "non_cash"
     ],
@@ -289,6 +292,9 @@
     "commission_waiver": [
       "settles",
       "reverses"
+    ],
+    "compensation": [
+      "settles"
     ],
     "data_reconciliation": [
       "reverses",
@@ -500,6 +506,38 @@
       ],
       "reasons": [
         "commission_waiver"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "compensation": {
+      "economicEffects": [
+        "non_cash"
+      ],
+      "objects": [
+        {
+          "objectType": "advance",
+          "relations": [
+            "settles"
+          ]
+        },
+        {
+          "objectType": "loan",
+          "relations": [
+            "settles"
+          ]
+        },
+        {
+          "objectType": "commission_payable",
+          "relations": [
+            "settles"
+          ]
+        }
+      ],
+      "reasons": [
+        "compensation"
       ],
       "minConfidence": null,
       "requiresPreviousHash": false,
@@ -803,6 +841,12 @@
         },
         {
           "objectType": "payable",
+          "relations": [
+            "originates"
+          ]
+        },
+        {
+          "objectType": "commission_payable",
           "relations": [
             "originates"
           ]

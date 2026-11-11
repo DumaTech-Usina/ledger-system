@@ -1,4 +1,5 @@
 import { LedgerEvent } from "../../domain/entities/LedgerEvent";
+import { EventType } from "../../domain/enums/EventType";
 import { EconomicEffect } from "../../domain/enums/EconomicEffect";
 import { ReasonType } from "../../domain/enums/ReasonType";
 import { Relation } from "../../domain/enums/Relation";
@@ -62,6 +63,7 @@ export class PositionProjectionService {
     const totalAdjusted   = Money.fromUnits(agg.totalAdjustedUnits, currency);
     const cashRecovered   = Money.fromUnits(agg.cashRecoveredUnits, currency);
     const nonCashClosed   = Money.fromUnits(agg.nonCashClosedUnits, currency);
+    const compensatedClosed = Money.fromUnits(agg.compensatedClosedUnits, currency);
     const refCashIn       = Money.fromUnits(agg.refCashInUnits, currency);
     const refCashOut      = Money.fromUnits(agg.refCashOutUnits, currency);
 
@@ -77,7 +79,7 @@ export class PositionProjectionService {
         : refCashIn.subtract(refCashOut);
 
     const status  = this.deriveStatus(totalOriginated, totalClosed, agg.hasReversal, originUnknown);
-    const outcome = this.deriveOutcome(status, cashRecovered, nonCashClosed);
+    const outcome = this.deriveOutcome(status, cashRecovered, nonCashClosed, compensatedClosed);
 
     return {
       objectId:        agg.objectId,
@@ -91,6 +93,7 @@ export class PositionProjectionService {
       overSettlement,
       cashRecovered,
       nonCashClosed,
+      compensatedClosed,
       allocationGap,
       eventCount:      agg.eventCount,
       lastEventAt:     agg.lastEventAt,
@@ -133,6 +136,7 @@ export class PositionProjectionService {
     let totalAdjusted = Money.zero(currency);
     let cashRecovered = Money.zero(currency);
     let nonCashClosed = Money.zero(currency);
+    let compensatedClosed = Money.zero(currency);
     let refCashIn = Money.zero(currency);
     let refCashOut = Money.zero(currency);
     let hasReversal = false;
@@ -163,6 +167,9 @@ export class PositionProjectionService {
             totalSettled = totalSettled.add(event.amount);
             if (event.economicEffect === EconomicEffect.CASH_IN) {
               cashRecovered = cashRecovered.add(event.amount);
+            } else if (event.eventType === EventType.COMPENSATION) {
+              // Recovered against something owed the other way: never a write-off (REQ-624).
+              compensatedClosed = compensatedClosed.add(event.amount);
             } else if (event.economicEffect === EconomicEffect.NON_CASH) {
               nonCashClosed = nonCashClosed.add(event.amount);
             }
@@ -199,7 +206,7 @@ export class PositionProjectionService {
         : refCashIn.subtract(refCashOut);
 
     const status = this.deriveStatus(totalOriginated, totalClosed, hasReversal, originUnknown);
-    const outcome = this.deriveOutcome(status, cashRecovered, nonCashClosed);
+    const outcome = this.deriveOutcome(status, cashRecovered, nonCashClosed, compensatedClosed);
     const origin = this.extractOrigin(objectId, events);
 
     return {
@@ -213,6 +220,7 @@ export class PositionProjectionService {
       overSettlement,
       cashRecovered,
       nonCashClosed,
+      compensatedClosed,
       allocationGap,
       outcome,
       eventCount: events.length,
@@ -305,15 +313,17 @@ export class PositionProjectionService {
     status: PositionStatus,
     cashRecovered: Money,
     nonCashClosed: Money,
+    compensatedClosed: Money,
   ): EconomicOutcome {
     if (status === "reversed") return "cancelled";
     // An unknown origination cannot be scored: gain vs loss is measured against a baseline that is
     // not on record. `pending` says the outcome is not yet determined — which is exactly the case.
     if (status === "unknown_origin") return "pending";
     if (status === "open" || status === "partially_settled") return "pending";
-    // fully_settled
-    if (nonCashClosed.isZero()) return "gain";
-    if (cashRecovered.isZero()) return "full_loss";
+    // fully_settled. A compensation recovered value without cash: it is neither a gain nor a loss of
+    // the position (treasury REQ-624), and it counts as recovered when something else was written off.
+    if (nonCashClosed.isZero()) return compensatedClosed.isZero() ? "gain" : "compensated";
+    if (cashRecovered.isZero() && compensatedClosed.isZero()) return "full_loss";
     return "partial_loss";
   }
 }
