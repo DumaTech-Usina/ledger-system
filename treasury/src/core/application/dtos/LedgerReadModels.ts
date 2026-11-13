@@ -355,3 +355,31 @@ export interface BookExposure {
     windowDays: number;
   };
 }
+
+/** The windows of the agenda of what the Usina owes (§8.5, REQ-641). */
+export type AgendaWindow = "overdue" | "today" | "next" | "later" | "undated";
+export const AGENDA_WINDOWS: readonly AgendaWindow[] = ["overdue", "today", "next", "later", "undated"];
+
+/**
+ * The agenda as the Ledger publishes it (REQ-642): the count and the open total of every window, per
+ * currency, and one page of the lines of the window asked for. The totals are the Ledger's own fold;
+ * the Treasury shows them and never adds anything up (REQ-601).
+ */
+export interface PayablesAgendaPage {
+  asOf: string;
+  windowDays: number;
+  windows: Record<AgendaWindow, { count: number; totals: Record<string, string> }>;
+  window: AgendaWindow;
+  data: PositionItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PayablesAgendaQuery {
+  window?: AgendaWindow;
+  windowDays?: number;
+  page?: number;
+  limit?: number;
+}

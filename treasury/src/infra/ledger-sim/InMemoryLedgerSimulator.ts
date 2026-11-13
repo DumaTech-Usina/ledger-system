@@ -1,3 +1,5 @@
+import type { PayablesAgendaPort } from "../../core/application/ports/PayablesAgendaPort";
+import type { PayablesAgendaPage, PayablesAgendaQuery } from "../../core/application/dtos/LedgerReadModels";
 import type { PartyEventsPort } from "../../core/application/ports/PartyEventsPort";
 import { randomUUID } from "crypto";
 import type { Candidate } from "../../core/domain/value-objects/Candidate";
@@ -56,7 +58,16 @@ interface RecordInput {
   description: string | null;
 }
 
-export class InMemoryLedgerSimulator implements PartyEventsPort, CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort {
+export class InMemoryLedgerSimulator implements PartyEventsPort, CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort, PayablesAgendaPort {
+  /**
+   * §8.5 needs the real Ledger: this store keeps one position per submission, with no continuity, so
+   * an agenda built from it would list payments as debts. Unknown is the honest answer — the screen
+   * says "unavailable" (REQ-645), never "nothing owed".
+   */
+  async payablesAgenda(_query: PayablesAgendaQuery): Promise<PayablesAgendaPage> {
+    throw new Error("The payables agenda needs the real Ledger (LEDGER_MODE=live).");
+  }
+
   private readonly movementStore: CashMovement[] = [];
   private readonly positionStore: PositionItem[] = [];
   private readonly seen = new Set<string>();

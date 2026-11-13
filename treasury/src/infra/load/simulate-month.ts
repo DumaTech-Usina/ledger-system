@@ -30,7 +30,8 @@ import { accessModule } from "../auth/accessModule";
  *
  * Every policy goes the way §4.6 describes: the insurance system registers it (expected commission),
  * later declares it eligible (obligation to the broker), the insurer's credit arrives (receipt, in a
- * batch per insurer), and the Usina pays the broker (repasse). On top, ordinary payments to suppliers.
+ * batch per insurer), and the Usina pays the broker (repasse). On top, ordinary payments to suppliers,
+ * and supplier bills recognized with a due date, most of them paid on that day and some left overdue.
  * Policies started in the last days stay half-way, as they would: the book has open positions.
  *
  * Never point this at a real book: it writes thousands of facts. It refuses unless LOAD_SIMULATION=yes.
@@ -48,6 +49,8 @@ const args = Object.fromEntries(
 const DAYS = Number(args.days ?? 30);
 const POLICIES_PER_DAY = Number(args.policies ?? 150);
 const PAYMENTS_PER_DAY = Number(args.payments ?? 80);
+/** Supplier bills recognized with a due date (§8.5): most are paid on the day, some are left late. */
+const BILLS_PER_DAY = Number(args.bills ?? 20);
 const BROKERS = 200;
 const INSURERS = 10;
 const SUPPLIERS = 30;
@@ -178,6 +181,8 @@ async function main(): Promise<void> {
 
   const days = businessDays(DAYS);
   const policies: Policy[] = [];
+  const BILL_KINDS: [string, string][] = [["other", "register_payment"], ["service", "register_service_fee"], ["tax", "register_tax"]];
+  const bills: { objectId: string; due: string; amount: string; payee: string; payWith: string }[] = [];
   const started = Date.now();
   console.log(`[sim] ${days.length} dias úteis, ${POLICIES_PER_DAY} apólices e ${PAYMENTS_PER_DAY} pagamentos por dia`);
 
@@ -280,6 +285,42 @@ async function main(): Promise<void> {
         ],
       });
       await submitAll([intentId], CFO, "pagamento");
+    }
+
+    // 6. Supplier bills: recognized today, due within three weeks (§8.5). Paid on the due day, 85% of them.
+    for (let i = 0; i < BILLS_PER_DAY; i++) {
+      const [kind, payWith] = pick(BILL_KINDS);
+      const due = new Date(`${day}T12:00:00Z`);
+      due.setUTCDate(due.getUTCDate() + Math.floor(rand() * 21));
+      const bill = { objectId: "", due: isoDay(due), amount: money(150, 6000), payee: pick(suppliers), payWith };
+      const { intentId } = await startIntent.execute({ scenarioId: "register_obligation_recognition", userId: author() });
+      await applyAnswers.execute({
+        intentId,
+        answers: [
+          { key: "kind", value: kind },
+          { key: "payee", value: bill.payee },
+          { key: "amount", value: bill.amount },
+          { key: "currency", value: "BRL" },
+          { key: "occurredAt", value: day },
+          { key: "dueAt", value: bill.due },
+        ],
+      });
+      await submitAll([intentId], author(), "conta");
+      bill.objectId = `intent:${intentId}`;
+      bills.push(bill);
+    }
+    for (const bill of bills.filter((b) => b.due === day && rand() < 0.85)) {
+      const { intentId } = await fromPosition.execute({ objectId: bill.objectId, scenarioId: bill.payWith, userId: CFO });
+      await applyAnswers.execute({
+        intentId,
+        answers: [
+          { key: "payee", value: bill.payee },
+          { key: "amount", value: bill.amount },
+          { key: "currency", value: "BRL" },
+          { key: "occurredAt", value: day },
+        ],
+      });
+      await submitAll([intentId], CFO, "conta-paga");
     }
 
     console.log(`[sim] ${day}: ${((Date.now() - dayStart) / 1000).toFixed(1)} s · total ${((Date.now() - started) / 60000).toFixed(1)} min`);

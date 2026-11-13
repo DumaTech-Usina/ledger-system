@@ -60,6 +60,7 @@
 > | 2026-11-13 | 19 (cont.) — acesso | O dono do produto indicou um **molde de autenticação e autorização** como referência e decidiu as adaptações: três papéis, o molde inteiro sem o envio de e-mail, base limpa no piloto e o comando de criação de usuário só em desenvolvimento. **Decidido:** §6 reescrita a partir do molde, `REQ-807` (quem assina é quem está logado), `DEC-041`. **Alterado:** `REQ-401` (antes, dois papéis) e `REQ-638` (antes, "quem vê o quê" ficava em `DEC-041`). **Aberto:** o `⚠ CONFIRMAR` de `REQ-402` (o Administrador dá e retira a curadoria). Também nesta data: `TODO-04` feito. |
 > | 2026-11-13 | 19 (cont.) — acesso confirmado | **Confirmados** os dois `⚠ CONFIRMAR` de §6: o Administrador tem acesso irrestrito, com a curadoria pelo papel (`REQ-401`, `REQ-402`, `CA-421`), e o comando do primeiro administrador recusa quando já existe um ativo (`REQ-405`). **Alterado:** `REQ-401` (antes, o Administrador dava a curadoria, mas não a tinha pelo papel). **Decidido:** a verificação das telas no navegador não fecha o `TODO-01`; ela acontece no piloto. **Princípio de trabalho:** refinar só diante de uma necessidade concreta, não de uma possibilidade de melhoria. `TODO-01` feito. |
 > | 2026-11-13 | 19 (cont.) — backup | **Decidido:** a cópia fora da máquina vai ao Cloudflare R2 que a Usina já usa, sob prefixo próprio, guardando as 30 mais recentes. `TODO-02` feito. Nada foi revogado. |
+> | 2026-11-13 | 19 (cont.) — agenda a pagar | **Decidido:** não há prazo combinado para pagar o corretor depois da elegibilidade, então o repasse fica em "sem vencimento" (§8.5); o Ledger publica a agenda por janela de vencimento, com os totais (`REQ-642`, `DEC-042` item 1 em parte). **Novo:** §8.5 (`REQ-640`–`REQ-645`, `CA-640`–`CA-645`, `REJ-641`, `REJ-642`). **`TODO-05` feito; E2 fechado.** §17 C2 resolvido. Nada foi revogado. |
 > | 2026-11-13 | 19 (cont.) — volume | **`TODO-03` feito:** um mês à volumetria real (≈1.150 pagamentos e repasses por semana, 12.330 fatos); as telas do dia ficaram abaixo de 1 s, sem mudança. **E1 fechado.** O que cresce com o livro foi para §17, com os números. Nada foi revogado. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
@@ -1614,6 +1615,65 @@ nesta página, selecionando posições da mesma parte. O lote preparado aparece 
 `REQ-638` **Quem vê.** O visualizador vê as três seções, sem as ações (`REQ-401`). Todo usuário
 autenticado consulta tudo (§6, decidido em 2026-11-13 com a `DEC-041`).
 
+### 8.5 Agenda a pagar
+
+> Decidida em 2026-11-13 (E2, `TODO-05`). Responde à dor 1 de §18.2: o CFO não sabe o que precisa ser
+> pago hoje, e contas aparecem do nada.
+
+`REQ-640` **O que entra.** A agenda mostra **tudo o que a Usina deve e ainda está em aberto**: as posições
+dos tipos que o Ledger chama de "a Usina deve" (conta a pagar, obrigação de comissão, folha, taxa de
+serviço, infraestrutura e imposto), com saldo em aberto maior que zero. Uma posição quitada, retirada
+(`REQ-525`) ou de saldo desconhecido não entra: a de saldo desconhecido é um pagamento sem obrigação
+conhecida, que não é uma dívida (`DEC-032`).
+
+`REQ-641` **As janelas.** Cada posição cai em exatamente uma janela, pelo vencimento:
+
+| Janela | Vencimento |
+| --- | --- |
+| **Vencido** | antes de hoje |
+| **Hoje** | hoje |
+| **Próximos dias** | de amanhã até daqui a 7 dias (`Q-055`; o piloto ajusta) |
+| **Depois** | depois disso |
+| **Sem vencimento** | nenhum vencimento conhecido |
+
+"Hoje" é o dia no fuso de São Paulo (`REQ-225`). Uma posição **sem vencimento nunca é vencida nem de
+hoje**: não saber o prazo não é estar atrasado (§4.1, `CLAUDE.md`, "Derivations must not assume
+completeness").
+
+`REQ-642` **Os totais de cada janela vêm do Ledger** (`REQ-601`). O Treasury não soma valores. O Ledger
+publica a agenda como **uma leitura** sobre os fatos: não muda nenhum fato nem regra (`DEC-042`, item 1,
+decidido em 2026-11-13).
+
+`REQ-643` **A ordem.** Nas janelas com data, do vencimento mais antigo para o mais novo. Em "sem
+vencimento", da posição aberta há mais tempo para a mais nova, com "aberta há N dias".
+
+> **Os repasses a corretor caem em "sem vencimento"** (decidido em 2026-11-13): não há prazo combinado
+> para pagar o corretor depois da elegibilidade, e o Treasury não inventa um. Se um prazo passar a existir,
+> ele entra como fato, na obrigação.
+
+`REQ-644` **Cada linha** mostra o credor, o que é, o valor em aberto (e o original, quando já foi pago em
+parte) e o vencimento, ou "aberta há N dias" quando não há vencimento. Dela parte o **pagamento já ligado
+àquela posição** (`REQ-603`). O visualizador vê tudo, sem a ação (`REQ-401`).
+
+`REQ-645` Se o Ledger está fora do ar, a agenda diz **"indisponível"**, nunca uma janela vazia nem um total
+zero (`REQ-602`).
+
+| ID | Critério | Regra |
+| --- | --- | --- |
+| `CA-640` | Uma obrigação de comissão aberta aparece na agenda (antes, "a pagar" a deixava de fora, §17 C2) | `REQ-640` |
+| `CA-641` | Vencimento ontem → vencido; hoje → hoje; daqui a 7 dias → próximos dias; daqui a 8 → depois; nenhum → sem vencimento | `REQ-641` |
+| `CA-641b` | Às 23h de São Paulo, uma posição que vence hoje continua em "hoje" (e não em "vencido" nem no dia seguinte) | `REQ-641`, `REQ-225` |
+| `CA-642` | O total de cada janela é o publicado pelo Ledger e é igual à soma dos saldos em aberto das suas posições | `REQ-642` |
+| `CA-643` | "Sem vencimento" lista a mais antiga primeiro | `REQ-643` |
+| `CA-644` | Uma posição paga em parte mostra o que falta; paga por inteiro, sai da agenda | `REQ-640`, `REQ-644` |
+| `CA-644b` | Uma posição retirada sai da agenda | `REQ-640` |
+| `CA-645` | Com o Ledger fora do ar, a agenda diz "indisponível" | `REQ-645` |
+
+| ID | Caso que deve ser rejeitado | Regra |
+| --- | --- | --- |
+| `REJ-641` | Tratar uma posição sem vencimento como vencida ou de hoje | `REQ-641` |
+| `REJ-642` | O Treasury somar os saldos para mostrar um total | `REQ-642` |
+
 ---
 
 ## 9. Entrada por texto livre
@@ -2075,7 +2135,7 @@ Treasury a partir das três fontes, §5).
 | `DEC-039` | **Visão comparativa de várias partes**: a direção olha todo dia N partes selecionadas para tirar conclusões (incentivo, investimento, negociação). Fica fora da página da parte; nasce quando um usuário sentir a dor de abrir muitas páginas, e o uso da página ensina quais sinais comparar. Relaciona-se com `DEC-009` e `REQ-620` | A direção usa a página de cada parte |
 | `DEC-040` | **Recomendação em chips com "outra"**: um padrão de UX para oferecer opções recomendadas em chips clicáveis, com "outra" abrindo o texto livre (ex.: a forma do repasse: "pela Argo", "recebe diretamente", "outra"; a divisão do pagamento a mais). Deve servir a vários lugares; o alcance ainda não está definido | Cada tela escolhe como apresentar as opções |
 | `DEC-041` | ~~Autenticação e autorização do Treasury~~ — **decidida em 2026-11-13**: §6 adota o molde, com três papéis, o molde inteiro sem o envio de e-mail, base limpa no piloto e o comando de criação de usuário só em desenvolvimento. Todo autenticado consulta tudo (`REQ-638`) | Vale §6. O envio de e-mail e a recuperação de senha ficam no `TODO-17` |
-| `DEC-042` | **Filtros de leitura no Ledger**: (1) posições só vencidas / a vencer / sem vencimento, e por contexto (apólice); (2) eventos de uma parte paginados e filtrados (data de registro, tipo, autor, situação), hoje lidos inteiros (§17, P1). Hoje o Ledger ordena por vencimento, mas não filtra por ele nem por contexto. Não muda a álgebra nem cria fato; muda a leitura do Ledger | A página da parte ordena por vencimento; os dois filtros ficam de fora |
+| `DEC-042` | **Filtros de leitura no Ledger**: (1) posições só vencidas / a vencer / sem vencimento, e por contexto (apólice); (2) eventos de uma parte paginados e filtrados (data de registro, tipo, autor, situação), hoje lidos inteiros (§17, P1). Hoje o Ledger ordena por vencimento, mas não filtra por ele nem por contexto. Não muda a álgebra nem cria fato; muda a leitura do Ledger. **Item 1 em parte decidido em 2026-11-13:** o Ledger publica a agenda a pagar por janela de vencimento, com os totais (`REQ-642`); o contexto (apólice) e o item 2 continuam abertos | A página da parte ordena por vencimento; o filtro por contexto e o item 2 ficam de fora |
 | `DEC-043` | **Rotina financeira e lacunas para um sistema financeiro funcional** (§1.1): mapear com o dono do produto, em modo interativo (uma pergunta por vez, desafiando as respostas), a rotina diária, semanal e mensal do financeiro da Usina — quem faz, o que entra, o que sai. Cada linha aponta para um `REQ` ou vira lacuna; cada ⬜ e "a decidir" de §1.1 é decidido: entra no Treasury, no Ledger (só se for fato) ou fica fora. Primeira pergunta: como começa o dia de quem cuida do financeiro, e o que confere primeiro | Vale §1.1 como régua; nada decidido |
 | `DEC-036` | **Enriquecer a origem depois**: ligar um recebimento sem origem (ou outro fato isolado) à comissão prevista quando se descobre de onde veio, **sem reescrever o fato** ("a linhagem é progressiva", `CLAUDE.md`). Não existe hoje no Ledger nem no Treasury. Ideia do dono do produto: usar isso para olhar o passado a partir do saldo no banco (Bradesco, Itaú, corretora de investimentos), perguntando "de onde veio cada valor?", e construir a verdade financeira enquanto se concilia, independente do banco. Relaciona-se com `DEC-018` | O recebimento sem origem fica pendente e visível; não há como ligá-lo depois |
 | `DEC-044` | **Instituição no fato de caixa** (aberta em 2026-11-13). A Usina movimenta dinheiro em três instituições (Bradesco, Itaú e uma corretora de investimentos), e o Ledger conhece um caixa só. Em que instituição o dinheiro entrou ou saiu é um fato observado. Decidir como o fato de caixa passa a dizer isso e como a transferência entre instituições entra (o Ledger já tem o efeito `CASH_INTERNAL`). Os eventos anteriores ficam com a instituição **desconhecida**: nunca distribuídos por suposição. Muda a álgebra do Ledger, então precisa de uma conversa de arquitetura antes do código (`CLAUDE.md`) | Só existe o saldo consolidado; `TODO-06`, `TODO-07` e `TODO-12` esperam esta decisão |
@@ -2449,7 +2509,7 @@ Por `DEC-031` (2026-11-09), §4.6 vem antes dos passos 4 a 8; a ordem dela está
 | # | Ponto | O que fazer | Situação |
 | --- | --- | --- | --- |
 | C1 | O Ledger não publicava quem retirou cada evento; sem isso, o "retirado por…" da página da parte não aparecia com dados reais (a retificação cita só a Usina) | Publicar na leitura por parte (aprovado em 2026-11-12) | ✅ Resolvido em 2026-11-12, commit `6b9ad7c`: `/api/events/by-party` publica `retractedBy` (com o autor da retificação); o Treasury lê também o autor de cada fato |
-| C2 | A lista de contas a pagar do Treasury (`ListPayablePositions`) não inclui `commission_payable`; a do Ledger (`USINA_PAYABLE_OBJECT_TYPES`) inclui | Alinhar as duas | Aberto. Confirmado na medição de 2026-11-13: com ~300 obrigações de comissão abertas, "a pagar" vem vazio. Resolve-se no `TODO-05` (E2) |
+| C2 | A lista de contas a pagar do Treasury (`ListPayablePositions`) não inclui `commission_payable`; a do Ledger (`USINA_PAYABLE_OBJECT_TYPES`) inclui | Alinhar as duas | ✅ Resolvido em 2026-11-13 (`TODO-05`): a lista inclui a obrigação de comissão, como o Ledger conta (`CA-640`) |
 | C3 | Tempo limite e nova tentativa nas chamadas do Treasury ao Ledger | Verificar e definir | ✅ Verificado em 2026-11-13: leitura com limite de 4 s e envio com 5 s. O envio que falha não é repetido sozinho: a intenção fica para ser enviada de novo, e a chave de idempotência do Ledger torna isso seguro |
 
 **Resiliência e operação**
@@ -2561,8 +2621,8 @@ principal dessas mudanças.
 
 | # | Entregável | Para quem e que problema resolve | TODOs | O que bloqueia | Pode começar? |
 | --- | --- | --- | --- | --- | --- |
-| **E1** | **Ambiente confiável:** login por pessoa, cópia diária do livro, telas que aguentam o volume real | Os cinco. Sem isso não há uso real: a auditoria não sabe quem fez o quê, um reinício pode perder a avaliação e as telas travam com ≈1.140 operações por semana | 01–04 | Nada. A `DEC-041` foi decidida em 2026-11-13 (§6) | Sim |
-| **E2** | **Agenda a pagar** | CFO. Acaba com a conta que aparece do nada (dor 1) | 05 | Nada; a janela começa em 7 dias (`Q-055`) | Sim |
+| **E1** ✅ | **Ambiente confiável:** login por pessoa, cópia diária do livro, telas que aguentam o volume real | Os cinco. Sem isso não há uso real: a auditoria não sabe quem fez o quê, um reinício pode perder a avaliação e as telas travam com ≈1.140 operações por semana | 01–04 | Nada. A `DEC-041` foi decidida em 2026-11-13 (§6) | Sim |
+| **E2** | **Agenda a pagar** | CFO. Acaba com a conta que aparece do nada (dor 1) | 05 | Nada; a janela começa em 7 dias (`Q-055`) | ✅ Feito em 2026-11-13 |
 | **E3** | **Pagamentos do dia em lote** | CFO. Permite registrar o volume real (dor 3) | 08 | Regras decididas (`REQ-239`, `REQ-246`, `REQ-249`). Só a instituição do pagamento depende da `DEC-044` | Sim, quase todo |
 | **E4** | **Agenda a receber**, com o declarado pela operadora e ainda não visto no banco | CFO e verificadores. Saber o que cobrar (dor 4) | 09 | Nada; `DEC-036` melhora a precisão e pode esperar o piloto | Sim |
 | **E5** | **Sinais entrando sozinhos:** seguro em operação real e saúde | Verificadores. Obrigações e expectativas sem digitação | 10, 11 | Seguro: nada. Saúde: `Q-054`, que é falta de informação, não decisão | Seguro sim; saúde não |
@@ -2666,6 +2726,20 @@ conhecido** à parte, nunca tratado como "hoje" (§4.1). Cada linha leva ao paga
 elas aparecem juntas, por data. É também o que faz valer a pena registrar uma conta assim que se fica
 sabendo dela.
 *Depende de:* `TODO-03`.
+*Situação:* ✅ 2026-11-13, sem commit; as regras estão em §8.5 (`REQ-640`–`REQ-645`). Decidido pelo dono
+do produto: não há prazo combinado para o repasse ao corretor, então ele fica em "sem vencimento"; os
+totais de cada janela vêm do Ledger (`DEC-042`, item 1). **Ledger:** nova leitura
+`GET /api/positions/agenda/payables` (`PayablesAgendaService`), que não muda fato nem regra; o dia é o
+de São Paulo. **Treasury:** `GET /api/dashboard/agenda`, a tela **Agenda a pagar** no menu (cinco janelas
+com o total do Ledger, credor, valor em aberto e original, vencimento ou "aberta há N dias"; a linha abre
+a posição, de onde sai o pagamento ligado a ela; o visualizador vê sem o botão). §17 C2 resolvido junto.
+Com o Ledger simulado (`LEDGER_MODE=simulate`), a agenda diz "indisponível": ela precisa do Ledger de
+verdade. Testes: `payables-agenda-endpoint.test.ts` (Ledger, 15), `payables-agenda.test.ts` e o caso novo
+de `payable-positions.test.ts` (Treasury) e `agendaEngine.test.ts` (tela). Medido com um mês à volumetria
+real mais 20 contas de fornecedor por dia com vencimento: cada janela em ~90 ms, e o total de cada uma
+confere com a soma das suas linhas. Suítes: Ledger 901 e 12 pendentes (85,76% de linhas); Treasury 956
+no backend, com 37 `it.todo`, e 188 no cliente. Como no `TODO-01`, a tela será vista no navegador no
+piloto.
 
 `TODO-06` **Saldo por instituição.** Cada entrada e saída diz em qual instituição aconteceu. O saldo
 conhecido aparece por instituição e somado. A transferência entre instituições, inclusive para a corretora,

@@ -51,12 +51,11 @@ cp .env.example .env
 openssl rand -hex 32
 ```
 
-Edite `deploy/.env` e preencha os **três campos obrigatórios**:
+Edite `deploy/.env` e preencha o **campo obrigatório** e o endereço público:
 
 - `LEDGER_SUBMIT_TOKEN` — o valor gerado acima. Os dois serviços leem a mesma variável. Com ele
   vazio o endpoint de submissão do Ledger **falha fechado** e nada pode ser gravado.
-- `AUTH_MANAGER_PASSWORD` — senha do usuário `cfo` (gerente financeiro).
-- `AUTH_VIEWER_PASSWORD` — senha do usuário `viewer` (leitura).
+- `PUBLIC_BASE_URL` — o endereço pelo qual as pessoas abrem o Treasury (base dos links de convite).
 
 ```bash
 # 4. Suba o stack (a primeira build leva alguns minutos)
@@ -65,13 +64,16 @@ docker compose up -d --build
 # 5. Verifique
 docker compose ps                      # o ledger precisa aparecer como "healthy"
 curl http://127.0.0.1:4000/health      # Treasury respondendo
+
+# 6. Primeiro administrador (não há usuário padrão): abra o link impresso e defina a senha
+docker compose exec treasury node dist/infra/auth/cli/first-admin.js cfo@empresa.com.br
 ```
 
 **Acesso.** Como o Treasury só escuta em loopback, abra um túnel a partir da sua máquina:
 
 ```bash
 ssh -L 4000:127.0.0.1:4000 usuario@host
-# e acesse http://localhost:4000 — usuários: cfo e viewer
+# e acesse http://localhost:4000 — entre com o e-mail do convite
 ```
 
 <details>

@@ -1,3 +1,5 @@
+import type { GetPayablesAgendaUseCase } from "../../../../core/application/use-cases/GetPayablesAgenda";
+import { AGENDA_WINDOWS } from "../../../../core/application/dtos/LedgerReadModels";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import type { GetTreasuryDashboardUseCase } from "../../../../core/application/use-cases/GetTreasuryDashboard";
 import type { GetObjectLifecycleUseCase } from "../../../../core/application/use-cases/GetObjectLifecycle";
@@ -66,8 +68,34 @@ export function dashboardRoutes(
   listPayablePositions: ListPayablePositionsUseCase,
   listCashMovements: ListCashMovementsUseCase,
   getLedgerEvent: GetLedgerEventUseCase,
+  getPayablesAgenda?: GetPayablesAgendaUseCase,
 ): Router {
   const router = Router();
+
+  /**
+   * §8.5: the agenda of what the Usina owes, by due window, with the Ledger's totals.
+   *   ?window=overdue|today|next|later|undated &windowDays=7 &page=1 &limit=20
+   * Anything malformed is left out here and the Ledger's defaults apply; the Ledger refuses what it
+   * cannot read, which the use case reports as unavailable.
+   */
+  if (getPayablesAgenda) {
+    router.get("/agenda", async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const window = AGENDA_WINDOWS.find((w) => w === req.query.window);
+        const int = (raw: unknown) => (typeof raw === "string" && /^\d+$/.test(raw) ? Number(raw) : undefined);
+        res.json(
+          await getPayablesAgenda.execute({
+            window,
+            windowDays: int(req.query.windowDays),
+            page: int(req.query.page),
+            limit: int(req.query.limit),
+          }),
+        );
+      } catch (err) {
+        next(err);
+      }
+    });
+  }
 
   router.get("/overview", async (req: Request, res: Response, next: NextFunction) => {
     try {

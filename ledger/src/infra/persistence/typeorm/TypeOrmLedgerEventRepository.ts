@@ -458,6 +458,10 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
    * projection uses — a party that only ever appeared on a retracted event did not take part in
    * anything that still stands.
    */
+  async findPartiesOfObjects(objectIds: readonly string[]): Promise<Map<string, string[]>> {
+    return this.partiesOfObjects([...objectIds]);
+  }
+
   private async partiesOfObjects(objectIds: string[]): Promise<Map<string, string[]>> {
     if (objectIds.length === 0) return new Map();
     // `group_concat` is SQLite's array_agg: one comma-joined string per group rather than an array.

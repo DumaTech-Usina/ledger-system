@@ -17,7 +17,10 @@ import type {
   PositionLifecycle,
   PositionOriginRef,
   LedgerEventRef,
+  PayablesAgendaPage,
+  PayablesAgendaQuery,
 } from "../../core/application/dtos/LedgerReadModels";
+import type { PayablesAgendaPort } from "../../core/application/ports/PayablesAgendaPort";
 
 /** The Ledger's position-detail payload, as `serializePositionSummary` emits it. */
 interface LedgerPositionDetail {
@@ -93,7 +96,7 @@ function standingOrigination(
  * timeout so a slow/hung Ledger can't hang a treasury request.
  */
 export class HttpLedgerReadAdapter
-  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort, PartyEventsPort
+  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort, PartyEventsPort, PayablesAgendaPort
 {
   constructor(
     private readonly baseUrl: string,
@@ -178,26 +181,19 @@ export class HttpLedgerReadAdapter
       page: raw.page,
       limit: raw.limit,
       totalPages: raw.totalPages,
-      data: (raw.data ?? []).map((p) => ({
-        objectId: p.objectId,
-        objectType: p.objectType,
-        status: p.status,
-        outcome: p.outcome,
-        currency: p.currency,
-        totalOriginated: p.totalOriginated,
-        openBalance: p.openBalance,
-        eventCount: p.eventCount,
-        lastEventAt: p.lastEventAt,
-        originatedAt: p.originatedAt ?? null,
-        createdAt: p.createdAt ?? null,
-        // Null against a Ledger that predates the due-date field, and null for any obligation whose
-        // establishing fact stated no terms. Both are "not known", which is what the screen shows.
-        dueAt: p.dueAt ?? null,
-        // Everyone involved, as the Ledger published them — ids only, and the usina among them.
-        // Null against a Ledger that does not publish parties: not told, which is not "nobody".
-        parties: p.parties ?? null,
-      })),
+      data: (raw.data ?? []).map(toPositionItem),
     };
+  }
+
+  /** §8.5: the Ledger's agenda of what the Usina owes. Windows and totals pass through untouched (REQ-642). */
+  async payablesAgenda(query: PayablesAgendaQuery): Promise<PayablesAgendaPage> {
+    const q = new URLSearchParams();
+    if (query.window) q.set("window", query.window);
+    if (query.windowDays !== undefined) q.set("windowDays", String(query.windowDays));
+    if (query.page) q.set("page", String(query.page));
+    if (query.limit) q.set("limit", String(query.limit));
+    const raw = await this.get<PayablesAgendaPage>(`/api/positions/agenda/payables?${q.toString()}`);
+    return { ...raw, data: (raw.data ?? []).map(toPositionItem) };
   }
 
   /**
@@ -517,3 +513,27 @@ interface RawReporter {
 
 const reporterOf = (r: RawReporter | null | undefined) =>
   r ? { type: r.reporterType, id: r.reporterId, name: r.reporterName ?? null } : null;
+
+/**
+ * Keeps only the fields the Treasury displays, for the positions list and the agenda alike.
+ * `dueAt` is null against a Ledger that predates it and for any obligation whose establishing fact
+ * stated no terms — both "not known". `parties` is null against a Ledger that does not publish them:
+ * not told, which is not "nobody"; when published, the usina is among them.
+ */
+function toPositionItem(p: PositionItem): PositionItem {
+  return {
+    objectId: p.objectId,
+    objectType: p.objectType,
+    status: p.status,
+    outcome: p.outcome,
+    currency: p.currency,
+    totalOriginated: p.totalOriginated,
+    openBalance: p.openBalance,
+    eventCount: p.eventCount,
+    lastEventAt: p.lastEventAt,
+    originatedAt: p.originatedAt ?? null,
+    createdAt: p.createdAt ?? null,
+    dueAt: p.dueAt ?? null,
+    parties: p.parties ?? null,
+  };
+}

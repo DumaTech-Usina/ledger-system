@@ -15,6 +15,9 @@ import type { PositionItem } from "../dtos/LedgerReadModels";
  */
 const PAYABLE_OBJECT_TYPES = [
   "payable",
+  // §17 C2, closed 2026-11-13: it was missing here while the Ledger counted it, so a repasse owed to a
+  // broker was in the total above the card and absent from the list below it.
+  "commission_payable",
   "payroll",
   "service_fee",
   "infrastructure_cost",

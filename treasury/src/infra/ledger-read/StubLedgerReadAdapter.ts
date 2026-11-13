@@ -1,3 +1,5 @@
+import type { PayablesAgendaPort } from "../../core/application/ports/PayablesAgendaPort";
+import type { PayablesAgendaPage, PayablesAgendaQuery } from "../../core/application/dtos/LedgerReadModels";
 import type { PartyEventsPort } from "../../core/application/ports/PartyEventsPort";
 import type { LedgerReadPort } from "../../core/application/ports/LedgerReadPort";
 import type { PositionLifecyclePort } from "../../core/application/ports/PositionLifecyclePort";
@@ -18,7 +20,16 @@ import type {
  * ("1250000.00"), so display formatting behaves identically to the real HTTP adapter. Selected via
  * LEDGER_READS=stub when no Ledger is reachable.
  */
-export class StubLedgerReadAdapter implements PartyEventsPort, LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort {
+export class StubLedgerReadAdapter implements PartyEventsPort, LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort, PayablesAgendaPort {
+  /**
+   * §8.5 needs the real Ledger: this store keeps one position per submission, with no continuity, so
+   * an agenda built from it would list payments as debts. Unknown is the honest answer — the screen
+   * says "unavailable" (REQ-645), never "nothing owed".
+   */
+  async payablesAgenda(_query: PayablesAgendaQuery): Promise<PayablesAgendaPage> {
+    throw new Error("The payables agenda needs the real Ledger (LEDGER_MODE=live).");
+  }
+
   /**
    * An object's life is projected from a real event chain, which this adapter does not have. It
    * answers "unknown" rather than inventing a history — a fabricated lifecycle would be worse than

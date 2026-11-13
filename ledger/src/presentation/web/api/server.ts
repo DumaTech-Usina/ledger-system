@@ -4,6 +4,7 @@ import { LedgerEventRepository } from "../../../core/application/repositories/Le
 import { RejectedEventRepository } from "../../../core/application/repositories/RejectedEventRepository";
 import { StagingRepository } from "../../../core/application/repositories/StagingRepository";
 import { PositionProjectionService } from "../../../core/application/services/PositionProjectionService";
+import { PayablesAgendaService } from "../../../core/application/services/PayablesAgendaService";
 import { CashPositionService } from "../../../core/application/services/CashPositionService";
 import { CashStatementService } from "../../../core/application/services/CashStatementService";
 import { CashEventListingService } from "../../../core/application/services/CashEventListingService";
@@ -64,7 +65,10 @@ export function createServer(deps: ServerDeps) {
   app.use("/api/staging", stagingRoutes(deps.stagingRepo));
   app.use("/api/events/rejected", rejectedRoutes(deps.rejectedRepo));
   app.use("/api/events", eventRoutes(deps.ledgerRepo));
-  app.use("/api/positions", positionRoutes(deps.positionService));
+  // §8.5 of the Treasury's requirements: the agenda of what the Usina owes, read in the Usina's zone
+  // (`config/env.ts` sets the process TZ from it at boot).
+  const payablesAgenda = new PayablesAgendaService(deps.ledgerRepo, deps.positionService, process.env.TZ || "America/Sao_Paulo");
+  app.use("/api/positions", positionRoutes(deps.positionService, payablesAgenda));
   app.use("/api/cash-position", cashPositionRoutes(cashPositionService));
   app.use("/api/cash-statement", cashStatementRoutes(cashStatementService));
   app.use("/api/cash-movements", cashMovementsRoutes(cashListingService));

@@ -45,6 +45,7 @@ import type { ListPositionActionsUseCase } from "../../../core/application/use-c
 import type { StartPositionActionUseCase } from "../../../core/application/use-cases/StartPositionAction";
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
+import type { GetPayablesAgendaUseCase } from "../../../core/application/use-cases/GetPayablesAgenda";
 
 export interface ServerDeps {
   auth: AuthService;
@@ -85,6 +86,8 @@ export interface ServerDeps {
   listPayablePositions: ListPayablePositionsUseCase;
   listCashMovements: ListCashMovementsUseCase;
   getLedgerEvent: GetLedgerEventUseCase;
+  /** §8.5. Absent in tests about something else; then /api/dashboard/agenda is not mounted. */
+  getPayablesAgenda?: GetPayablesAgendaUseCase;
 }
 
 export function createServer(deps: ServerDeps) {
@@ -156,6 +159,7 @@ export function createServer(deps: ServerDeps) {
       deps.listPayablePositions,
       deps.listCashMovements,
       deps.getLedgerEvent,
+      deps.getPayablesAgenda,
     ),
   );
 

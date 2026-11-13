@@ -17,7 +17,11 @@
     "build:client": "npm --prefix src/presentation/web/client ci && npm --prefix src/presentation/web/client run build && mkdir -p dist/presentation/web/client && cp -R src/presentation/web/client/dist/. dist/presentation/web/client/",
     "worker:insurance": "tsx src/infra/workers/producers/insurance-eligibility.ts",
     "consume:signals": "tsx src/infra/workers/consumers/register-signals.ts",
-    "dev:async": "concurrently \"npm run worker:insurance\" \"npm run consume:signals\""
+    "dev:async": "concurrently \"npm run worker:insurance\" \"npm run consume:signals\"",
+    "user:first-admin": "tsx src/infra/auth/cli/first-admin.ts",
+    "user:create": "tsx src/infra/auth/cli/create-user.ts",
+    "load:month": "tsx src/infra/load/simulate-month.ts",
+    "load:measure": "tsx src/infra/load/measure-screens.ts"
   },
   "dependencies": {
     "amqplib": "^2.3.1",

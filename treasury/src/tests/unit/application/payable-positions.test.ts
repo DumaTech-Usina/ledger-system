@@ -112,7 +112,8 @@ describe("ListPayablePositions", () => {
     // instead of ten caps describing none of it.
     expect(calls).toHaveLength(1);
     const [params] = calls as [{ objectType: string[]; status: string[]; sortBy: string }];
-    expect(params.objectType).toEqual(["payable", "payroll", "service_fee", "infrastructure_cost", "tax"]);
+    // §17 C2 / CA-640: the commission obligation is something the Usina owes, as the Ledger counts it.
+    expect(params.objectType).toEqual(["payable", "commission_payable", "payroll", "service_fee", "infrastructure_cost", "tax"]);
     expect(params.status).toEqual(["open", "partially_settled"]);
     expect(params.sortBy).toBe("dueAt");
   });

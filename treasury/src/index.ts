@@ -32,6 +32,8 @@ import type { PositionLookupPort } from "./core/application/ports/PositionLookup
 import type { LedgerEventLookupPort } from "./core/application/ports/LedgerEventLookupPort";
 import type { SlotExtractionPort } from "./core/application/ports/SlotExtractionPort";
 import { SystemClock } from "./infra/system/SystemClock";
+import { GetPayablesAgendaUseCase } from "./core/application/use-cases/GetPayablesAgenda";
+import type { PayablesAgendaPort } from "./core/application/ports/PayablesAgendaPort";
 import { accessModule } from "./infra/auth/accessModule";
 import { SESSION_TTL_MS } from "./core/domain/policies/accessPolicy";
 import { UuidGenerator } from "./infra/system/UuidGenerator";
@@ -161,7 +163,8 @@ async function bootstrap(): Promise<void> {
     PositionLifecyclePort &
     LedgerEventLookupPort &
     PositionLookupPort &
-    PartyEventsPort;
+    PartyEventsPort &
+    PayablesAgendaPort;
   if (env.LEDGER_MODE === "simulate") {
     // One in-memory fake Ledger for BOTH submit + reads → the full create→dashboard loop works.
     const simulator = new InMemoryLedgerSimulator();
@@ -294,6 +297,7 @@ async function bootstrap(): Promise<void> {
       ids,
     ),
     listInsurerReceivables: new ListInsurerReceivablesUseCase(ledgerRead),
+    getPayablesAgenda: new GetPayablesAgendaUseCase(ledgerRead, partyDirectory, env.USINA_PARTY_ID),
   });
 
   const server = app.listen(env.PORT, () => {

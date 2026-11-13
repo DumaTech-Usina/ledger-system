@@ -5,6 +5,13 @@ import { EconomicOutcome, PositionStatus } from "../../../../core/application/dt
 import { ObjectType } from "../../../../core/domain/enums/ObjectType";
 import { serializePositionListItem, serializePositionSummary } from "../serializers/positionSerializer";
 import { parseInstant } from "../../../../core/application/utils/instant";
+import {
+  AGENDA_WINDOWS,
+  isAgendaDay,
+  type AgendaWindow,
+  type PayablesAgenda,
+  type PayablesAgendaService,
+} from "../../../../core/application/services/PayablesAgendaService";
 
 const VALID_STATUSES  = new Set<string>(["open", "partially_settled", "fully_settled", "reversed", "unknown_origin"]);
 const VALID_OUTCOMES  = new Set<string>(["gain", "compensated", "partial_loss", "full_loss", "cancelled", "pending"]);
@@ -59,8 +66,71 @@ function parseBound(raw: unknown, label: string): Date | undefined {
   return date;
 }
 
-export function positionRoutes(svc: PositionProjectionService): Router {
+const MAX_WINDOW_DAYS = 365;
+
+/** Integer query parameter within [min, max], or 400. Absent is undefined. */
+function intParam(raw: unknown, label: string, min: number, max: number): number | undefined {
+  if (raw === undefined) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw Object.assign(new Error(`'${label}' must be an integer between ${min} and ${max}`), { statusCode: 400 });
+  }
+  return value;
+}
+
+function serializeAgenda(agenda: PayablesAgenda) {
+  return {
+    asOf: agenda.asOf,
+    windowDays: agenda.windowDays,
+    windows: Object.fromEntries(
+      Object.entries(agenda.windows).map(([w, s]) => [
+        w,
+        { count: s.count, totals: Object.fromEntries(Object.entries(s.totals).map(([c, m]) => [c, m.toString()])) },
+      ]),
+    ),
+    window: agenda.window,
+    data: agenda.data.map(serializePositionListItem),
+    total: agenda.total,
+    page: agenda.page,
+    limit: agenda.limit,
+    totalPages: agenda.totalPages,
+  };
+}
+
+export function positionRoutes(svc: PositionProjectionService, agenda?: PayablesAgendaService): Router {
   const router = Router();
+
+  /**
+   * GET /api/positions/agenda/payables — what the Usina owes and is still open, by due window, with
+   * the total of each window (treasury/docs/requisitos_refinados.md §8.5). A reading; it changes nothing.
+   *   ?asOf=YYYY-MM-DD (default: today in the Usina's zone) &windowDays=7 &window=overdue|today|next|later|undated
+   *   &page=1 &limit=20 (max 200)
+   * Declared before `/:objectId`, which would otherwise read "agenda" as a position id.
+   */
+  if (agenda) {
+    router.get("/agenda/payables", async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const asOf = req.query.asOf as string | undefined;
+        if (asOf !== undefined && !isAgendaDay(asOf)) {
+          throw Object.assign(new Error("'asOf' must be a date as YYYY-MM-DD"), { statusCode: 400 });
+        }
+        const window = req.query.window as string | undefined;
+        if (window !== undefined && !(AGENDA_WINDOWS as readonly string[]).includes(window)) {
+          throw Object.assign(new Error(`'window' must be one of ${AGENDA_WINDOWS.join(", ")}`), { statusCode: 400 });
+        }
+        const result = await agenda.read({
+          asOf,
+          window: window as AgendaWindow | undefined,
+          windowDays: intParam(req.query.windowDays, "windowDays", 0, MAX_WINDOW_DAYS),
+          page: intParam(req.query.page, "page", 1, Number.MAX_SAFE_INTEGER),
+          limit: intParam(req.query.limit, "limit", 1, 200),
+        });
+        res.json(serializeAgenda(result));
+      } catch (err) {
+        next(err);
+      }
+    });
+  }
 
   router.get("/", async (req: Request, res: Response, next: NextFunction) => {
     try {

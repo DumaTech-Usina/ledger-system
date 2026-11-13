@@ -199,6 +199,10 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
    * the exclusion of retracted events: a party that appears only on a retracted event took part in
    * nothing that still stands.
    */
+  async findPartiesOfObjects(objectIds: readonly string[]): Promise<Map<string, string[]>> {
+    return new Map(objectIds.map((id) => [id, [...this.partiesOfObject(id)]]));
+  }
+
   private partiesOfObject(objectId: string): Set<string> {
     const retracted = retractedEventIds(this.store);
     const parties = new Set<string>();

@@ -70,6 +70,10 @@ async function main(): Promise<void> {
     ["Página da parte · a parte deve", `/api/parties/${party}/positions/partyOwes?page=1&limit=20&sortBy=createdAt&sortOrder=DESC`],
     ["Página da parte · histórico", `/api/parties/${party}/history?page=1&limit=20&sortOrder=DESC&status=all`],
     ["Usuários", "/api/users"],
+    ["Agenda a pagar · abertura", "/api/dashboard/agenda?limit=20"],
+    ...(["overdue", "today", "next", "later", "undated"] as const).map(
+      (w): [string, string] => [`Agenda a pagar · ${w}`, `/api/dashboard/agenda?window=${w}&limit=20`],
+    ),
   ];
 
   console.log(`Medição: ${runs} leituras de cada tela em ${base} · parte ${party} · apólice ${policy || "(nenhuma)"}`);

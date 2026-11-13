@@ -134,6 +134,12 @@ export interface LedgerEventRepository {
   findAllPositionAggregates(): Promise<PositionAggregate[]>;
 
   /**
+   * Everyone named by a standing event of each object, as ids. One query for a page of positions —
+   * never a join into an aggregate, which would repeat each event once per party.
+   */
+  findPartiesOfObjects(objectIds: readonly string[]): Promise<Map<string, string[]>>;
+
+  /**
    * Aggregates CASH_IN and CASH_OUT amounts in [from, to] grouped by event_type × economic_effect.
    * Single aggregation query — never hydrates full entities.
    * Used by DashboardService to compute period cash flow without loading individual events.

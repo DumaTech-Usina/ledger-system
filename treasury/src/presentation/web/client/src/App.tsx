@@ -4,6 +4,8 @@ import { LoginPage } from "@/features/auth/LoginPage";
 import { AcceptInvitePage } from "@/features/auth/AcceptInvitePage";
 import { forgetInviteToken, inviteTokenFrom } from "@/features/auth/authApi";
 import { UsersPage } from "@/features/users/UsersPage";
+import { AgendaPage } from "@/features/agenda/AgendaPage";
+import { agendaCopy } from "@/features/agenda/agendaCopy";
 import { usersCopy } from "@/features/users/usersCopy";
 import { AppShell } from "@/components/layout/AppShell";
 import { OperationsPage } from "@/features/operations/OperationsPage";
@@ -44,6 +46,7 @@ export function App() {
 
   const navItems = [
     { id: "operations", label: t.nav.operations, icon: "operations" as const },
+    { id: "agenda", label: agendaCopy[language].nav, icon: "agenda" as const },
     { id: "dashboards", label: t.nav.dashboards, icon: "dashboards" as const },
     { id: "positions", label: t.nav.positions, icon: "positions" as const },
     { id: "intents", label: t.nav.intents, icon: "intents" as const },
@@ -68,6 +71,7 @@ export function App() {
     signals: signalsCopy[language].nav,
     parties: partiesCopy[language].heading,
     users: usersCopy[language].nav,
+    agenda: agendaCopy[language].nav,
   };
 
   const roleLabels: Record<Role, string> = {
@@ -118,7 +122,15 @@ export function App() {
         />
       }
     >
-      {activeNav === "users" && canManageUsers ? (
+      {activeNav === "agenda" ? (
+        <AgendaPage
+          canPay={user.permissions.includes("intent:submit")}
+          onOperationStarted={(intent) => {
+            setAdopted(intent);
+            setActiveNav("operations");
+          }}
+        />
+      ) : activeNav === "users" && canManageUsers ? (
         <UsersPage me={user} onSelfChanged={refresh} />
       ) : activeNav === "parties" && canCurate ? (
         <PartiesPage pending={pending} onChanged={refreshPending} />
