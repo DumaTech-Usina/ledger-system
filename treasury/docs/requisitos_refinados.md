@@ -21,7 +21,8 @@
 > próximo passo estão em §16.
 >
 > **Rodada da página da parte (2026-11-12, rodada 18).** §8.4 registra a página de cada parte, com operação,
-> histórico e resultados, que responde à `DEC-030`. Nada está implementado.
+> histórico e resultados, que responde à `DEC-030`. Operação e Histórico implementados e refinados
+> (commit `6b9ad7c`); Resultados depende do passo 6. O que falta está em §16.1, "Para a retomada".
 >
 > **Rodada do sistema de seguro (2026-11-09).** §4.6 registra como o Treasury absorve o que o sistema
 > de seguro sabe: sinal externo, fatos propostos e só expectativas. Implementados os blocos A a D, a
@@ -50,6 +51,7 @@
 > | 2026-11-11 | 16 — lista de sinais e commits | **Registrado:** a lista de sinais passou a ser paginada e, por padrão, mostra só o que ainda espera o usuário; o aviso do menu conta todos os sinais, não só a primeira página (`REQ-280`). **Commits:** blocos A a D (`0fd5a62`, 2026-11-09), integração (`874a260`, 2026-11-10) e lista de sinais (`308e90e`, 2026-11-11). Nada foi revogado. |
 > | 2026-11-11 | 17 — lote, antecipação e compensação | Investigação dos cenários de lote ao corretor. **Confirmado:** o extrato bancário continua opcional, inclusive no lote (`REQ-247`). **Decidido:** um evento por obrigação quitada, inclusive várias da mesma pessoa, e pagamento parcial dentro do lote (`REQ-246`); o envio do lote não para num recusado (`REQ-249`). **Alterado:** `REQ-246` (antes, "um evento por pessoa"). **Em aberto:** `DEC-037`. Nada implementado; o Ledger não muda. **Depois, no mesmo dia:** aprovado o desenho do evento de compensação no Ledger e a compensação parcial (`REQ-250`, `CA-250c`, Anexo A); decididos os tipos iniciais: adiantamento e empréstimo contra obrigação de comissão (`DEC-025`, `REQ-251`); decidido o resultado da posição compensada: em dinheiro, compensado e baixado lado a lado, e "fechada por compensação" sem ganho nem perda (`REQ-624`); a exposição coberta só por expectativa ficou em `DEC-038`. A compensação está pronta para testes e implementação (passo 5). **Depois:** a perda parcial quando há compensação e baixa (`REQ-624`); "pessoa" → "parte" em `REQ-252`, com João × Argo em `DEC-022`; **implementada a compensação no Ledger**, validada por HTTP, sem commit. Nada foi revogado. |
 > | 2026-11-12 | 18 — página da parte | Rodada de domínio da `DEC-030`. **Decidido:** página própria para toda parte, com três seções (operação, histórico, resultados), a lista de partes como entrada, o bloco "depende de" pelo mesmo contexto, os alertas em lista extensível, a prevenção do pagamento a mais pela divisão, o histórico em frases com sinais e as duas datas, o lote preparado e o extrato de recebível do lote (§8.4, `REQ-630`–`REQ-638`, `REQ-239`). **Confirmados:** os termos recebedor e destinatário final (§2) e a segunda frase de `REQ-612`. **Alterados:** `REQ-244` (antes, o extrato era de tudo o que está aberto, e precedia todo pagamento), `REQ-804` (passa a incluir o descarte do lote preparado), `REJ-244` (vale só para o lote; o segundo caso com o mesmo ID virou `REJ-244b`). **Respondidas:** `DEC-030`, `DEC-032`, `Q-048` (prevenção; o remédio foi para `DEC-033`). **Abertas:** `DEC-039` (visão comparativa), `DEC-040` (recomendação em chips), `DEC-041` (autenticação e autorização). Nada foi revogado. |
+> | 2026-11-12 | 18 (cont.) — página da parte implementada e refinada | **Implementado e refinado na tela:** lista ordenada de partes → página própria com abas; Operação com uma seção por lado, filtros e paginação do Ledger, contagem sem total, "depende de" como indicador; Histórico com viés de auditoria (data de registro, quem registrou, quem retirou, filtros, paginação) e sinais pendentes num bloco no topo. **Decidido:** depois que o sinal vira fato, só o fato aparece (`REQ-636`); o Ledger publica quem retirou cada evento (§17, C1, feito). **Criados:** §17 "Antes de produção" (urgente para o deploy), `DEC-042` (filtros e paginação de leitura no Ledger), §1.1 "Valor do produto" e `DEC-043` (rotina financeira, modo interativo). **Removido da tela:** "Registrado também como". Commit do dono do produto: `6b9ad7c`. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -114,6 +116,56 @@ eventos. A direção já declarada (fora desta versão) é mostrar **pessoas e a
 à pessoa ou ao grupo, e o Treasury monta por baixo o esquema que o Ledger exige (`DEC-001`).
 Por decisão de 2026-11-06, esse caminho é **acrescentado**: a usabilidade atual não foi invalidada, e o
 que for removido ou alterado depois será decidido pelo dono do produto.
+
+### 1.1 Valor do produto: o que um setor financeiro profissional precisa ter ao alcance
+
+> Aprovada pelo dono do produto em 2026-11-12.
+
+O Ledger é o caderno factual: registra o que aconteceu, imutável, sem prever nem normatizar. Mas quem
+usa o produto é o setor financeiro, e para ele o produto — **Treasury + Ledger** — precisa ser
+competente em tudo o que um financeiro profissional tem ao seu alcance. Esta lista é a régua desse
+valor: diz o que o produto já cobre, o que falta e onde cada coisa deve morar.
+
+**Regras da lista**
+- Cada competência mora em um lugar: no **Ledger** (fato e consequência financeira imediata), no
+  **Treasury** (operação, leitura, controle, documento) ou **fora do produto**, por decisão do dono
+  do produto (por exemplo, a contabilidade formal pode ficar com o contador). "Fora" é uma decisão
+  registrada, nunca um esquecimento.
+- Nada aqui muda a constituição do Ledger. Fechar um mês, conciliar ou exportar para a contabilidade
+  são **leituras e controles** sobre fatos imutáveis: nenhum deles reescreve um fato nem acrescenta
+  regra normativa ao Ledger.
+- Um item entra, muda de lugar ou sai só com o aval do dono do produto, e a situação é atualizada
+  quando algo é implementado. Os itens ⬜ e "a decidir" são mapeados na `DEC-043`.
+
+| Área | Competência | Por que o financeiro precisa | Onde mora | Situação |
+| --- | --- | --- | --- | --- |
+| Registro e prova | Registrar entradas, saídas, obrigações, comissões e repasses | É o trabalho de base | Ledger + Treasury | ✅ §4 |
+| | Anexar comprovantes ao fato | Provar o que foi registrado | Treasury | 🔶 `REQ-247`, não implementado |
+| | Nota fiscal e documento fiscal | Sustentar obrigação e imposto | A decidir | ⬜ nenhuma menção |
+| | Trilha de auditoria (quem fez o quê) | Responder a auditor e a sócio | Treasury | ✅ §10, histórico com autor (§8.4) |
+| Pagar e receber | Agenda do que vence: a pagar e a receber | Planejar o dia e a semana | Treasury (leitura) | 🔶 a pagar no painel; a receber ⬜ |
+| | Pagamento em lote com extrato de recebível | Pagar dezenas de repasses de uma vez | Treasury | 🔶 `REQ-239`, `REQ-244`, passo 4 |
+| | Cobrança e recuperação (adiantamento, empréstimo) | Trazer de volta o que a parte deve | Treasury | 🔶 ações da posição; sem rotina de cobrança |
+| Caixa e banco | Posição e extrato de caixa | Saber quanto há e por quê | Ledger | ✅ |
+| | Conciliação bancária (banco × livro) | Garantir que o livro bate com o banco | Treasury | ⬜ `DEC-018` |
+| | Importar extrato bancário (OFX/CNAB) | Não digitar o que o banco já sabe | Treasury | ⬜ |
+| Correção | Retificação (o que nunca aconteceu) | Corrigir sem apagar | Ledger + Treasury | ✅ §7.3 |
+| | Estorno | Desfazer um pagamento real | A decidir | 🔶 `DEC-033` |
+| | Compensação (encontro de contas) | Quitar uma dívida com outra | Ledger + Treasury | 🔶 Ledger ✅; Treasury no passo 7 |
+| Resultado e fechamento | Resultado por parte e por contexto | Saber quem e o que dá lucro ou prejuízo | Ledger (leitura) | 🔶 passo 6 |
+| | Fechamento de período (mês) | Congelar a leitura de um mês e comparar | Treasury (leitura datada) | ⬜ |
+| | Relatórios do período | Prestar contas à direção | Treasury | ⬜ depende do passo 6 |
+| Fiscal | Obrigação e pagamento de imposto | Cumprir o fisco | Ledger + Treasury | ✅ catálogo |
+| | Retenções sobre comissões e repasses | Pagar o líquido certo e recolher o resto | A decidir | ⬜ |
+| Contabilidade | Plano de contas e exportação ao contador | Entregar o mês sem retrabalho | Treasury ou fora | ⬜ |
+| Controles | Papéis (gestor, visualizador, curadoria) | Cada um faz só o que pode | Treasury | ✅ §6 |
+| | Aprovação em duas etapas e segregação de funções | Quem registra não é quem aprova o pagamento | Treasury | ⬜ `DEC-004`, `DEC-041` |
+| Continuidade | Backup e restauração | Não perder o livro | Infraestrutura | ⬜ |
+| | Desempenho e resiliência em produção | Não travar com volume real | Ambos | ⬜ §17 |
+| Rotina | Mapa da rotina diária, semanal e mensal | Saber se o produto cobre o dia real | Documento | ⬜ `DEC-043` |
+
+Legenda: ✅ coberto · 🔶 em parte ou só decidido · ⬜ ausente. A confirmar na `DEC-043`: adiantamento a
+fornecedor, centro de custo, orçamento × realizado e várias contas bancárias.
 
 ---
 
@@ -1762,6 +1814,7 @@ Treasury a partir das três fontes, §5).
 | `DEC-040` | **Recomendação em chips com "outra"**: um padrão de UX para oferecer opções recomendadas em chips clicáveis, com "outra" abrindo o texto livre (ex.: a forma do repasse: "pela Argo", "recebe diretamente", "outra"; a divisão do pagamento a mais). Deve servir a vários lugares; o alcance ainda não está definido | Cada tela escolhe como apresentar as opções |
 | `DEC-041` | **Autenticação e autorização do Treasury**: o dono do produto tem um molde de outro sistema para reutilizar. Inclui quem vê o quê na página da parte (`REQ-638`) | Valem os dois papéis de `REQ-401` e a curadoria de `REQ-402` |
 | `DEC-042` | **Filtros de leitura no Ledger**: (1) posições só vencidas / a vencer / sem vencimento, e por contexto (apólice); (2) eventos de uma parte paginados e filtrados (data de registro, tipo, autor, situação), hoje lidos inteiros (§17, P1). Hoje o Ledger ordena por vencimento, mas não filtra por ele nem por contexto. Não muda a álgebra nem cria fato; muda a leitura do Ledger | A página da parte ordena por vencimento; os dois filtros ficam de fora |
+| `DEC-043` | **Rotina financeira e lacunas para um sistema financeiro funcional** (§1.1): mapear com o dono do produto, em modo interativo (uma pergunta por vez, desafiando as respostas), a rotina diária, semanal e mensal do financeiro da Usina — quem faz, o que entra, o que sai. Cada linha aponta para um `REQ` ou vira lacuna; cada ⬜ e "a decidir" de §1.1 é decidido: entra no Treasury, no Ledger (só se for fato) ou fica fora. Primeira pergunta: como começa o dia de quem cuida do financeiro, e o que confere primeiro | Vale §1.1 como régua; nada decidido |
 | `DEC-036` | **Enriquecer a origem depois**: ligar um recebimento sem origem (ou outro fato isolado) à comissão prevista quando se descobre de onde veio, **sem reescrever o fato** ("a linhagem é progressiva", `CLAUDE.md`). Não existe hoje no Ledger nem no Treasury. Ideia do dono do produto: usar isso para olhar o passado a partir do saldo no banco (Bradesco, Itaú, corretora de investimentos), perguntando "de onde veio cada valor?", e construir a verdade financeira enquanto se concilia, independente do banco. Relaciona-se com `DEC-018` | O recebimento sem origem fica pendente e visível; não há como ligá-lo depois |
 
 ### 15.2 Perguntas abertas
@@ -1846,6 +1899,64 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 > Atualizado em 2026-11-12, depois da rodada 18 (página da parte). Quando o dono do produto perguntar "onde paramos e o que precisamos
 > decidir para continuar?", a resposta parte daqui. Confira no código antes de afirmar que algo existe.
 
+#### Para a retomada (escrito ao fechar 2026-11-12)
+
+**Onde paramos.** A página da parte está no commit `6b9ad7c` ("two tabs almost done and the third one
+still open"): lista de partes → página própria com as abas **Operação** (alertas, uma seção por lado,
+filtros e paginação do Ledger) e **Histórico** (auditoria: data de registro, quem registrou, quem
+retirou, filtros, paginação, sinais pendentes no topo); **Resultados** só avisa que depende do passo 6.
+No Ledger, `/api/events/by-party` publica quem retirou cada evento (§17, C1). A tela **nunca foi vista
+no navegador**: só tem testes.
+
+**Primeiro passo de amanhã: verificar a página no navegador**, com Ledger e Treasury de verdade e o
+livro de exemplo, percorrendo Partes → página → as três abas, no claro e no escuro, no computador e
+no celular. As capturas são temporárias e nunca ficam no projeto (`client/CLAUDE.md`). O que aparecer
+vira refinamento antes de qualquer item abaixo.
+
+**Depois, o que falta na página e não depende de outro passo** (o dono do produto escolhe a ordem):
+
+| # | Falta | Onde está decidido | Observação |
+| --- | --- | --- | --- |
+| A1 | **Ações em cada linha da Operação**: pagar ligado à obrigação, receber ligado à comissão prevista, recuperar o adiantamento, retificar; o visualizador vê sem ações | `REQ-637`, `REQ-603`, `REQ-638` | As ações já existem a partir da posição (`ListPositionActions`); falta oferecê-las na linha |
+| A2 | **A prévia não mostra a divisão** do pagamento a mais: o aviso `exceeds_open` existe no servidor, mas a tela da prévia (`PreviewNoticeList`) não o exibe; falta também enviar os dois fatos em ordem (repasse + adiantamento) | `REQ-635`, `CA-635` | Precisa decidir: com várias obrigações abertas, o que oferecer (`REQ-635`, "a definir") e os chips com "outra" (`DEC-040`) |
+| A3 | **Clicar no nome da parte em qualquer lista abre a página dela**; e a página ganhar endereço próprio (o "voltar" do navegador hoje não volta à lista) | `CA-630` | O app troca de seção por estado interno, sem rotas |
+| A4 | **Alertas que faltam**: comissão prevista sem data esperada e repasse sem recebimento na apólice; e clicar no alerta levar à linha | `REQ-634`, `REQ-271`, `REQ-268` | — |
+| A5 | **Do Histórico**: cada fato levar à história da apólice citada, e abrir o recibo | `REQ-636`, `REQ-276`, `REQ-245` | Conferir se o recibo de `REQ-245` existe antes de prometer o link |
+| A6 | **Limpeza**: `it.todo` de `acceptance-party-page.test.ts` que a tela já cobre (lista de partes, "(provisória)", ordem das abas, ordem das posições, duas datas) viram testes ou referências aos testes da tela | — | Sem mudança de comportamento |
+| A7 | `⚠ CONFIRMAR` de `REQ-632` (uma linha por posição): confirmar com o uso | `REQ-632` | Depende da verificação no navegador |
+
+**Quando A1–A7 estiverem resolvidos (ou adiados por decisão), o dono do produto verifica a página e
+decide se fecha a `DEC-030`.**
+
+**O que a página espera de outros passos** — e é aqui que entra a revisão do passo 6 em diante e da
+ordem das `DEC` em aberto, condicionada à entrega da página:
+
+| Falta na página | Passo | Pendências ligadas |
+| --- | --- | --- |
+| Aba **Resultados** (totais por período publicados pelo Ledger) | 6 (`REQ-620`–`REQ-624`) | `DEC-021`, `DEC-023`, `DEC-027`, `DEC-038` |
+| **Lote preparado** na Operação, extrato de recebível e pagamento do lote | 4 (`REQ-239`, `REQ-244`, `REQ-246`) | §17 R1 (gravar o lote), `DEC-037` |
+| **Compensação** nascendo na página | 7 (`REQ-252`) | `DEC-022`, `DEC-025` decidida |
+
+**Os passos de implementação** (decididos em 2026-11-06; a descrição completa de cada um está no fim
+de §16, em "Rodada das operações compostas: próximo passo"). Situação em 2026-11-12:
+
+| Passo | O que é | Situação |
+| --- | --- | --- |
+| 1 | Testes de aceitação das operações compostas | ✅ commit `25fa19c` |
+| 2 | Retirada completa (`REQ-525`) | ✅ commit `25fa19c` |
+| 3 | Obrigação de comissão e a tela de abrir e pagar | ✅ commit `25fa19c` |
+| 4 | Extrato de recebível, pagamento em lote, anexo e confiança | ⬜ só o lote preparado, em memória (`REQ-239`) |
+| 5 | Compensação | ✅ no Ledger, commit `8797c7d`; a oferta no Treasury fica para o passo 7 |
+| 6 | Leituras e resultados por parte e por contexto | ⬜ é o que a aba Resultados precisa |
+| 7 | Operação composta e tradução no Treasury | ⬜ |
+| 8 | Entrada do sistema externo | ⬜ por último |
+
+**Em paralelo, quando o dono do produto quiser:** a sessão interativa da rotina financeira
+(`DEC-043`, §1.1).
+
+**Decisões que provavelmente aparecem amanhã:** a ordem de A1–A7; `DEC-040` (chips) e o caso de várias
+obrigações abertas de `REQ-635` (para A2); a ordem dos passos 4, 6 e 7 para terminar a página.
+
 **Como trabalhamos, nesta ordem.** Só avance com o aval do dono do produto.
 
 1. **Conversa sobre o domínio:** entender o caso real e propor, com uma recomendação. Nada de código.
@@ -1866,11 +1977,11 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 | Data esperada da comissão prevista (`REQ-229`) e lista de seleção com busca | ✅ Implementados, com commit. A lista não foi vista no navegador; só tem teste de componente |
 | Suítes em 2026-11-07 | Ledger: 841 passam e 19 pendentes (compensação e leituras de resultado). Treasury: 717 no backend, com 13 `it.todo`, e 148 no cliente |
 | Teste do dono do produto | Fez os passos, mas só porque conhece o sistema. Um leigo ainda teria dificuldade |
-| Página da parte (`DEC-030`, rodada 18) | 🔶 Decidida em 2026-11-12 (§8.4) e **implementada no mesmo dia, sem commit**: `GetPartyPageUseCase` (rota `GET /api/parties/:partyId/page`), o aviso `exceeds_open` da prévia (`REQ-635`), o serviço `PreparedBatches` (`REQ-239`, só em memória e sem tela: a tela e a gravação vêm com o passo 4) e a tela, que substitui a "Visão por parte" (lista ordenada de partes → página própria da parte, com as abas Operação, Histórico e Resultados, a Operação aberta, e o caminho de volta para a lista; cada lado da Operação é uma seção com filtros e paginação do Ledger, pela rota `GET /api/parties/:partyId/positions/:side`; o Histórico tem viés de auditoria, com filtros e paginação pela rota `GET /api/parties/:partyId/history` e os sinais pendentes num bloco no topo). Resultados mostra só o aviso de que depende do passo 6. Testes: `acceptance-party-page.test.ts` (29 passam, 23 `it.todo`), `unit/application/party-page.test.ts` e os da tela. **O lado de cada posição** é lido pelo tipo, no Treasury: a Usina deve = os tipos de `USINA_PAYABLE_OBJECT_TYPES` do Ledger; a parte deve = `USINA_RECEIVABLE_OBJECT_TYPES` mais a comissão prevista. Tipo fora dos dois aparece à parte, "sem lado definido", nunca some. **Aguarda a verificação do dono do produto** para fechar a `DEC-030` |
+| Página da parte (`DEC-030`, rodada 18) | 🔶 Decidida em 2026-11-12 (§8.4) e **implementada no mesmo dia, commit `6b9ad7c`**: `GetPartyPageUseCase` (rota `GET /api/parties/:partyId/page`), o aviso `exceeds_open` da prévia (`REQ-635`), o serviço `PreparedBatches` (`REQ-239`, só em memória e sem tela: a tela e a gravação vêm com o passo 4) e a tela, que substitui a "Visão por parte" (lista ordenada de partes → página própria da parte, com as abas Operação, Histórico e Resultados, a Operação aberta, e o caminho de volta para a lista; cada lado da Operação é uma seção com filtros e paginação do Ledger, pela rota `GET /api/parties/:partyId/positions/:side`; o Histórico tem viés de auditoria, com filtros e paginação pela rota `GET /api/parties/:partyId/history` e os sinais pendentes num bloco no topo). Resultados mostra só o aviso de que depende do passo 6. Testes: `acceptance-party-page.test.ts` (29 passam, 23 `it.todo`), `unit/application/party-page.test.ts` e os da tela. **O lado de cada posição** é lido pelo tipo, no Treasury: a Usina deve = os tipos de `USINA_PAYABLE_OBJECT_TYPES` do Ledger; a parte deve = `USINA_RECEIVABLE_OBJECT_TYPES` mais a comissão prevista. Tipo fora dos dois aparece à parte, "sem lado definido", nunca some. **Aguarda a verificação do dono do produto** para fechar a `DEC-030` |
 | Suítes em 2026-11-12 | Treasury: 829 passam no backend, com 27 pendentes e 37 `it.todo`, e 156 no cliente |
 | Suítes em 2026-11-12, depois da página da parte | Treasury: 873 passam no backend, com 37 `it.todo` e nenhum pendente, e 165 no cliente (168 depois do refinamento das abas). O Ledger não foi tocado |
 | Suítes em 2026-11-12, depois do Histórico de auditoria | Treasury: 887 no backend, com 37 `it.todo`, e 180 no cliente. Ledger: 870 passam e 12 pendentes (passo 6), com o `retractedBy` na leitura por parte |
-| Passos 4 a 8 de §16.2 | 🔶 Passo 5 (compensação) feito no Ledger em 2026-11-11, sem commit; os demais não iniciados |
+| Passos 4 a 8 de §16.2 | 🔶 Passo 5 (compensação) feito no Ledger em 2026-11-11, commit `8797c7d`; os demais não iniciados (situação de cada passo em "Para a retomada") |
 | Sinal externo do sistema de seguro (§4.6, rodada 14) | ✅ Blocos A a D com commit (`0fd5a62`); E adiado. Testes em `treasury/src/tests/integration/acceptance-external-signal.test.ts` (só o bloco E está como `it.todo`) e, no Ledger, `insurance-signal-candidates.test.ts` |
 | Integração com o sistema de seguro (rodada 15) | ✅ Com commit (`874a260`). A validação com um RabbitMQ de verdade não foi registrada como feita |
 | Lista de sinais paginada (`REQ-280`) | ✅ Com commit (`308e90e`). Testes em `signal-pagination.test.ts` |
@@ -1910,7 +2021,7 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 
 **Ainda a decidir, em paralelo:**
 
-1. ~~`DEC-030` e `Q-048`~~: decididas em 2026-11-12 (§8.4). Próximo: testes da página da parte.
+1. ~~`DEC-030` e `Q-048`~~: decididas em 2026-11-12 (§8.4), e a página implementada (commit `6b9ad7c`). O que falta e por onde seguir está em "Para a retomada", no início de §16.1.
 2. O passo 6, que a seção Resultados da página precisa (`REQ-631`), e `DEC-021`, de que dependem os
    totais por parte (`REQ-623`). **Por decisão do dono do produto em 2026-11-12, a revisão do passo 6 em
    diante (o que ele é e até onde vai) e da ordem das `DEC` em aberto fica condicionada à entrega final da
@@ -2026,7 +2137,7 @@ não são testes do projeto. A ordem é:
    do passo 7; até lá, o produto fica na descrição.
 4. Extrato de recebível, pagamento em lote, anexo e confiança (`REQ-241`, `REQ-244`–`REQ-249`,
    `REQ-806`). Vem antes da compensação porque é o fluxo principal do dia a dia.
-5. Compensação (`REQ-250`, `REQ-251`, `REQ-624`). **Feito no Ledger em 2026-11-11, sem commit.** Tipo e
+5. Compensação (`REQ-250`, `REQ-251`, `REQ-624`). **Feito no Ledger em 2026-11-11, commit `8797c7d`.** Tipo e
    motivo `compensation`, contrato com os tipos de `DEC-025`, a regra dos dois lados (`REQ-251`) e a leitura
    da posição com o compensado à parte (`compensatedClosed`) e o resultado `compensated`, na memória e no
    SQL. Validado por HTTP com o Ledger de `npm run dev`: compensação parcial aceita, acima do saldo recusada,
@@ -2065,7 +2176,7 @@ Por `DEC-031` (2026-11-09), §4.6 vem antes dos passos 4 a 8; a ordem dela está
 
 | # | Ponto | O que fazer | Situação |
 | --- | --- | --- | --- |
-| C1 | O Ledger não publicava quem retirou cada evento; sem isso, o "retirado por…" da página da parte não aparecia com dados reais (a retificação cita só a Usina) | Publicar na leitura por parte (aprovado em 2026-11-12) | ✅ Resolvido em 2026-11-12, sem commit: `/api/events/by-party` publica `retractedBy` (com o autor da retificação); o Treasury lê também o autor de cada fato |
+| C1 | O Ledger não publicava quem retirou cada evento; sem isso, o "retirado por…" da página da parte não aparecia com dados reais (a retificação cita só a Usina) | Publicar na leitura por parte (aprovado em 2026-11-12) | ✅ Resolvido em 2026-11-12, commit `6b9ad7c`: `/api/events/by-party` publica `retractedBy` (com o autor da retificação); o Treasury lê também o autor de cada fato |
 | C2 | A lista de contas a pagar do Treasury (`ListPayablePositions`) não inclui `commission_payable`; a do Ledger (`USINA_PAYABLE_OBJECT_TYPES`) inclui | Alinhar as duas | Aberto |
 | C3 | Tempo limite e nova tentativa nas chamadas do Treasury ao Ledger | Verificar e definir | Não verificado |
 
