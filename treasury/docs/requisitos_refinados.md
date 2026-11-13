@@ -24,6 +24,10 @@
 > histórico e resultados, que responde à `DEC-030`. Operação e Histórico implementados e refinados
 > (commit `6b9ad7c`); Resultados depende do passo 6. O que falta está em §16.1, "Para a retomada".
 >
+> **Rodada da primeira versão (2026-11-13, rodada 19).** Descoberta de produto com o dono do produto: quem
+> é a equipe financeira, o que dói e o que é a primeira versão utilizável. **§18 passa a definir a ordem do
+> trabalho** até essa versão, com o TODO priorizado (PRI-0, PRI-1, PRI-2). Nenhuma regra foi revogada.
+>
 > **Rodada do sistema de seguro (2026-11-09).** §4.6 registra como o Treasury absorve o que o sistema
 > de seguro sabe: sinal externo, fatos propostos e só expectativas. Implementados os blocos A a D, a
 > integração (rodada 15) e a lista de sinais (`REQ-280`); o bloco E foi adiado.
@@ -52,6 +56,11 @@
 > | 2026-11-11 | 17 — lote, antecipação e compensação | Investigação dos cenários de lote ao corretor. **Confirmado:** o extrato bancário continua opcional, inclusive no lote (`REQ-247`). **Decidido:** um evento por obrigação quitada, inclusive várias da mesma pessoa, e pagamento parcial dentro do lote (`REQ-246`); o envio do lote não para num recusado (`REQ-249`). **Alterado:** `REQ-246` (antes, "um evento por pessoa"). **Em aberto:** `DEC-037`. Nada implementado; o Ledger não muda. **Depois, no mesmo dia:** aprovado o desenho do evento de compensação no Ledger e a compensação parcial (`REQ-250`, `CA-250c`, Anexo A); decididos os tipos iniciais: adiantamento e empréstimo contra obrigação de comissão (`DEC-025`, `REQ-251`); decidido o resultado da posição compensada: em dinheiro, compensado e baixado lado a lado, e "fechada por compensação" sem ganho nem perda (`REQ-624`); a exposição coberta só por expectativa ficou em `DEC-038`. A compensação está pronta para testes e implementação (passo 5). **Depois:** a perda parcial quando há compensação e baixa (`REQ-624`); "pessoa" → "parte" em `REQ-252`, com João × Argo em `DEC-022`; **implementada a compensação no Ledger**, validada por HTTP, sem commit. Nada foi revogado. |
 > | 2026-11-12 | 18 — página da parte | Rodada de domínio da `DEC-030`. **Decidido:** página própria para toda parte, com três seções (operação, histórico, resultados), a lista de partes como entrada, o bloco "depende de" pelo mesmo contexto, os alertas em lista extensível, a prevenção do pagamento a mais pela divisão, o histórico em frases com sinais e as duas datas, o lote preparado e o extrato de recebível do lote (§8.4, `REQ-630`–`REQ-638`, `REQ-239`). **Confirmados:** os termos recebedor e destinatário final (§2) e a segunda frase de `REQ-612`. **Alterados:** `REQ-244` (antes, o extrato era de tudo o que está aberto, e precedia todo pagamento), `REQ-804` (passa a incluir o descarte do lote preparado), `REJ-244` (vale só para o lote; o segundo caso com o mesmo ID virou `REJ-244b`). **Respondidas:** `DEC-030`, `DEC-032`, `Q-048` (prevenção; o remédio foi para `DEC-033`). **Abertas:** `DEC-039` (visão comparativa), `DEC-040` (recomendação em chips), `DEC-041` (autenticação e autorização). Nada foi revogado. |
 > | 2026-11-12 | 18 (cont.) — página da parte implementada e refinada | **Implementado e refinado na tela:** lista ordenada de partes → página própria com abas; Operação com uma seção por lado, filtros e paginação do Ledger, contagem sem total, "depende de" como indicador; Histórico com viés de auditoria (data de registro, quem registrou, quem retirou, filtros, paginação) e sinais pendentes num bloco no topo. **Decidido:** depois que o sinal vira fato, só o fato aparece (`REQ-636`); o Ledger publica quem retirou cada evento (§17, C1, feito). **Criados:** §17 "Antes de produção" (urgente para o deploy), `DEC-042` (filtros e paginação de leitura no Ledger), §1.1 "Valor do produto" e `DEC-043` (rotina financeira, modo interativo). **Removido da tela:** "Registrado também como". Commit do dono do produto: `6b9ad7c`. |
+> | 2026-11-13 | 19 — primeira versão funcional | Descoberta de produto em duas rodadas (diagnóstico e priorização). **Confirmado:** a equipe (5 pessoas e os seus papéis), o volume (moda de ≈1.140 repasses e pagamentos por semana no 1º tri de 2026), as três instituições, o escopo (o financeiro inteiro), o prazo (versão avaliável ainda em 2026), que o passado pode ficar nas planilhas, que não há controle do a receber nem entregas periódicas, e que o sinal da operadora não é dinheiro na conta (§18.1). **Decidido:** a definição de primeira versão utilizável e o TODO priorizado (§18). **Abertos:** `DEC-044`, `DEC-045`, `Q-053`–`Q-056`. Nada foi revogado; muda só a prioridade. |
+> | 2026-11-13 | 19 (cont.) — acesso | O dono do produto indicou um **molde de autenticação e autorização** como referência e decidiu as adaptações: três papéis, o molde inteiro sem o envio de e-mail, base limpa no piloto e o comando de criação de usuário só em desenvolvimento. **Decidido:** §6 reescrita a partir do molde, `REQ-807` (quem assina é quem está logado), `DEC-041`. **Alterado:** `REQ-401` (antes, dois papéis) e `REQ-638` (antes, "quem vê o quê" ficava em `DEC-041`). **Aberto:** o `⚠ CONFIRMAR` de `REQ-402` (o Administrador dá e retira a curadoria). Também nesta data: `TODO-04` feito. |
+> | 2026-11-13 | 19 (cont.) — acesso confirmado | **Confirmados** os dois `⚠ CONFIRMAR` de §6: o Administrador tem acesso irrestrito, com a curadoria pelo papel (`REQ-401`, `REQ-402`, `CA-421`), e o comando do primeiro administrador recusa quando já existe um ativo (`REQ-405`). **Alterado:** `REQ-401` (antes, o Administrador dava a curadoria, mas não a tinha pelo papel). **Decidido:** a verificação das telas no navegador não fecha o `TODO-01`; ela acontece no piloto. **Princípio de trabalho:** refinar só diante de uma necessidade concreta, não de uma possibilidade de melhoria. `TODO-01` feito. |
+> | 2026-11-13 | 19 (cont.) — backup | **Decidido:** a cópia fora da máquina vai ao Cloudflare R2 que a Usina já usa, sob prefixo próprio, guardando as 30 mais recentes. `TODO-02` feito. Nada foi revogado. |
+> | 2026-11-13 | 19 (cont.) — volume | **`TODO-03` feito:** um mês à volumetria real (≈1.150 pagamentos e repasses por semana, 12.330 fatos); as telas do dia ficaram abaixo de 1 s, sem mudança. **E1 fechado.** O que cresce com o livro foi para §17, com os números. Nada foi revogado. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -75,6 +84,7 @@
 > | `DEC-nnn` | Decisão pendente (sequencial) |
 > | `Q-nnn` | Pergunta em aberto (sequencial) |
 > | `FP-nn` | Fluxo principal |
+> | `TODO-nn` | Item do plano da primeira versão (§18) |
 >
 > | Série | Bloco |
 > | --- | --- |
@@ -160,12 +170,16 @@ valor: diz o que o produto já cobre, o que falta e onde cada coisa deve morar.
 | Contabilidade | Plano de contas e exportação ao contador | Entregar o mês sem retrabalho | Treasury ou fora | ⬜ |
 | Controles | Papéis (gestor, visualizador, curadoria) | Cada um faz só o que pode | Treasury | ✅ §6 |
 | | Aprovação em duas etapas e segregação de funções | Quem registra não é quem aprova o pagamento | Treasury | ⬜ `DEC-004`, `DEC-041` |
-| Continuidade | Backup e restauração | Não perder o livro | Infraestrutura | ⬜ |
+| Continuidade | Backup e restauração | Não perder o livro | Infraestrutura | ✅ `TODO-02`: cópia diária no R2 |
 | | Desempenho e resiliência em produção | Não travar com volume real | Ambos | ⬜ §17 |
 | Rotina | Mapa da rotina diária, semanal e mensal | Saber se o produto cobre o dia real | Documento | ⬜ `DEC-043` |
 
 Legenda: ✅ coberto · 🔶 em parte ou só decidido · ⬜ ausente. A confirmar na `DEC-043`: adiantamento a
 fornecedor, centro de custo, orçamento × realizado e várias contas bancárias.
+
+O corte da primeira versão sobre esta lista, feito com o dono do produto em 2026-11-13, está em §18.
+Ele responde em parte à `DEC-043`: a rotina do CFO está em §18.1, e as demais rotinas ficam para o piloto
+(`TODO-13`).
 
 ---
 
@@ -198,6 +212,10 @@ fornecedor, centro de custo, orçamento × realizado e várias contas bancárias
 | **Parte** | Pessoa ou empresa com relacionamento financeiro com a Usina, direto ou indireto, registrada no cadastro de partes. |
 | **Cadastro de partes** | A lista de partes mantida pelo Treasury. Substitui o antigo diretório de contrapartes. |
 | **Curadoria** | A permissão de cadastrar partes e resolver identidades provisórias. É dada a um usuário que já tem outro papel. |
+| **Usuário** | Pessoa da Usina com acesso ao Treasury. Entra com o e-mail e é referenciada pelo id (`REQ-400`). Não é uma parte: uma parte é com quem a Usina tem relação financeira. |
+| **Administrador** | O papel que, além de operar, faz a gestão de usuários (`REQ-401`). |
+| **Convite** | Link de uso único, válido por 72 horas, pelo qual a pessoa conclui o cadastro e define a senha (`REQ-420`). |
+| **Sessão** | O acesso aberto pelo login. Guardada no servidor; expira 12 horas depois do login (`REQ-412`). |
 | **Identidade provisória** | A identidade dada a alguém **ainda não cadastrado**, para que o fato possa ser registrado. Fica pendente até ser resolvida. |
 | **Mapeamento de identidade** | O registro, no Treasury, de que identificadores diferentes são a mesma parte. Só de acréscimo. |
 | **Grupo** | Por enquanto, uma **parte do tipo empresa** (razão social, CNPJ). Não existe conceito separado de grupo (`Q-040`). |
@@ -1023,21 +1041,254 @@ se cria contraparte no momento da operação" → `REQ-311`; "toda e qualquer pa
 
 ## 6. Acesso
 
-`REQ-401` Existem **dois papéis**:
+> **Origem (2026-11-13, `DEC-041`).** Esta seção adota o **molde de autenticação e autorização** que o
+> dono do produto indicou (`tmp/molde_de_autenticacao_autorizacao.md`). As regras do molde valem como
+> estão, com quatro adaptações decididas pelo dono do produto: **três papéis**, porque o Treasury já
+> tinha gestor e visualizador; o **molde inteiro agora, sem o envio de e-mail**; o piloto começa com uma
+> **base limpa**, então nada precisa ser migrado (molde `[INT-06]`); e o comando de criação de usuário
+> existe **só em desenvolvimento** (molde `Q-415`).
+>
+> **Identificadores.** Os do molde foram mantidos para preservar a rastreabilidade, salvo quando o número
+> já existia aqui com outro sentido: molde `REQ-402` → `REQ-408`, molde `REQ-216` → `REQ-807` (§10),
+> molde `CA-401` → `CA-418` e molde `REJ-401` → `REJ-409`.
+>
+> **A distinção que esta seção existe para manter: o controle de acesso é do servidor.** A tela pode
+> esconder o que o usuário não pode fazer, mas nunca é ela que impede.
 
-| Papel | Inicia operação | Envia ao Ledger | Consulta |
-| --- | --- | --- | --- |
-| **Gestor financeiro** | Sim | Sim | Sim |
-| **Visualizador** | **Não** | **Não** | Sim |
+### 6.1 Usuários e papéis
 
-> Papéis mais customizáveis, como "quem prepara mas não envia" com a aprovação de outra pessoa,
-> ficam em aberto (`DEC-004`).
+`REQ-400` **Usuário.** Pessoa da Usina com acesso ao Treasury. Entra com o **e-mail** e a senha; o e-mail
+é o login, e não existe outro nome de usuário. É referenciado pelo seu **id**, que é o que as
+assinaturas guardam (`REQ-807`). Tem um **nome opcional**, informado ao aceitar o convite. A exibição do
+usuário é o nome ou, sem nome, o e-mail.
+
+`REQ-401` **Papéis.** Existem **três** papéis, e cada usuário tem **exatamente um**:
+
+| Papel | Inicia operação | Envia ao Ledger | Consulta | Gestão de usuários |
+| --- | --- | --- | --- | --- |
+| **Administrador** | Sim | Sim | Sim | **Sim** |
+| **Gestor financeiro** | Sim | Sim | Sim | Não |
+| **Visualizador** | **Não** | **Não** | Sim | Não |
+
+O Administrador tem **acesso irrestrito**: faz tudo o que o Gestor financeiro faz, tem a **curadoria de
+partes pelo próprio papel** (cadastra partes e as liga às provisórias, `REQ-402`) **e** faz a gestão de
+usuários: convidar (`REQ-420`), desativar (`REQ-403`), trocar o papel (`REQ-404`) e dar ou retirar a
+curadoria dos demais (`REQ-402`). Decidido em 2026-11-13.
+Todo usuário autenticado **consulta tudo**. A gestão de usuários é exclusiva do Administrador **também no
+servidor**, qualquer que seja o caminho da requisição.
+
+> **Alterado em 2026-11-13.** Antes: "Existem **dois papéis**", o Gestor financeiro e o Visualizador. O
+> Administrador vem do molde (molde `REQ-401`), e os outros dois continuam como eram. Papéis mais
+> customizáveis, como "quem prepara mas não envia" com a aprovação de outra pessoa, continuam em aberto
+> (`DEC-004`).
 
 `REQ-402` A **curadoria de partes** é uma **permissão**, não um papel: ela é dada a um usuário que
 já tem outro papel. Só quem a tem cadastra partes (`REQ-311`) e resolve identidades provisórias
-(`REQ-322`).
+(`REQ-322`). O **Administrador a tem pelo papel** (`REQ-401`). Aos demais, **quem dá e retira a curadoria
+é o Administrador**, e a mudança fica registrada como a troca de papel: quem mudou, quando, antes e depois
+(`REQ-404`). Confirmado pelo dono do produto em 2026-11-13.
 
-> Com poucos usuários, um terceiro papel seria custo sem ganho (`Q-037`).
+> Com poucos usuários, um terceiro papel seria custo sem ganho (`Q-037`). O Administrador, acrescentado
+> em 2026-11-13, não muda isso: ele existe para a gestão de usuários, não para a curadoria.
+
+`REQ-408` **Pessoas de fora não acessam o Treasury.** Corretores, parceiros, operadoras, seguradoras e
+clientes **não têm papel**. Dar acesso a qualquer um deles é uma decisão nova (molde `REQ-402`,
+`[INT-02]`).
+
+`REQ-403` **Desativação.** Um administrador pode **desativar** um usuário. O usuário **nunca é apagado**,
+porque as assinaturas o referenciam. Desativado, ele não entra mais, e as suas sessões são encerradas
+na hora. **Não há reativação**: quem volta recebe um novo convite (`REQ-421`).
+
+`REQ-404` **Troca de papel.** Um administrador pode trocar o papel de um usuário. A troca registra
+**quem** trocou, **quando**, o papel **anterior** e o **novo**, e vale **a partir da próxima operação**
+do usuário, sem novo login.
+
+`REQ-405` **Primeiro administrador.** O primeiro administrador nasce por um **comando executado no
+servidor**, que emite um convite de administrador e o exibe a quem executou. **Não existe usuário nem
+senha padrão.** Com um administrador ativo, o comando recusa: daí em diante, administradores são
+convidados por administradores, para que o comando não seja usado indiscriminadamente. Confirmado pelo
+dono do produto em 2026-11-13.
+
+`REQ-406` **Último administrador.** A desativação ou a troca de papel que deixaria o Treasury **sem
+nenhum administrador ativo** é **recusada**.
+
+`REQ-407` **Usuário criado por comando, só em desenvolvimento.** Um comando executado no servidor cria um
+usuário ativo, com e-mail, senha, papel e nome opcional, sem convite. A senha é **digitada sem eco**, num
+prompt à parte, nunca como argumento do comando. Valem as regras de senha (`REQ-415`) e de e-mail
+(`REQ-421`). Em produção o comando **recusa**: lá todo usuário entra por convite, que registra quem
+convidou. Decidido em 2026-11-13 (molde `Q-415`).
+
+### 6.2 Autenticação e sessão
+
+`REQ-410` **Tudo exige login.** Toda operação do Treasury exige um usuário autenticado. As exceções são
+**exatamente** estas: o login, o aceite do convite, a verificação de saúde do serviço e as páginas, que
+não contêm dados. A redefinição de senha entra nesta lista quando existir (§6.4). Uma operação nova
+nasce **protegida**.
+
+`REQ-411` **Login e logout.** O login é feito com e-mail e senha e abre uma **sessão**. O logout encerra
+a sessão **no servidor**, não só na tela.
+
+`REQ-412` **Sessão.** A sessão expira **12 horas depois do login**, qualquer que seja o uso nesse
+intervalo. Ela também é encerrada pelo logout, pela redefinição de senha (`REQ-426`) e pela desativação
+do usuário (`REQ-403`). **Ela sobrevive a um reinício do Treasury** (decidido em 2026-11-13).
+
+`REQ-413` **Login recusado não revela a conta.** E-mail inexistente, senha errada, usuário desativado e
+conta suspensa (`REQ-414`) recebem **a mesma mensagem**.
+
+`REQ-414` **Tentativas.** Depois de **5 falhas seguidas** de login numa conta, o login dela fica
+**suspenso por 15 minutos**. Um login bem-sucedido zera a contagem.
+
+`REQ-415` **Senha.** De **12 a 128 caracteres**, sem regra de composição (maiúscula, número, símbolo).
+
+`REQ-416` **Segredos nunca em claro.** A senha, o identificador da sessão e os links de convite e de
+redefinição **não são guardados em claro**. A senha é guardada só como resultado de uma função
+irreversível, com sal próprio.
+
+`REQ-417` **Requisição de outro site.** Uma operação que altera dados, vinda de uma página que não é a do
+próprio Treasury, é **recusada**, mesmo que o navegador tenha uma sessão aberta.
+
+### 6.3 Convite
+
+`REQ-420` **Convidar.** Um administrador convida informando o **e-mail** e o **papel**. O Treasury gera
+um **link de uso único**, válido por **72 horas**. O convite registra **quem convidou** e **quando**.
+
+`REQ-421` **Um convite por e-mail.** Um novo convite para o mesmo e-mail **invalida o anterior**: só o
+último vale. Convidar o e-mail de um usuário **ativo** é **recusado**. O e-mail de um usuário
+**desativado** pode ser convidado; o aceite cria **um novo usuário**, com um novo id, e as assinaturas
+antigas continuam apontando para o usuário desativado.
+
+`REQ-422` **Aceite.** Pelo link, a pessoa define a **senha** (`REQ-415`) e, se quiser, o **nome**
+(`REQ-400`). O usuário é criado **ativo**, com o papel do convite, e depois faz o login normalmente. Um
+link **expirado, já usado, substituído ou desconhecido** é recusado com **uma única mensagem**, sem dizer
+qual desses é o caso.
+
+### 6.4 Recuperação de senha
+
+`REQ-425` **Pedido.** "Esqueci a senha" recebe o e-mail e responde **sempre a mesma coisa**, exista a
+conta ou não. Só um usuário **ativo** recebe o e-mail, com um **link de uso único**, válido por **1 hora**.
+
+`REQ-426` **Conclusão.** Pelo link, o usuário define a nova senha (`REQ-415`). O link deixa de valer,
+assim como qualquer outro link de redefinição pendente do usuário, e **todas as suas sessões são
+encerradas**. Um link inválido segue `REQ-422`: uma única mensagem.
+
+> **Enquanto não houver envio de e-mail** (decidido em 2026-11-13), `REQ-425` e `REQ-426` não estão
+> disponíveis, porque o link não teria por onde chegar. Quem esquece a senha é **desativado e
+> reconvidado** (`FA-404`). Elas entram com o envio de e-mail (`TODO-17`), sem mudar nenhuma outra
+> regra.
+
+### 6.5 Autorização
+
+`REQ-430` **O servidor decide.** Toda operação verifica, no servidor, se o usuário tem o papel que ela
+exige (`REQ-401`). A tela pode esconder o que o papel não permite, mas isso é conveniência, nunca a
+proteção.
+
+`REQ-431` **Respostas.**
+
+| Situação | Comportamento |
+| --- | --- |
+| Sem sessão, ou com a sessão encerrada | A operação é recusada e a tela leva ao login |
+| Autenticado, sem o papel que a operação exige | A operação é recusada, com mensagem |
+| Usuário desativado | As sessões já foram encerradas: vale a primeira linha |
+
+> A primeira linha é uma resposta de **autenticação** (não se sabe quem é); a segunda, de
+> **autorização** (sabe-se quem é, e ele não pode). São recusas distintas.
+
+### 6.6 E-mail
+
+`REQ-435` **Envio desacoplado.** O convite e a redefinição de senha chegam por **e-mail**. O meio de
+envio é **desacoplado** das regras: o meio escolhido entra depois sem mudar nenhuma regra desta seção. O
+e-mail de acesso **não é** uma notificação de negócio e não aparece entre as notificações (`REQ-321`).
+
+`REQ-436` **Sem envio configurado.** Enquanto o envio de e-mail não estiver configurado, o **link do
+convite é exibido ao administrador** que convidou, na tela, para ele repassar, como o comando do
+primeiro administrador já faz (`REQ-405`). Configurado o envio, o link vai só por e-mail.
+
+### 6.7 Tela de usuários
+
+`REQ-440` **Usuários.** O administrador tem uma tela de usuários com:
+
+- a **lista** de usuários, com **nome**, **e-mail**, **papel**, **curadoria** e **situação** (ativo ou
+  desativado);
+- os **convites pendentes** na mesma lista, com o e-mail, o papel e a validade;
+- as ações **convidar** (`REQ-420`), **reenviar convite** (um novo link, que invalida o anterior,
+  `REQ-421`), **desativar** (`REQ-403`), **trocar o papel** (`REQ-404`) e **dar ou retirar a
+  curadoria** (`REQ-402`).
+
+Não há cancelamento de convite: reenviar já invalida o anterior. A tela é só do administrador; o
+servidor recusa as ações a qualquer outro papel (`REQ-430`). A lista vem **inteira**, sem paginação: são
+poucos usuários (molde `[INT-08]`).
+
+### 6.8 Fluxos, exceções, aceitação e rejeição
+
+**Primeiro administrador.** No servidor, alguém executa o comando (`REQ-405`), que exibe o link do
+convite; a pessoa aceita o convite (`REQ-422`) e entra pelo login.
+
+**Login.** Sem sessão, a tela leva ao login (`REQ-410`, `REQ-431`). O usuário informa e-mail e senha
+(`REQ-411`); uma recusa não revela a conta (`REQ-413`), e as falhas seguidas suspendem o login da conta
+(`REQ-414`). Aberta a sessão, o usuário volta à página em que estava.
+
+**Convite.** Um administrador convida pelo e-mail e pelo papel (`REQ-420`, `REQ-421`); recebe o link na
+tela e o repassa (`REQ-436`); a pessoa define a senha e, se quiser, o nome (`REQ-422`), e entra pelo
+login.
+
+**Ato assinado.** O usuário logado executa um ato auditado; o servidor confere a sessão e o papel
+(`REQ-430`), e o autor registrado é o usuário da sessão, pelo id (`REQ-807`).
+
+| ID | Situação | Comportamento |
+| --- | --- | --- |
+| `FA-401` | Convite reenviado ao mesmo e-mail | O anterior deixa de valer; só o último vale (`REQ-421`) |
+| `FA-402` | Redefinição pedida para e-mail sem conta ativa | Mesma resposta; nenhum e-mail é enviado (`REQ-425`) |
+| `FA-403` | Sessão expirada no meio do trabalho | A operação é recusada; a tela leva ao login e depois volta à página (`REQ-412`, `REQ-431`) |
+| `FA-404` | Usuário desativado volta à Usina, ou esqueceu a senha sem envio de e-mail | Recebe um novo convite; o aceite cria um novo usuário (`REQ-403`, `REQ-421`, §6.4) |
+| `FA-405` | Convite aceito sem nome | Permitido; a exibição usa o e-mail (`REQ-400`, `REQ-422`) |
+
+| ID | Situação | Comportamento |
+| --- | --- | --- |
+| `EX-401` | Operação sem sessão válida | Recusada; a tela leva ao login (`REQ-410`, `REQ-431`) |
+| `EX-402` | Operação sem o papel exigido | Recusada, com mensagem (`REQ-430`, `REQ-431`) |
+| `EX-403` | Link de convite ou de redefinição expirado, usado, substituído ou desconhecido | Recusado com uma única mensagem (`REQ-422`, `REQ-426`) |
+| `EX-404` | Login de usuário desativado, ou login durante a suspensão | Recusado com a mesma mensagem de qualquer falha (`REQ-413`, `REQ-414`) |
+| `EX-405` | Operação que altera dados vinda de outro site | Recusada (`REQ-417`) |
+| `EX-406` | Convite para o e-mail de um usuário ativo | Recusado (`REQ-421`) |
+| `EX-407` | Senha com menos de 12 ou mais de 128 caracteres | Recusada (`REQ-415`) |
+
+**Critérios de aceitação**
+
+| ID | Critério | Regra |
+| --- | --- | --- |
+| `CA-418` | Toda operação, exceto as de `REQ-410`, é recusada sem sessão (molde `CA-401`) | `REQ-410` |
+| `CA-402` | O login correto abre a sessão; depois do logout, a mesma sessão é recusada | `REQ-411` |
+| `CA-403` | A sessão é recusada 12 horas depois do login; antes disso, sobrevive a um reinício do Treasury | `REQ-412` |
+| `CA-404` | E-mail inexistente, senha errada e usuário desativado recebem a mesma mensagem | `REQ-413` |
+| `CA-405` | A sexta tentativa depois de 5 falhas seguidas é recusada mesmo com a senha certa; passados 15 minutos, o login volta a funcionar | `REQ-414` |
+| `CA-406` | Nada do que está guardado contém a senha, a sessão ou um link de convite em claro | `REQ-416` |
+| `CA-407` | O convite aceito cria o usuário ativo com o papel convidado e o nome informado; o mesmo link, usado de novo, é recusado | `REQ-420`, `REQ-422` |
+| `CA-408` | Um convite com mais de 72 horas é recusado; reenviado o convite, o link anterior é recusado | `REQ-420`, `REQ-421` |
+| `CA-409` | A redefinição troca a senha, o link deixa de valer e as sessões anteriores são recusadas; um link com mais de 1 hora é recusado. **Entra com o envio de e-mail (§6.4)** | `REQ-425`, `REQ-426` |
+| `CA-410` | O pedido de redefinição responde o mesmo para e-mail com e sem conta. **Entra com o envio de e-mail (§6.4)** | `REQ-425` |
+| `CA-411` | Um Gestor financeiro ou um Visualizador é recusado ao convidar, desativar, trocar papel ou mudar a curadoria; um Administrador consegue | `REQ-401`, `REQ-430` |
+| `CA-421` | O Administrador tem a curadoria pelo papel, sem concessão | `REQ-401`, `REQ-402` |
+| `CA-412` | Um Administrador e um Gestor financeiro executam todas as operações e consultas; um Visualizador consulta tudo e não inicia nem envia operação (`CA-401`, `REJ-401`) | `REQ-401` |
+| `CA-413` | O usuário desativado perde a sessão na hora e não entra mais | `REQ-403` |
+| `CA-414` | A troca de papel e a mudança de curadoria registram quem, quando, o antes e o depois, e valem na operação seguinte do usuário | `REQ-402`, `REQ-404` |
+| `CA-415` | Um ato assinado praticado com sessão registra como autor o id do usuário da sessão e exibe o nome, ou o e-mail sem nome | `REQ-807` |
+| `CA-416` | Um autor enviado no corpo da requisição não vira o autor do ato | `REQ-807` |
+| `CA-417` | Pelas telas: login, convite aceito, logout e uma operação recusada por papel | `REQ-410`–`REQ-431` |
+| `CA-419` | A desativação ou a troca de papel do último administrador ativo é recusada | `REQ-406` |
+| `CA-420` | O comando de criação de usuário recusa em produção; o do primeiro administrador não aceita senha nem cria usuário sem convite | `REQ-405`, `REQ-407` |
+
+**Casos que devem ser rejeitados**
+
+| ID | Caso | Regra |
+| --- | --- | --- |
+| `REJ-409` | Controlar o acesso só na tela (molde `REJ-401`) | `REQ-430` |
+| `REJ-402` | Guardar senha, sessão ou link de convite ou de redefinição em claro | `REQ-416` |
+| `REJ-403` | Aceitar duas vezes o mesmo link de convite ou de redefinição | `REQ-420`, `REQ-425` |
+| `REJ-404` | Tomar o autor de um ato assinado do que a tela envia | `REQ-807` |
+| `REJ-405` | Apagar um usuário | `REQ-403` |
+| `REJ-406` | Responder login ou redefinição de forma que revele se a conta existe | `REQ-413`, `REQ-425` |
+| `REJ-407` | Usuário, senha ou administrador padrão | `REQ-405` |
+| `REJ-408` | Dar acesso a quem `REQ-408` declara sem acesso | `REQ-408` |
 
 ---
 
@@ -1360,8 +1611,8 @@ abaixo. Os recibos (`REQ-245`) são abertos a partir da frase.
 retificar. O **lote** (passo 4, `REQ-239`, `REQ-246`) e a **compensação** (passo 7, `REQ-252`) nascem
 nesta página, selecionando posições da mesma parte. O lote preparado aparece na Operação.
 
-`REQ-638` **Quem vê.** O visualizador vê as três seções, sem as ações (`REQ-401`). Quem pode ver o quê,
-além disso, fica em `DEC-041`.
+`REQ-638` **Quem vê.** O visualizador vê as três seções, sem as ações (`REQ-401`). Todo usuário
+autenticado consulta tudo (§6, decidido em 2026-11-13 com a `DEC-041`).
 
 ---
 
@@ -1419,6 +1670,17 @@ antes do envio) **não é** auditado por esta regra.
 **sistema integrado**, quando veio de fora, ou o **usuário**, quando veio de dentro (planilha,
 conversa, sistema ainda não integrado). Quando um usuário confirma um sinal externo (`REQ-323`), o
 autor do evento é o sistema, e a auditoria do Treasury registra o usuário que confirmou.
+
+`REQ-807` **Quem assina é quem está logado** (molde `REQ-216`, adotado em 2026-11-13). O autor de um
+ato auditado (`REQ-804`) e de um ato da gestão de usuários (§6) é o **usuário autenticado** que o pratica.
+O autor **não é digitado** nem enviado pela tela: o ato continua explícito ("enviar", "convidar"), e quem
+assina é quem está logado. O autor é guardado pelo **id do usuário** e exibido pelo nome ou, sem nome,
+pelo e-mail (`REQ-400`). Data e hora são as do momento em que o ato é registrado. A forma de identificar
+o usuário fica desacoplada das regras que exigem a assinatura. `REQ-805` continua valendo: o que vem de
+um sistema integrado é anotado pelo sistema, e a auditoria registra o usuário que confirmou.
+
+> Nenhum ato passa a ter autor só porque o login existe: a lista de atos assinados é a de `REQ-804` mais a
+> gestão de usuários (molde `DEC-401`, `[INT-05]`).
 
 `REQ-806` A **confiança** do fato acompanha a forma como ele ficou conhecido:
 
@@ -1776,7 +2038,7 @@ Treasury a partir das três fontes, §5).
 | `DEC-001` | **Visão por pessoa e por grupo de pessoas, com encadeamento** — **regras definidas em 2026-11-04** (§8.2); o encadeamento depende do repasse (`DEC-017`) | Vale §8.2 |
 | `DEC-002` | **Cadastro de partes substitui Contrapartes** — **regras definidas em 2026-11-04** (§5) | Vale §5 |
 | `DEC-003` | Forma da cobrança de "pendente de validação" — **respondida em 2026-11-04**: notificação insistente vista por todos (`REQ-321`); o que falta passou para `DEC-016` | Vale `REQ-321` |
-| `DEC-004` | Papel que prepara sem enviar, com aprovação de outra pessoa | Só os dois papéis de `REQ-401` |
+| `DEC-004` | Papel que prepara sem enviar, com aprovação de outra pessoa | Só os papéis de `REQ-401` |
 | `DEC-005` | Revisão da classificação do texto livre (IA ou recomendação) com a pergunta "Você deseja fazer um **adiantamento** com os dados a seguir?" e troca de operação reaproveitando os dados | Vale `REQ-701`/`REQ-702`; trocar de operação não está definido |
 | `DEC-006` | Tratamento cuidadoso de eventos sem contraparte identificada ("podemos falar quando chegar a hora") | Vale `REQ-301`/`REQ-302` |
 | `DEC-007` | Estados da aplicação depois do MDM | Valem os estados de §11.1 |
@@ -1812,10 +2074,12 @@ Treasury a partir das três fontes, §5).
 | `DEC-038` | **Exposição: saída de caixa coberta só por expectativa** (o "coringa"). Adiantamento de 500,00 ao João, compensado com a obrigação de 500,00 da apólice X; a Allianz ainda deve 800,00 e nada entrou. As duas posições do João zeraram, mas o caixa continua em −500,00, e só uma expectativa pode trazê-lo de volta. Decidir quando e como alertar, e como mostrar a trilha do furo (caixa → adiantamento → compensação → obrigação → apólice → comissão prevista aberta), como **leitura** da cadeia de fatos, sem rateio (`REQ-623`). Para a trilha existir, a compensação herda o contexto da obrigação (`REQ-275`). A leitura por contexto sozinha não mostra o furo, porque o adiantamento não cita a apólice (`CA-621b`). Decidir junto com o passo 6 e `DEC-030`; não bloqueia a compensação. **Em parte coberta em 2026-11-12:** o bloco "depende de" da página da parte mostra a expectativa aberta ao lado do repasse (`REQ-632`); faltam o alerta e a trilha | O −500,00 aparece no resultado do João (`REQ-620`, `REQ-622`) e o "depende de" na página (`REQ-632`); não há alerta nem trilha |
 | `DEC-039` | **Visão comparativa de várias partes**: a direção olha todo dia N partes selecionadas para tirar conclusões (incentivo, investimento, negociação). Fica fora da página da parte; nasce quando um usuário sentir a dor de abrir muitas páginas, e o uso da página ensina quais sinais comparar. Relaciona-se com `DEC-009` e `REQ-620` | A direção usa a página de cada parte |
 | `DEC-040` | **Recomendação em chips com "outra"**: um padrão de UX para oferecer opções recomendadas em chips clicáveis, com "outra" abrindo o texto livre (ex.: a forma do repasse: "pela Argo", "recebe diretamente", "outra"; a divisão do pagamento a mais). Deve servir a vários lugares; o alcance ainda não está definido | Cada tela escolhe como apresentar as opções |
-| `DEC-041` | **Autenticação e autorização do Treasury**: o dono do produto tem um molde de outro sistema para reutilizar. Inclui quem vê o quê na página da parte (`REQ-638`) | Valem os dois papéis de `REQ-401` e a curadoria de `REQ-402` |
+| `DEC-041` | ~~Autenticação e autorização do Treasury~~ — **decidida em 2026-11-13**: §6 adota o molde, com três papéis, o molde inteiro sem o envio de e-mail, base limpa no piloto e o comando de criação de usuário só em desenvolvimento. Todo autenticado consulta tudo (`REQ-638`) | Vale §6. O envio de e-mail e a recuperação de senha ficam no `TODO-17` |
 | `DEC-042` | **Filtros de leitura no Ledger**: (1) posições só vencidas / a vencer / sem vencimento, e por contexto (apólice); (2) eventos de uma parte paginados e filtrados (data de registro, tipo, autor, situação), hoje lidos inteiros (§17, P1). Hoje o Ledger ordena por vencimento, mas não filtra por ele nem por contexto. Não muda a álgebra nem cria fato; muda a leitura do Ledger | A página da parte ordena por vencimento; os dois filtros ficam de fora |
 | `DEC-043` | **Rotina financeira e lacunas para um sistema financeiro funcional** (§1.1): mapear com o dono do produto, em modo interativo (uma pergunta por vez, desafiando as respostas), a rotina diária, semanal e mensal do financeiro da Usina — quem faz, o que entra, o que sai. Cada linha aponta para um `REQ` ou vira lacuna; cada ⬜ e "a decidir" de §1.1 é decidido: entra no Treasury, no Ledger (só se for fato) ou fica fora. Primeira pergunta: como começa o dia de quem cuida do financeiro, e o que confere primeiro | Vale §1.1 como régua; nada decidido |
 | `DEC-036` | **Enriquecer a origem depois**: ligar um recebimento sem origem (ou outro fato isolado) à comissão prevista quando se descobre de onde veio, **sem reescrever o fato** ("a linhagem é progressiva", `CLAUDE.md`). Não existe hoje no Ledger nem no Treasury. Ideia do dono do produto: usar isso para olhar o passado a partir do saldo no banco (Bradesco, Itaú, corretora de investimentos), perguntando "de onde veio cada valor?", e construir a verdade financeira enquanto se concilia, independente do banco. Relaciona-se com `DEC-018` | O recebimento sem origem fica pendente e visível; não há como ligá-lo depois |
+| `DEC-044` | **Instituição no fato de caixa** (aberta em 2026-11-13). A Usina movimenta dinheiro em três instituições (Bradesco, Itaú e uma corretora de investimentos), e o Ledger conhece um caixa só. Em que instituição o dinheiro entrou ou saiu é um fato observado. Decidir como o fato de caixa passa a dizer isso e como a transferência entre instituições entra (o Ledger já tem o efeito `CASH_INTERNAL`). Os eventos anteriores ficam com a instituição **desconhecida**: nunca distribuídos por suposição. Muda a álgebra do Ledger, então precisa de uma conversa de arquitetura antes do código (`CLAUDE.md`) | Só existe o saldo consolidado; `TODO-06`, `TODO-07` e `TODO-12` esperam esta decisão |
+| `DEC-045` | **Provisões do CFO** (aberta em 2026-11-13). O CFO aloca dinheiro na corretora de investimentos para usar depois em eventos, e controla isso hoje em planilha. **Confirmado:** ele precisa de uma ferramenta para isso. **Hipótese, não confirmada:** são investimentos pós-fixados que rendem enquanto o dinheiro não é necessário. Entender com o CFO antes de modelar. **Não confundir** com a provisão de pagamento futuro da `DEC-013` | Continua na planilha do CFO (`TODO-15`) |
 
 ### 15.2 Perguntas abertas
 
@@ -1827,6 +2091,10 @@ Abertas na rodada 13 (2026-11-07), e `Q-052` na rodada 14 (2026-11-09). A recome
 | `Q-050` | No sistema de seguro, uma mesma apólice e proposta aparecem com dois ids, uma elegível e outra sem CR. É erro de cadastro ou é esperado? | Conferir no sistema de origem; de todo modo, ligar sempre pelo id da apólice | Nada depende disso ainda |
 | `Q-051` | Como tratar identificadores lá escritos de formas diferentes (produto `Auto` e `auto`) e a seguradora sem nome? | Normalizar só para comparar e guardar como veio no sinal (`REQ-260`); seguradora sem nome vira identidade provisória (`REQ-267`) | Nada depende disso ainda |
 | `Q-052` | Na comissão parcelada, a elegibilidade chega **por parcela** ou uma vez por apólice? | Se for por parcela, a referência da origem inclui a parcela (`REQ-265`) e cada elegibilidade abre a sua obrigação | Uma elegibilidade por apólice |
+| `Q-053` | **Solicitações de adiantamento e acordos ainda não pagos**, que os verificadores acompanham: o que são, quem aprova e em que momento viram compromisso da Usina? (aberta em 2026-11-13) | Até virar compromisso, mostrar como pendência do Treasury, que não é fato nem vai ao Ledger. Depois, como obrigação reconhecida | `TODO-19` não começa |
+| `Q-054` | **Sistema de saúde:** como os dados ficam acessíveis (API, arquivo, tela) e se ele registra os mesmos acontecimentos do seguro (pagamento declarado pela operadora, parcela ou total, parte da Usina e parte do corretor)? (aberta em 2026-11-13) | Usar o mesmo conceito de sinal externo (§4.6), com um contrato próprio para a saúde | `TODO-11` não começa; a saúde é registrada à mão |
+| `Q-055` | **Conferência com o banco:** em cada instituição, com que frequência o CFO confere e de onde vem o saldo (extrato, aplicativo, relatório da corretora)? E até quantos dias à frente ele precisa ver o que vence? (aberta em 2026-11-13) | Começar pelo saldo informado à mão, uma vez por dia, e uma janela de 7 dias, a ajustar no piloto | `TODO-05` e `TODO-07` seguem com esses valores provisórios |
+| `Q-056` | **Piloto:** por quantas semanas a equipe usa a primeira versão em paralelo à planilha, e quem decide que ela foi aprovada? (aberta em 2026-11-13) | O CFO decide; aprovada quando ele decide o que pagar no dia pelo Treasury, sem a planilha | `TODO-13` sem data |
 
 Os `⚠ CONFIRMAR` de §2 (termos **recebedor** e **destinatário final**) e de `REQ-612` (a visão **não soma**
 valores por grupo), adiados em 2026-11-04, foram **confirmados em 2026-11-12** (rodada 18). Ficou aberto,
@@ -1895,6 +2163,10 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 
 > **⚠ Antes de qualquer deploy de produção, resolver §17** (lentidão, consistência de API e
 > resiliência). Pedido do dono do produto em 2026-11-12.
+
+> **A partir de 2026-11-13, a ordem do trabalho é a de §18 (primeira versão funcional).** O que está
+> abaixo continua valendo como registro do estado e das regras. Os itens A1–A7 e os passos 4 a 8 entram no
+> trabalho só pelo `TODO` de §18 que os cita; os demais ficam em PRI-2.
 
 > Atualizado em 2026-11-12, depois da rodada 18 (página da parte). Quando o dono do produto perguntar "onde paramos e o que precisamos
 > decidir para continuar?", a resposta parte daqui. Confira no código antes de afirmar que algo existe.
@@ -2165,28 +2437,349 @@ Por `DEC-031` (2026-11-09), §4.6 vem antes dos passos 4 a 8; a ordem dela está
 
 | # | Ponto | Risco | O que fazer | Situação |
 | --- | --- | --- | --- | --- |
-| P1 | A leitura de eventos por parte no Ledger (`/api/events/by-party`) não é paginada, e para cada evento faz mais duas buscas de retificação | Parte com milhares de eventos deixa o Histórico lento | Leitura paginada e filtrada no Ledger (`DEC-042`) | Aberto |
-| P2 | Até P1, o Treasury lê o histórico inteiro da parte e pagina só na tela | O mesmo de P1, do lado do Treasury | Trocar pela leitura de P1 | Aberto |
-| P3 | O "depende de" da página da parte faz várias leituras ao Ledger por linha da página | Página lenta quando uma apólice tem muitos eventos | Uma leitura no Ledger que traga as expectativas de um contexto de uma vez | Aberto |
-| P4 | Os alertas da página da parte leem até 200 posições por busca (e avisam quando passam disso) | Parte grande com alerta que não aparece | Filtros no Ledger para "sem origem" e "vencida" (`DEC-042`) | Aberto |
-| P5 | Os sinais do histórico leem todos os sinais guardados, e a intenção de cada proposta, a cada abertura da página | Fica lento à medida que os sinais se acumulam | Guardar no Treasury quais partes cada sinal cita, com índice | Aberto |
-| P6 | Índices dos bancos para busca por parte, por evento relacionado, por objeto e por data de entrada e de vencimento | Consultas lentas com volume real | Levantar os índices que existem e criar os que faltarem | Não verificado |
+| P1 | A leitura de eventos por parte no Ledger (`/api/events/by-party`) não é paginada, e para cada evento faz mais duas buscas de retificação | Parte com milhares de eventos deixa o Histórico lento | Leitura paginada e filtrada no Ledger (`DEC-042`) | Medido em 2026-11-13 (`TODO-03`), um mês à volumetria real: histórico do corretor mais movimentado (~800 eventos no mês) em 69 ms (pior 84 ms). Dentro do orçamento; cresce com a parte. Reavaliar a cada mês do piloto |
+| P2 | Até P1, o Treasury lê o histórico inteiro da parte e pagina só na tela | O mesmo de P1, do lado do Treasury | Trocar pela leitura de P1 | Medido em 2026-11-13 (`TODO-03`), um mês à volumetria real: ver P1. Aberto até o Ledger paginar |
+| P3 | O "depende de" da página da parte faz várias leituras ao Ledger por linha da página | Página lenta quando uma apólice tem muitos eventos | Uma leitura no Ledger que traga as expectativas de um contexto de uma vez | Medido em 2026-11-13 (`TODO-03`), um mês à volumetria real: cabeçalho e alertas da página da parte em 342 ms (pior 418 ms), a tela mais lenta. Dentro do orçamento; é a primeira a vigiar |
+| P4 | Os alertas da página da parte leem até 200 posições por busca (e avisam quando passam disso) | Parte grande com alerta que não aparece | Filtros no Ledger para "sem origem" e "vencida" (`DEC-042`) | Medido em 2026-11-13 (`TODO-03`), um mês à volumetria real: incluído no cabeçalho da página da parte (P3) |
+| P5 | Os sinais do histórico leem todos os sinais guardados, e a intenção de cada proposta, a cada abertura da página | Fica lento à medida que os sinais se acumulam | Guardar no Treasury quais partes cada sinal cita, com índice | Medido em 2026-11-13 (`TODO-03`), um mês à volumetria real: com 5.550 sinais, a contagem do menu leva 148 ms e a lista do que espera conferência 157 ms, porque leem todos os sinais. Cresce com os sinais; reavaliar a cada mês do piloto |
+| P6 | Índices dos bancos para busca por parte, por evento relacionado, por objeto e por data de entrada e de vencimento | Consultas lentas com volume real | Levantar os índices que existem e criar os que faltarem | Verificado em 2026-11-13: o Ledger tem índices por parte, por objeto e por data de ocorrência e de registro. Com um mês, nenhuma leitura pediu outro índice |
 
 **Correção e consistência de API**
 
 | # | Ponto | O que fazer | Situação |
 | --- | --- | --- | --- |
 | C1 | O Ledger não publicava quem retirou cada evento; sem isso, o "retirado por…" da página da parte não aparecia com dados reais (a retificação cita só a Usina) | Publicar na leitura por parte (aprovado em 2026-11-12) | ✅ Resolvido em 2026-11-12, commit `6b9ad7c`: `/api/events/by-party` publica `retractedBy` (com o autor da retificação); o Treasury lê também o autor de cada fato |
-| C2 | A lista de contas a pagar do Treasury (`ListPayablePositions`) não inclui `commission_payable`; a do Ledger (`USINA_PAYABLE_OBJECT_TYPES`) inclui | Alinhar as duas | Aberto |
-| C3 | Tempo limite e nova tentativa nas chamadas do Treasury ao Ledger | Verificar e definir | Não verificado |
+| C2 | A lista de contas a pagar do Treasury (`ListPayablePositions`) não inclui `commission_payable`; a do Ledger (`USINA_PAYABLE_OBJECT_TYPES`) inclui | Alinhar as duas | Aberto. Confirmado na medição de 2026-11-13: com ~300 obrigações de comissão abertas, "a pagar" vem vazio. Resolve-se no `TODO-05` (E2) |
+| C3 | Tempo limite e nova tentativa nas chamadas do Treasury ao Ledger | Verificar e definir | ✅ Verificado em 2026-11-13: leitura com limite de 4 s e envio com 5 s. O envio que falha não é repetido sozinho: a intenção fica para ser enviada de novo, e a chave de idempotência do Ledger torna isso seguro |
 
 **Resiliência e operação**
 
 | # | Ponto | O que fazer | Situação |
 | --- | --- | --- | --- |
 | R1 | O lote preparado (`REQ-239`) vive só em memória e se perde ao reiniciar | Gravar em SQLite (passo 4) | Aberto |
-| R2 | Cobertura de testes do Ledger em 84,36% de linhas e 84,78% de funções, abaixo do mínimo de 85% (já estava abaixo antes, 84,11% e 84,71% no commit `308e90e`) | Subir ao mínimo; a regra do repositório não deixa passar | Aberto |
-| R3 | Autenticação e autorização do Treasury (`DEC-041`) | Decidir antes de abrir para usuários reais | Aberto |
+| R2 | Cobertura de testes do Ledger em 84,36% de linhas e 84,78% de funções, abaixo do mínimo de 85% (já estava abaixo antes, 84,11% e 84,71% no commit `308e90e`) | Subir ao mínimo; a regra do repositório não deixa passar | ✅ Resolvido em 2026-11-13 (`TODO-04`): 85,48% de linhas, 85,52% de funções e 85,86% de ramos, com testes de verdade e sem excluir arquivo da medição |
+| R3 | Autenticação e autorização do Treasury (`DEC-041`) | Decidir antes de abrir para usuários reais | 🔶 Decidida em 2026-11-13 (§6); implementação no `TODO-01`. Falta o envio de e-mail (`TODO-17`) |
+
+---
+
+## 18. Primeira versão funcional — plano (TODO)
+
+> Decidido na rodada 19 (2026-11-13), numa descoberta de produto com o dono do produto. **Esta seção
+> define a ordem do trabalho** até a primeira versão que a equipe financeira possa avaliar. Ela não revoga
+> nenhuma regra: os `REQ` continuam valendo, e muda só o que vem primeiro. O que não é PRI-0 aqui não entra
+> nessa versão.
+
+### 18.1 O que se sabe da equipe
+
+**Confirmado pelo dono do produto em 2026-11-13**
+
+- **Cinco pessoas.** **Três verificadores** acompanham, entre os sistemas, o que foi baixado e produzido, as
+  solicitações de adiantamento e o que pode virar entrada ou saída. O **CFO** confirma entradas e saídas,
+  prepara ou faz os lançamentos e é o **único que paga e confere recebimentos nos bancos**; organiza o que
+  está pendente, decide o que pagar hoje, avalia se o caixa suporta as saídas e faz a conciliação. Hoje
+  ele consolida um "caixa fictício" com heurísticas por banco, planilhas e anotações em que não confia.
+  **Uma pessoa de Business** negocia com empresas e parceiros, define os riscos e precisa dos resultados
+  por corretor e por produto (o produto é de terceiros e é analisado pelas empresas que pagam comissão à
+  Usina).
+- **Volume:** a moda semanal no 1º trimestre de 2026 foi de **≈1.140 operações entre repasses e
+  pagamentos**. Não há separação confiável entre os dois.
+- **Três instituições:** Bradesco, Itaú e uma corretora de investimentos. Cada uma tem a sua heurística.
+- **Dores nas palavras do CFO:** contas que aparecem do nada (um cartão de crédito da Usina pago com juros,
+  sem saber o que foi comprado nem por quê) e pagamentos "escondidos" em conversas de WhatsApp e
+  planilhas.
+- **Provisões:** o CFO aloca dinheiro na corretora para usar depois em eventos e precisa controlar isso
+  (`DEC-045`).
+- **A receber:** não há controle detalhado, nem responsável, nem visão confiável do que deveria ter
+  entrado, do que entrou e do que está pendente.
+- **Saídas:** não há entregas periódicas estabelecidas. Cada pedido de informação é uma consolidação
+  manual de baixa confiança.
+- **Aprovação:** a final é do CFO, que vê os lotes de saída e de entrada no banco.
+- **Seguro e saúde:** os dois sistemas registram que a operadora **sinalizou** ter pago X à Usina, por
+  parcela ou no total, com Y da Usina e Z do corretor. **Sinal não é dinheiro na conta.** O financeiro
+  confronta isso com o banco e com o que foi negociado à parte (ajustes, renegociações, condições
+  especiais). A integração da saúde é pedida "o quanto antes".
+- **Escopo e prazo:** o **financeiro inteiro**, não só comissões. Uma primeira versão avaliável pela equipe
+  **ainda em 2026**, para começar 2027 com outra estrutura.
+- **Virada:** o passado pode ficar nas planilhas. O sistema deve permitir **reconstruir o histórico aos
+  poucos**, fora das temporadas de pico. No pico importa a visão confiável do **presente e do futuro
+  próximo**: o que há, o que está pendente e o que se espera receber e pagar.
+
+**Hipóteses, não confirmadas:** as provisões são investimentos pós-fixados (`DEC-045`); quem mais tem
+acesso aos bancos é uma equipe terceirizada que faz lançamentos automáticos.
+
+**Em aberto:** `DEC-044`, `DEC-045`, `Q-053`–`Q-056` (§15).
+
+### 18.2 As dores, classificadas
+
+| # | Dor | Quem sente | Impacto | Frequência | Risco | O que já existe | Prioridade |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Não saber o que precisa ser pago hoje: contas aparecem do nada | CFO | Alto | Diária | Juros, multa, pagamento indevido | A obrigação com vencimento (§4.1, nº 16) e as obrigações vindas dos sinais. Falta vê-las juntas, por data | PRI-0 |
+| 2 | Não saber quanto há em cada instituição nem se o livro bate com o banco | CFO | Alto | Diária | Decidir sobre um número errado | Só o caixa consolidado (`DEC-044`) | PRI-0 |
+| 3 | Registrar ≈1.140 pagamentos por semana | CFO e verificadores | Alto | Diária | O sistema não ser usado | Lote decidido (`REQ-239`, `REQ-246`, `REQ-249`), só em memória e sem tela | PRI-0 |
+| 4 | Não saber o que deveria ter entrado, o que entrou e o que está atrasado | CFO e verificadores | Alto | Contínua | Comissão não recebida e nunca cobrada | Sinais do seguro e situação por apólice (§4.6). Falta a visão de tudo e a saúde | PRI-0 |
+| 5 | Resultado por corretor e por produto | Business | Médio na primeira versão: os números só cobrem o período desde a virada | Periódica | Decisões comerciais sem base | Decidido (§8.3), não implementado | PRI-1 |
+| 6 | Controlar as provisões na corretora | CFO | A confirmar | A confirmar | A confirmar | Nada; o mecanismo é desconhecido | PRI-1, descoberta antes |
+| 7 | Relatórios e fechamento do mês | Direção | Não há processo nem formato a seguir | — | — | Nada | PRI-2 |
+| 8 | Histórico anterior à virada | Todos | Baixo no pico | Por temporada | — | O Ledger aceita datas passadas | PRI-2, por decisão do dono do produto |
+
+### 18.3 O que é a primeira versão utilizável
+
+**Toda manhã, o CFO responde no Treasury, sem a planilha:**
+
+1. Quanto há em cada instituição, e se isso bate com o banco.
+2. O que está vencido, o que vence hoje e nos próximos dias, e o que não tem vencimento conhecido.
+3. Se o caixa conhecido cobre o que vence.
+4. O que se espera receber, o que está atrasado e o que a operadora declarou ter pago sem que o dinheiro
+   tenha sido visto no banco.
+
+**E ao longo do dia:** o CFO registra de uma vez os pagamentos que fez; os verificadores transformam os
+sinais do seguro e da saúde em fatos propostos; e qualquer um dos cinco registra uma obrigação assim que
+fica sabendo dela, para que nada apareça do nada.
+
+**Aprovação:** a equipe usa a versão em paralelo à planilha (`TODO-13`). Ela está aprovada quando o CFO
+decide o que pagar no dia pelo Treasury, sem a planilha (`Q-056`).
+
+**Fica fora da primeira versão:** tudo o que está em PRI-1 e PRI-2 abaixo, em especial a conciliação linha
+a linha, a importação de extrato, os relatórios e o fechamento, a compensação e a operação composta no
+Treasury, a reconstrução do histórico e a aprovação em duas etapas.
+
+**Se o prazo apertar,** cede primeiro o `TODO-11` (a saúde é registrada à mão durante a avaliação) e depois
+o `TODO-12` (só os números lado a lado, sem o painel). A fase A não cede.
+
+### 18.4 TODO
+
+**Regras do plano.** Cada item segue o método de §16.1 (conversa, anotação, testes, implementação). Uma
+tela só está pronta depois de vista no navegador com o Ledger de verdade e um volume realista. Um item
+entra, sai ou muda de prioridade só com o aval do dono do produto, e o piloto (`TODO-13`) é a fonte
+principal dessas mudanças.
+
+#### Entregáveis da primeira versão
+
+> Decidido em 2026-11-13. **A âncora do trabalho são os entregáveis**, não as decisões: um entregável
+> começa assim que tem contexto suficiente, e uma `DEC` é resolvida quando passa a bloquear uma entrega.
+> Os `TODO` abaixo são o trabalho de cada entregável.
+
+| # | Entregável | Para quem e que problema resolve | TODOs | O que bloqueia | Pode começar? |
+| --- | --- | --- | --- | --- | --- |
+| **E1** | **Ambiente confiável:** login por pessoa, cópia diária do livro, telas que aguentam o volume real | Os cinco. Sem isso não há uso real: a auditoria não sabe quem fez o quê, um reinício pode perder a avaliação e as telas travam com ≈1.140 operações por semana | 01–04 | Nada. A `DEC-041` foi decidida em 2026-11-13 (§6) | Sim |
+| **E2** | **Agenda a pagar** | CFO. Acaba com a conta que aparece do nada (dor 1) | 05 | Nada; a janela começa em 7 dias (`Q-055`) | Sim |
+| **E3** | **Pagamentos do dia em lote** | CFO. Permite registrar o volume real (dor 3) | 08 | Regras decididas (`REQ-239`, `REQ-246`, `REQ-249`). Só a instituição do pagamento depende da `DEC-044` | Sim, quase todo |
+| **E4** | **Agenda a receber**, com o declarado pela operadora e ainda não visto no banco | CFO e verificadores. Saber o que cobrar (dor 4) | 09 | Nada; `DEC-036` melhora a precisão e pode esperar o piloto | Sim |
+| **E5** | **Sinais entrando sozinhos:** seguro em operação real e saúde | Verificadores. Obrigações e expectativas sem digitação | 10, 11 | Seguro: nada. Saúde: `Q-054`, que é falta de informação, não decisão | Seguro sim; saúde não |
+| **E6** | **Saldo por instituição e conferência com o banco** | CFO. O livro passa a bater com o banco (dor 2) | 06, 07 | **`DEC-044`** e `Q-055` | Não |
+| **E7** | **Painel da manhã: o caixa cobre o que vence?** | CFO. A pergunta diária "posso pagar hoje?" | 12 | Uma versão inicial usa o caixa consolidado, que já existe; a versão por instituição espera o E6 | Sim, a inicial |
+| **E8** | **Piloto com a equipe** | Os cinco. Confirma se a versão serve e reordena o resto | 13 | `Q-056`, só quando o piloto começar | Depois de E1–E4 |
+
+**Até quando cada decisão pode esperar**
+
+| Decisão | Pode ficar aberta até |
+| --- | --- |
+| `DEC-044` | **O primeiro pagamento real registrado no piloto.** Um fato é imutável: o que for registrado sem instituição fica "instituição desconhecida" para sempre, a menos que se crie um meio de completar isso depois. Não bloqueia construir o E3; bloqueia usá-lo de verdade. Discutir em paralelo ao E2 |
+| `Q-054` | O E5 da saúde. Enquanto isso, a saúde é registrada à mão |
+| `Q-055` | O E6. Para o E2, o valor provisório basta |
+| `Q-056` | O início do piloto |
+| `DEC-041` | ~~Decidida em 2026-11-13~~: §6 |
+| `DEC-045`, `Q-053`, `DEC-036` | PRI-1; o piloto diz se alguma sobe |
+| `DEC-004`, `DEC-018`, `DEC-021`, `DEC-023`, `DEC-033`, `DEC-037`, `Q-050`–`Q-052` e as demais | Não tocam nenhum entregável da primeira versão |
+
+**Ordem de execução:** (1) E1 e E2, com a conversa da `DEC-044` e os pedidos de `Q-054` e `Q-055` em
+paralelo; (2) E3, E4 e o seguro do E5; (3) E6 e o E7 completo, a saúde quando houver acesso aos dados, e
+então o E8.
+
+**Sequência dos TODO:** A → B → C → D. Dentro de cada fase, a ordem é a dos números.
+
+```
+A  TODO-01 acessos · 02 cópia · 03 volume · 04 cobertura do Ledger
+B  TODO-05 agenda a pagar ─┬─ 08 pagamentos do dia
+   TODO-06 saldo por instituição (DEC-044, depende de 04) ─┬─ 07 conferência com o banco
+                                                           └─ 08
+C  TODO-09 agenda a receber · 10 seguro em operação real · 11 saúde (Q-054)
+D  TODO-12 o caixa cobre o que vence? (05, 06, 09) → 13 piloto com a equipe
+```
+
+#### PRI-0 — indispensável para a primeira versão
+
+**Fase A — base para gente de verdade usar**
+
+`TODO-01` **Cada uma das cinco pessoas entra com o seu login e o seu papel**, pelas regras de §6. Sugestão
+a confirmar com o CFO: ele como Administrador com curadoria, os três verificadores como gestores
+financeiros e Business como visualizador.
+*Por quê:* a auditoria (quem fez o quê, §10) só vale com logins individuais, e hoje os usuários vêm de
+variáveis de ambiente, sem tela para criá-los.
+*Situação:* ✅ implementado em 2026-11-13, sem commit. A verificação das telas no navegador **não é
+condição** para fechar este item (decidido em 2026-11-13): acontece no uso real, no piloto (`TODO-13`). §6 inteira menos
+o envio de e-mail (§6.4): três papéis; e-mail como login; comando do primeiro administrador e comando de
+criação de usuário só em desenvolvimento; convite com link na tela; desativação, troca de papel e
+curadoria pelo Administrador, com registro só de acréscimo; sessão de 12 h guardada só pelo hash e que
+sobrevive a reinício; suspensão após 5 falhas; recusa uniforme; recusa de outro site; toda a API
+protegida por padrão; telas de login, aceite do convite e **Usuários**. Testes:
+`acceptance-access.test.ts` (os `CA`, `EX` e `REJ` de §6), `access-sqlite.test.ts` (nada em claro no
+disco, sessão após reinício, usuário nunca apagado), `access-commands.test.ts` e
+`features/users/usersEngine.test.ts`. Suítes: Treasury 948 no backend, com 37 `it.todo`, e 185 no
+cliente. Validado também com o servidor real (`src/index.ts`) por HTTP, inclusive a sessão depois de um
+reinício. Deploy: as senhas fixas saíram; entram `PUBLIC_BASE_URL` e o passo do primeiro administrador
+(`deploy/README.md`). Para o piloto, a base começa limpa (§6).
+
+`TODO-02` **O livro não se perde:** cópia diária dos dados do Ledger e do Treasury, com uma restauração
+testada.
+*Por quê:* perder o livro durante a avaliação destrói a confiança, que é a razão do produto (§1.1,
+"Backup e restauração").
+*Situação:* ✅ 2026-11-13, sem commit. Destino decidido pelo dono do produto: o **Cloudflare R2** que a
+Usina já usa, sob um prefixo próprio, sem tocar nos demais arquivos do bucket; ficam as 30 cópias mais
+recentes. Serviço `backup` no `deploy/docker-compose.yml` (`deploy/backup/`): cópia online às 03:00,
+conferida antes de sair, com `SHA256SUMS`; logs de auditoria do Ledger espelhados; `unhealthy` com mais
+de 26 horas sem cópia boa; comandos `list`, `run`, `verify` e `restore`, que guarda os arquivos anteriores.
+Teste: `deploy/backup/test.sh`, 9 verificações contra uma pasta local no lugar do R2. Falta o primeiro envio
+ao R2 de verdade, que acontece no deploy com as credenciais do `.env` (`deploy/README.md`, "Backup").
+
+`TODO-03` **As telas do dia respondem com o volume real.** Simular um mês de uso (≈1.140 pagamentos por
+semana, mais obrigações e sinais) e resolver o que travar nas telas da primeira versão: §17 P1, P2, P4,
+P6 e C3.
+*Por quê:* o volume deixou de ser hipótese, e §17 ficaria tarde demais se esperasse a produção.
+*Serve a:* `TODO-05` a `TODO-12`.
+*Situação:* ✅ 2026-11-13, sem commit. Um mês simulado pelos próprios casos de uso do Treasury, com o Ledger
+de verdade em SQLite: 21 dias úteis, 3.150 apólices (comissão prevista), 2.400 obrigações com corretores,
+1.950 recebimentos em lote por seguradora, 2.100 repasses e 2.730 outros pagamentos, ou seja, ≈1.150
+pagamentos e repasses por semana; 12.330 fatos, todos aceitos, e 5.550 sinais, assinados por quatro
+usuários. **Todas as 17 leituras das telas do dia ficaram abaixo de 1 s**; a mais lenta é o cabeçalho da
+página da parte, com 342 ms de mediana e 418 ms no pior caso. Nada precisou ser mudado; o que cresce com o
+livro está em §17, com os números. Ferramentas para repetir a medição: `npm run load:month` e
+`npm run load:measure` (`treasury/src/infra/load/`), só contra um livro de teste.
+**Observado e não resolvido, por não travar hoje:** a lista de intenções devolve tudo de uma vez (1,5 MB
+para o CFO no mês; a tela mostra 10 por página); a gravação fica mais lenta à medida que o livro cresce
+(de ~5 ms para ~13 ms por fato ao longo do mês). Medir de novo ao fim de cada mês do piloto.
+
+`TODO-04` **Cobertura de testes do Ledger de volta ao mínimo** (§17 R2).
+*Por quê:* é regra do repositório (`CLAUDE.md`), e o `TODO-06` mexe no Ledger.
+*Situação:* ✅ 2026-11-13, sem commit. Testes novos: as recusas de registro externo malformado no
+`StagingRecordValidator` (vocabulário desconhecido, objeto e motivo incompletos) e o log de auditoria em
+arquivo (`file-audit-logger.test.ts`: um arquivo por dia, uma linha por entrada, e falha de escrita que
+nunca bloqueia quem chamou). Ledger: 886 passam e 12 pendentes (passo 6).
+
+**Fase B — o que pagar hoje e com que dinheiro**
+
+`TODO-05` **Agenda a pagar.** Uma tela com tudo o que a Usina deve, de todos os tipos, inclusive a
+obrigação de comissão (§17 C2). Fica separada em vencido, hoje, próximos dias e depois, e **sem vencimento
+conhecido** à parte, nunca tratado como "hoje" (§4.1). Cada linha leva ao pagamento já ligado à obrigação
+(`REQ-603`). A janela "próximos dias" começa em 7 e é ajustada no piloto (`Q-055`).
+*Por quê:* dor 1, a mais citada pelo CFO. As obrigações já podem ser registradas; falta o lugar onde
+elas aparecem juntas, por data. É também o que faz valer a pena registrar uma conta assim que se fica
+sabendo dela.
+*Depende de:* `TODO-03`.
+
+`TODO-06` **Saldo por instituição.** Cada entrada e saída diz em qual instituição aconteceu. O saldo
+conhecido aparece por instituição e somado. A transferência entre instituições, inclusive para a corretora,
+é movimento interno: não é entrada nem saída. Um movimento sem instituição aparece como **"instituição
+desconhecida"**, nunca distribuído por suposição.
+*Por quê:* dor 2. Sem isso não há conferência com o banco, e o caixa continua "fictício".
+*Depende de:* `DEC-044` (muda a álgebra do Ledger e precisa de conversa de arquitetura antes) e `TODO-04`.
+
+`TODO-07` **Conferência com o banco.** Para cada instituição, o CFO informa o saldo do extrato numa data,
+e o Treasury mostra a diferença para o saldo do livro na mesma data. A diferença fica à vista até ser
+explicada por fatos registrados. O saldo informado é um controle do Treasury, auditado, e **nunca um fato
+do Ledger**.
+*Por quê:* o CFO é o responsável pela conciliação e hoje usa heurísticas. Uma diferença à vista é o mínimo
+que torna o livro confiável. A conciliação linha a linha e a importação de extrato ficam em PRI-2
+(`TODO-21`).
+*Depende de:* `TODO-06`; a forma e a frequência de cada instituição, de `Q-055`.
+
+`TODO-08` **Pagamentos do dia de uma vez.** O CFO escolhe, na agenda a pagar, as obrigações que vai pagar,
+de várias partes; paga no banco e anota que pagou, com data e instituição. Vira um evento por obrigação
+(`REQ-246`), e um recusado não trava os demais (`REQ-249`). O lote preparado passa a ser gravado (§17 R1) e
+também pode ser montado a partir da agenda, não só na página da parte (amplia `REQ-239`). Um pagamento sem
+obrigação registrada continua sendo registrado, como fato válido, e fica visível como "pago sem obrigação"
+(`REQ-634`).
+*Por quê:* dor 3. Com ≈1.140 por semana, registrar um a um pela conversa é inviável, e sem isso o sistema
+não é usado. A regra já está decidida; falta a tela e a gravação.
+*Depende de:* `TODO-05` e `TODO-06`.
+
+**Fase C — o que esperamos receber**
+
+`TODO-09` **Agenda a receber.** Tudo o que se espera receber, por pagador (operadora), com a data esperada:
+atrasado, a vencer e **sem data** (`REQ-271`). Em separado, o que **a operadora declarou ter pago e ainda
+não foi visto no banco** (`REQ-263`). Também aparecem os recebimentos sem origem, para serem ligados.
+*Por quê:* dor 4. Hoje ninguém sabe o que deveria ter entrado. É a primeira vez que a Usina terá base para
+cobrar uma operadora.
+*Depende de:* `TODO-03`. A parte da saúde vem do `TODO-11`.
+
+`TODO-10` **Seguro em operação real.** Os sinais do sistema de seguro chegam pelo broker de mensagens de
+verdade, com o produtor e o consumidor rodando no ambiente da avaliação.
+*Por quê:* a integração foi implementada mas nunca rodou de ponta a ponta (§16.1), e é dela que nascem as
+obrigações com os corretores do seguro.
+
+`TODO-11` **A saúde entra como o seguro.** Os sinais do sistema de saúde (a operadora disse que pagou X, por
+parcela ou no total, com Y da Usina e Z do corretor) viram fatos propostos pelo mesmo conceito de sinal
+externo (§4.6). Geram só expectativas e obrigações, nunca recebimento (`REQ-262`, `REQ-263`).
+*Por quê:* pedido do dono do produto. Sem isso, as agendas mostram só a metade do negócio, ou a saúde é
+digitada uma operação por vez.
+*Depende de:* `Q-054`.
+
+**Fase D — juntar e avaliar**
+
+`TODO-12` **O caixa cobre o que vence?** Na agenda a pagar, o total vencido e o de cada dia ficam ao lado
+do saldo conhecido de cada instituição, e, à parte, o que se espera receber no mesmo período. É uma leitura
+dos fatos, não uma previsão: o esperado **nunca é somado ao caixa**, e o que não tem data não entra em dia
+nenhum (`CLAUDE.md`, "Derivations must not assume completeness").
+*Por quê:* "avaliar se o caixa suporta as saídas previstas" é tarefa diária do CFO.
+*Depende de:* `TODO-05`, `TODO-06` e `TODO-09`.
+
+`TODO-13` **Piloto com a equipe.** Os cinco usam a primeira versão em paralelo à planilha, numa rotina
+combinada: o CFO com as agendas, a conferência e os pagamentos do dia; os verificadores com os sinais e as
+obrigações; Business consultando. Cada dificuldade vira um item desta seção, com prioridade. O piloto
+também completa a `DEC-043` (as rotinas dos verificadores e de Business).
+*Por quê:* até hoje nenhum usuário real usou o sistema (§16.1), e só o uso diz se a versão serve.
+*Depende de:* `TODO-01` a `TODO-12`; a duração e quem aprova vêm de `Q-056`.
+
+#### PRI-1 — importante, logo depois da primeira versão
+
+`TODO-14` **Resultado por corretor e por produto** para Business: o passo 6 (`REQ-620`–`REQ-624`), com o
+produto lido pela operadora e pelo contexto (`DEC-021`, `DEC-023`).
+*Por quê:* necessidade confirmada, mas na primeira versão os números cobrem só o período desde a virada.
+O valor cresce com semanas de uso ou com a reconstrução do histórico (`TODO-22`).
+
+`TODO-15` **Provisões do CFO:** entender com ele e então modelar (`DEC-045`). Hipótese: a ida à corretora é
+movimento interno (`TODO-06`) e o rendimento é uma entrada.
+*Por quê:* a necessidade está confirmada, mas o mecanismo não, e nada pode ser construído antes de
+entendê-lo.
+
+`TODO-16` **Ligar depois um recebimento sem origem** à sua expectativa, sem reescrever o fato (`DEC-036`).
+*Por quê:* o dinheiro e o sinal chegam em ordens diferentes. Sem isso, a agenda a receber mostra como
+atrasado o que já entrou. Sobe para PRI-0 se o piloto mostrar recebimentos soltos com frequência.
+
+`TODO-17` **O que falta do acesso:** o envio de e-mail, com a recuperação de senha (§6.4, `REQ-435`), e a
+permissão de anotar pagamento, que `REQ-248` já previa "se o uso mostrar necessidade". (Antes de
+2026-11-13, este item também tinha a autenticação e as sessões, que foram para o `TODO-01` com a `DEC-041`.)
+*Por quê:* o CFO é o único que paga no banco, mas com cinco pessoas a auditoria já mostra quem anotou.
+Sem e-mail, quem esquece a senha é reconvidado (`FA-404`).
+
+`TODO-18` **Documentos:** a fatura, a nota ou o extrato junto da obrigação e do pagamento (amplia
+`REQ-247`); o extrato de recebível e o recibo ao corretor (`REQ-244`, `REQ-245`).
+*Por quê:* "não sei o que foi comprado nem por quê". A descrição e o autor já cobrem o mínimo.
+
+`TODO-19` **Pendências que ainda não são fatos:** solicitações de adiantamento e acordos que vão gerar
+saída, visíveis para o CFO como pendências do Treasury, sem ir ao Ledger (`Q-053`).
+*Por quê:* fazem parte do "o que vou ter de pagar", mas não são fatos. É preciso entender antes.
+
+`TODO-20` **Carga das partes a partir das planilhas** (§5, adiada em 2026-11-06).
+*Por quê:* com volume real, cadastrar parte por parte ou conviver com identidades provisórias pesa na
+curadoria.
+
+#### PRI-2 — depois
+
+`TODO-21` **Conciliação linha a linha e importação de extrato** (OFX ou CNAB, `DEC-018`).
+*Por quê:* `TODO-07` cobre o mínimo, e a forma de cada instituição ainda é desconhecida.
+
+`TODO-22` **Reconstrução progressiva do histórico,** fora das temporadas de pico.
+*Por quê:* decisão do dono do produto. O Ledger já aceita fatos com data passada.
+
+`TODO-23` **Fechamento do mês, relatórios e exportação ao contador.**
+*Por quê:* não há processo nem destinatário definido para imitar. Entra quando houver quem consuma.
+
+`TODO-24` **O restante já decidido ou levantado:** a compensação no Treasury e a operação composta (passo 7),
+os itens A1–A7 da página da parte, o bloco E (`REQ-266`), a aprovação em duas etapas (`DEC-004`), o texto
+livre (`DEC-005`), a visão comparativa (`DEC-039`), os chips (`DEC-040`), as retenções e a nota fiscal
+(§1.1).
+*Por quê:* nenhuma dessas coisas responde a uma dor que a equipe tenha relatado.
 
 ---
 
