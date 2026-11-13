@@ -225,6 +225,115 @@ describe("StagingRecordValidator", () => {
   });
 
   // ============================
+  // Enum fields — an external record speaking a vocabulary the Ledger doesn't know
+  // ============================
+  describe("enum field validation", () => {
+    const schemaFailure = (failures: { type: RejectionType; description: string }[], text: string) =>
+      failures.some((f) => f.type === RejectionType.INVALID_SCHEMA && f.description.includes(text));
+
+    it("produces INVALID_SCHEMA for an unknown economicEffect", async () => {
+      const failures = await validator.validate(makeValidStagingRecord({ economicEffect: "cash_sideways" }));
+      expect(schemaFailure(failures, 'Invalid economicEffect: "cash_sideways"')).toBe(true);
+    });
+
+    it("produces INVALID_SCHEMA for an unknown reporterType", async () => {
+      const failures = await validator.validate(
+        makeValidStagingRecord({ reporter: { reporterType: "robot", reporterId: "r1", channel: "api" } }),
+      );
+      expect(schemaFailure(failures, 'Invalid reporterType: "robot"')).toBe(true);
+    });
+  });
+
+  // ============================
+  // Object validation
+  // ============================
+  describe("object validation", () => {
+    const schemaFailure = (failures: { type: RejectionType; description: string }[], text: string) =>
+      failures.some((f) => f.type === RejectionType.INVALID_SCHEMA && f.description.includes(text));
+
+    it("names the object index when objectType is missing", async () => {
+      const failures = await validator.validate(
+        makeValidStagingRecord({ objects: [{ objectId: "obj-1", relation: "settles" }] }),
+      );
+      expect(schemaFailure(failures, "Object at index 0 is missing objectType")).toBe(true);
+    });
+
+    it("rejects an objectType the Ledger does not know", async () => {
+      const failures = await validator.validate(
+        makeValidStagingRecord({ objects: [{ objectId: "obj-1", objectType: "mystery", relation: "settles" }] }),
+      );
+      expect(schemaFailure(failures, 'Object at index 0 has invalid objectType: "mystery"')).toBe(true);
+    });
+
+    it("names the object index when relation is missing", async () => {
+      const failures = await validator.validate(
+        makeValidStagingRecord({ objects: [{ objectId: "obj-1", objectType: "commission_receivable" }] }),
+      );
+      expect(schemaFailure(failures, "Object at index 0 is missing relation")).toBe(true);
+    });
+
+    it("rejects a relation the Ledger does not know", async () => {
+      const failures = await validator.validate(
+        makeValidStagingRecord({
+          objects: [{ objectId: "obj-1", objectType: "commission_receivable", relation: "forgets" }],
+        }),
+      );
+      expect(schemaFailure(failures, 'Object at index 0 has invalid relation: "forgets"')).toBe(true);
+    });
+
+    it("reports the failing object by its own index, not the first one", async () => {
+      const failures = await validator.validate(
+        makeValidStagingRecord({
+          objects: [
+            { objectId: "obj-1", objectType: "commission_receivable", relation: "settles" },
+            { objectType: "commission_receivable", relation: "settles" },
+          ],
+        }),
+      );
+      expect(schemaFailure(failures, "Object at index 1 is missing objectId")).toBe(true);
+      expect(failures.some((f) => f.description.includes("index 0"))).toBe(false);
+    });
+  });
+
+  // ============================
+  // Reason validation
+  // ============================
+  describe("reason validation", () => {
+    const schemaFailure = (failures: { type: RejectionType; description: string }[], text: string) =>
+      failures.some((f) => f.type === RejectionType.INVALID_SCHEMA && f.description.includes(text));
+    const reason = { type: "commission_payment", description: "Commission payment Q1", confidence: "medium" };
+
+    it("produces INVALID_SCHEMA when the reason has no type", async () => {
+      const failures = await validator.validate(makeValidStagingRecord({ reason: { ...reason, type: undefined } }));
+      expect(schemaFailure(failures, "Reason is missing type")).toBe(true);
+    });
+
+    it("rejects a reason type the Ledger does not know", async () => {
+      const failures = await validator.validate(makeValidStagingRecord({ reason: { ...reason, type: "whim" } }));
+      expect(schemaFailure(failures, 'Invalid reason type: "whim"')).toBe(true);
+    });
+
+    it("treats a blank description as missing", async () => {
+      const failures = await validator.validate(makeValidStagingRecord({ reason: { ...reason, description: "   " } }));
+      expect(schemaFailure(failures, "Reason is missing description")).toBe(true);
+    });
+
+    it("produces INVALID_SCHEMA when the confidence level is missing", async () => {
+      const failures = await validator.validate(
+        makeValidStagingRecord({ reason: { ...reason, confidence: undefined } }),
+      );
+      expect(schemaFailure(failures, "Reason is missing confidence level")).toBe(true);
+    });
+
+    it("rejects a confidence level the Ledger does not know", async () => {
+      const failures = await validator.validate(
+        makeValidStagingRecord({ reason: { ...reason, confidence: "certain" } }),
+      );
+      expect(schemaFailure(failures, 'Invalid confidence level: "certain"')).toBe(true);
+    });
+  });
+
+  // ============================
   // Duplicate detection (Critical)
   // ============================
   describe("deduplication — DUPLICATE_EVENT", () => {

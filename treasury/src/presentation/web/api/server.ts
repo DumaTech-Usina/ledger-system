@@ -5,7 +5,10 @@ import { conversationRoutes } from "./routes/conversationRoutes";
 import { intentRoutes } from "./routes/intentRoutes";
 import { authRoutes } from "./routes/authRoutes";
 import { dashboardRoutes } from "./routes/dashboardRoutes";
-import { attachUser, requireAuth, requirePermission } from "./middleware/auth";
+import { attachUser, rejectForeignOrigin, requireAuth, requireAuthExcept, requirePermission } from "./middleware/auth";
+import { PUBLIC_AUTH_ROUTES } from "./routes/authRoutes";
+import { userRoutes } from "./routes/userRoutes";
+import type { UserAdministrationService } from "../../../core/application/services/UserAdministrationService";
 import type { PartyDirectoryPort } from "../../../core/application/ports/PartyDirectoryPort";
 import type { RegisterPartyUseCase } from "../../../core/application/use-cases/RegisterParty";
 import type { LinkIdentityUseCase } from "../../../core/application/use-cases/LinkIdentity";
@@ -45,6 +48,10 @@ import type { ListIntentsUseCase } from "../../../core/application/use-cases/Lis
 
 export interface ServerDeps {
   auth: AuthService;
+  /** User management (§6). Absent in tests that are about something else; then /api/users is not mounted. */
+  userAdmin?: UserAdministrationService;
+  /** Origins besides the Treasury's own host allowed to send a request that changes data (REQ-417). */
+  trustedOrigins?: string[];
   secureCookies: boolean;
   sessionTtlSeconds: number;
   startIntent: StartIntentUseCase;
@@ -89,10 +96,18 @@ export function createServer(deps: ServerDeps) {
   // Resolve the session → user for every request (never blocks; guards do the blocking).
   app.use(attachUser(deps.auth));
 
+  // REQ-417: a page from another site cannot change data, even riding on an open session.
+  app.use(rejectForeignOrigin(deps.trustedOrigins ?? []));
+
+  // REQ-410: everything under /api needs a session, except the closed list of PUBLIC_AUTH_ROUTES.
+  const apiGate = requireAuthExcept(PUBLIC_AUTH_ROUTES);
+  app.use((req, res, next) => (req.path === "/api" || req.path.startsWith("/api/") ? apiGate(req, res, next) : next()));
+
   // The conversational operations workspace (static single-page client) + login.
   app.use(express.static(path.join(__dirname, "..", "client")));
 
-  app.use("/api/auth", authRoutes(deps.auth, deps.secureCookies, deps.sessionTtlSeconds));
+  app.use("/api/auth", authRoutes(deps.auth, deps.secureCookies, deps.sessionTtlSeconds, deps.userAdmin));
+  if (deps.userAdmin) app.use("/api/users", userRoutes(deps.userAdmin));
 
   app.use(
     "/api/conversation",

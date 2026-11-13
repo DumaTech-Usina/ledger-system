@@ -16,7 +16,7 @@ import { InMemoryAuditLog } from "../../infra/audit/InMemoryAuditLog";
 import { InMemoryConversationLog } from "../../infra/audit/InMemoryConversationLog";
 import { InMemorySessionStore } from "../../infra/auth/InMemorySessionStore";
 import { ScryptPasswordHasher } from "../../infra/auth/ScryptPasswordHasher";
-import { seedUsers } from "../../infra/auth/seedUsers";
+import { testUsers, SYSTEM_CLOCK } from "../fixtures/access";
 import { InMemoryLedgerSimulator } from "../../infra/ledger-sim/InMemoryLedgerSimulator";
 import type { Candidate } from "../../core/domain/value-objects/Candidate";
 import type { Clock } from "../../core/application/ports/Clock";
@@ -50,7 +50,7 @@ const send = (method: string, path: string, cookie?: string, body?: unknown) =>
   });
 
 async function login(username: string, password: string): Promise<string> {
-  const res = await send("POST", "/api/auth/login", undefined, { username, password });
+  const res = await send("POST", "/api/auth/login", undefined, { email: `${username}@usina.test`, password });
   expect(res.status).toBe(200);
   return (res.headers.get("set-cookie") ?? "").split(";")[0];
 }
@@ -58,10 +58,10 @@ async function login(username: string, password: string): Promise<string> {
 beforeAll(async () => {
   const hasher = new ScryptPasswordHasher();
   const users = new InMemoryUserRepository(
-    seedUsers(hasher, [
-      { id: "user-cfo", username: "cfo", displayName: "CFO", role: Role.FINANCE_MANAGER, password: "treasury" },
-      { id: "user-viewer", username: "viewer", displayName: "Analista", role: Role.VIEWER, password: "viewer" },
-      { id: "user-gestora", username: "gestora", displayName: "Gestora", role: Role.FINANCE_MANAGER, password: "gestora" },
+    testUsers(hasher, [
+      { id: "user-cfo", email: "cfo@usina.test", name: "CFO", role: Role.FINANCE_MANAGER, password: "treasury" },
+      { id: "user-viewer", email: "viewer@usina.test", name: "Analista", role: Role.VIEWER, password: "viewer" },
+      { id: "user-gestora", email: "gestora@usina.test", name: "Gestora", role: Role.FINANCE_MANAGER, password: "gestora" },
     ]),
   );
   const directory = partyDirectory();
@@ -88,7 +88,7 @@ beforeAll(async () => {
   // no collaborators. Had a guard been missing, the call would fail loudly on the absent one.
   const unused = undefined as never;
   const app = createServer({
-    auth: new AuthService(users, hasher, new InMemorySessionStore(3_600_000)),
+    auth: new AuthService(users, hasher, new InMemorySessionStore(SYSTEM_CLOCK), SYSTEM_CLOCK),
     secureCookies: false,
     sessionTtlSeconds: 3600,
     getDashboard: new GetTreasuryDashboardUseCase(simulator, PARTY.USINA, directory),

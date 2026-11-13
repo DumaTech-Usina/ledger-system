@@ -129,7 +129,7 @@ export interface Translations {
     historyTitle: string;
     noHistory: string;
   };
-  roles: { finance_manager: string; viewer: string };
+  roles: { admin: string; finance_manager: string; viewer: string };
   topbar: { openMenu: string; account: string; signOut: string; language: string };
   sidebar: { closeMenu: string; collapseMenu: string; expandMenu: string; collapse: string };
   dashboard: {
@@ -412,6 +412,7 @@ const ptBR: Translations = {
     noHistory: "Sem histórico registrado.",
   },
   roles: {
+    admin: "Administrador",
     finance_manager: "Financeiro",
     viewer: "Somente leitura",
   },
@@ -796,6 +797,7 @@ const en: Translations = {
     noHistory: "No history recorded.",
   },
   roles: {
+    admin: "Administrator",
     finance_manager: "Finance",
     viewer: "Read only",
   },

@@ -1,15 +1,29 @@
 import type { User } from "../../core/domain/entities/User";
 import type { UserRepository } from "../../core/application/repositories/UserRepository";
 
-/** MVP user store seeded at composition time. Swappable for a real store later. */
+/** Users in memory, for tests. No delete, as in the SQLite store (REQ-403). */
 export class InMemoryUserRepository implements UserRepository {
-  constructor(private readonly users: User[]) {}
+  private readonly users: User[];
 
-  async findByUsername(username: string): Promise<User | null> {
-    return this.users.find((u) => u.username === username) ?? null;
+  constructor(initial: User[] = []) {
+    this.users = [...initial];
+  }
+
+  async findActiveByEmail(email: string): Promise<User | null> {
+    return this.users.find((u) => u.email === email && u.isActive) ?? null;
   }
 
   async findById(id: string): Promise<User | null> {
     return this.users.find((u) => u.id === id) ?? null;
+  }
+
+  async list(): Promise<User[]> {
+    return [...this.users];
+  }
+
+  async save(user: User): Promise<void> {
+    const index = this.users.findIndex((u) => u.id === user.id);
+    if (index === -1) this.users.push(user);
+    else this.users[index] = user;
   }
 }

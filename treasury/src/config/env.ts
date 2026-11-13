@@ -72,8 +72,6 @@ const envSchema = z.object({
   /** Their file. The same one as the Party Directory by default, so one backup covers both. */
   OPERATIONS_DB_FILE: z.string().min(1).default("./data/treasury.db"),
 
-  /** Who holds curation, by username, comma-separated (REQ-402). A permission, not a role. */
-  CURATOR_USERNAMES: z.string().default("cfo"),
 
   /** The broker the insurance producer publishes to and the signal consumer reads from (round 15). */
   RABBITMQ_URL: z.string().default("amqp://guest:guest@localhost:5672"),
@@ -86,12 +84,21 @@ const envSchema = z.object({
   /** How often the producer reads the insurance system, in minutes. */
   INSURANCE_POLL_MINUTES: z.coerce.number().positive().default(5),
 
-  /** Session lifetime in hours. */
-  SESSION_TTL_HOURS: z.coerce.number().int().positive().default(12),
+  /**
+   * Where users, sessions, invites and the user-management record live (§6). Always a file, whatever
+   * the store mode of the operations: there is no default user (REJ-407), so access must survive a
+   * restart. The same file as the operations by default, so one backup covers both.
+   */
+  ACCESS_DB_FILE: z.string().min(1).default("./data/treasury.db"),
 
-  /** Seed credentials (dev defaults only — set real values in production). */
-  AUTH_MANAGER_PASSWORD: z.string().default("treasury"),
-  AUTH_VIEWER_PASSWORD: z.string().default("viewer"),
+  /** The address people use to reach the Treasury: the base of the invite links (REQ-420). */
+  PUBLIC_BASE_URL: z.string().url().default("http://localhost:4000"),
+
+  /**
+   * Other origins allowed to send a request that changes data (REQ-417), comma-separated. The
+   * Treasury's own address is always allowed. In development, the client's dev server.
+   */
+  TRUSTED_ORIGINS: z.string().optional(),
 });
 
 const result = envSchema.safeParse(process.env);

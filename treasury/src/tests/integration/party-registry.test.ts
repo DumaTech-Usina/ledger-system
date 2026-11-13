@@ -27,7 +27,7 @@ import { InMemoryAuditLog } from "../../infra/audit/InMemoryAuditLog";
 import { InMemoryConversationLog } from "../../infra/audit/InMemoryConversationLog";
 import { InMemorySessionStore } from "../../infra/auth/InMemorySessionStore";
 import { ScryptPasswordHasher } from "../../infra/auth/ScryptPasswordHasher";
-import { seedUsers } from "../../infra/auth/seedUsers";
+import { testUsers, SYSTEM_CLOCK } from "../fixtures/access";
 import { SqlitePartyRepository } from "../../infra/persistence/SqlitePartyRepository";
 import { SqliteIdentityLinkRepository } from "../../infra/persistence/SqliteIdentityLinkRepository";
 import type { Candidate } from "../../core/domain/value-objects/Candidate";
@@ -93,16 +93,16 @@ async function boot() {
   world = wire();
   const hasher = new ScryptPasswordHasher();
   const users = new InMemoryUserRepository(
-    seedUsers(hasher, [
-      { id: "user-curadora", username: "curadora", displayName: "C", role: Role.FINANCE_MANAGER, password: "x", grants: [Permission.PARTY_CURATE] },
-      { id: "user-operador", username: "operador", displayName: "O", role: Role.FINANCE_MANAGER, password: "x" },
-      { id: "user-viewer", username: "viewer", displayName: "V", role: Role.VIEWER, password: "x" },
-      { id: "user-viewer-curador", username: "viewercurador", displayName: "VC", role: Role.VIEWER, password: "x", grants: [Permission.PARTY_CURATE] },
+    testUsers(hasher, [
+      { id: "user-curadora", email: "curadora@usina.test", name: "C", role: Role.FINANCE_MANAGER, password: "x", grants: [Permission.PARTY_CURATE] },
+      { id: "user-operador", email: "operador@usina.test", name: "O", role: Role.FINANCE_MANAGER, password: "x" },
+      { id: "user-viewer", email: "viewer@usina.test", name: "V", role: Role.VIEWER, password: "x" },
+      { id: "user-viewer-curador", email: "viewercurador@usina.test", name: "VC", role: Role.VIEWER, password: "x", grants: [Permission.PARTY_CURATE] },
     ]),
   );
   const unused = undefined as never;
   const app = createServer({
-    auth: new AuthService(users, hasher, new InMemorySessionStore(3_600_000)),
+    auth: new AuthService(users, hasher, new InMemorySessionStore(SYSTEM_CLOCK), SYSTEM_CLOCK),
     secureCookies: false,
     sessionTtlSeconds: 3600,
     partyDirectory: world.directory,
@@ -125,7 +125,7 @@ async function boot() {
     const res = await fetch(`${baseUrl}/api/auth/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ username, password: "x" }),
+      body: JSON.stringify({ email: `${username}@usina.test`, password: "x" }),
     });
     cookies[username] = (res.headers.get("set-cookie") ?? "").split(";")[0];
   }

@@ -40,11 +40,13 @@ services:
       LEDGER_SUBMIT_TOKEN: ${LEDGER_SUBMIT_TOKEN}
       LEDGER_ALGEBRA_PATH: /app/algebra.json
       USINA_PARTY_ID: ${USINA_PARTY_ID:-party-usina}
-      SESSION_TTL_HOURS: "12"
-      AUTH_MANAGER_PASSWORD: ${AUTH_MANAGER_PASSWORD}
-      AUTH_VIEWER_PASSWORD: ${AUTH_VIEWER_PASSWORD}
+      # §6: no default user. First administrator: docker compose exec treasury node dist/infra/auth/cli/first-admin.js <e-mail>
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
+      ACCESS_DB_FILE: /app/data/treasury.db
       PARTY_DIRECTORY_MODE: sqlite
       PARTY_DB_FILE: /app/data/treasury.db
+      OPERATIONS_STORE_MODE: sqlite
+      OPERATIONS_DB_FILE: /app/data/treasury.db
     volumes:
       - treasury_data:/app/data
       # The Ledger's exported economic algebra — a build artifact of the Ledger that Treasury reads
@@ -85,6 +87,32 @@ services:
       start_period: 20s
     networks: [internal]
 
+  # ── Daily off-machine copy (TODO-02) ──────────────────────────────────────────
+  # Every day at BACKUP_CRON, an online snapshot of the Ledger and of the Treasury, checked, compressed and
+  # sent to Cloudflare R2 under BACKUP_PREFIX; the 30 most recent are kept. Nothing else in the bucket is
+  # touched. Unhealthy when the last good copy is older than 26 hours. Commands: deploy/README.md, "Backup".
+  backup:
+    build: ./backup
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      BACKUP_CRON: ${BACKUP_CRON:-0 3 * * *}
+      BACKUP_KEEP: ${BACKUP_KEEP:-30}
+      BACKUP_REMOTE: r2:${R2_BUCKET:?R2_BUCKET is required}/${BACKUP_PREFIX:-treasury-ledger-backups}
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ENDPOINT: https://${R2_ACCOUNT_ID:?R2_ACCOUNT_ID is required}.r2.cloudflarestorage.com
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?R2_ACCESS_KEY_ID is required}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?R2_SECRET_ACCESS_KEY is required}
+      # A token scoped to one bucket cannot create buckets; the bucket already exists.
+      RCLONE_CONFIG_R2_NO_CHECK_BUCKET: "true"
+    volumes:
+      - ledger_data:/data/ledger
+      - treasury_data:/data/treasury
+      - ledger_logs:/data/ledger-logs:ro
+      - backup_state:/state
+    networks: [internal]
+
   # ── Optional TLS edge ────────────────────────────────────────────────────────
   # Only started with `--profile tls`. Fronts Treasury on 80/443 and provisions a Let's Encrypt
   # certificate for SITE_ADDRESS. Without it the stack has no public listener at all, which is the
@@ -113,5 +141,6 @@ volumes:
   ledger_data:
   ledger_logs:
   treasury_data:
+  backup_state:
   caddy_data:
   caddy_config:

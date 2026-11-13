@@ -6,4 +6,6 @@ export enum Permission {
   DASHBOARD_READ = "dashboard:read",
   /** REQ-402: granted to a user who already has a role, never implied by one. */
   PARTY_CURATE = "party:curate",
+  /** REQ-401: invite, deactivate, change role and grant curation. The administrator's alone. */
+  USER_MANAGE = "user:manage",
 }

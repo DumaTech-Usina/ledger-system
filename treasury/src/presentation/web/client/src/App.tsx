@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useAuth } from "@/features/auth/useAuth";
 import { LoginPage } from "@/features/auth/LoginPage";
+import { AcceptInvitePage } from "@/features/auth/AcceptInvitePage";
+import { forgetInviteToken, inviteTokenFrom } from "@/features/auth/authApi";
+import { UsersPage } from "@/features/users/UsersPage";
+import { usersCopy } from "@/features/users/usersCopy";
 import { AppShell } from "@/components/layout/AppShell";
 import { OperationsPage } from "@/features/operations/OperationsPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
@@ -19,7 +23,10 @@ import type { Role } from "@/types/auth";
 import type { AdoptedIntent } from "@/features/operations/useConversation";
 
 export function App() {
-  const { status, user, login, logout, justLoggedIn, clearJustLoggedIn } = useAuth();
+  const { status, user, login, logout, refresh, justLoggedIn, clearJustLoggedIn } = useAuth();
+  // REQ-422: an invite link (`/?convite=<token>`) opens the acceptance screen, before any session.
+  const [inviteToken, setInviteToken] = useState(() => inviteTokenFrom(window.location.search));
+  const [loginNotice, setLoginNotice] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState("operations");
   /**
    * A conversation opened from a position, waiting to be adopted by the operations page.
@@ -31,6 +38,7 @@ export function App() {
   const [adopted, setAdopted] = useState<AdoptedIntent | null>(null);
   const { t, language } = useLanguage();
   const canCurate = user?.permissions.includes("party:curate") ?? false;
+  const canManageUsers = user?.permissions.includes("user:manage") ?? false;
   const { pending, refresh: refreshPending } = usePendingIdentities(status === "authenticated");
   const { count: openProposals } = useOpenProposals(status === "authenticated");
 
@@ -48,6 +56,7 @@ export function App() {
       badgeLabel: signalsCopy[language].openBadge(openProposals),
     },
     ...(canCurate ? [{ id: "parties", label: partiesCopy[language].heading, icon: "parties" as const }] : []),
+    ...(canManageUsers ? [{ id: "users", label: usersCopy[language].nav, icon: "users" as const }] : []),
   ];
 
   const pageTitles: Record<string, string> = {
@@ -58,9 +67,11 @@ export function App() {
     partyView: partiesCopy[language].viewHeading,
     signals: signalsCopy[language].nav,
     parties: partiesCopy[language].heading,
+    users: usersCopy[language].nav,
   };
 
   const roleLabels: Record<Role, string> = {
+    admin: t.roles.admin,
     finance_manager: t.roles.finance_manager,
     viewer: t.roles.viewer,
   };
@@ -73,8 +84,22 @@ export function App() {
     );
   }
 
+  if (inviteToken) {
+    return (
+      <AcceptInvitePage
+        token={inviteToken}
+        onDone={() => {
+          forgetInviteToken();
+          setInviteToken(null);
+          setLoginNotice("Cadastro concluído. Entre com o seu e-mail e a senha que você definiu.");
+          if (status === "authenticated") void logout();
+        }}
+      />
+    );
+  }
+
   if (status === "anonymous" || !user) {
-    return <LoginPage onLogin={login} />;
+    return <LoginPage onLogin={login} notice={loginNotice} />;
   }
 
   return (
@@ -93,7 +118,9 @@ export function App() {
         />
       }
     >
-      {activeNav === "parties" && canCurate ? (
+      {activeNav === "users" && canManageUsers ? (
+        <UsersPage me={user} onSelfChanged={refresh} />
+      ) : activeNav === "parties" && canCurate ? (
         <PartiesPage pending={pending} onChanged={refreshPending} />
       ) : activeNav === "signals" ? (
         <SignalsPage

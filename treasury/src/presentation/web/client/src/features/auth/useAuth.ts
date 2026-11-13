@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { authApi } from "@/features/auth/authApi";
+import { SESSION_ENDED_EVENT } from "@/api/client";
 import type { User } from "@/types/auth";
 
 type Status = "checking" | "authenticated" | "anonymous";
@@ -22,15 +23,27 @@ export function useAuth() {
     });
   }, []);
 
-  const login = useCallback(async (username: string, password: string) => {
-    const { ok, data } = await authApi.login(username, password);
+  // FA-403: the session expired or was ended while the user worked. Back to the login; the section
+  // the user was on lives in App's state, so the login returns to it.
+  useEffect(() => {
+    const onEnded = () => {
+      setUser(null);
+      setStatus("anonymous");
+      setJustLoggedIn(false);
+    };
+    window.addEventListener(SESSION_ENDED_EVENT, onEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onEnded);
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const { ok, data } = await authApi.login(email, password);
     if (ok && "user" in data) {
       setUser(data.user);
       setStatus("authenticated");
       setJustLoggedIn(true);
       return { ok: true as const };
     }
-    // Never surface the backend's raw error text here — login failures stay generic on purpose.
+    // REQ-413: one message for every refusal, whatever the server's reason.
     return { ok: false as const };
   }, []);
 
@@ -41,7 +54,13 @@ export function useAuth() {
     setJustLoggedIn(false);
   }, []);
 
+  /** Re-reads the user: a role or curation change counts from the next request (REQ-404). */
+  const refresh = useCallback(async () => {
+    const { ok, data } = await authApi.me();
+    if (ok && "user" in data) setUser(data.user);
+  }, []);
+
   const clearJustLoggedIn = useCallback(() => setJustLoggedIn(false), []);
 
-  return { status, user, login, logout, justLoggedIn, clearJustLoggedIn };
+  return { status, user, login, logout, refresh, justLoggedIn, clearJustLoggedIn };
 }

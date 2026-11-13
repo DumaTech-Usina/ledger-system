@@ -19,7 +19,7 @@ import { InMemoryPartyRepository } from "../../infra/persistence/InMemoryPartyRe
 import { InMemoryUserRepository } from "../../infra/persistence/InMemoryUserRepository";
 import { InMemorySessionStore } from "../../infra/auth/InMemorySessionStore";
 import { ScryptPasswordHasher } from "../../infra/auth/ScryptPasswordHasher";
-import { seedUsers } from "../../infra/auth/seedUsers";
+import { testUsers, SYSTEM_CLOCK } from "../fixtures/access";
 import type { PartyEvent } from "../../core/application/dtos/LedgerReadModels";
 import type { PartyEventsPort } from "../../core/application/ports/PartyEventsPort";
 import type { Candidate } from "../../core/domain/value-objects/Candidate";
@@ -348,11 +348,11 @@ describe("pelo servidor", () => {
     const w = await world(history, [["ALFA & CIA", ARGO]]);
     const hasher = new ScryptPasswordHasher();
     const users = new InMemoryUserRepository(
-      seedUsers(hasher, [{ id: "u-viewer", username: "viewer", displayName: "V", role: Role.VIEWER, password: "x" }]),
+      testUsers(hasher, [{ id: "u-viewer", email: "viewer@usina.test", name: "V", role: Role.VIEWER, password: "x" }]),
     );
     const unused = undefined as never;
     const app = createServer({
-      auth: new AuthService(users, hasher, new InMemorySessionStore(3_600_000)),
+      auth: new AuthService(users, hasher, new InMemorySessionStore(SYSTEM_CLOCK), SYSTEM_CLOCK),
       secureCookies: false,
       sessionTtlSeconds: 3600,
       partyDirectory: w.directory,
@@ -383,7 +383,7 @@ describe("pelo servidor", () => {
     const login = await fetch(`${baseUrl}/api/auth/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ username: "viewer", password: "x" }),
+      body: JSON.stringify({ email: "viewer@usina.test", password: "x" }),
     });
     cookies.viewer = (login.headers.get("set-cookie") ?? "").split(";")[0];
   });

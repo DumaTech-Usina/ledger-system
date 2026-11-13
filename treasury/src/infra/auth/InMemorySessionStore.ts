@@ -1,29 +1,42 @@
-import { randomUUID } from "crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type { SessionStore } from "../../core/application/ports/SessionStore";
+import type { Clock } from "../../core/application/ports/Clock";
+import { SESSION_TTL_MS } from "../../core/domain/policies/accessPolicy";
 
-/** MVP session store with TTL expiry. Sessions are lost on restart — acceptable for the MVP. */
+const hashOf = (token: string) => createHash("sha256").update(token, "utf8").digest("hex");
+
+/** Sessions in memory, for tests. Same rules as the SQLite store: hash only, 12 h absolute. */
 export class InMemorySessionStore implements SessionStore {
   private readonly sessions = new Map<string, { userId: string; expiresAt: number }>();
 
-  constructor(private readonly ttlMs: number) {}
+  constructor(private readonly clock: Clock, private readonly ttlMs: number = SESSION_TTL_MS) {}
 
-  create(userId: string): string {
-    const sessionId = randomUUID();
-    this.sessions.set(sessionId, { userId, expiresAt: Date.now() + this.ttlMs });
-    return sessionId;
+  async create(userId: string): Promise<string> {
+    const token = randomBytes(32).toString("base64url");
+    this.sessions.set(hashOf(token), { userId, expiresAt: this.now() + this.ttlMs });
+    return token;
   }
 
-  userIdFor(sessionId: string): string | null {
-    const session = this.sessions.get(sessionId);
+  async userIdFor(token: string): Promise<string | null> {
+    const key = hashOf(token);
+    const session = this.sessions.get(key);
     if (!session) return null;
-    if (session.expiresAt < Date.now()) {
-      this.sessions.delete(sessionId);
+    if (session.expiresAt <= this.now()) {
+      this.sessions.delete(key);
       return null;
     }
     return session.userId;
   }
 
-  destroy(sessionId: string): void {
-    this.sessions.delete(sessionId);
+  async destroy(token: string): Promise<void> {
+    this.sessions.delete(hashOf(token));
+  }
+
+  async destroyAllFor(userId: string): Promise<void> {
+    for (const [key, session] of this.sessions) if (session.userId === userId) this.sessions.delete(key);
+  }
+
+  private now(): number {
+    return Date.parse(this.clock.now());
   }
 }

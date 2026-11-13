@@ -5,7 +5,6 @@ import { InMemoryIntentRepository } from "./infra/persistence/InMemoryIntentRepo
 import { InMemoryPartyRepository } from "./infra/persistence/InMemoryPartyRepository";
 import { SqlitePartyRepository } from "./infra/persistence/SqlitePartyRepository";
 import { PartyDirectory } from "./core/application/services/PartyDirectory";
-import { InMemoryUserRepository } from "./infra/persistence/InMemoryUserRepository";
 import { InMemoryAuditLog } from "./infra/audit/InMemoryAuditLog";
 import { InMemoryConversationLog } from "./infra/audit/InMemoryConversationLog";
 import { SqliteAuditLog } from "./infra/audit/SqliteAuditLog";
@@ -20,7 +19,6 @@ import { ListPendingIdentitiesUseCase } from "./core/application/use-cases/ListP
 import { GetPartyEventsUseCase } from "./core/application/use-cases/GetPartyEvents";
 import { GetPartyPageUseCase } from "./core/application/use-cases/GetPartyPage";
 import type { PartyEventsPort } from "./core/application/ports/PartyEventsPort";
-import { Permission } from "./core/domain/enums/Permission";
 import { StubCandidateSubmissionAdapter } from "./infra/submission/StubCandidateSubmissionAdapter";
 import { HttpCandidateSubmissionAdapter } from "./infra/submission/HttpCandidateSubmissionAdapter";
 import { HttpLedgerReadAdapter } from "./infra/ledger-read/HttpLedgerReadAdapter";
@@ -33,13 +31,10 @@ import type { PositionLifecyclePort } from "./core/application/ports/PositionLif
 import type { PositionLookupPort } from "./core/application/ports/PositionLookupPort";
 import type { LedgerEventLookupPort } from "./core/application/ports/LedgerEventLookupPort";
 import type { SlotExtractionPort } from "./core/application/ports/SlotExtractionPort";
-import { ScryptPasswordHasher } from "./infra/auth/ScryptPasswordHasher";
-import { InMemorySessionStore } from "./infra/auth/InMemorySessionStore";
-import { seedUsers } from "./infra/auth/seedUsers";
 import { SystemClock } from "./infra/system/SystemClock";
+import { accessModule } from "./infra/auth/accessModule";
+import { SESSION_TTL_MS } from "./core/domain/policies/accessPolicy";
 import { UuidGenerator } from "./infra/system/UuidGenerator";
-import { Role } from "./core/domain/enums/Role";
-import { AuthService } from "./core/application/services/AuthService";
 import { CandidateMapper } from "./core/application/services/CandidateMapper";
 import { GetTreasuryDashboardUseCase } from "./core/application/use-cases/GetTreasuryDashboard";
 import { GetObjectLifecycleUseCase } from "./core/application/use-cases/GetObjectLifecycle";
@@ -140,32 +135,24 @@ async function bootstrap(): Promise<void> {
   }
 
   // ── Identity / auth ──────────────────────────────────────────────────────────
-  const hasher = new ScryptPasswordHasher();
-  const sessionTtlSeconds = env.SESSION_TTL_HOURS * 3600;
-  const sessions = new InMemorySessionStore(sessionTtlSeconds * 1000);
-  const curators = new Set(env.CURATOR_USERNAMES.split(",").map((name) => name.trim()));
-  const grantsFor = (username: string) => (curators.has(username) ? [Permission.PARTY_CURATE] : []);
-  const users = new InMemoryUserRepository(
-    seedUsers(hasher, [
-      {
-        id: "user-cfo",
-        username: "cfo",
-        displayName: "CFO",
-        role: Role.FINANCE_MANAGER,
-        password: env.AUTH_MANAGER_PASSWORD,
-        grants: grantsFor("cfo"),
-      },
-      {
-        id: "user-viewer",
-        username: "viewer",
-        displayName: "Analista",
-        role: Role.VIEWER,
-        password: env.AUTH_VIEWER_PASSWORD,
-        grants: grantsFor("viewer"),
-      },
-    ]),
-  );
-  const auth = new AuthService(users, hasher, sessions);
+  // §6: no default user (REJ-407). The first administrator comes from `npm run user:first-admin`.
+  const { users, auth, userAdmin } = accessModule({
+    file: env.ACCESS_DB_FILE,
+    clock,
+    publicBaseUrl: env.PUBLIC_BASE_URL,
+  });
+  const sessionTtlSeconds = SESSION_TTL_MS / 1000;
+  const trustedOrigins = [
+    env.PUBLIC_BASE_URL,
+    ...(env.TRUSTED_ORIGINS ?? (env.NODE_ENV === "production" ? "" : "http://localhost:5173")).split(","),
+  ]
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if ((await users.list()).length === 0) {
+    console.warn(
+      "[access] Nenhum usuário cadastrado. Crie o primeiro administrador com: npm run user:first-admin -- <e-mail>",
+    );
+  }
 
   // ── Ledger integration (mode-selected) ─────────────────────────────────────
   let submission: CandidateSubmissionPort;
@@ -227,6 +214,8 @@ async function bootstrap(): Promise<void> {
 
   const app = createServer({
     auth,
+    userAdmin,
+    trustedOrigins,
     secureCookies: env.NODE_ENV === "production",
     sessionTtlSeconds,
     getDashboard,
