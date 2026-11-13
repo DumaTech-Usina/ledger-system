@@ -35,6 +35,26 @@ export function retractedEventIds(events: readonly LedgerEvent[]): Set<string> {
   return retracted;
 }
 
+/**
+ * The standing retraction of each withdrawn event, by the withdrawn event's id: the same fold as
+ * `retractedEventIds`, keeping the retraction itself so a reader can say who withdrew it and when.
+ * Every id in `retractedEventIds(events)` is a key here, and no other.
+ */
+export function standingRetractions(events: readonly LedgerEvent[]): Map<string, LedgerEvent> {
+  const retractionByTarget = new Map<string, LedgerEvent>();
+  for (const event of events) {
+    if (!event.relatedEventId) continue;
+    if (!event.getObjects().some((o) => o.relation === Relation.RETRACTS)) continue;
+    retractionByTarget.set(event.relatedEventId, event);
+  }
+  const standing = new Map<string, LedgerEvent>();
+  for (const [targetId, retraction] of retractionByTarget) {
+    if (retractionByTarget.has(retraction.id.value)) continue;
+    standing.set(targetId, retraction);
+  }
+  return standing;
+}
+
 /** What one position's standing events add up to, in minor units. */
 export interface ObjectTotals {
   /** Sum of ORIGINATES — the baseline the position was opened with. Zero means no baseline exists. */

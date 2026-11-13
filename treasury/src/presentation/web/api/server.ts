@@ -11,6 +11,7 @@ import type { RegisterPartyUseCase } from "../../../core/application/use-cases/R
 import type { LinkIdentityUseCase } from "../../../core/application/use-cases/LinkIdentity";
 import type { ListPendingIdentitiesUseCase } from "../../../core/application/use-cases/ListPendingIdentities";
 import type { GetPartyEventsUseCase } from "../../../core/application/use-cases/GetPartyEvents";
+import type { GetPartyPageUseCase } from "../../../core/application/use-cases/GetPartyPage";
 import { partyRoutes } from "./routes/partyRoutes";
 import { signalRoutes } from "./routes/signalRoutes";
 import type { RegisterExternalSignalUseCase } from "../../../core/application/use-cases/RegisterExternalSignal";
@@ -62,6 +63,7 @@ export interface ServerDeps {
   linkIdentity: LinkIdentityUseCase;
   listPendingIdentities: ListPendingIdentitiesUseCase;
   getPartyEvents: GetPartyEventsUseCase;
+  getPartyPage: GetPartyPageUseCase;
   getIntent: GetIntentUseCase;
   listIntents: ListIntentsUseCase;
   registerExternalSignal: RegisterExternalSignalUseCase;
@@ -112,7 +114,7 @@ export function createServer(deps: ServerDeps) {
   );
   app.use(
     "/api/parties",
-    partyRoutes(deps.partyDirectory, deps.registerParty, deps.linkIdentity, deps.listPendingIdentities, deps.getPartyEvents),
+    partyRoutes(deps.partyDirectory, deps.registerParty, deps.linkIdentity, deps.listPendingIdentities, deps.getPartyEvents, deps.getPartyPage),
   );
   app.use(
     "/api/intents",

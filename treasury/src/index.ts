@@ -18,6 +18,7 @@ import { RegisterPartyUseCase } from "./core/application/use-cases/RegisterParty
 import { LinkIdentityUseCase } from "./core/application/use-cases/LinkIdentity";
 import { ListPendingIdentitiesUseCase } from "./core/application/use-cases/ListPendingIdentities";
 import { GetPartyEventsUseCase } from "./core/application/use-cases/GetPartyEvents";
+import { GetPartyPageUseCase } from "./core/application/use-cases/GetPartyPage";
 import type { PartyEventsPort } from "./core/application/ports/PartyEventsPort";
 import { Permission } from "./core/domain/enums/Permission";
 import { StubCandidateSubmissionAdapter } from "./infra/submission/StubCandidateSubmissionAdapter";
@@ -263,6 +264,21 @@ async function bootstrap(): Promise<void> {
     linkIdentity: new LinkIdentityUseCase(partyRepo, identityLinks, clock, ids),
     listPendingIdentities: new ListPendingIdentitiesUseCase(partyRepo, identityLinks, intentRepo),
     getPartyEvents: new GetPartyEventsUseCase(ledgerRead, partyDirectory),
+    // §8.4. Positions through `positionsRead`: a policy is a context, never a line of the page (DEC-035).
+    getPartyPage: new GetPartyPageUseCase({
+      directory: partyDirectory,
+      ledger: {
+        eventsOfParty: (id) => ledgerRead.eventsOfParty(id),
+        event: (id) => ledgerRead.event(id),
+        lifecycle: (id) => ledgerRead.lifecycle(id),
+        positions: (q) => positionsRead.positions(q),
+      },
+      signals: signalRepo,
+      intents: intentRepo,
+      clock,
+      positionalTypes,
+      users,
+    }),
     listSettlementCandidates: new ListSettlementCandidatesUseCase(intentRepo, ledgerRead, partyDirectory),
     // The algebra is a build artifact of the Ledger, read once at boot. A snapshot this build
     // cannot read is refused loudly here rather than producing a silently empty offer.

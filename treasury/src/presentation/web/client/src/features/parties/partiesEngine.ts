@@ -36,3 +36,8 @@ export function othersInEvent(event: PartyEventView, partyNames: Record<string, 
   const others = event.parties.filter((p) => !own.has(p.partyId)).map((p) => partyNames[p.partyId] ?? p.partyId);
   return [...new Set(others)];
 }
+
+/** CA-636: the record date is shown only when it is a different day from the fact's. */
+export function recordedOnAnotherDay(occurredAt: string, recordedAt: string): boolean {
+  return occurredAt.slice(0, 10) !== recordedAt.slice(0, 10);
+}

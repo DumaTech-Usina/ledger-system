@@ -110,6 +110,7 @@ async function boot() {
     linkIdentity: world.linkIdentity,
     listPendingIdentities: world.listPendingIdentities,
     getPartyEvents: undefined as never,
+    getPartyPage: undefined as never,
     getDashboard: unused, startIntent: world.start, advanceDialog: world.advance, applyAnswers: world.apply,
     interpretUtterance: unused, previewIntent: world.preview, submitIntent: world.submit, submitRectification: unused,
     decideIdentity: world.decide, listSettlementCandidates: unused, listPositionActions: unused,

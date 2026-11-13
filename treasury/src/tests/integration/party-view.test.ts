@@ -5,6 +5,8 @@ import { createServer } from "../../presentation/web/api/server";
 import { AuthService } from "../../core/application/services/AuthService";
 import { PartyDirectory } from "../../core/application/services/PartyDirectory";
 import { GetPartyEventsUseCase } from "../../core/application/use-cases/GetPartyEvents";
+import { GetPartyPageUseCase } from "../../core/application/use-cases/GetPartyPage";
+import { InMemoryExternalSignalRepository } from "../../infra/persistence/InMemoryExternalSignalRepository";
 import { ListPendingIdentitiesUseCase } from "../../core/application/use-cases/ListPendingIdentities";
 import { PartyIdentityState } from "../../core/domain/enums/PartyIdentityState";
 import { Role } from "../../core/domain/enums/Role";
@@ -279,6 +281,13 @@ describe("os adaptadores", () => {
               parties: [{ partyId: "ALFA & CIA", role: "payee", direction: "neutral", amount: null }],
               source: { system: "s", reference: "r" },
               retracted: true,
+              reporter: { reporterType: "user", reporterId: "user-cfo", reporterName: null },
+              retractedBy: {
+                eventId: "r1",
+                occurredAt: "2026-08-03T12:00:00.000Z",
+                recordedAt: "2026-08-03T13:00:00.000Z",
+                reporter: { reporterType: "user", reporterId: "user-gestora", reporterName: "Gestora" },
+              },
             },
           ],
           total: 1,
@@ -293,6 +302,13 @@ describe("os adaptadores", () => {
 
     expect(asked).toBe("/api/events/by-party?partyId=ALFA%20%26%20CIA");
     expect(events[0]).toMatchObject({ eventId: "e1", recordedAt: "2026-08-02T12:00:00.000Z", retracted: true });
+    expect(events[0].reporter).toEqual({ type: "user", id: "user-cfo", name: null });
+    expect(events[0].retractedBy).toEqual({
+      eventId: "r1",
+      occurredAt: "2026-08-03T12:00:00.000Z",
+      recordedAt: "2026-08-03T13:00:00.000Z",
+      reporter: { type: "user", id: "user-gestora", name: "Gestora" },
+    });
   });
 
   it("simulador: lê de volta o que foi enviado a ele", async () => {
@@ -341,6 +357,18 @@ describe("pelo servidor", () => {
       sessionTtlSeconds: 3600,
       partyDirectory: w.directory,
       getPartyEvents: w.view,
+      getPartyPage: new GetPartyPageUseCase({
+        directory: w.directory,
+        ledger: {
+          eventsOfParty: async (id) => history.filter((e) => e.parties.some((p) => p.partyId === id)),
+          event: async () => null,
+          lifecycle: async () => null,
+          positions: async () => ({ data: [], total: 0, page: 1, limit: 200, totalPages: 0 }),
+        },
+        signals: new InMemoryExternalSignalRepository(),
+        intents: new InMemoryIntentRepository(),
+        clock: { now: () => "2026-11-12T12:00:00.000Z" },
+      }),
       listPendingIdentities: new ListPendingIdentitiesUseCase(w.parties, w.repo, new InMemoryIntentRepository()),
       registerParty: unused, linkIdentity: unused, getDashboard: unused, startIntent: unused, advanceDialog: unused,
       applyAnswers: unused, interpretUtterance: unused, previewIntent: unused, submitIntent: unused,
@@ -387,10 +415,39 @@ describe("pelo servidor", () => {
 
   it("uma parte desconhecida é 404", async () => {
     expect((await get("/api/parties/party-desconhecida/events", "viewer")).status).toBe(404);
+    expect((await get("/api/parties/party-desconhecida/page", "viewer")).status).toBe(404);
+    expect((await get("/api/parties/party-desconhecida/positions/usinaOwes", "viewer")).status).toBe(404);
+    expect((await get(`/api/parties/${JOAO}/positions/qualquer`, "viewer")).status).toBe(404);
+  });
+
+  it("o histórico é paginado e filtrado por conta própria, pela data de registro", async () => {
+    const res = await get(`/api/parties/${JOAO}/history?page=1&limit=20&sortOrder=ASC&status=standing&eventType=advance_payment`, "viewer");
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ available: true, total: 1, page: 1, limit: 20 });
+    expect((await get("/api/parties/party-desconhecida/history", "viewer")).status).toBe(404);
+  });
+
+  it("cada lado da Operação é paginado por conta própria", async () => {
+    const res = await get(`/api/parties/${JOAO}/positions/partyOwes?page=2&limit=50&sortBy=dueAt&sortOrder=ASC`, "viewer");
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ available: true, side: "partyOwes", lines: [] });
+  });
+
+  it("REQ-638: o visualizador vê a página da parte, pela identidade a que o identificador foi ligado", async () => {
+    const res = await get(`/api/parties/${encodeURIComponent("ALFA & CIA")}/page`, "viewer");
+    const body = (await res.json()) as { available: boolean; party: { partyId: string }; history: { eventId?: string }[] };
+
+    expect(res.status).toBe(200);
+    expect(body.available).toBe(true);
+    expect(body.party.partyId).toBe(ARGO);
+    expect(body.history.map((h) => h.eventId)).toEqual(["e1"]);
   });
 
   it("quem não entrou no sistema não consulta", async () => {
     expect((await get(`/api/parties/${JOAO}/events`)).status).toBe(401);
     expect((await get("/api/parties/names")).status).toBe(401);
+    expect((await get(`/api/parties/${JOAO}/page`)).status).toBe(401);
   });
 });

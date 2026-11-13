@@ -54,10 +54,13 @@ let counterparty: string;
 let advanceId: string;
 let wrongId: string;
 let rightId: string;
+let retractionId: string;
 
 interface Listed {
   id: string;
   retracted: boolean;
+  retractedBy?: { eventId: string; occurredAt: string; recordedAt: string; reporter: { reporterType: string; reporterId: string } } | null;
+  reporter?: { reporterType: string; reporterId: string };
   parties: { partyId: string }[];
 }
 
@@ -77,7 +80,7 @@ beforeAll(async () => {
     advanceSettlement(ref, ADV, advanceId, Relation.SETTLES, EconomicEffect.CASH_IN, amount, ReasonType.ADVANCE_PAYMENT);
   const wrong = await s.run(settle("250.00"));
   wrongId = wrong.id.value;
-  await s.run(retraction(ADV, wrongId, "250.00"));
+  retractionId = (await s.run(retraction(ADV, wrongId, "250.00"))).id.value;
   rightId = (await s.run(settle("215.00"))).id.value;
 
   api = createServer(express().use("/api/events", eventRoutes(s.ledgerRepo)));
@@ -107,6 +110,21 @@ describe("GET /api/events/by-party", () => {
     expect(byId.get(rightId)).toBe(false);
   });
 
+  it("names the retraction that withdrew each event, with who recorded it (C1, 2026-11-12)", async () => {
+    const { data } = await read(counterparty);
+    const wrong = data.find((e) => e.id === wrongId)!;
+
+    expect(wrong.retractedBy).toMatchObject({ eventId: retractionId, reporter: { reporterId: reporter().reporterId } });
+    expect(typeof wrong.retractedBy!.recordedAt).toBe("string");
+    expect(data.find((e) => e.id === rightId)!.retractedBy).toBeNull();
+  });
+
+  it("every event carries who recorded it", async () => {
+    const { data } = await read(counterparty);
+
+    for (const event of data) expect(event.reporter?.reporterId).toBe(reporter().reporterId);
+  });
+
   it("an event whose retraction was itself retracted stands again", async () => {
     const s = setup();
     const advance = await s.run(advancePayment(ref, "advance:twice", "500.00"));
@@ -122,6 +140,7 @@ describe("GET /api/events/by-party", () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
 
     expect(data.find((e) => e.id === advance.id.value)?.retracted).toBe(false);
+    expect(data.find((e) => e.id === advance.id.value)?.retractedBy).toBeNull();
   });
 
   it("a party with no events answers an empty list, which is not an error", async () => {

@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import { LedgerEventRepository } from "../../../../core/application/repositories/LedgerEventRepository";
 import { Relation } from "../../../../core/domain/enums/Relation";
 import { normalizePageOptions, PageOptions } from "../../../../core/application/dtos/Pagination";
-import { retractedEventIds } from "../../../../core/application/dtos/retractionUtils";
+import { retractedEventIds, standingRetractions } from "../../../../core/application/dtos/retractionUtils";
 import { serializeEvent } from "../serializers/eventSerializer";
 
 /**
@@ -150,10 +150,26 @@ export function eventRoutes(ledgerRepo: LedgerEventRepository): Router {
       const secondHop = (
         await Promise.all(firstHop.map((e) => ledgerRepo.findByRelatedEventId(e.id.value)))
       ).flat();
-      const retracted = retractedEventIds([...firstHop, ...secondHop]);
+      const withdrawnBy = standingRetractions([...firstHop, ...secondHop]);
 
       res.json({
-        data: events.map((event) => ({ ...serializeEvent(event), retracted: retracted.has(event.id.value) })),
+        data: events.map((event) => {
+          const by = withdrawnBy.get(event.id.value);
+          return {
+            ...serializeEvent(event),
+            retracted: by !== undefined,
+            // Who withdrew it and when: the retraction names only the usina, so this list could not
+            // show it otherwise. Null when the event stands.
+            retractedBy: by
+              ? {
+                  eventId: by.id.value,
+                  occurredAt: by.occurredAt,
+                  recordedAt: by.recordedAt,
+                  reporter: { reporterType: by.getReporter().reporterType, reporterId: by.getReporter().reporterId, reporterName: by.getReporter().reporterName },
+                }
+              : null,
+          };
+        }),
         total: events.length,
       });
     } catch (err) {

@@ -430,6 +430,19 @@ export class HttpLedgerReadAdapter
       parties: (e.parties ?? []).map((p) => ({ ...p, amount: p.amount ?? null })),
       source: { system: e.source?.system ?? "", reference: e.source?.reference ?? "" },
       retracted: e.retracted === true,
+      ...(e.reporter !== undefined ? { reporter: reporterOf(e.reporter) } : {}),
+      ...(e.retractedBy !== undefined
+        ? {
+            retractedBy: e.retractedBy
+              ? {
+                  eventId: e.retractedBy.eventId,
+                  occurredAt: e.retractedBy.occurredAt,
+                  recordedAt: e.retractedBy.recordedAt,
+                  reporter: reporterOf(e.retractedBy.reporter),
+                }
+              : null,
+          }
+        : {}),
     }));
   }
 
@@ -492,4 +505,15 @@ interface RawPartyEvent {
   parties: { partyId: string; role: string; direction: string; amount: string | null }[];
   source: { system: string; reference: string };
   retracted?: boolean;
+  reporter?: RawReporter | null;
+  retractedBy?: { eventId: string; occurredAt: string; recordedAt: string; reporter?: RawReporter | null } | null;
 }
+
+interface RawReporter {
+  reporterType: string;
+  reporterId: string;
+  reporterName?: string | null;
+}
+
+const reporterOf = (r: RawReporter | null | undefined) =>
+  r ? { type: r.reporterType, id: r.reporterId, name: r.reporterName ?? null } : null;

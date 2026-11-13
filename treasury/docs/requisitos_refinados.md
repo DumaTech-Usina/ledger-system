@@ -20,6 +20,9 @@
 > registram regras decididas. **Já implementados:** `REQ-253`, `REQ-254` e `REQ-525`. O restante e o
 > próximo passo estão em §16.
 >
+> **Rodada da página da parte (2026-11-12, rodada 18).** §8.4 registra a página de cada parte, com operação,
+> histórico e resultados, que responde à `DEC-030`. Nada está implementado.
+>
 > **Rodada do sistema de seguro (2026-11-09).** §4.6 registra como o Treasury absorve o que o sistema
 > de seguro sabe: sinal externo, fatos propostos e só expectativas. Implementados os blocos A a D, a
 > integração (rodada 15) e a lista de sinais (`REQ-280`); o bloco E foi adiado.
@@ -46,6 +49,7 @@
 > | 2026-11-09 | 15 — integração com o sistema de seguro | **Decidido:** só a elegibilidade é publicada; leitura a cada 5 minutos; RabbitMQ em servidor próprio, conectado por `.env`, fora do `docker-compose`. **Implementado:** produtor, contrato único, consumidor com descarte de leitura repetida e fila de mortas, autoria do sistema, aviso no menu (`REQ-278`, `REQ-279`). Falta validar com um broker de verdade. Nada foi revogado. |
 > | 2026-11-11 | 16 — lista de sinais e commits | **Registrado:** a lista de sinais passou a ser paginada e, por padrão, mostra só o que ainda espera o usuário; o aviso do menu conta todos os sinais, não só a primeira página (`REQ-280`). **Commits:** blocos A a D (`0fd5a62`, 2026-11-09), integração (`874a260`, 2026-11-10) e lista de sinais (`308e90e`, 2026-11-11). Nada foi revogado. |
 > | 2026-11-11 | 17 — lote, antecipação e compensação | Investigação dos cenários de lote ao corretor. **Confirmado:** o extrato bancário continua opcional, inclusive no lote (`REQ-247`). **Decidido:** um evento por obrigação quitada, inclusive várias da mesma pessoa, e pagamento parcial dentro do lote (`REQ-246`); o envio do lote não para num recusado (`REQ-249`). **Alterado:** `REQ-246` (antes, "um evento por pessoa"). **Em aberto:** `DEC-037`. Nada implementado; o Ledger não muda. **Depois, no mesmo dia:** aprovado o desenho do evento de compensação no Ledger e a compensação parcial (`REQ-250`, `CA-250c`, Anexo A); decididos os tipos iniciais: adiantamento e empréstimo contra obrigação de comissão (`DEC-025`, `REQ-251`); decidido o resultado da posição compensada: em dinheiro, compensado e baixado lado a lado, e "fechada por compensação" sem ganho nem perda (`REQ-624`); a exposição coberta só por expectativa ficou em `DEC-038`. A compensação está pronta para testes e implementação (passo 5). **Depois:** a perda parcial quando há compensação e baixa (`REQ-624`); "pessoa" → "parte" em `REQ-252`, com João × Argo em `DEC-022`; **implementada a compensação no Ledger**, validada por HTTP, sem commit. Nada foi revogado. |
+> | 2026-11-12 | 18 — página da parte | Rodada de domínio da `DEC-030`. **Decidido:** página própria para toda parte, com três seções (operação, histórico, resultados), a lista de partes como entrada, o bloco "depende de" pelo mesmo contexto, os alertas em lista extensível, a prevenção do pagamento a mais pela divisão, o histórico em frases com sinais e as duas datas, o lote preparado e o extrato de recebível do lote (§8.4, `REQ-630`–`REQ-638`, `REQ-239`). **Confirmados:** os termos recebedor e destinatário final (§2) e a segunda frase de `REQ-612`. **Alterados:** `REQ-244` (antes, o extrato era de tudo o que está aberto, e precedia todo pagamento), `REQ-804` (passa a incluir o descarte do lote preparado), `REJ-244` (vale só para o lote; o segundo caso com o mesmo ID virou `REJ-244b`). **Respondidas:** `DEC-030`, `DEC-032`, `Q-048` (prevenção; o remédio foi para `DEC-033`). **Abertas:** `DEC-039` (visão comparativa), `DEC-040` (recomendação em chips), `DEC-041` (autenticação e autorização). Nada foi revogado. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -145,8 +149,8 @@ que for removido ou alterado depois será decidido pelo dono do produto.
 | **Identidade provisória** | A identidade dada a alguém **ainda não cadastrado**, para que o fato possa ser registrado. Fica pendente até ser resolvida. |
 | **Mapeamento de identidade** | O registro, no Treasury, de que identificadores diferentes são a mesma parte. Só de acréscimo. |
 | **Grupo** | Por enquanto, uma **parte do tipo empresa** (razão social, CNPJ). Não existe conceito separado de grupo (`Q-040`). |
-| **Recebedor** | Quem recebe o dinheiro na conta (ex.: a Argo). ⚠ CONFIRMAR (termo) |
-| **Destinatário final** | A quem o dinheiro de fato se destina (ex.: o João). ⚠ CONFIRMAR (termo) |
+| **Recebedor** | Quem recebe o dinheiro na conta (ex.: a Argo). Confirmado em 2026-11-12. |
+| **Destinatário final** | A quem o dinheiro de fato se destina (ex.: o João). Confirmado em 2026-11-12. |
 | **Contexto** | Informação que descreve um evento sem ser parte dele (ex.: o cliente final, o plano). |
 | **Repasse** | A parte de uma comissão recebida que a Usina passa a outra parte. |
 | **Demonstrativo de recebimento** | Documento que mostra o que alguém vai receber, emitido **antes** do pagamento bancário. |
@@ -155,6 +159,9 @@ que for removido ou alterado depois será decidido pelo dono do produto.
 | **Obrigação de comissão** | O que a Usina reconhece dever a alguém a título de comissão, antes de qualquer pagamento. |
 | **Operação composta** | Uma ação do usuário que resulta em vários fatos, cada um verdadeiro por si só. Existe só no Treasury. |
 | **Resultado conhecido** | O que os fatos registrados mostram até agora, junto com o que continua aberto. Não afirma que nada mais vai acontecer. |
+| **Página da parte** | A página de uma parte, com o que está em aberto com ela, a história em frases e os resultados (§8.4). |
+| **Depende de** | Uma expectativa que cita o mesmo contexto de uma posição da parte (ex.: a comissão que a Allianz deve na apólice de que sai o repasse do Halisson). |
+| **Lote preparado** | Obrigações escolhidas para um pagamento bancário, antes de o banco pagar. Rascunho do Treasury, nunca fato (`REQ-239`). |
 | **Sinal externo** | O que um sistema externo (ex.: o sistema de seguro) disse, guardado no Treasury como cópia imutável. Não é fato e nunca vai ao Ledger (§4.6). |
 | **Fato proposto** | Uma intenção já preenchida a partir de um sinal externo, à espera da confirmação de um usuário. |
 | **Elegibilidade** | A declaração, no sistema de seguro, de que a seguradora registrou ter pago a Usina e de que o corretor já pode receber a sua parte. |
@@ -408,10 +415,28 @@ Argo). O Treasury **não decide**.
 `REQ-243` O Ledger anota a forma do repasse definida pelo usuário, com recebedor e destinatário
 final (`REQ-613`).
 
-`REQ-244` O **extrato de recebível** (o demonstrativo de recebimento) é gerado para cada pessoa a
-partir do que está em aberto com ela, é entregue a quem tem acesso ao banco e **precede** o pagamento
-bancário. Gerar o extrato **não cria fato** no Ledger: nada conta como pago até o pagamento ser
-registrado.
+`REQ-244` O **extrato de recebível** (o demonstrativo de recebimento) é gerado a partir das
+obrigações selecionadas para um **lote preparado** (`REQ-239`), é entregue a quem tem acesso ao banco e
+**precede** o pagamento bancário do lote. Gerar o extrato **não cria fato** no Ledger: nada conta como
+pago até o pagamento ser registrado. O pagamento de uma obrigação só, lançado direto da posição ou da
+página da parte, **dispensa** o extrato.
+
+> **Alterado na rodada 18 (2026-11-12).** Antes: "gerado para cada pessoa a partir do que está em aberto
+> com ela" e precedendo todo pagamento. Uma foto de tudo o que está aberto não bate com um pagamento que
+> quita só parte, e exigir um lote para pagar uma obrigação era atrito sem ganho de controle.
+
+`REQ-239` **Lote preparado** (decidido em 2026-11-12). Antes do pagamento bancário, o usuário escolhe,
+na página da parte, as obrigações e o valor de cada uma. O lote preparado é um **rascunho do Treasury**:
+**não é fato** e nada vai ao Ledger. Ele aparece na página da parte. **Uma obrigação está em no máximo
+um lote preparado** de cada vez. Se o banco não pagar, o usuário **descarta** o lote: as obrigações ficam
+livres para outro lote, e o descarte é auditado (`REQ-804`). Quando o pagamento é anotado, o lote vira os
+eventos de `REQ-246`.
+
+```
+Lote preparado para o Halisson: 10 obrigações, 1.180,00 → extrato de recebível entregue ao banco
+  o banco paga → anotado como pago → 10 repasses (REQ-246)
+  o banco não paga → descartado → as 10 obrigações voltam a poder entrar em outro lote
+```
 
 `REQ-245` Concluído o pagamento bancário, o usuário anota que **foi pago**, e só então o dinheiro
 conta como saído da conta da Usina. O Treasury emite um **recibo de pagamento** com os dados do
@@ -1067,6 +1092,10 @@ Apólice 5177… citada pela comissão prevista e pela obrigação
 
 ### 8.2 Visão por pessoa e grupo
 
+> **Rodada 18 (2026-11-12):** a tabela de eventos por parte deixa de ser uma tela. A entrada passa a ser
+> uma **lista de partes**, que leva à página da parte (§8.4). As regras abaixo continuam valendo dentro
+> dela.
+
 > Decidido em 2026-11-04: uma pessoa pode estar em vários grupos; grupo é uma parte do tipo
 > empresa; a relação nasce no evento; a visão é para filtrar e enxergar; o filtro mostra todos os
 > eventos em que a parte tem algum papel; a sugestão vem do último evento.
@@ -1081,8 +1110,8 @@ financeiro, não numa regra de cadastro.
 > a verdade da sua época.
 
 `REQ-612` A visão por pessoa ou grupo serve para **filtrar e enxergar** os eventos. Somar valores
-por grupo **não** é objetivo. ⚠ CONFIRMAR (a segunda frase, que vale só para **grupo**: os totais
-por parte são `REQ-620`, publicados pelo Ledger)
+por grupo **não** é objetivo; os totais por parte são `REQ-620`, publicados pelo Ledger. (Confirmado em
+2026-11-12: a página do João mostra a Argo, sem somar os números das duas, `REQ-633`.)
 
 `REQ-613` Quando um pagamento vai para uma empresa em nome de uma pessoa (o João recebe pela
 Argo), o Treasury **sabe** disso e o Ledger **anota as duas**: a recebedora (Argo) e o
@@ -1165,6 +1194,123 @@ e entra como não atribuído.
 
 `REQ-627` O Treasury **não calcula** esses totais: ele mostra o que o Ledger publica (`REQ-601`).
 
+### 8.4 Página da parte
+
+> Decidido em 2026-11-12 (rodada 18, responde `DEC-030`). **Nada está implementado.** Responde ao que o
+> teste na tela mostrou em 2026-11-07: eventos desconexos das partes, histórico fraco, pagamento a mais
+> invisível (§16.1). Substitui a proposta do Anexo B.4. As três seções servem a públicos com ritmos
+> diferentes: quem opera e quem paga no banco, todo dia e sob pressão; e a direção, que avalia. Comparar
+> várias partes lado a lado fica fora (`DEC-039`).
+
+`REQ-630` **Toda parte tem uma página própria**: pessoa ou empresa, cadastrada ou provisória, corretor,
+seguradora, fornecedor, funcionário ou parceiro. Ela é aberta ao clicar no nome da parte, onde quer que ele
+apareça. A entrada é a **lista de partes** (§8.2). A provisória mostra **"(provisória)"** junto do nome;
+depois de ligada, os fatos dela aparecem na página da parte cadastrada (`REQ-332`).
+
+`REQ-631` A página tem **três seções, nesta ordem**: **Operação** (a que abre), **Histórico** e
+**Resultados**. As três leem o mesmo Ledger, e um número aparece igual em qualquer seção: o Treasury não
+soma (`REQ-627`). Resultados expõe números por período; o juízo é de quem olha (`REQ-626`). Resultados
+depende de `REQ-620` (passo 6); Operação e Histórico, não.
+
+`REQ-632` **Operação** mostra as posições abertas da parte, **os dois lados separados** (o que a Usina
+deve a ela e o que ela deve à Usina), **sem saldo líquido**: um líquido seria soma do Treasury e sugeriria
+uma compensação que ninguém decidiu. Cada posição é uma linha (⚠ CONFIRMAR com o uso), com a idade
+("aberta há N dias"), ordenadas da mais nova (padrão) ou da mais antiga. Um bloco **"depende de"** mostra as
+expectativas que citam o **mesmo contexto** de uma posição da parte, com o que já foi recebido nelas.
+Posição sem contexto não tem "depende de".
+
+> **Refinamento de tela (2026-11-12).** Cada lado é uma **seção própria**, empilhada (nunca lado a lado,
+> que convida a um líquido de cabeça): "{parte} tem a receber da Usina" e "{parte} deve à Usina". Cada
+> seção tem seus filtros (ordem por abertura ou vencimento, tipo, período de abertura), sua lista em
+> colunas fixas (posição, aberta há, vence em, em aberto) e sua **paginação feita pelo Ledger** (20 por
+> página, ou 50), com a **contagem** do Ledger no título ("137 em aberto"), nunca um total. O "depende de"
+> é um indicador curto na linha, e os detalhes abrem ao clicar. Os alertas ficam acima das seções e são
+> lidos à parte, para não dependerem da página que está à vista. Motivo: uma parte pode ter centenas de
+> posições por semana. Filtrar por **vencidas** e por **apólice** pede um filtro de leitura novo no Ledger
+> (`DEC-042`).
+
+```
+Halisson
+  A Usina deve:      77,26  obrigação de repasse · apólice 5177…        aberta há 22 dias
+     depende de:     Allianz deve 128,77 na apólice 5177… · recebido 0,00
+  Halisson deve:     50,00  adiantamento                                  aberta há 40 dias
+  (sem líquido)
+```
+
+> O "depende de" torna visível o caso de `DEC-038`: repasse já pago e a expectativa da apólice ainda
+> aberta.
+
+`REQ-633` **Recebe também por.** A página de uma pessoa mostra as empresas pelas quais ela recebeu
+(recebedoras em fatos em que ela foi destinatária final, `REQ-613`), com link para a página delas e **sem
+somar** os números (`REQ-611`, `REQ-612`). A página da empresa mostra o que ela recebeu, inclusive para um
+destinatário final (`REQ-615`). Há dois casos: o direito é da pessoa e a empresa é o caminho (a obrigação é
+da pessoa), ou o direito é da empresa (a obrigação é da empresa). A Usina registra só o que conhece: quando
+sabe que, de 300,00 pagos à Argo, 200,00 são do João e 100,00 da Argo, são **dois repasses**, um por
+direito, na mesma transferência (`REQ-246`); o que a Argo faz depois com o dinheiro não é fato da Usina.
+
+`REQ-634` **Alertas da página**, numa lista que pode ganhar e perder itens:
+
+| Alerta | Regra |
+| --- | --- |
+| Pago sem obrigação: só no **repasse de comissão**, por enquanto; outros tipos podem entrar | `DEC-032` |
+| Identidade provisória | `REQ-321` |
+| Comissão prevista sem data esperada | `REQ-271` |
+| Obrigação com vencimento passado | `REQ-227` |
+| Repasse sem recebimento na apólice | `REQ-268` |
+
+O alerta **expõe; não conclui**. Um pagamento sem obrigação e uma obrigação aberta com a mesma parte
+aparecem lado a lado, e o Treasury nunca afirma sozinho que houve pagamento a mais: pode ser um
+adiantamento combinado (`REQ-102`, `REQ-626`).
+
+`REQ-635` **Prevenção do pagamento a mais** (responde `Q-048`). Quando um repasse passa do que está
+aberto com a parte, a prévia mostra a obrigação aberta e oferece: pagar o aberto da obrigação **e o
+excedente como adiantamento**, que fica como algo que a parte deve e pode ser compensado depois
+(`REQ-250`, `REQ-256`), ou outra forma. Como corrigir um pagamento a mais já registrado sem vínculo fica em
+`DEC-033`.
+
+```
+Obrigação aberta com o Halisson: 20,00 · o usuário vai pagar 30,00
+  → "pagar 20,00 da obrigação + 10,00 como adiantamento" · "outra"
+  escolhida a primeira: a obrigação fecha e o Halisson passa a dever 10,00
+```
+
+`REQ-636` **Histórico** conta em frases, em ordem, os fatos que **citam a parte** (`REQ-615`), no molde
+da história da apólice (`REQ-276`), com link para a história de cada apólice citada. Entram também os
+**sinais** sobre a parte, marcados como "sinal, ainda não registrado". Depois que o sinal vira fato,
+**só o fato** aparece: a mesma coisa não é contada duas vezes (decidido em 2026-11-12). Quando a data do
+fato e a do registro diferem, as **duas** aparecem. Um fato retirado aparece **riscado**, com a frase da retirada logo
+abaixo. Os recibos (`REQ-245`) são abertos a partir da frase.
+
+> **Refinamento de tela (2026-11-12), com viés de auditoria.** O Histórico segue o molde da Operação:
+> uma lista ordenada pela **data de registro** (mais recente ou mais antigo primeiro), com filtros
+> próprios (período de registro, tipo de fato, **registrado por**, situação válido/retirado),
+> paginação (20 ou 50) e a contagem de registros. Cada linha mostra registrado em (com hora), o fato,
+> **quem registrou** e o valor; a data do fato aparece só quando difere da do registro; o fato retirado
+> vem riscado com "Retirado em … por …" (quem registrou a retificação). Os detalhes (identificador,
+> origem, as duas datas, papel, posições e contextos citados, retificação) abrem ao clicar. Os **sinais
+> ainda não registrados** ficam num bloco próprio no topo do Histórico, fora da lista dos fatos: são
+> pendências, não história. Quem registrou vem do Ledger (o autor que ele guarda em cada fato); quem
+> retirou, também (§17, C1).
+
+```
+09/11  A Usina pagou R$ 77,26 ao Halisson, pela Argo — repasse de comissão da apólice 5177…
+       quitou a obrigação de 21/10 · registrado por cfo em 10/11
+12/11  O sistema de seguro informou que o Halisson tem R$ 128,00 a receber na apólice 9034…
+       (sinal, ainda não registrado)
+```
+
+> Um sinal de corretor ainda não ligado aparece na página da provisória. Um sinal com o corretor
+> indefinido (os dois `⚠ CONFIRMAR` de `REQ-267`) não aparece em página de parte, só na tela do sistema de
+> seguro.
+
+`REQ-637` **Ações.** Cada linha da Operação oferece as ações que já existem a partir de uma posição
+(`REQ-603`): pagar ligado à obrigação, receber ligado à comissão prevista, recuperar o adiantamento,
+retificar. O **lote** (passo 4, `REQ-239`, `REQ-246`) e a **compensação** (passo 7, `REQ-252`) nascem
+nesta página, selecionando posições da mesma parte. O lote preparado aparece na Operação.
+
+`REQ-638` **Quem vê.** O visualizador vê as três seções, sem as ações (`REQ-401`). Quem pode ver o quê,
+além disso, fica em `DEC-041`.
+
 ---
 
 ## 9. Entrada por texto livre
@@ -1209,8 +1355,9 @@ apagado**.
 
 `REQ-803` Todo registro de auditoria diz **quando** aconteceu e **o que** foi feito. A auditoria responde a três perguntas: **quem**, **quando** e **o quê**.
 
-`REQ-804` A auditoria cobre **somente o que conta como operação**: o que é **enviado ao Ledger** e
-os **anexos** de um fato (`REQ-247`). Cada passo da conversa (respostas, recusas de campo, correções
+`REQ-804` A auditoria cobre **somente o que conta como operação**: o que é **enviado ao Ledger**, os
+**anexos** de um fato (`REQ-247`) e o **descarte de um lote preparado** (`REQ-239`, acrescentado em
+2026-11-12). Cada passo da conversa (respostas, recusas de campo, correções
 antes do envio) **não é** auditado por esta regra.
 
 > Observar o comportamento do usuário antes de ele confirmar uma ação é uma ideia em aberto, como
@@ -1484,6 +1631,13 @@ Treasury a partir das três fontes, §5).
 | `CA-275b` | Abertura que citava apólice, proposta e outra posição → a operação herda a apólice e a proposta, não a outra posição | `REQ-275` |
 | `CA-277` | Crédito da Allianz de 3.400,00: 128,77, 1.000,00 e 2.171,23 distribuídos → três recebimentos citando a sua apólice e o mesmo lote, mais 100,00 sem origem citando o lote; caixa +3.400,00; 1.000,00 ainda a receber na 8812 | `REQ-277` |
 | `CA-277b` | O segundo de três recebimentos é recusado → o primeiro continua registrado, os seguintes não são enviados e aparecem como "não enviado" | `REQ-277`, `REQ-255` |
+| `CA-630` | Clicar em "Halisson" em qualquer lista → abre a página dele com Operação, Histórico e Resultados, nessa ordem · página da "Maria Souza (provisória)" mostra o rótulo | `REQ-630`, `REQ-631` |
+| `CA-632` | Halisson com obrigação de 77,26 na apólice 5177…, adiantamento de 50,00 e a Allianz devendo 128,77 na mesma apólice → os dois lados separados, sem líquido, e a comissão da Allianz em "depende de" | `REQ-632` |
+| `CA-633` | Repasse de 300,00 à Argo com destino ao João → a página do João mostra "recebe também por: Argo" e a da Argo mostra o repasse; nenhuma soma as duas | `REQ-633` |
+| `CA-634` | Repasse de 30,00 sem obrigação e obrigação aberta de 20,00 com o Halisson → os dois aparecem lado a lado, sem a palavra "a mais" | `REQ-634` |
+| `CA-635` | Pagar 30,00 ao Halisson com 20,00 abertos → a prévia oferece 20,00 da obrigação + 10,00 de adiantamento; escolhida, a obrigação fecha e o adiantamento abre com 10,00 | `REQ-635` |
+| `CA-636` | Fato de 09/11 registrado em 10/11 → a frase mostra as duas datas · fato retirado → riscado, com a frase da retirada · sinal → marcado como sinal | `REQ-636` |
+| `CA-239` | Lote preparado descartado → as obrigações voltam a poder entrar em outro lote, e a auditoria registra quem descartou | `REQ-239`, `REQ-804` |
 | `CA-276` | Comissão prevista, obrigação, recebimento, repasse e um repasse retirado, mais o sinal → seis linhas em ordem de data, com quem pagou a quem; a retirada marcada como retirada | `REQ-276` |
 
 ### 14.4 Casos que devem ser rejeitados
@@ -1505,7 +1659,7 @@ Treasury a partir das três fontes, §5).
 | `REJ-604` | Pré-preencher a contraparte numa operação fora das três de `REQ-604` | `REQ-604` |
 | `REJ-703` | Aplicar proposta com confiança abaixo de 0,5 | `REQ-703` |
 | `REJ-242` | O Treasury definir sozinho a forma do repasse | `REQ-242` |
-| `REJ-244` | Pagamento bancário de repasse sem demonstrativo antes | `REQ-244` |
+| `REJ-244` | Pagamento bancário de um **lote** sem extrato de recebível antes | `REQ-244` |
 | `REJ-311` | O operador criar uma parte durante a operação | `REQ-311` |
 | `REJ-313` | Cadastrar o cliente final como parte | `REQ-313` |
 | `REJ-320` | Deixar de registrar um fato porque a parte não está cadastrada | `REQ-320` |
@@ -1539,7 +1693,11 @@ Treasury a partir das três fontes, §5).
 | `REJ-623` | Ratear automaticamente um fato não atribuído | `REQ-623` |
 | `REJ-624` | Mostrar "perda total" ou "ganho" numa posição só por ter sido fechada por compensação | `REQ-624` |
 | `REJ-627` | O Treasury somar por conta própria o resultado de uma parte | `REQ-627` |
-| `REJ-244` | Gerar o extrato de recebível baixar a obrigação ou enviar um evento ao Ledger | `REQ-244` |
+| `REJ-244b` | Gerar o extrato de recebível baixar a obrigação ou enviar um evento ao Ledger (renumerado em 2026-11-12: o ID `REJ-244` estava repetido) | `REQ-244` |
+| `REJ-239` | A mesma obrigação em dois lotes preparados ao mesmo tempo | `REQ-239` |
+| `REJ-632` | Mostrar um saldo líquido entre o que a Usina deve e o que a parte deve | `REQ-632` |
+| `REJ-634` | O Treasury afirmar sozinho que houve pagamento a mais | `REQ-634` |
+| `REJ-636` | Contar um sinal como fato no histórico da parte | `REQ-636` |
 | `REJ-246` | Registrar o lote como um único evento com posições de valores diferentes | `REQ-246` |
 | `REJ-249` | Deixar de enviar os demais eventos do lote porque um deles foi recusado | `REQ-249` |
 | `REJ-247` | Anexar um arquivo sem registrar quem anexou | `REQ-247`, `REQ-804` |
@@ -1592,14 +1750,18 @@ Treasury a partir das três fontes, §5).
 | `DEC-027` | **Outros resultados por posição**: dívida paga aparece como `gain`, e `ledger_correction` com `ADJUSTS` aceita valor acima do saldo sem conferência | Continuam como estão; só a compensação muda (`REQ-624`) |
 | `DEC-028` | ~~Primeira conexão com o sistema de seguro, sem API~~ — **decidida em 2026-11-09**: sinal externo e fatos propostos (§4.6). A leitura automática pela API fica para a etapa de integração | Vale §4.6 (não implementado) |
 | `DEC-029` | ~~Posição contextual para apólice e elegibilidade~~ — **decidida em 2026-11-09**: a apólice é contexto `contract`; a elegibilidade é o motivo da obrigação (`REQ-267`) | Vale `REQ-267` (não implementado) |
-| `DEC-030` | **Página da pessoa e histórico**: página própria com o que se deve, o que foi pago, as apólices e o histórico em frases, em vez de uma listagem. Proposta no Anexo B.4. Os totais precisam vir do Ledger (`REQ-627`) | Vale a visão atual da parte (§8.2) |
+| `DEC-030` | ~~Página da pessoa e histórico~~ — **decidida em 2026-11-12** (rodada 18): §8.4, `REQ-630`–`REQ-638` | Vale §8.4 (não implementado) |
 | `DEC-031` | ~~Ordem dos próximos passos~~ — **decidida em 2026-11-09**: §4.6 vem antes dos passos 4 a 8 de §16.2, na ordem de §16.1 | Vale §16.1 |
-| `DEC-032` | **Pagamento sem vínculo com a obrigação**: como conduzir e avisar o usuário. O Ledger continua aceitando, porque um pagamento sem obrigação conhecida é um fato válido. **Em parte respondida em 2026-11-09:** o Treasury recomenda as ligações e avisa o repasse sem entrada (`REQ-268`) | O vínculo é opcional e não há aviso |
-| `DEC-033` | **Alcance da retificação e convivência com o ajuste**: `REQ-522` cita três posições e o Anexo A inclui `COMMISSION_PAYABLE`; a retificação pode alcançar outros eventos ou até deixar de existir, ficando só o ajuste. Não atrapalha §4.6 | Vale `REQ-522` |
+| `DEC-032` | **Pagamento sem vínculo com a obrigação**: como conduzir e avisar o usuário. O Ledger continua aceitando, porque um pagamento sem obrigação conhecida é um fato válido. **Em parte respondida em 2026-11-09:** o Treasury recomenda as ligações e avisa o repasse sem entrada (`REQ-268`) | O vínculo é opcional. **Decidida em 2026-11-12:** o alerta "pago sem obrigação" no repasse de comissão e a prevenção pela divisão (`REQ-634`, `REQ-635`) |
+| `DEC-033` | **Alcance da retificação e convivência com o ajuste**: `REQ-522` cita três posições e o Anexo A inclui `COMMISSION_PAYABLE`; a retificação pode alcançar outros eventos ou até deixar de existir, ficando só o ajuste. Não atrapalha §4.6. **Acrescentados em 2026-11-12:** mapear o **estorno** (como a Usina opera e como deveria operar com a álgebra) e o **remédio do pagamento a mais** já registrado sem vínculo (`REQ-635`) | Vale `REQ-522`; um pagamento a mais solto não tem correção |
 | `DEC-034` | **Outros beneficiários vindos do sistema de seguro** (supervisor e outros, `REQ-258`). Hoje o sistema de seguro não os conhece; pode vir a conhecer | O sinal só traz o corretor; os demais são abertos pelo usuário (`REQ-253`) |
 | `DEC-035` | ~~Contextos na lista de posições~~ — **decidida em 2026-11-09**: opção 2, escondidos da lista só no Treasury (`REQ-605`) | Vale `REQ-605` |
 | `DEC-037` | **Recusa no meio do lote**: no pagamento em lote, um recusado não impede os demais (`REQ-249`); no recebimento em lote da seguradora, os seguintes não são enviados (`REQ-277`). Rever `REQ-277` à luz do mesmo princípio | Cada lote segue a sua regra |
-| `DEC-038` | **Exposição: saída de caixa coberta só por expectativa** (o "coringa"). Adiantamento de 500,00 ao João, compensado com a obrigação de 500,00 da apólice X; a Allianz ainda deve 800,00 e nada entrou. As duas posições do João zeraram, mas o caixa continua em −500,00, e só uma expectativa pode trazê-lo de volta. Decidir quando e como alertar, e como mostrar a trilha do furo (caixa → adiantamento → compensação → obrigação → apólice → comissão prevista aberta), como **leitura** da cadeia de fatos, sem rateio (`REQ-623`). Para a trilha existir, a compensação herda o contexto da obrigação (`REQ-275`). A leitura por contexto sozinha não mostra o furo, porque o adiantamento não cita a apólice (`CA-621b`). Decidir junto com o passo 6 e `DEC-030`; não bloqueia a compensação | O −500,00 aparece no resultado do João (`REQ-620`, `REQ-622`); não há alerta nem trilha |
+| `DEC-038` | **Exposição: saída de caixa coberta só por expectativa** (o "coringa"). Adiantamento de 500,00 ao João, compensado com a obrigação de 500,00 da apólice X; a Allianz ainda deve 800,00 e nada entrou. As duas posições do João zeraram, mas o caixa continua em −500,00, e só uma expectativa pode trazê-lo de volta. Decidir quando e como alertar, e como mostrar a trilha do furo (caixa → adiantamento → compensação → obrigação → apólice → comissão prevista aberta), como **leitura** da cadeia de fatos, sem rateio (`REQ-623`). Para a trilha existir, a compensação herda o contexto da obrigação (`REQ-275`). A leitura por contexto sozinha não mostra o furo, porque o adiantamento não cita a apólice (`CA-621b`). Decidir junto com o passo 6 e `DEC-030`; não bloqueia a compensação. **Em parte coberta em 2026-11-12:** o bloco "depende de" da página da parte mostra a expectativa aberta ao lado do repasse (`REQ-632`); faltam o alerta e a trilha | O −500,00 aparece no resultado do João (`REQ-620`, `REQ-622`) e o "depende de" na página (`REQ-632`); não há alerta nem trilha |
+| `DEC-039` | **Visão comparativa de várias partes**: a direção olha todo dia N partes selecionadas para tirar conclusões (incentivo, investimento, negociação). Fica fora da página da parte; nasce quando um usuário sentir a dor de abrir muitas páginas, e o uso da página ensina quais sinais comparar. Relaciona-se com `DEC-009` e `REQ-620` | A direção usa a página de cada parte |
+| `DEC-040` | **Recomendação em chips com "outra"**: um padrão de UX para oferecer opções recomendadas em chips clicáveis, com "outra" abrindo o texto livre (ex.: a forma do repasse: "pela Argo", "recebe diretamente", "outra"; a divisão do pagamento a mais). Deve servir a vários lugares; o alcance ainda não está definido | Cada tela escolhe como apresentar as opções |
+| `DEC-041` | **Autenticação e autorização do Treasury**: o dono do produto tem um molde de outro sistema para reutilizar. Inclui quem vê o quê na página da parte (`REQ-638`) | Valem os dois papéis de `REQ-401` e a curadoria de `REQ-402` |
+| `DEC-042` | **Filtros de leitura no Ledger**: (1) posições só vencidas / a vencer / sem vencimento, e por contexto (apólice); (2) eventos de uma parte paginados e filtrados (data de registro, tipo, autor, situação), hoje lidos inteiros (§17, P1). Hoje o Ledger ordena por vencimento, mas não filtra por ele nem por contexto. Não muda a álgebra nem cria fato; muda a leitura do Ledger | A página da parte ordena por vencimento; os dois filtros ficam de fora |
 | `DEC-036` | **Enriquecer a origem depois**: ligar um recebimento sem origem (ou outro fato isolado) à comissão prevista quando se descobre de onde veio, **sem reescrever o fato** ("a linhagem é progressiva", `CLAUDE.md`). Não existe hoje no Ledger nem no Treasury. Ideia do dono do produto: usar isso para olhar o passado a partir do saldo no banco (Bradesco, Itaú, corretora de investimentos), perguntando "de onde veio cada valor?", e construir a verdade financeira enquanto se concilia, independente do banco. Relaciona-se com `DEC-018` | O recebimento sem origem fica pendente e visível; não há como ligá-lo depois |
 
 ### 15.2 Perguntas abertas
@@ -1608,14 +1770,18 @@ Abertas na rodada 13 (2026-11-07), e `Q-052` na rodada 14 (2026-11-09). A recome
 
 | ID | Pergunta | Recomendação | Enquanto não for respondida |
 | --- | --- | --- | --- |
-| `Q-048` | Como registrar um pagamento a mais de verdade? Vinculado à obrigação, o Ledger recusa; sem vínculo, é aceito sem comparar com nada | Dividir: uma parte quita a obrigação e o excedente vira adiantamento | Só entra sem vínculo |
+| `Q-048` | ~~Como registrar um pagamento a mais de verdade?~~ — **respondida em 2026-11-12**: prevenção pela divisão na prévia (`REQ-635`); a correção do que já foi registrado sem vínculo foi para `DEC-033` | — | Vale `REQ-635` |
 | `Q-050` | No sistema de seguro, uma mesma apólice e proposta aparecem com dois ids, uma elegível e outra sem CR. É erro de cadastro ou é esperado? | Conferir no sistema de origem; de todo modo, ligar sempre pelo id da apólice | Nada depende disso ainda |
 | `Q-051` | Como tratar identificadores lá escritos de formas diferentes (produto `Auto` e `auto`) e a seguradora sem nome? | Normalizar só para comparar e guardar como veio no sinal (`REQ-260`); seguradora sem nome vira identidade provisória (`REQ-267`) | Nada depende disso ainda |
 | `Q-052` | Na comissão parcelada, a elegibilidade chega **por parcela** ou uma vez por apólice? | Se for por parcela, a referência da origem inclui a parcela (`REQ-265`) e cada elegibilidade abre a sua obrigação | Uma elegibilidade por apólice |
 
-Ficam também para uma próxima rodada, por decisão do dono do
-produto em 2026-11-04, os `⚠ CONFIRMAR` de: §2 (termos **recebedor** e **destinatário final**) e
-`REQ-612` (a visão **não soma** valores por grupo).
+Os `⚠ CONFIRMAR` de §2 (termos **recebedor** e **destinatário final**) e de `REQ-612` (a visão **não soma**
+valores por grupo), adiados em 2026-11-04, foram **confirmados em 2026-11-12** (rodada 18). Ficou aberto,
+na mesma rodada, o `⚠ CONFIRMAR` de `REQ-632` (uma linha por posição).
+
+**Anotado em 2026-11-12, sem decisão:** "rateio" pode vir a ser um evento de primeira ordem no futuro.
+Hoje, o que a Usina sabe sobre a divisão de um pagamento entre partes é registrado como um repasse por
+direito (`REQ-633`). Não há caso real que peça outra coisa.
 
 Abertos na rodada 14 (2026-11-09), no bloco B: os dois `⚠ CONFIRMAR` de `REQ-267` (mais de uma
 parte com o mesmo id do corretor; sinal sem o id do corretor). Os dois perguntam o corretor na conversa.
@@ -1674,7 +1840,10 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 
 ### 16.1 Onde paramos e o que decidir
 
-> Atualizado em 2026-11-11, depois do commit `308e90e`. Quando o dono do produto perguntar "onde paramos e o que precisamos
+> **⚠ Antes de qualquer deploy de produção, resolver §17** (lentidão, consistência de API e
+> resiliência). Pedido do dono do produto em 2026-11-12.
+
+> Atualizado em 2026-11-12, depois da rodada 18 (página da parte). Quando o dono do produto perguntar "onde paramos e o que precisamos
 > decidir para continuar?", a resposta parte daqui. Confira no código antes de afirmar que algo existe.
 
 **Como trabalhamos, nesta ordem.** Só avance com o aval do dono do produto.
@@ -1697,6 +1866,10 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 | Data esperada da comissão prevista (`REQ-229`) e lista de seleção com busca | ✅ Implementados, com commit. A lista não foi vista no navegador; só tem teste de componente |
 | Suítes em 2026-11-07 | Ledger: 841 passam e 19 pendentes (compensação e leituras de resultado). Treasury: 717 no backend, com 13 `it.todo`, e 148 no cliente |
 | Teste do dono do produto | Fez os passos, mas só porque conhece o sistema. Um leigo ainda teria dificuldade |
+| Página da parte (`DEC-030`, rodada 18) | 🔶 Decidida em 2026-11-12 (§8.4) e **implementada no mesmo dia, sem commit**: `GetPartyPageUseCase` (rota `GET /api/parties/:partyId/page`), o aviso `exceeds_open` da prévia (`REQ-635`), o serviço `PreparedBatches` (`REQ-239`, só em memória e sem tela: a tela e a gravação vêm com o passo 4) e a tela, que substitui a "Visão por parte" (lista ordenada de partes → página própria da parte, com as abas Operação, Histórico e Resultados, a Operação aberta, e o caminho de volta para a lista; cada lado da Operação é uma seção com filtros e paginação do Ledger, pela rota `GET /api/parties/:partyId/positions/:side`; o Histórico tem viés de auditoria, com filtros e paginação pela rota `GET /api/parties/:partyId/history` e os sinais pendentes num bloco no topo). Resultados mostra só o aviso de que depende do passo 6. Testes: `acceptance-party-page.test.ts` (29 passam, 23 `it.todo`), `unit/application/party-page.test.ts` e os da tela. **O lado de cada posição** é lido pelo tipo, no Treasury: a Usina deve = os tipos de `USINA_PAYABLE_OBJECT_TYPES` do Ledger; a parte deve = `USINA_RECEIVABLE_OBJECT_TYPES` mais a comissão prevista. Tipo fora dos dois aparece à parte, "sem lado definido", nunca some. **Aguarda a verificação do dono do produto** para fechar a `DEC-030` |
+| Suítes em 2026-11-12 | Treasury: 829 passam no backend, com 27 pendentes e 37 `it.todo`, e 156 no cliente |
+| Suítes em 2026-11-12, depois da página da parte | Treasury: 873 passam no backend, com 37 `it.todo` e nenhum pendente, e 165 no cliente (168 depois do refinamento das abas). O Ledger não foi tocado |
+| Suítes em 2026-11-12, depois do Histórico de auditoria | Treasury: 887 no backend, com 37 `it.todo`, e 180 no cliente. Ledger: 870 passam e 12 pendentes (passo 6), com o `retractedBy` na leitura por parte |
 | Passos 4 a 8 de §16.2 | 🔶 Passo 5 (compensação) feito no Ledger em 2026-11-11, sem commit; os demais não iniciados |
 | Sinal externo do sistema de seguro (§4.6, rodada 14) | ✅ Blocos A a D com commit (`0fd5a62`); E adiado. Testes em `treasury/src/tests/integration/acceptance-external-signal.test.ts` (só o bloco E está como `it.todo`) e, no Ledger, `insurance-signal-candidates.test.ts` |
 | Integração com o sistema de seguro (rodada 15) | ✅ Com commit (`874a260`). A validação com um RabbitMQ de verdade não foi registrada como feita |
@@ -1737,10 +1910,15 @@ o demonstrativo na tela, sem exportação, mas já tem API (`REQ-261`)
 
 **Ainda a decidir, em paralelo:**
 
-1. `DEC-030` e `Q-048`: a página da pessoa e o pagamento a mais. `REQ-270` depende de mostrar o que está
-   aberto com a pessoa.
-2. `Q-052`, `Q-050` e `Q-051`: elegibilidade por parcela e qualidade dos dados de origem.
-3. Em aberto sem pressa: `DEC-033` (retificação × ajuste) e `DEC-034` (outros beneficiários).
+1. ~~`DEC-030` e `Q-048`~~: decididas em 2026-11-12 (§8.4). Próximo: testes da página da parte.
+2. O passo 6, que a seção Resultados da página precisa (`REQ-631`), e `DEC-021`, de que dependem os
+   totais por parte (`REQ-623`). **Por decisão do dono do produto em 2026-11-12, a revisão do passo 6 em
+   diante (o que ele é e até onde vai) e da ordem das `DEC` em aberto fica condicionada à entrega final da
+   página da parte.** Depois da implementação, o dono do produto confere se a `DEC-030` pode ser dada como
+   fechada.
+3. `Q-052`, `Q-050` e `Q-051`: elegibilidade por parcela e qualidade dos dados de origem.
+4. Em aberto sem pressa: `DEC-033` (retificação × ajuste, agora com o estorno e o remédio do pagamento a
+   mais) e `DEC-034` (outros beneficiários).
 
 **Como ficou o bloco A (2026-11-09).**
 
@@ -1816,8 +1994,8 @@ O Treasury só lê `ledger/algebra.json` ao iniciar, então, depois de mudar um 
 | Texto livre | ✅ §9 (melhoria futura em `DEC-005`) |
 | Auditoria | ✅ §10 |
 | Estados | ✅ §11 |
-| Nenhum `⚠ CONFIRMAR` em aberto | 🔶 dois, adiados para outra rodada (§15.2) |
-| Visão por pessoa/grupo | ✅ §8.2 (`⚠` em `REQ-612`) |
+| Nenhum `⚠ CONFIRMAR` em aberto | 🔶 três: os dois de `REQ-267` e o de `REQ-632` (§15.2) |
+| Visão por pessoa/grupo | ✅ §8.2; página da parte decidida em §8.4, não implementada |
 | Repasse de comissão | 🔶 §4.4 definido; extrato, lote e anexo não implementados |
 | Conciliação bancária | ⬜ `DEC-018` |
 | Compensação e operação composta | 🔶 §4.5 definido; obrigação de comissão e compensação (no Ledger) implementadas; a oferta da compensação no Treasury e a operação composta não (`DEC-019`–`DEC-022`, `DEC-024`) |
@@ -1860,6 +2038,44 @@ não são testes do projeto. A ordem é:
    a usabilidade pode ser testada com tudo registrado pelo usuário.
 
 Por `DEC-031` (2026-11-09), §4.6 vem antes dos passos 4 a 8; a ordem dela está em §16.1.
+
+---
+
+## 17. ⚠ Antes de produção: ver e decidir
+
+> **URGENTE para o deploy de produção** (pedido do dono do produto em 2026-11-12). Nada aqui impede o
+> desenvolvimento nem o MVP de teste; tudo aqui precisa estar resolvido ou decidido **antes** de pôr o
+> sistema em produção, para não haver lentidão nem falha com volume real (dezenas de posições por dia
+> e centenas por semana em cada parte). Lista viva: entra um item sempre que uma escolha de agora
+> depender de volume, e sai só quando resolvido, com a data. "Não verificado" quer dizer que ninguém
+> conferiu; não quer dizer que está errado.
+
+**Lentidão e escala**
+
+| # | Ponto | Risco | O que fazer | Situação |
+| --- | --- | --- | --- | --- |
+| P1 | A leitura de eventos por parte no Ledger (`/api/events/by-party`) não é paginada, e para cada evento faz mais duas buscas de retificação | Parte com milhares de eventos deixa o Histórico lento | Leitura paginada e filtrada no Ledger (`DEC-042`) | Aberto |
+| P2 | Até P1, o Treasury lê o histórico inteiro da parte e pagina só na tela | O mesmo de P1, do lado do Treasury | Trocar pela leitura de P1 | Aberto |
+| P3 | O "depende de" da página da parte faz várias leituras ao Ledger por linha da página | Página lenta quando uma apólice tem muitos eventos | Uma leitura no Ledger que traga as expectativas de um contexto de uma vez | Aberto |
+| P4 | Os alertas da página da parte leem até 200 posições por busca (e avisam quando passam disso) | Parte grande com alerta que não aparece | Filtros no Ledger para "sem origem" e "vencida" (`DEC-042`) | Aberto |
+| P5 | Os sinais do histórico leem todos os sinais guardados, e a intenção de cada proposta, a cada abertura da página | Fica lento à medida que os sinais se acumulam | Guardar no Treasury quais partes cada sinal cita, com índice | Aberto |
+| P6 | Índices dos bancos para busca por parte, por evento relacionado, por objeto e por data de entrada e de vencimento | Consultas lentas com volume real | Levantar os índices que existem e criar os que faltarem | Não verificado |
+
+**Correção e consistência de API**
+
+| # | Ponto | O que fazer | Situação |
+| --- | --- | --- | --- |
+| C1 | O Ledger não publicava quem retirou cada evento; sem isso, o "retirado por…" da página da parte não aparecia com dados reais (a retificação cita só a Usina) | Publicar na leitura por parte (aprovado em 2026-11-12) | ✅ Resolvido em 2026-11-12, sem commit: `/api/events/by-party` publica `retractedBy` (com o autor da retificação); o Treasury lê também o autor de cada fato |
+| C2 | A lista de contas a pagar do Treasury (`ListPayablePositions`) não inclui `commission_payable`; a do Ledger (`USINA_PAYABLE_OBJECT_TYPES`) inclui | Alinhar as duas | Aberto |
+| C3 | Tempo limite e nova tentativa nas chamadas do Treasury ao Ledger | Verificar e definir | Não verificado |
+
+**Resiliência e operação**
+
+| # | Ponto | O que fazer | Situação |
+| --- | --- | --- | --- |
+| R1 | O lote preparado (`REQ-239`) vive só em memória e se perde ao reiniciar | Gravar em SQLite (passo 4) | Aberto |
+| R2 | Cobertura de testes do Ledger em 84,36% de linhas e 84,78% de funções, abaixo do mínimo de 85% (já estava abaixo antes, 84,11% e 84,71% no commit `308e90e`) | Subir ao mínimo; a regra do repositório não deixa passar | Aberto |
+| R3 | Autenticação e autorização do Treasury (`DEC-041`) | Decidir antes de abrir para usuários reais | Aberto |
 
 ---
 
@@ -1967,6 +2183,8 @@ Verificado no código em 2026-11-07:
 - A parcela (`installment`) precisa ser citada, conforme a resposta de `Q-049`?
 
 ### B.4 Página da pessoa (proposta para `DEC-030`)
+
+> **Superado em 2026-11-12** por §8.4, decidida na rodada 18. Mantido como registro.
 
 - **Resumo:** quanto a Usina deve à pessoa, quanto já pagou e quanto a pessoa deve à Usina.
 - **Apólices:** o que está em aberto em cada uma; pagar a partir daí já vincula a obrigação certa.

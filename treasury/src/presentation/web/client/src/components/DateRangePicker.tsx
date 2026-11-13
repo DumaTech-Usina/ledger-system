@@ -145,6 +145,27 @@ export interface DateRangePickerProps {
  * Values are ISO date-only strings in and out, matching every `from`/`to` query param in this app;
  * all the calendar and typing math happens in local `Date`s and is converted at the edge.
  */
+const PANEL_WIDTH = 680;
+const SCREEN_MARGIN = 8;
+
+/**
+ * Where the panel starts, relative to the trigger, so all of it is inside the window: it opens on the
+ * preferred side and slides back in when that side would cut it. Null when there is nothing to measure.
+ */
+export function fitOnScreen(container: HTMLElement | null, align: "left" | "right"): number | null {
+  if (!container || typeof window === "undefined") return null;
+  const rect = container.getBoundingClientRect();
+  const viewport = window.innerWidth || document.documentElement.clientWidth;
+  if (!viewport) return null;
+  const width = Math.min(viewport * 0.95, PANEL_WIDTH);
+  let offset = align === "right" ? rect.width - width : 0;
+  const overflowRight = rect.left + offset + width - (viewport - SCREEN_MARGIN);
+  if (overflowRight > 0) offset -= overflowRight;
+  const overflowLeft = SCREEN_MARGIN - (rect.left + offset);
+  if (overflowLeft > 0) offset += overflowLeft;
+  return offset;
+}
+
 export function DateRangePicker({ from, to, onChange, label, align = "left", className }: DateRangePickerProps) {
   const { t, language } = useLanguage();
   const order = orderFor(language);
@@ -159,6 +180,8 @@ export function DateRangePicker({ from, to, onChange, label, align = "left", cla
   const [typedTo, setTypedTo] = useState("");
 
   const containerRef = useRef<HTMLDivElement>(null);
+  /** Horizontal offset of the panel from the trigger, chosen on open so the panel stays on screen. */
+  const [offsetLeft, setOffsetLeft] = useState<number | null>(null);
 
   function openPanel() {
     const f = fromISO(from);
@@ -171,6 +194,7 @@ export function DateRangePicker({ from, to, onChange, label, align = "left", cla
     const anchorRight = tt ? startOfMonth(tt) : startOfMonth(addMonths(new Date(), 1));
     setLeftMonth(anchorLeft);
     setRightMonth(sameDay(anchorRight, anchorLeft) ? addMonths(anchorLeft, 1) : anchorRight);
+    setOffsetLeft(fitOnScreen(containerRef.current, align));
     setOpen(true);
   }
 
@@ -276,8 +300,9 @@ export function DateRangePicker({ from, to, onChange, label, align = "left", cla
           className={cn(
             "glass-popover motion-safe:animate-[glass-pop_320ms_cubic-bezier(0.34,1.56,0.64,1)_both]",
             "absolute top-full z-50 mt-2 w-[min(95vw,680px)] p-5",
-            align === "right" ? "right-0" : "left-0",
+            offsetLeft === null && (align === "right" ? "right-0" : "left-0"),
           )}
+          style={offsetLeft === null ? undefined : { left: offsetLeft }}
         >
           <div className="flex items-center gap-2 border-b border-line pb-4">
             <CalendarIcon />

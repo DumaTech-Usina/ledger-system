@@ -269,6 +269,23 @@ export interface LedgerEventRef {
 export interface PartyEvent extends LedgerEventRef {
   recordedAt: string;
   retracted: boolean;
+  /**
+   * Who recorded the fact, as the Ledger stored it: the user who confirmed it in Treasury, or the
+   * external system. Absent against a Ledger that does not publish it — "not told", never "nobody".
+   */
+  reporter?: EventReporter | null;
+  /**
+   * The standing retraction that withdrew this event, as the Ledger published it. The retraction names
+   * only the usina, so it is not among this party's events. Null when the event stands; absent against
+   * a Ledger that does not publish it.
+   */
+  retractedBy?: { eventId: string; occurredAt: string; recordedAt: string; reporter: EventReporter | null } | null;
+}
+
+export interface EventReporter {
+  type: string;
+  id: string;
+  name: string | null;
 }
 
 /**

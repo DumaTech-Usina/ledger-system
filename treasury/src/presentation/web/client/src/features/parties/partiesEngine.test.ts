@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchingParties, othersInEvent, pendingSummary } from "@/features/parties/partiesEngine";
+import { matchingParties, othersInEvent, pendingSummary, recordedOnAnotherDay } from "@/features/parties/partiesEngine";
 import type { PartyEventView, PartyName, PendingIdentity } from "@/features/parties/partiesApi";
 
 const named = (...names: string[]): PendingIdentity[] =>
@@ -56,5 +56,12 @@ describe("othersInEvent", () => {
 
   it("mostra os outros pelo nome, e o id de quem o cadastro não conhece", () => {
     expect(othersInEvent(event, { argo: "Argo Ltda" })).toEqual(["Argo Ltda", "party-x"]);
+  });
+});
+
+describe("recordedOnAnotherDay (CA-636)", () => {
+  it("as duas datas só quando diferem", () => {
+    expect(recordedOnAnotherDay("2026-11-09T12:00:00.000Z", "2026-11-10T15:00:00.000Z")).toBe(true);
+    expect(recordedOnAnotherDay("2026-11-09T12:00:00.000Z", "2026-11-09T18:00:00.000Z")).toBe(false);
   });
 });
