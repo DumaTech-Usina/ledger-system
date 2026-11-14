@@ -52,7 +52,7 @@ export interface PayablesAgendaQuery {
   limit?: number;
 }
 
-const MAX_LIMIT = 200;
+export const AGENDA_MAX_LIMIT = 200;
 
 /** The calendar day an instant falls on in `timeZone`, as `YYYY-MM-DD`. */
 export function agendaDayOf(instant: Date, timeZone: string): string {
@@ -81,7 +81,7 @@ export class PayablesAgendaService {
     const asOf = query.asOf ?? agendaDayOf(this.now(), this.timeZone);
     const windowDays = query.windowDays ?? DEFAULT_NEXT_DAYS;
     const window = query.window ?? "overdue";
-    const limit = Math.min(Math.max(1, query.limit ?? 20), MAX_LIMIT);
+    const limit = Math.min(Math.max(1, query.limit ?? 20), AGENDA_MAX_LIMIT);
     const page = Math.max(1, query.page ?? 1);
     const lastNextDay = addDays(asOf, windowDays);
 
@@ -125,32 +125,45 @@ export class PayablesAgendaService {
   }
 
   private windowOf(agg: PositionAggregate, asOf: string, lastNextDay: string): AgendaWindow {
-    if (agg.dueAt === null) return "undated";
-    const due = agendaDayOf(agg.dueAt, this.timeZone);
-    if (due < asOf) return "overdue";
-    if (due === asOf) return "today";
-    if (due <= lastNextDay) return "next";
-    return "later";
+    return agendaWindowOf(agg.dueAt, asOf, lastNextDay, this.timeZone);
   }
 
   private summarize(aggs: PositionAggregate[]): AgendaWindowSummary {
-    const units = new Map<string, bigint>();
-    for (const agg of aggs) units.set(agg.currency, (units.get(agg.currency) ?? 0n) + (openBalanceUnitsOf(agg) ?? 0n));
-    return {
-      count: aggs.length,
-      totals: Object.fromEntries([...units].map(([currency, u]) => [currency, Money.fromUnits(u, currency)])),
-    };
+    return summarizeUnits(aggs, (agg) => openBalanceUnitsOf(agg) ?? 0n);
   }
+}
+
+/**
+ * The window a due date falls in, read at `asOf` (REQ-641). No date is "undated": never overdue and
+ * never today, because not knowing the terms is not being late.
+ */
+export function agendaWindowOf(dueAt: Date | null, asOf: string, lastNextDay: string, timeZone: string): AgendaWindow {
+  if (dueAt === null) return "undated";
+  const due = agendaDayOf(dueAt, timeZone);
+  if (due < asOf) return "overdue";
+  if (due === asOf) return "today";
+  if (due <= lastNextDay) return "next";
+  return "later";
+}
+
+/** How many positions, and the sum of `unitsOf` per currency. The Ledger never adds two currencies. */
+export function summarizeUnits(aggs: PositionAggregate[], unitsOf: (agg: PositionAggregate) => bigint): AgendaWindowSummary {
+  const units = new Map<string, bigint>();
+  for (const agg of aggs) units.set(agg.currency, (units.get(agg.currency) ?? 0n) + unitsOf(agg));
+  return {
+    count: aggs.length,
+    totals: Object.fromEntries([...units].map(([currency, u]) => [currency, Money.fromUnits(u, currency)])),
+  };
 }
 
 const openedAt = (a: PositionAggregate) => (a.originatedAt ?? a.createdAt).getTime();
 
 /** Dated windows: the oldest due date first; then the one open the longest. */
-function byDueDate(a: PositionAggregate, b: PositionAggregate): number {
+export function byDueDate(a: PositionAggregate, b: PositionAggregate): number {
   return a.dueAt!.getTime() - b.dueAt!.getTime() || openedAt(a) - openedAt(b) || a.objectId.localeCompare(b.objectId);
 }
 
 /** Undated: the one open the longest first (REQ-643). */
-function byAge(a: PositionAggregate, b: PositionAggregate): number {
+export function byAge(a: PositionAggregate, b: PositionAggregate): number {
   return openedAt(a) - openedAt(b) || a.objectId.localeCompare(b.objectId);
 }

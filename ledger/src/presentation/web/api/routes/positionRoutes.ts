@@ -12,6 +12,12 @@ import {
   type PayablesAgenda,
   type PayablesAgendaService,
 } from "../../../../core/application/services/PayablesAgendaService";
+import {
+  RECEIVABLES_AGENDA_LISTS,
+  type ReceivablesAgenda,
+  type ReceivablesAgendaList,
+  type ReceivablesAgendaService,
+} from "../../../../core/application/services/ReceivablesAgendaService";
 
 const VALID_STATUSES  = new Set<string>(["open", "partially_settled", "fully_settled", "reversed", "unknown_origin"]);
 const VALID_OUTCOMES  = new Set<string>(["gain", "compensated", "partial_loss", "full_loss", "cancelled", "pending"]);
@@ -78,16 +84,18 @@ function intParam(raw: unknown, label: string, min: number, max: number): number
   return value;
 }
 
-function serializeAgenda(agenda: PayablesAgenda) {
+function serializeSummary(s: { count: number; totals: Record<string, { toString(): string }> }) {
+  return { count: s.count, totals: Object.fromEntries(Object.entries(s.totals).map(([c, m]) => [c, m.toString()])) };
+}
+
+function serializeReceivablesAgenda(agenda: ReceivablesAgenda) {
   return {
     asOf: agenda.asOf,
     windowDays: agenda.windowDays,
-    windows: Object.fromEntries(
-      Object.entries(agenda.windows).map(([w, s]) => [
-        w,
-        { count: s.count, totals: Object.fromEntries(Object.entries(s.totals).map(([c, m]) => [c, m.toString()])) },
-      ]),
-    ),
+    windows: Object.fromEntries(Object.entries(agenda.windows).map(([w, s]) => [w, serializeSummary(s)])),
+    unlinked: serializeSummary(agenda.unlinked),
+    payers: agenda.payers.map((p) => ({ key: p.key, partyIds: p.partyIds, ...serializeSummary(p) })),
+    payer: agenda.payer,
     window: agenda.window,
     data: agenda.data.map(serializePositionListItem),
     total: agenda.total,
@@ -97,7 +105,25 @@ function serializeAgenda(agenda: PayablesAgenda) {
   };
 }
 
-export function positionRoutes(svc: PositionProjectionService, agenda?: PayablesAgendaService): Router {
+function serializeAgenda(agenda: PayablesAgenda) {
+  return {
+    asOf: agenda.asOf,
+    windowDays: agenda.windowDays,
+    windows: Object.fromEntries(Object.entries(agenda.windows).map(([w, s]) => [w, serializeSummary(s)])),
+    window: agenda.window,
+    data: agenda.data.map(serializePositionListItem),
+    total: agenda.total,
+    page: agenda.page,
+    limit: agenda.limit,
+    totalPages: agenda.totalPages,
+  };
+}
+
+export function positionRoutes(
+  svc: PositionProjectionService,
+  agenda?: PayablesAgendaService,
+  receivables?: ReceivablesAgendaService,
+): Router {
   const router = Router();
 
   /**
@@ -126,6 +152,41 @@ export function positionRoutes(svc: PositionProjectionService, agenda?: Payables
           limit: intParam(req.query.limit, "limit", 1, 200),
         });
         res.json(serializeAgenda(result));
+      } catch (err) {
+        next(err);
+      }
+    });
+  }
+
+  /**
+   * GET /api/positions/agenda/receivables — what is owed to the Usina and still open, by expected date
+   * and by payer, and the receipts with no known origin (treasury/docs/requisitos_refinados.md §8.7).
+   *   Same parameters as the payables agenda, plus &window=unlinked and &payer=<key> ("" = no payer named).
+   */
+  if (receivables) {
+    router.get("/agenda/receivables", async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const asOf = req.query.asOf as string | undefined;
+        if (asOf !== undefined && !isAgendaDay(asOf)) {
+          throw Object.assign(new Error("'asOf' must be a date as YYYY-MM-DD"), { statusCode: 400 });
+        }
+        const window = req.query.window as string | undefined;
+        if (window !== undefined && !(RECEIVABLES_AGENDA_LISTS as readonly string[]).includes(window)) {
+          throw Object.assign(new Error(`'window' must be one of ${RECEIVABLES_AGENDA_LISTS.join(", ")}`), { statusCode: 400 });
+        }
+        const payer = req.query.payer;
+        if (payer !== undefined && typeof payer !== "string") {
+          throw Object.assign(new Error("'payer' must be given once"), { statusCode: 400 });
+        }
+        const result = await receivables.read({
+          asOf,
+          window: window as ReceivablesAgendaList | undefined,
+          payer,
+          windowDays: intParam(req.query.windowDays, "windowDays", 0, MAX_WINDOW_DAYS),
+          page: intParam(req.query.page, "page", 1, Number.MAX_SAFE_INTEGER),
+          limit: intParam(req.query.limit, "limit", 1, 200),
+        });
+        res.json(serializeReceivablesAgenda(result));
       } catch (err) {
         next(err);
       }

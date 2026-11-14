@@ -1,5 +1,6 @@
 import type { GetPayablesAgendaUseCase } from "../../../../core/application/use-cases/GetPayablesAgenda";
-import { AGENDA_WINDOWS } from "../../../../core/application/dtos/LedgerReadModels";
+import type { GetReceivablesAgendaUseCase } from "../../../../core/application/use-cases/GetReceivablesAgenda";
+import { AGENDA_WINDOWS, RECEIVABLES_AGENDA_LISTS } from "../../../../core/application/dtos/LedgerReadModels";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import type { GetTreasuryDashboardUseCase } from "../../../../core/application/use-cases/GetTreasuryDashboard";
 import type { GetObjectLifecycleUseCase } from "../../../../core/application/use-cases/GetObjectLifecycle";
@@ -69,6 +70,7 @@ export function dashboardRoutes(
   listCashMovements: ListCashMovementsUseCase,
   getLedgerEvent: GetLedgerEventUseCase,
   getPayablesAgenda?: GetPayablesAgendaUseCase,
+  getReceivablesAgenda?: GetReceivablesAgendaUseCase,
 ): Router {
   const router = Router();
 
@@ -91,6 +93,38 @@ export function dashboardRoutes(
             limit: int(req.query.limit),
           }),
         );
+      } catch (err) {
+        next(err);
+      }
+    });
+  }
+
+  /**
+   * §8.7: the agenda of what is owed to the Usina, by expected date and payer, with the Ledger's totals.
+   *   ?window=overdue|today|next|later|undated|unlinked &payer=<key> ("" = no payer named) &windowDays &page &limit
+   * /receivables/declared: what the insurer declared paid and the bank has not shown (REQ-663).
+   */
+  if (getReceivablesAgenda) {
+    router.get("/receivables", async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const window = RECEIVABLES_AGENDA_LISTS.find((w) => w === req.query.window);
+        const int = (raw: unknown) => (typeof raw === "string" && /^\d+$/.test(raw) ? Number(raw) : undefined);
+        res.json(
+          await getReceivablesAgenda.execute({
+            window,
+            payer: typeof req.query.payer === "string" ? req.query.payer : undefined,
+            windowDays: int(req.query.windowDays),
+            page: int(req.query.page),
+            limit: int(req.query.limit),
+          }),
+        );
+      } catch (err) {
+        next(err);
+      }
+    });
+    router.get("/receivables/declared", async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        res.json(await getReceivablesAgenda.declared());
       } catch (err) {
         next(err);
       }

@@ -74,6 +74,11 @@ async function main(): Promise<void> {
     ...(["overdue", "today", "next", "later", "undated"] as const).map(
       (w): [string, string] => [`Agenda a pagar · ${w}`, `/api/dashboard/agenda?window=${w}&limit=20`],
     ),
+    ["Agenda a receber · abertura", "/api/dashboard/receivables?limit=20"],
+    ...(["undated", "unlinked"] as const).map(
+      (w): [string, string] => [`Agenda a receber · ${w}`, `/api/dashboard/receivables?window=${w}&limit=20`],
+    ),
+    ["Agenda a receber · declarado e não visto", "/api/dashboard/receivables/declared"],
   ];
 
   console.log(`Medição: ${runs} leituras de cada tela em ${base} · parte ${party} · apólice ${policy || "(nenhuma)"}`);

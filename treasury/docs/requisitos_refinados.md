@@ -63,6 +63,7 @@
 > | 2026-11-13 | 19 (cont.) — agenda a pagar | **Decidido:** não há prazo combinado para pagar o corretor depois da elegibilidade, então o repasse fica em "sem vencimento" (§8.5); o Ledger publica a agenda por janela de vencimento, com os totais (`REQ-642`, `DEC-042` item 1 em parte). **Novo:** §8.5 (`REQ-640`–`REQ-645`, `CA-640`–`CA-645`, `REJ-641`, `REJ-642`). **`TODO-05` feito; E2 fechado.** §17 C2 resolvido. Nada foi revogado. |
 > | 2026-11-13 | 19 (cont.) — volume | **`TODO-03` feito:** um mês à volumetria real (≈1.150 pagamentos e repasses por semana, 12.330 fatos); as telas do dia ficaram abaixo de 1 s, sem mudança. **E1 fechado.** O que cresce com o livro foi para §17, com os números. Nada foi revogado. |
 > | 2026-11-13 | 19 (cont.) — pagamentos do dia | **Decidido:** a `DEC-044`: o fato de caixa cita a instituição como contexto (`cash_account`), no máximo uma, nunca num fato sem dinheiro; sem ela, "instituição desconhecida", e os eventos anteriores ficam assim, nunca distribuídos. A transferência entre instituições fica para o E6. **Novo:** §8.6 (`REQ-650`–`REQ-654`, `CA-650`–`CA-654`, `REJ-650`, `REJ-650b`, `REJ-653`). **Ampliado:** `REQ-239` (o lote também é montado na agenda, de vários credores). **`TODO-08` feito; E3 fechado.** §17 R1 resolvido. Nada foi revogado. |
+> | 2026-11-13 | 19 (cont.) — agenda a receber | Sem decisão nova do dono do produto. **Novo:** §8.7 (`REQ-660`–`REQ-665`, `CA-660`–`CA-665`, `REJ-661`–`REJ-663`): o Ledger publica a agenda a receber pela data esperada, por pagador e com os recebimentos sem origem, como leitura; o Treasury marca o declarado pela operadora e ainda não visto no banco, sem somá-lo. **⚠ CONFIRMAR NO PILOTO:** empréstimo e adiantamento entram na agenda (`REQ-660`). **`TODO-09` feito; E4 fechado.** Nada foi revogado. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -1738,6 +1739,68 @@ a correção é feita pela posição.
 | `REJ-650b` | Um evento citando duas instituições, ou uma instituição num evento sem dinheiro | `REQ-650` |
 | `REJ-653` | Enviar algum evento quando o débito não bate com a soma do lote | `REQ-653` |
 
+### 8.7 Agenda a receber
+
+> Decidida em 2026-11-13 (E4, `TODO-09`). Responde à dor 4 de §18.2: ninguém sabe o que deveria ter
+> entrado, o que entrou e o que está atrasado. Segue o molde da agenda a pagar (§8.5). Nenhuma decisão
+> nova do dono do produto foi necessária; o que foi escolhido na falta dela está marcado ⚠ CONFIRMAR NO
+> PILOTO.
+
+`REQ-660` **O que entra.** Tudo o que **alguém deve à Usina e ainda está em aberto**: comissão prevista,
+recebível, empréstimo e adiantamento, com saldo em aberto maior que zero. Uma posição quitada ou retirada não
+entra. ⚠ CONFIRMAR NO PILOTO: empréstimo e adiantamento entram por serem "tudo o que se espera receber"
+(`TODO-09`), embora costumem voltar por compensação, e não por cobrança.
+
+`REQ-661` **As janelas** são as de `REQ-641`, pela **data esperada** (`REQ-229`): vencido, hoje, próximos
+dias (7, `Q-055`), depois e **sem data**. Uma posição sem data esperada **nunca é atrasada** (`REQ-271`).
+Os totais de cada janela **vêm do Ledger** (`REQ-601`), que publica a agenda como uma leitura dos fatos,
+sem mudar nenhum fato nem regra (`DEC-042`, item 1).
+
+`REQ-662` **Por pagador.** O pagador de uma posição são as partes dela **além da Usina**, como o credor em
+`REQ-644`. O Ledger publica, por pagador, quantas posições estão em aberto e quanto. Escolhido um pagador,
+as janelas, os totais e as linhas passam a ser só dele.
+- Uma posição sem nenhuma outra parte fica em **"pagador não informado"**: o pagador nunca é suposto
+  (`REQ-273`, `DEC-010`).
+- Uma posição com mais de uma outra parte forma um grupo próprio; o valor **não é dividido** entre elas.
+
+`REQ-663` **Declarado pela operadora e ainda não visto no banco** (`REQ-263`). Uma comissão prevista em
+aberto cuja apólice teve a elegibilidade lida, e em que o recebido é menor que o valor da Usina declarado
+nesse sinal. A agenda marca a linha e mostra essas comissões numa lista à parte, com o que a operadora
+declarou, o que foi recebido e o que falta. O sinal é o que o sistema de seguro disse, **nunca** um
+recebimento (`REQ-262`).
+- A comparação é feita pelo Treasury, porque o sinal nunca vai ao Ledger (`REQ-260`). Por isso a lista
+  **não tem total**: o Treasury não soma dinheiro (`REQ-601`). Cada linha traz os seus valores.
+- Elegibilidade sem comissão prevista registrada continua na tela do sistema de seguro, com a proposta
+  esperando confirmação (`REQ-280`).
+
+`REQ-664` **Recebimentos sem origem.** O dinheiro que entrou sem que se saiba de qual expectativa
+(`REQ-277`, o recebimento órfão) aparece em separado, com o total recebido publicado pelo Ledger, do mais
+antigo para o mais novo. Não tem saldo em aberto: não é dívida de ninguém (`DEC-032`). Ligá-lo depois à
+expectativa depende de `DEC-036` (`TODO-16`); até lá, a lista mostra o que está pendente.
+
+`REQ-665` **Cada linha** mostra o pagador, o que é, o valor em aberto (e o original, quando já foi recebido
+em parte), a data esperada ou "aberta há N dias", e a marca de `REQ-663` quando houver. Dela parte o
+**recebimento já ligado àquela posição** (`REQ-603`). O visualizador vê tudo, sem a ação (`REQ-401`). Com o
+Ledger fora do ar, a agenda diz **"indisponível"** (`REQ-602`).
+
+| ID | Critério | Regra |
+| --- | --- | --- |
+| `CA-660` | Comissão prevista, empréstimo e adiantamento em aberto aparecem; uma obrigação da Usina não aparece | `REQ-660` |
+| `CA-661` | Data esperada ontem → vencido; nenhuma → sem data, nunca vencido | `REQ-661` |
+| `CA-661b` | O total de cada janela é o publicado pelo Ledger e é igual à soma dos saldos em aberto das suas posições | `REQ-661` |
+| `CA-662` | Allianz com duas comissões previstas e Porto com uma → dois pagadores; escolhida a Allianz, as janelas e as linhas mostram só as duas | `REQ-662` |
+| `CA-662b` | Comissão prevista sem pagador → em "pagador não informado" | `REQ-662` |
+| `CA-663` | Elegibilidade de 128,77 lida, nada recebido → a linha é marcada e aparece na lista "declarado e não visto" com 128,77 declarado e 0,00 recebido | `REQ-663` |
+| `CA-663b` | Recebidos 128,77 → a comissão sai da agenda e da lista | `REQ-663` |
+| `CA-664` | Recebimento de 100,00 sem origem → na lista de sem origem, com total 100,00; nenhuma janela muda | `REQ-664` |
+| `CA-665` | Com o Ledger fora do ar, a agenda diz "indisponível" | `REQ-665` |
+
+| ID | Caso que deve ser rejeitado | Regra |
+| --- | --- | --- |
+| `REJ-661` | Tratar uma comissão sem data esperada como atrasada | `REQ-661`, `REQ-271` |
+| `REJ-662` | Supor o pagador de uma posição que não o nomeia | `REQ-662` |
+| `REJ-663` | Tratar o declarado pela operadora como recebido, ou somá-lo no Treasury | `REQ-663` |
+
 ---
 
 ## 9. Entrada por texto livre
@@ -2688,7 +2751,7 @@ principal dessas mudanças.
 | **E1** ✅ | **Ambiente confiável:** login por pessoa, cópia diária do livro, telas que aguentam o volume real | Os cinco. Sem isso não há uso real: a auditoria não sabe quem fez o quê, um reinício pode perder a avaliação e as telas travam com ≈1.140 operações por semana | 01–04 | Nada. A `DEC-041` foi decidida em 2026-11-13 (§6) | Sim |
 | **E2** | **Agenda a pagar** | CFO. Acaba com a conta que aparece do nada (dor 1) | 05 | Nada; a janela começa em 7 dias (`Q-055`) | ✅ Feito em 2026-11-13 |
 | **E3** | **Pagamentos do dia em lote** | CFO. Permite registrar o volume real (dor 3) | 08 | Nada: a `DEC-044` foi decidida em 2026-11-13 (§8.6) | ✅ Feito em 2026-11-13 |
-| **E4** | **Agenda a receber**, com o declarado pela operadora e ainda não visto no banco | CFO e verificadores. Saber o que cobrar (dor 4) | 09 | Nada; `DEC-036` melhora a precisão e pode esperar o piloto | Sim |
+| **E4** | **Agenda a receber**, com o declarado pela operadora e ainda não visto no banco | CFO e verificadores. Saber o que cobrar (dor 4) | 09 | Nada; `DEC-036` melhora a precisão e pode esperar o piloto | ✅ Feito em 2026-11-13 |
 | **E5** | **Sinais entrando sozinhos:** seguro em operação real e saúde | Verificadores. Obrigações e expectativas sem digitação | 10, 11 | Seguro: nada. Saúde: `Q-054`, que é falta de informação, não decisão | Seguro sim; saúde não |
 | **E6** | **Saldo por instituição e conferência com o banco** | CFO. O livro passa a bater com o banco (dor 2) | 06, 07 | `Q-055`, e como entra a transferência entre instituições (`REQ-650`). A `DEC-044` foi decidida | Sim, o saldo por instituição; a conferência espera `Q-055` |
 | **E7** | **Painel da manhã: o caixa cobre o que vence?** | CFO. A pergunta diária "posso pagar hoje?" | 12 | Uma versão inicial usa o caixa consolidado, que já existe; a versão por instituição espera o E6 | Sim, a inicial |
@@ -2859,6 +2922,22 @@ não foi visto no banco** (`REQ-263`). Também aparecem os recebimentos sem orig
 *Por quê:* dor 4. Hoje ninguém sabe o que deveria ter entrado. É a primeira vez que a Usina terá base para
 cobrar uma operadora.
 *Depende de:* `TODO-03`. A parte da saúde vem do `TODO-11`.
+*Situação:* ✅ 2026-11-13, sem commit; as regras estão em §8.7 (`REQ-660`–`REQ-665`). Nenhuma decisão do
+dono do produto foi necessária. O Ledger ganhou `GET /api/positions/agenda/receivables`, uma leitura gêmea da
+agenda a pagar: as cinco janelas pela data esperada, o total por pagador (as partes além da Usina; sem
+nenhuma, "pagador não informado") e os recebimentos sem origem com o total recebido. O Treasury mostra a
+tela "Agenda a receber" (filtro por pagador, as seis listas, a ação de receber pela posição) e, à parte, a
+lista "declarado pela operadora e ainda não visto no banco", comparando a última elegibilidade de cada
+apólice com o recebido, sem total. **Não feito:** ligar o recebimento sem origem à expectativa (`DEC-036`,
+`TODO-16`); a saúde (`TODO-11`). Testes: `receivables-agenda-endpoint.test.ts` (Ledger, 15),
+`receivables-agenda.test.ts` (Treasury, 7) e `receivablesEngine.test.ts` (tela, 3). Sabotagens conferidas:
+a comissão sem data tratada como atrasada, ou o declarado marcado mesmo já recebido, fazem os testes falhar.
+Verificado com o Ledger de verdade num livro de teste de 20 dias: 320 comissões em aberto de 10
+seguradoras, 120 declaradas e não vistas; um crédito de 2.235,89 da seguradora 1 com 2.135,89 atribuídos
+tirou a apólice da lista (120 → 119), baixou o total da seguradora para 128.284,44 e pôs 100,00 em
+"recebido sem origem", com a seguradora como pagadora. As quatro leituras ficaram abaixo de 20 ms
+(`load:measure`). Suítes: Ledger 923 e 12 pendentes; Treasury 988, com 37 `it.todo`, e 197 no cliente. A
+tela será vista no navegador no piloto.
 
 `TODO-10` **Seguro em operação real.** Os sinais do sistema de seguro chegam pelo broker de mensagens de
 verdade, com o produtor e o consumidor rodando no ambiente da avaliação.

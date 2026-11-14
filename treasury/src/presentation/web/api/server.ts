@@ -48,6 +48,7 @@ import type { StartPositionActionUseCase } from "../../../core/application/use-c
 import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIntent";
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
 import type { GetPayablesAgendaUseCase } from "../../../core/application/use-cases/GetPayablesAgenda";
+import type { GetReceivablesAgendaUseCase } from "../../../core/application/use-cases/GetReceivablesAgenda";
 
 export interface ServerDeps {
   auth: AuthService;
@@ -90,6 +91,8 @@ export interface ServerDeps {
   getLedgerEvent: GetLedgerEventUseCase;
   /** §8.5. Absent in tests about something else; then /api/dashboard/agenda is not mounted. */
   getPayablesAgenda?: GetPayablesAgendaUseCase;
+  /** §8.7. Absent in tests about something else; then /api/dashboard/receivables is not mounted. */
+  getReceivablesAgenda?: GetReceivablesAgendaUseCase;
   /** §8.6. Absent in tests about something else; then /api/batches is not mounted. */
   payablesBatch?: PayablesBatchUseCase;
 }
@@ -164,6 +167,7 @@ export function createServer(deps: ServerDeps) {
       deps.listCashMovements,
       deps.getLedgerEvent,
       deps.getPayablesAgenda,
+      deps.getReceivablesAgenda,
     ),
   );
 

@@ -1,12 +1,12 @@
 import { type ReactElement } from "react";
-import { BarChart3, CalendarClock, ChevronLeft, FileText, Inbox, KeyRound, LayoutDashboard, MessageSquare, UserCog, Users, Warehouse } from "lucide-react";
+import { BarChart3, CalendarClock, ChevronLeft, FileText, HandCoins, Inbox, KeyRound, LayoutDashboard, MessageSquare, UserCog, Users, Warehouse } from "lucide-react";
 import { useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
 
 export interface NavItem {
   id: string;
   label: string;
-  icon: "operations" | "dashboards" | "positions" | "intents" | "partyView" | "parties" | "signals" | "users" | "agenda";
+  icon: "operations" | "dashboards" | "positions" | "intents" | "partyView" | "parties" | "signals" | "users" | "agenda" | "receivables";
   /** Something waiting for the user here, e.g. signals not yet reviewed. Hidden when zero or absent. */
   badge?: number;
   badgeLabel?: string;
@@ -32,6 +32,7 @@ const icons: Record<NavItem["icon"], ReactElement> = {
   signals: <Inbox className="size-4" strokeWidth={1.5} />,
   users: <KeyRound className="size-4" strokeWidth={1.5} />,
   agenda: <CalendarClock className="size-4" strokeWidth={1.5} />,
+  receivables: <HandCoins className="size-4" strokeWidth={1.5} />,
 };
 
 export function Sidebar({ items, activeId, onSelect, open, onClose, collapsed, onToggleCollapse }: SidebarProps) {

@@ -19,8 +19,10 @@ import type {
   LedgerEventRef,
   PayablesAgendaPage,
   PayablesAgendaQuery,
+  ReceivablesAgendaPage,
+  ReceivablesAgendaQuery,
 } from "../../core/application/dtos/LedgerReadModels";
-import type { PayablesAgendaPort } from "../../core/application/ports/PayablesAgendaPort";
+import type { PayablesAgendaPort, ReceivablesAgendaPort } from "../../core/application/ports/PayablesAgendaPort";
 
 /** The Ledger's position-detail payload, as `serializePositionSummary` emits it. */
 interface LedgerPositionDetail {
@@ -96,7 +98,7 @@ function standingOrigination(
  * timeout so a slow/hung Ledger can't hang a treasury request.
  */
 export class HttpLedgerReadAdapter
-  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort, PartyEventsPort, PayablesAgendaPort
+  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort, PartyEventsPort, PayablesAgendaPort, ReceivablesAgendaPort
 {
   constructor(
     private readonly baseUrl: string,
@@ -193,6 +195,19 @@ export class HttpLedgerReadAdapter
     if (query.page) q.set("page", String(query.page));
     if (query.limit) q.set("limit", String(query.limit));
     const raw = await this.get<PayablesAgendaPage>(`/api/positions/agenda/payables?${q.toString()}`);
+    return { ...raw, data: (raw.data ?? []).map(toPositionItem) };
+  }
+
+  /** §8.7: the Ledger's agenda of what is owed to the Usina. Every total passes through untouched. */
+  async receivablesAgenda(query: ReceivablesAgendaQuery): Promise<ReceivablesAgendaPage> {
+    const q = new URLSearchParams();
+    if (query.window) q.set("window", query.window);
+    if (query.windowDays !== undefined) q.set("windowDays", String(query.windowDays));
+    // "" is a real filter (no payer named), so only an absent payer is left out.
+    if (query.payer !== undefined) q.set("payer", query.payer);
+    if (query.page) q.set("page", String(query.page));
+    if (query.limit) q.set("limit", String(query.limit));
+    const raw = await this.get<ReceivablesAgendaPage>(`/api/positions/agenda/receivables?${q.toString()}`);
     return { ...raw, data: (raw.data ?? []).map(toPositionItem) };
   }
 
@@ -528,6 +543,7 @@ function toPositionItem(p: PositionItem): PositionItem {
     outcome: p.outcome,
     currency: p.currency,
     totalOriginated: p.totalOriginated,
+    ...(p.totalSettled !== undefined ? { totalSettled: p.totalSettled } : {}),
     openBalance: p.openBalance,
     eventCount: p.eventCount,
     lastEventAt: p.lastEventAt,

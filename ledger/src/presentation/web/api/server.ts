@@ -5,6 +5,7 @@ import { RejectedEventRepository } from "../../../core/application/repositories/
 import { StagingRepository } from "../../../core/application/repositories/StagingRepository";
 import { PositionProjectionService } from "../../../core/application/services/PositionProjectionService";
 import { PayablesAgendaService } from "../../../core/application/services/PayablesAgendaService";
+import { ReceivablesAgendaService } from "../../../core/application/services/ReceivablesAgendaService";
 import { CashPositionService } from "../../../core/application/services/CashPositionService";
 import { CashStatementService } from "../../../core/application/services/CashStatementService";
 import { CashEventListingService } from "../../../core/application/services/CashEventListingService";
@@ -67,8 +68,11 @@ export function createServer(deps: ServerDeps) {
   app.use("/api/events", eventRoutes(deps.ledgerRepo));
   // §8.5 of the Treasury's requirements: the agenda of what the Usina owes, read in the Usina's zone
   // (`config/env.ts` sets the process TZ from it at boot).
-  const payablesAgenda = new PayablesAgendaService(deps.ledgerRepo, deps.positionService, process.env.TZ || "America/Sao_Paulo");
-  app.use("/api/positions", positionRoutes(deps.positionService, payablesAgenda));
+  const zone = process.env.TZ || "America/Sao_Paulo";
+  const payablesAgenda = new PayablesAgendaService(deps.ledgerRepo, deps.positionService, zone);
+  // §8.7: its twin, what is owed to the Usina. Needs the Usina's own id to tell it from the payer.
+  const receivablesAgenda = new ReceivablesAgendaService(deps.ledgerRepo, deps.positionService, zone, deps.usinaPartyId);
+  app.use("/api/positions", positionRoutes(deps.positionService, payablesAgenda, receivablesAgenda));
   app.use("/api/cash-position", cashPositionRoutes(cashPositionService));
   app.use("/api/cash-statement", cashStatementRoutes(cashStatementService));
   app.use("/api/cash-movements", cashMovementsRoutes(cashListingService));

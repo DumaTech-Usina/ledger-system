@@ -33,7 +33,8 @@ import type { LedgerEventLookupPort } from "./core/application/ports/LedgerEvent
 import type { SlotExtractionPort } from "./core/application/ports/SlotExtractionPort";
 import { SystemClock } from "./infra/system/SystemClock";
 import { GetPayablesAgendaUseCase } from "./core/application/use-cases/GetPayablesAgenda";
-import type { PayablesAgendaPort } from "./core/application/ports/PayablesAgendaPort";
+import { GetReceivablesAgendaUseCase } from "./core/application/use-cases/GetReceivablesAgenda";
+import type { PayablesAgendaPort, ReceivablesAgendaPort } from "./core/application/ports/PayablesAgendaPort";
 import { accessModule } from "./infra/auth/accessModule";
 import { SESSION_TTL_MS } from "./core/domain/policies/accessPolicy";
 import { UuidGenerator } from "./infra/system/UuidGenerator";
@@ -167,7 +168,8 @@ async function bootstrap(): Promise<void> {
     LedgerEventLookupPort &
     PositionLookupPort &
     PartyEventsPort &
-    PayablesAgendaPort;
+    PayablesAgendaPort &
+    ReceivablesAgendaPort;
   if (env.LEDGER_MODE === "simulate") {
     // One in-memory fake Ledger for BOTH submit + reads → the full create→dashboard loop works.
     const simulator = new InMemoryLedgerSimulator();
@@ -301,6 +303,7 @@ async function bootstrap(): Promise<void> {
     ),
     listInsurerReceivables: new ListInsurerReceivablesUseCase(ledgerRead),
     getPayablesAgenda: new GetPayablesAgendaUseCase(ledgerRead, partyDirectory, env.USINA_PARTY_ID),
+    getReceivablesAgenda: new GetReceivablesAgendaUseCase(ledgerRead, signalRepo, partyDirectory, env.USINA_PARTY_ID),
     // §8.6. The prepared batches live with the operations (REQ-652): durable whenever the Ledger is real.
     payablesBatch: new PayablesBatchUseCase({
       batches: new PreparedBatches(

@@ -89,6 +89,8 @@ export interface PositionItem {
   outcome: string;
   currency: string;
   totalOriginated: string;
+  /** What has been settled so far. Optional: older reads and fakes may not carry it — then unknown. */
+  totalSettled?: string;
   /** Null when the origination is unknown — the Ledger publishes no number it cannot derive. */
   openBalance: string | null;
   eventCount: number;
@@ -380,6 +382,45 @@ export interface PayablesAgendaPage {
 export interface PayablesAgendaQuery {
   window?: AgendaWindow;
   windowDays?: number;
+  page?: number;
+  limit?: number;
+}
+
+/** A count and the Ledger's total per currency (REQ-601). */
+export interface AgendaSummary {
+  count: number;
+  totals: Record<string, string>;
+}
+
+/** §8.7: the five windows, or the receipts with no known origin (REQ-664). */
+export type ReceivablesAgendaList = AgendaWindow | "unlinked";
+export const RECEIVABLES_AGENDA_LISTS: readonly ReceivablesAgendaList[] = [...AGENDA_WINDOWS, "unlinked"];
+
+/**
+ * The agenda of what is owed to the Usina as the Ledger publishes it (§8.7): the windows, the receipts
+ * with no known origin, and every payer, each with the Ledger's own totals.
+ */
+export interface ReceivablesAgendaPage {
+  asOf: string;
+  windowDays: number;
+  windows: Record<AgendaWindow, AgendaSummary>;
+  unlinked: AgendaSummary;
+  /** `key` is the payer filter: the payer's party ids, sorted and joined by commas; "" = none named. */
+  payers: (AgendaSummary & { key: string; partyIds: string[] })[];
+  payer: string | null;
+  window: ReceivablesAgendaList;
+  data: PositionItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface ReceivablesAgendaQuery {
+  window?: ReceivablesAgendaList;
+  windowDays?: number;
+  /** A payer key; "" for the positions that name no payer. */
+  payer?: string;
   page?: number;
   limit?: number;
 }

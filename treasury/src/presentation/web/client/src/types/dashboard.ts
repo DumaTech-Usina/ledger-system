@@ -86,6 +86,8 @@ export interface PositionItem {
   outcome: string;
   currency: string;
   totalOriginated: string;
+  /** What has come in or been paid so far. Absent when the read did not publish it. */
+  totalSettled?: string;
   /** Null when the origination is unknown — never zero. The Ledger publishes no figure it cannot derive. */
   openBalance: string | null;
   eventCount: number;
