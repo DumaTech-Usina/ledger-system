@@ -1,7 +1,9 @@
 import { EVENT_CONTRACTS } from "../contracts/EventContract";
 import { CreateLedgerEventProps } from "../entities/LedgerEvent";
 import { ConfidenceLevel } from "../enums/ConfidenceLevel";
+import { EconomicEffect } from "../enums/EconomicEffect";
 import { EventType } from "../enums/EventType";
+import { ObjectType } from "../enums/ObjectType";
 import { ObjectNature } from "../enums/ObjectNature";
 import { ReasonType } from "../enums/ReasonType";
 import { Relation } from "../enums/Relation";
@@ -212,6 +214,28 @@ export class InvariantPolicy {
         throw new Error(
           `Contextual object ${obj.objectType} must use relation REFERENCES`,
         );
+      }
+    }
+
+    // ===============================
+    // 1️⃣1️⃣b The institution the money moved in (REQ-650, DEC-044)
+    // ===============================
+    //
+    // Where the money entered or left is an observed fact, cited as a context. Money leaves or enters
+    // ONE institution, so a cash fact cites at most one; a fact that moves no money has no institution
+    // to cite. A transfer between institutions (CASH_INTERNAL) needs an origin and a destination, which
+    // one context cannot say — refused until that is decided (TODO-06). Citing none is not refused:
+    // the institution is then unknown, never assumed.
+
+    const institutions = contextualObjects.filter((o) => o.objectType === ObjectType.CASH_ACCOUNT);
+    if (institutions.length > 0) {
+      if (props.economicEffect !== EconomicEffect.CASH_IN && props.economicEffect !== EconomicEffect.CASH_OUT) {
+        throw new Error(
+          `An institution (cash_account) can be cited only by a fact that moves money in or out of the Usina, not by a ${props.economicEffect} fact`,
+        );
+      }
+      if (new Set(institutions.map((o) => o.objectId)).size > 1) {
+        throw new Error("A cash fact cites at most one institution (cash_account): the money moved in one of them");
       }
     }
 

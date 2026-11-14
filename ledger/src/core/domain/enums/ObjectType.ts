@@ -16,6 +16,8 @@ export enum ObjectType {
   PROPOSAL = "proposal",
   INSTALLMENT = "installment",
   SETTLEMENT_BATCH = "settlement_batch",
+  /** The institution (bank, broker) the money moved in: a context of a cash fact (REQ-650). */
+  CASH_ACCOUNT = "cash_account",
 
   // Penalidade
   PENALTY = "penalty",

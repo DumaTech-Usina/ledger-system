@@ -42,6 +42,8 @@ services:
       USINA_PARTY_ID: ${USINA_PARTY_ID:-party-usina}
       # §6: no default user. First administrator: docker compose exec treasury node dist/infra/auth/cli/first-admin.js <e-mail>
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
+      # REQ-650: the institutions money moves in. The key is written into facts — never change one once used.
+      CASH_INSTITUTIONS: ${CASH_INSTITUTIONS:-bradesco=Bradesco,itau=Itaú,corretora=Corretora de investimentos}
       ACCESS_DB_FILE: /app/data/treasury.db
       PARTY_DIRECTORY_MODE: sqlite
       PARTY_DB_FILE: /app/data/treasury.db

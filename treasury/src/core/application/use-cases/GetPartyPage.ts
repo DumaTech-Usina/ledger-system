@@ -21,7 +21,7 @@ export const USINA_OWES = new Set(["payable", "commission_payable", "payroll", "
 export const PARTY_OWES = new Set(["loan", "advance", "receivable", "commission_receivable"]);
 
 /** The Ledger's contextual kinds (DEC-036): they say what a fact was about and hold no balance. */
-const CONTEXTUAL = new Set(["contract", "proposal", "installment", "settlement_batch", "campaign"]);
+const CONTEXTUAL = new Set(["contract", "proposal", "installment", "settlement_batch", "campaign", "cash_account"]);
 
 /** The expectations a "depende de" block may show: what an insurer is expected to pay the usina. */
 const EXPECTATIONS = new Set(["commission_receivable"]);

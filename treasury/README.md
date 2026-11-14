@@ -25,7 +25,7 @@ npm run user:create -- --email=voce@usina.test --role=admin --name=Você   # dev
 
 Relevant env (`src/config/env.ts`): `PORT` (4000), `LEDGER_MODE` (`simulate` \| `stub` \| `live`),
 `EXTRACTION_MODE` (`stub`), `LEDGER_API_URL`, `USINA_PARTY_ID`, `OPERATIONS_STORE_MODE` (`memory` \|
-`sqlite`; with `LEDGER_MODE=live` it is always `sqlite`), `OPERATIONS_DB_FILE`, `PARTY_DIRECTORY_MODE` (same rule), `PARTY_DB_FILE`, `ACCESS_DB_FILE`, `PUBLIC_BASE_URL` (base of invite links), `TRUSTED_ORIGINS` (other
+`sqlite`; with `LEDGER_MODE=live` it is always `sqlite`), `OPERATIONS_DB_FILE`, `PARTY_DIRECTORY_MODE` (same rule), `PARTY_DB_FILE`, `ACCESS_DB_FILE`, `PUBLIC_BASE_URL` (base of invite links), `CASH_INSTITUTIONS` (the institutions a payment can cite, `key=Name,…`; a key is written into facts and never changes once used, §8.6), `TRUSTED_ORIGINS` (other
 origins allowed to change data; in dev, the Vite server). Curation is granted by an administrator on
 the Users screen.
 

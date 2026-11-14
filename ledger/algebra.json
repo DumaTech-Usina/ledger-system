@@ -4,6 +4,7 @@
     "advance": "positional",
     "bonus": "positional",
     "campaign": "contextual",
+    "cash_account": "contextual",
     "chargeback": "positional",
     "commission_entitlement": "positional",
     "commission_payable": "positional",
@@ -39,6 +40,9 @@
       "retracts"
     ],
     "campaign": [
+      "references"
+    ],
+    "cash_account": [
       "references"
     ],
     "chargeback": [

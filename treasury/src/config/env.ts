@@ -99,6 +99,13 @@ const envSchema = z.object({
    * Treasury's own address is always allowed. In development, the client's dev server.
    */
   TRUSTED_ORIGINS: z.string().optional(),
+
+  /**
+   * The institutions the Usina's money moves in (REQ-650), as `key=Name` pairs, comma-separated. The
+   * key is written into every payment that names the institution, so it NEVER changes once used; the
+   * name can. Set it before the first real payment.
+   */
+  CASH_INSTITUTIONS: z.string().min(1).default("bradesco=Bradesco,itau=Itaú,corretora=Corretora de investimentos"),
 });
 
 const result = envSchema.safeParse(process.env);

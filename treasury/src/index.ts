@@ -68,6 +68,9 @@ import { PreviewNotices } from "./core/application/services/PreviewNotices";
 import { positionsOnly } from "./core/application/services/PositionsOnly";
 import { InMemoryExternalSignalRepository } from "./infra/persistence/InMemoryExternalSignalRepository";
 import { SqliteExternalSignalRepository } from "./infra/persistence/SqliteExternalSignalRepository";
+import { SqlitePreparedBatchStore } from "./infra/persistence/SqlitePreparedBatchStore";
+import { InMemoryPreparedBatchStore, PreparedBatches } from "./core/application/services/PreparedBatches";
+import { PayablesBatchUseCase, institutionsFrom } from "./core/application/use-cases/PayablesBatch";
 
 async function bootstrap(): Promise<void> {
   // ── Composition root ─────────────────────────────────────────────────────────
@@ -298,6 +301,24 @@ async function bootstrap(): Promise<void> {
     ),
     listInsurerReceivables: new ListInsurerReceivablesUseCase(ledgerRead),
     getPayablesAgenda: new GetPayablesAgendaUseCase(ledgerRead, partyDirectory, env.USINA_PARTY_ID),
+    // §8.6. The prepared batches live with the operations (REQ-652): durable whenever the Ledger is real.
+    payablesBatch: new PayablesBatchUseCase({
+      batches: new PreparedBatches(
+        audit,
+        clock,
+        durableOperations ? new SqlitePreparedBatchStore(env.OPERATIONS_DB_FILE) : new InMemoryPreparedBatchStore(),
+      ),
+      lifecycle: ledgerRead,
+      events: ledgerRead,
+      fromPosition: new StartPositionActionUseCase(ledgerRead, ledgerRead, startIntent, applyAnswers, env.USINA_PARTY_ID),
+      applyAnswers,
+      submit: submitIntent,
+      clock,
+      usinaPartyId: env.USINA_PARTY_ID,
+      institutions: institutionsFrom(env.CASH_INSTITUTIONS),
+      names: { displayNameOf: async (id) => (await partyDirectory.get(id))?.displayName ?? null },
+      users,
+    }),
   });
 
   const server = app.listen(env.PORT, () => {

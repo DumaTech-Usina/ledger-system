@@ -122,6 +122,8 @@ beforeAll(async () => {
     listPendingIdentities: unused,
     getPartyEvents: unused,
     getPartyPage: unused,
+    // Present, so /api/batches is mounted and a refusal is the guard's, not a 404.
+    payablesBatch: {} as never,
   });
   server = app.listen(0);
   await new Promise<void>((resolve) => server.once("listening", () => resolve()));
@@ -161,6 +163,9 @@ describe("REQ-401 — visualizador", () => {
     ["retificar", "/api/conversation/rectify"],
     ["registrar um sinal do sistema de seguro", "/api/signals"],
     ["registrar um crédito da seguradora", "/api/signals/credits"],
+    ["preparar um lote de pagamentos (§8.6)", "/api/batches"],
+    ["anotar o pagamento de um lote", "/api/batches/batch-x/pay"],
+    ["descartar um lote", "/api/batches/batch-x/discard"],
   ])("REJ-401: não pode %s", async (_label, path) => {
     const before = (await repo.listByUser("user-viewer")).length;
     const res = await send("POST", path, viewer, { scenarioId: "register_payroll", utterance: "folha" });
@@ -196,6 +201,8 @@ describe("REQ-401 — quem não entrou no sistema", () => {
     ["POST", "/api/conversation/start"],
     ["GET", "/api/signals"],
     ["POST", "/api/signals"],
+    ["GET", "/api/batches"],
+    ["POST", "/api/batches"],
   ])("%s %s responde 401", async (method, path) => {
     expect((await send(method, path)).status).toBe(401);
   });

@@ -62,6 +62,7 @@ export const OBJECT_NATURE_MATRIX: Record<ObjectType, ObjectNature> = {
   [ObjectType.PROPOSAL]: ObjectNature.CONTEXTUAL,
   [ObjectType.INSTALLMENT]: ObjectNature.CONTEXTUAL,
   [ObjectType.SETTLEMENT_BATCH]: ObjectNature.CONTEXTUAL,
+  [ObjectType.CASH_ACCOUNT]: ObjectNature.CONTEXTUAL,
   [ObjectType.CAMPAIGN]: ObjectNature.CONTEXTUAL,
 };
 
@@ -112,6 +113,7 @@ export const OBJECT_RELATION_MATRIX: Partial<
   [ObjectType.PROPOSAL]:         [Relation.REFERENCES],
   [ObjectType.INSTALLMENT]:      [Relation.REFERENCES],
   [ObjectType.SETTLEMENT_BATCH]: [Relation.REFERENCES],
+  [ObjectType.CASH_ACCOUNT]:     [Relation.REFERENCES],
   [ObjectType.CAMPAIGN]:         [Relation.REFERENCES],
 };
 

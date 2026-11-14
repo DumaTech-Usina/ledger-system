@@ -62,6 +62,7 @@
 > | 2026-11-13 | 19 (cont.) — backup | **Decidido:** a cópia fora da máquina vai ao Cloudflare R2 que a Usina já usa, sob prefixo próprio, guardando as 30 mais recentes. `TODO-02` feito. Nada foi revogado. |
 > | 2026-11-13 | 19 (cont.) — agenda a pagar | **Decidido:** não há prazo combinado para pagar o corretor depois da elegibilidade, então o repasse fica em "sem vencimento" (§8.5); o Ledger publica a agenda por janela de vencimento, com os totais (`REQ-642`, `DEC-042` item 1 em parte). **Novo:** §8.5 (`REQ-640`–`REQ-645`, `CA-640`–`CA-645`, `REJ-641`, `REJ-642`). **`TODO-05` feito; E2 fechado.** §17 C2 resolvido. Nada foi revogado. |
 > | 2026-11-13 | 19 (cont.) — volume | **`TODO-03` feito:** um mês à volumetria real (≈1.150 pagamentos e repasses por semana, 12.330 fatos); as telas do dia ficaram abaixo de 1 s, sem mudança. **E1 fechado.** O que cresce com o livro foi para §17, com os números. Nada foi revogado. |
+> | 2026-11-13 | 19 (cont.) — pagamentos do dia | **Decidido:** a `DEC-044`: o fato de caixa cita a instituição como contexto (`cash_account`), no máximo uma, nunca num fato sem dinheiro; sem ela, "instituição desconhecida", e os eventos anteriores ficam assim, nunca distribuídos. A transferência entre instituições fica para o E6. **Novo:** §8.6 (`REQ-650`–`REQ-654`, `CA-650`–`CA-654`, `REJ-650`, `REJ-650b`, `REJ-653`). **Ampliado:** `REQ-239` (o lote também é montado na agenda, de vários credores). **`TODO-08` feito; E3 fechado.** §17 R1 resolvido. Nada foi revogado. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -155,7 +156,7 @@ valor: diz o que o produto já cobre, o que falta e onde cada coisa deve morar.
 | | Nota fiscal e documento fiscal | Sustentar obrigação e imposto | A decidir | ⬜ nenhuma menção |
 | | Trilha de auditoria (quem fez o quê) | Responder a auditor e a sócio | Treasury | ✅ §10, histórico com autor (§8.4) |
 | Pagar e receber | Agenda do que vence: a pagar e a receber | Planejar o dia e a semana | Treasury (leitura) | 🔶 a pagar no painel; a receber ⬜ |
-| | Pagamento em lote com extrato de recebível | Pagar dezenas de repasses de uma vez | Treasury | 🔶 `REQ-239`, `REQ-244`, passo 4 |
+| | Pagamento em lote com extrato de recebível | Pagar dezenas de repasses de uma vez | Treasury | 🔶 lote montado na agenda e pago ✅ (§8.6); extrato de recebível (`REQ-244`) e recibos (`REQ-245`) não |
 | | Cobrança e recuperação (adiantamento, empréstimo) | Trazer de volta o que a parte deve | Treasury | 🔶 ações da posição; sem rotina de cobrança |
 | Caixa e banco | Posição e extrato de caixa | Saber quanto há e por quê | Ledger | ✅ |
 | | Conciliação bancária (banco × livro) | Garantir que o livro bate com o banco | Treasury | ⬜ `DEC-018` |
@@ -1674,6 +1675,69 @@ zero (`REQ-602`).
 | `REJ-641` | Tratar uma posição sem vencimento como vencida ou de hoje | `REQ-641` |
 | `REJ-642` | O Treasury somar os saldos para mostrar um total | `REQ-642` |
 
+### 8.6 Pagamentos do dia em lote e a instituição do dinheiro
+
+> Decidida em 2026-11-13 (E3, `TODO-08`). Responde à dor 3 de §18.2: com ≈1.140 pagamentos e repasses por
+> semana, registrar um a um pela conversa é inviável. As regras do lote já estavam decididas (`REQ-239`,
+> `REQ-246`, `REQ-249`); aqui entram a montagem a partir da agenda, a gravação do lote e a instituição
+> (`DEC-044`).
+
+`REQ-650` **A instituição do dinheiro** (`DEC-044`, decidida em 2026-11-13). Em que instituição o dinheiro
+entrou ou saiu é um fato observado, e o fato de caixa passa a poder dizê-lo: o evento **cita a instituição
+como contexto** (`cash_account`, relação `references`), do mesmo jeito que cita o lote. O molde do evento,
+o hash e os eventos já gravados não mudam.
+- Um evento de entrada ou de saída de dinheiro cita **no máximo uma** instituição.
+- Um evento sem movimento de dinheiro (`NON_CASH`) **não cita** instituição: não há dinheiro para estar em
+  algum lugar.
+- Um evento que não cita instituição é de **"instituição desconhecida"**. Os eventos anteriores a esta
+  regra ficam assim para sempre, **nunca distribuídos por suposição**.
+- A transferência entre instituições (`CASH_INTERNAL`, que precisa de origem e destino) fica para o E6
+  (`TODO-06`); até lá, o Ledger recusa a instituição nesse efeito.
+- As instituições são uma lista do Treasury (hoje Bradesco, Itaú e a corretora). O identificador de cada
+  uma (`instituicao:<nome>`) **não muda depois de usado**, porque fica gravado nos fatos.
+
+`REQ-651` **Montar o lote na agenda** (amplia `REQ-239`). Na agenda a pagar (§8.5), quem pode registrar
+pagamentos marca as linhas que vai pagar, de qualquer janela e de vários credores. O valor de cada linha
+começa no saldo em aberto e pode ser **menor** (pagamento em parte, `REQ-246`), **nunca maior** (`Q-048`,
+prevenção). Uma linha sem credor conhecido, com mais de um credor ou em outra moeda **não entra no lote**:
+é paga pela posição, como antes. O lote preparado continua sendo rascunho do Treasury e nunca fato.
+
+`REQ-652` **O lote preparado é gravado** (§17 R1): sobrevive a um reinício. Fica de pé até ser pago ou
+descartado, e uma obrigação está em no máximo um lote de pé (`REJ-239`). Preparar, descartar e pagar são
+auditados (`REQ-804`).
+
+`REQ-653` **Anotar que pagou.** Depois de pagar no banco, o usuário informa **a data, a instituição e o
+valor debitado** no banco. A instituição é escolhida na lista ou marcada explicitamente como **"não
+informada"**: nunca preenchida por suposição. Antes de enviar qualquer coisa, o Treasury confere que o
+débito é igual à soma das linhas do lote (`REQ-246`); se não for, **nada é enviado**. Conferido, vira **um
+evento por linha** (`REQ-246`), cada um quitando a sua obrigação, pago ao credor dela, citando o lote e a
+instituição. Um recusado não impede os demais (`REQ-249`). O resultado mostra cada linha (registrada ou
+recusada, com o motivo) e a diferença entre o débito e o que foi registrado.
+> A soma do lote não contradiz `REQ-642`: são os valores que o próprio usuário escolheu, conferidos contra
+> o extrato, e não saldos do Ledger.
+
+`REQ-654` **Um lote é pago uma vez.** Anotado o pagamento, o lote sai dos lotes de pé e guarda o resultado.
+Anotar de novo é recusado: o dinheiro saiu do banco uma vez. Uma linha recusada continua visível no lote, e
+a correção é feita pela posição.
+
+| ID | Critério | Regra |
+| --- | --- | --- |
+| `CA-650` | Pagamento anotado no Itaú → o evento cita `instituicao:itau` como contexto; o caixa e a posição mudam como antes | `REQ-650` |
+| `CA-650b` | Pagamento com a instituição "não informada" → o evento não cita instituição | `REQ-650`, `REQ-653` |
+| `CA-651` | Na agenda, João 300,00 (repasse) e um fornecedor 200,00 → um lote preparado com as duas linhas, de dois credores | `REQ-651` |
+| `CA-651b` | 150,00 numa obrigação de 120,00 em aberto → recusado ao preparar | `REQ-651` |
+| `CA-652` | Lote preparado, servidor reiniciado → o lote continua de pé com as mesmas linhas | `REQ-652` |
+| `CA-653` | Débito de 500,00 no lote de 300,00 + 200,00, no Itaú → dois eventos, os dois citando o mesmo lote e o Itaú; as duas obrigações saem da agenda | `REQ-653` |
+| `CA-653b` | Débito de 510,00 no mesmo lote → recusado, nenhum evento enviado, o lote continua de pé | `REQ-653` |
+| `CA-653c` | Lote de três linhas, uma já paga por outro caminho → as outras duas registradas, a recusada aparece com o motivo, e a diferença com o débito é o valor dela | `REQ-653`, `REQ-249` |
+| `CA-654` | Anotar de novo o pagamento de um lote já pago → recusado | `REQ-654` |
+
+| ID | Caso que deve ser rejeitado | Regra |
+| --- | --- | --- |
+| `REJ-650` | Distribuir eventos sem instituição entre as instituições, por suposição | `REQ-650` |
+| `REJ-650b` | Um evento citando duas instituições, ou uma instituição num evento sem dinheiro | `REQ-650` |
+| `REJ-653` | Enviar algum evento quando o débito não bate com a soma do lote | `REQ-653` |
+
 ---
 
 ## 9. Entrada por texto livre
@@ -2138,7 +2202,7 @@ Treasury a partir das três fontes, §5).
 | `DEC-042` | **Filtros de leitura no Ledger**: (1) posições só vencidas / a vencer / sem vencimento, e por contexto (apólice); (2) eventos de uma parte paginados e filtrados (data de registro, tipo, autor, situação), hoje lidos inteiros (§17, P1). Hoje o Ledger ordena por vencimento, mas não filtra por ele nem por contexto. Não muda a álgebra nem cria fato; muda a leitura do Ledger. **Item 1 em parte decidido em 2026-11-13:** o Ledger publica a agenda a pagar por janela de vencimento, com os totais (`REQ-642`); o contexto (apólice) e o item 2 continuam abertos | A página da parte ordena por vencimento; o filtro por contexto e o item 2 ficam de fora |
 | `DEC-043` | **Rotina financeira e lacunas para um sistema financeiro funcional** (§1.1): mapear com o dono do produto, em modo interativo (uma pergunta por vez, desafiando as respostas), a rotina diária, semanal e mensal do financeiro da Usina — quem faz, o que entra, o que sai. Cada linha aponta para um `REQ` ou vira lacuna; cada ⬜ e "a decidir" de §1.1 é decidido: entra no Treasury, no Ledger (só se for fato) ou fica fora. Primeira pergunta: como começa o dia de quem cuida do financeiro, e o que confere primeiro | Vale §1.1 como régua; nada decidido |
 | `DEC-036` | **Enriquecer a origem depois**: ligar um recebimento sem origem (ou outro fato isolado) à comissão prevista quando se descobre de onde veio, **sem reescrever o fato** ("a linhagem é progressiva", `CLAUDE.md`). Não existe hoje no Ledger nem no Treasury. Ideia do dono do produto: usar isso para olhar o passado a partir do saldo no banco (Bradesco, Itaú, corretora de investimentos), perguntando "de onde veio cada valor?", e construir a verdade financeira enquanto se concilia, independente do banco. Relaciona-se com `DEC-018` | O recebimento sem origem fica pendente e visível; não há como ligá-lo depois |
-| `DEC-044` | **Instituição no fato de caixa** (aberta em 2026-11-13). A Usina movimenta dinheiro em três instituições (Bradesco, Itaú e uma corretora de investimentos), e o Ledger conhece um caixa só. Em que instituição o dinheiro entrou ou saiu é um fato observado. Decidir como o fato de caixa passa a dizer isso e como a transferência entre instituições entra (o Ledger já tem o efeito `CASH_INTERNAL`). Os eventos anteriores ficam com a instituição **desconhecida**: nunca distribuídos por suposição. Muda a álgebra do Ledger, então precisa de uma conversa de arquitetura antes do código (`CLAUDE.md`) | Só existe o saldo consolidado; `TODO-06`, `TODO-07` e `TODO-12` esperam esta decisão |
+| `DEC-044` | ~~**Instituição no fato de caixa**~~ **Decidida em 2026-11-13:** o fato de caixa cita a instituição como contexto (`cash_account`), no máximo uma, nunca num evento sem dinheiro; sem ela, "instituição desconhecida"; os eventos anteriores ficam desconhecidos, nunca distribuídos. Alternativas descartadas: um campo novo no evento (muda o molde, o hash e o banco para o mesmo resultado), guardar só no Treasury (a instituição não seria fato do Ledger) e adiar (os pagamentos do piloto ficariam sem instituição para sempre). A transferência entre instituições fica para o E6. Ver `REQ-650` | O Ledger aceita a instituição no fato de caixa; o saldo por instituição (`TODO-06`) ainda não existe |
 | `DEC-045` | **Provisões do CFO** (aberta em 2026-11-13). O CFO aloca dinheiro na corretora de investimentos para usar depois em eventos, e controla isso hoje em planilha. **Confirmado:** ele precisa de uma ferramenta para isso. **Hipótese, não confirmada:** são investimentos pós-fixados que rendem enquanto o dinheiro não é necessário. Entender com o CFO antes de modelar. **Não confundir** com a provisão de pagamento futuro da `DEC-013` | Continua na planilha do CFO (`TODO-15`) |
 
 ### 15.2 Perguntas abertas
@@ -2516,7 +2580,7 @@ Por `DEC-031` (2026-11-09), §4.6 vem antes dos passos 4 a 8; a ordem dela está
 
 | # | Ponto | O que fazer | Situação |
 | --- | --- | --- | --- |
-| R1 | O lote preparado (`REQ-239`) vive só em memória e se perde ao reiniciar | Gravar em SQLite (passo 4) | Aberto |
+| R1 | O lote preparado (`REQ-239`) vive só em memória e se perde ao reiniciar | Gravar em SQLite (passo 4) | Resolvido em 2026-11-13 (`TODO-08`, `REQ-652`) |
 | R2 | Cobertura de testes do Ledger em 84,36% de linhas e 84,78% de funções, abaixo do mínimo de 85% (já estava abaixo antes, 84,11% e 84,71% no commit `308e90e`) | Subir ao mínimo; a regra do repositório não deixa passar | ✅ Resolvido em 2026-11-13 (`TODO-04`): 85,48% de linhas, 85,52% de funções e 85,86% de ramos, com testes de verdade e sem excluir arquivo da medição |
 | R3 | Autenticação e autorização do Treasury (`DEC-041`) | Decidir antes de abrir para usuários reais | 🔶 Decidida em 2026-11-13 (§6); implementação no `TODO-01`. Falta o envio de e-mail (`TODO-17`) |
 
@@ -2567,7 +2631,7 @@ Por `DEC-031` (2026-11-09), §4.6 vem antes dos passos 4 a 8; a ordem dela está
 **Hipóteses, não confirmadas:** as provisões são investimentos pós-fixados (`DEC-045`); quem mais tem
 acesso aos bancos é uma equipe terceirizada que faz lançamentos automáticos.
 
-**Em aberto:** `DEC-044`, `DEC-045`, `Q-053`–`Q-056` (§15).
+**Em aberto:** `DEC-045`, `Q-053`–`Q-056` (§15). A `DEC-044` foi decidida em 2026-11-13 (§8.6).
 
 ### 18.2 As dores, classificadas
 
@@ -2623,10 +2687,10 @@ principal dessas mudanças.
 | --- | --- | --- | --- | --- | --- |
 | **E1** ✅ | **Ambiente confiável:** login por pessoa, cópia diária do livro, telas que aguentam o volume real | Os cinco. Sem isso não há uso real: a auditoria não sabe quem fez o quê, um reinício pode perder a avaliação e as telas travam com ≈1.140 operações por semana | 01–04 | Nada. A `DEC-041` foi decidida em 2026-11-13 (§6) | Sim |
 | **E2** | **Agenda a pagar** | CFO. Acaba com a conta que aparece do nada (dor 1) | 05 | Nada; a janela começa em 7 dias (`Q-055`) | ✅ Feito em 2026-11-13 |
-| **E3** | **Pagamentos do dia em lote** | CFO. Permite registrar o volume real (dor 3) | 08 | Regras decididas (`REQ-239`, `REQ-246`, `REQ-249`). Só a instituição do pagamento depende da `DEC-044` | Sim, quase todo |
+| **E3** | **Pagamentos do dia em lote** | CFO. Permite registrar o volume real (dor 3) | 08 | Nada: a `DEC-044` foi decidida em 2026-11-13 (§8.6) | ✅ Feito em 2026-11-13 |
 | **E4** | **Agenda a receber**, com o declarado pela operadora e ainda não visto no banco | CFO e verificadores. Saber o que cobrar (dor 4) | 09 | Nada; `DEC-036` melhora a precisão e pode esperar o piloto | Sim |
 | **E5** | **Sinais entrando sozinhos:** seguro em operação real e saúde | Verificadores. Obrigações e expectativas sem digitação | 10, 11 | Seguro: nada. Saúde: `Q-054`, que é falta de informação, não decisão | Seguro sim; saúde não |
-| **E6** | **Saldo por instituição e conferência com o banco** | CFO. O livro passa a bater com o banco (dor 2) | 06, 07 | **`DEC-044`** e `Q-055` | Não |
+| **E6** | **Saldo por instituição e conferência com o banco** | CFO. O livro passa a bater com o banco (dor 2) | 06, 07 | `Q-055`, e como entra a transferência entre instituições (`REQ-650`). A `DEC-044` foi decidida | Sim, o saldo por instituição; a conferência espera `Q-055` |
 | **E7** | **Painel da manhã: o caixa cobre o que vence?** | CFO. A pergunta diária "posso pagar hoje?" | 12 | Uma versão inicial usa o caixa consolidado, que já existe; a versão por instituição espera o E6 | Sim, a inicial |
 | **E8** | **Piloto com a equipe** | Os cinco. Confirma se a versão serve e reordena o resto | 13 | `Q-056`, só quando o piloto começar | Depois de E1–E4 |
 
@@ -2634,7 +2698,7 @@ principal dessas mudanças.
 
 | Decisão | Pode ficar aberta até |
 | --- | --- |
-| `DEC-044` | **O primeiro pagamento real registrado no piloto.** Um fato é imutável: o que for registrado sem instituição fica "instituição desconhecida" para sempre, a menos que se crie um meio de completar isso depois. Não bloqueia construir o E3; bloqueia usá-lo de verdade. Discutir em paralelo ao E2 |
+| `DEC-044` | ~~Decidida em 2026-11-13~~: §8.6, `REQ-650`. Antes: **o primeiro pagamento real registrado no piloto.** Um fato é imutável: o que for registrado sem instituição fica "instituição desconhecida" para sempre, a menos que se crie um meio de completar isso depois. Não bloqueia construir o E3; bloqueia usá-lo de verdade. Discutir em paralelo ao E2 |
 | `Q-054` | O E5 da saúde. Enquanto isso, a saúde é registrada à mão |
 | `Q-055` | O E6. Para o E2, o valor provisório basta |
 | `Q-056` | O início do piloto |
@@ -2766,6 +2830,26 @@ obrigação registrada continua sendo registrado, como fato válido, e fica vis�
 *Por quê:* dor 3. Com ≈1.140 por semana, registrar um a um pela conversa é inviável, e sem isso o sistema
 não é usado. A regra já está decidida; falta a tela e a gravação.
 *Depende de:* `TODO-05` e `TODO-06`.
+*Situação:* ✅ 2026-11-13, sem commit; as regras estão em §8.6 (`REQ-650`–`REQ-654`). Do `TODO-06` só era
+preciso a `DEC-044`, decidida no mesmo dia: o fato de caixa cita a instituição como contexto. **Ledger:** o
+tipo de contexto `cash_account`, no máximo um por fato de entrada ou saída, recusado em fato sem dinheiro e,
+até o E6, na transferência interna; `algebra.json` reexportado. O molde do evento e os fatos gravados não
+mudam. **Treasury:** na agenda, quem paga marca as linhas (de qualquer janela e de vários credores) e
+prepara o lote, com o valor de cada linha (menor que o aberto é pagamento em parte; maior, recusado). Os
+lotes preparados ficam acima das janelas, gravados em SQLite (§17 R1), com "Anotar pagamento" (data,
+instituição ou "não informada", débito no banco) e "Descartar". O pagamento só sai se o débito bater com o
+lote; vira um lançamento por linha pelo mesmo caminho da conversa (`StartPositionAction`), pago ao credor,
+citando o lote e a instituição; o resultado de cada linha fica no lote, em "Pagos recentemente". As
+instituições vêm de `CASH_INSTITUTIONS` (hoje Bradesco, Itaú e a corretora); a chave fica gravada nos fatos
+e não pode mudar depois de usada. **Não feito:** o extrato de recebível (`REQ-244`) e os recibos
+(`REQ-245`); o lote montado na página da parte continua sem tela; o "pago sem obrigação" segue pela
+conversa. Testes: `cash-account.test.ts` (Ledger, 7), `payables-batch.test.ts` (Treasury, 20, inclusive
+reinício e dois pagamentos simultâneos), as rotas novas em `access-by-route.test.ts` e
+`batchSelection.test.ts` (tela). Sabotagens conferidas: sem a conferência do débito, ou sem a regra no
+Ledger, os testes falham. Verificado de ponta a ponta com o Ledger de verdade: lote de 4 contas (uma paga em
+parte) anotado no Itaú, os 4 eventos citando o lote e a instituição, a agenda atualizada, o lote
+sobrevivendo ao reinício, e a segunda anotação recusada. Suítes: Ledger 908 e 12 pendentes; Treasury 981,
+com 37 `it.todo`, e 194 no cliente. A tela será vista no navegador no piloto.
 
 **Fase C — o que esperamos receber**
 

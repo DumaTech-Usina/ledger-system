@@ -17,6 +17,8 @@ import type { GetPartyEventsUseCase } from "../../../core/application/use-cases/
 import type { GetPartyPageUseCase } from "../../../core/application/use-cases/GetPartyPage";
 import { partyRoutes } from "./routes/partyRoutes";
 import { signalRoutes } from "./routes/signalRoutes";
+import { batchRoutes } from "./routes/batchRoutes";
+import type { PayablesBatchUseCase } from "../../../core/application/use-cases/PayablesBatch";
 import type { RegisterExternalSignalUseCase } from "../../../core/application/use-cases/RegisterExternalSignal";
 import type { ListExternalSignalsUseCase } from "../../../core/application/use-cases/ListExternalSignals";
 import type { GetPolicySituationUseCase } from "../../../core/application/use-cases/GetPolicySituation";
@@ -88,6 +90,8 @@ export interface ServerDeps {
   getLedgerEvent: GetLedgerEventUseCase;
   /** §8.5. Absent in tests about something else; then /api/dashboard/agenda is not mounted. */
   getPayablesAgenda?: GetPayablesAgendaUseCase;
+  /** §8.6. Absent in tests about something else; then /api/batches is not mounted. */
+  payablesBatch?: PayablesBatchUseCase;
 }
 
 export function createServer(deps: ServerDeps) {
@@ -162,6 +166,8 @@ export function createServer(deps: ServerDeps) {
       deps.getPayablesAgenda,
     ),
   );
+
+  if (deps.payablesBatch) app.use("/api/batches", requireAuth, batchRoutes(deps.payablesBatch));
 
   // Minimal error boundary: unknown scenario/intent/slot → 400 with a legible message.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
