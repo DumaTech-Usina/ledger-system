@@ -124,6 +124,8 @@ beforeAll(async () => {
     getPartyPage: unused,
     // Present, so /api/batches is mounted and a refusal is the guard's, not a 404.
     payablesBatch: {} as never,
+    // Same for /api/cash (§8.8).
+    institutionCash: {} as never,
   });
   server = app.listen(0);
   await new Promise<void>((resolve) => server.once("listening", () => resolve()));
@@ -141,7 +143,7 @@ beforeAll(async () => {
       { key: "payee", value: PARTY.ACME },
       { key: "amount", value: "1500.00" },
       { key: "currency", value: "BRL" },
-      { key: "occurredAt", value: "2026-11-03" },
+      { key: "occurredAt", value: "2026-11-03" }, { key: "institution", value: "nao_informada" },
     ],
   });
   expect(applied.status).toBe(200);
@@ -166,6 +168,9 @@ describe("REQ-401 — visualizador", () => {
     ["preparar um lote de pagamentos (§8.6)", "/api/batches"],
     ["anotar o pagamento de um lote", "/api/batches/batch-x/pay"],
     ["descartar um lote", "/api/batches/batch-x/discard"],
+    ["registrar o saldo de abertura de uma instituição (§8.8)", "/api/cash/openings"],
+    ["registrar uma transferência entre instituições", "/api/cash/transfers"],
+    ["informar o saldo do extrato", "/api/cash/statements"],
   ])("REJ-401: não pode %s", async (_label, path) => {
     const before = (await repo.listByUser("user-viewer")).length;
     const res = await send("POST", path, viewer, { scenarioId: "register_payroll", utterance: "folha" });
@@ -203,6 +208,8 @@ describe("REQ-401 — quem não entrou no sistema", () => {
     ["POST", "/api/signals"],
     ["GET", "/api/batches"],
     ["POST", "/api/batches"],
+    ["GET", "/api/cash/institutions"],
+    ["POST", "/api/cash/openings"],
   ])("%s %s responde 401", async (method, path) => {
     expect((await send(method, path)).status).toBe(401);
   });
@@ -233,7 +240,7 @@ describe("REQ-401 — gestor financeiro", () => {
         { key: "payee", value: PARTY.ACME },
         { key: "amount", value: "700.00" },
         { key: "currency", value: "BRL" },
-        { key: "occurredAt", value: "2026-11-03" },
+        { key: "occurredAt", value: "2026-11-03" }, { key: "institution", value: "nao_informada" },
       ],
     });
 

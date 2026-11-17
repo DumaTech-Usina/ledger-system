@@ -65,7 +65,7 @@ describe("ApplyAnswers — deterministic multi-slot merge", () => {
         { key: "payee", value: PARTY.ACME },
         { key: "amount", value: "1500.00" },
         { key: "currency", value: "BRL" },
-        { key: "occurredAt", value: "2026-07-23" },
+        { key: "occurredAt", value: "2026-07-23" }, { key: "institution", value: "nao_informada" },
       ],
     });
 

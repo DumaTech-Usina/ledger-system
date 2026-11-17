@@ -24,7 +24,7 @@ export const registerRectification: Scenario = {
     { key: "target", type: SlotType.EVENT_REF, prompt: "Which entry never happened?", required: true, suggestionSource: "origin_events" },
     // Derived from the corrected event; declared so the deterministic merge accepts them.
     { key: "objectRef", type: SlotType.STRING, prompt: "The position the corrected entry moved.", required: true },
-    { key: "objectType", type: SlotType.CHOICE, prompt: "The kind of position the corrected entry moved.", required: true, choices: ["advance", "loan", "commission_receivable", "commission_payable"] },
+    { key: "objectType", type: SlotType.CHOICE, prompt: "The kind of position the corrected entry moved.", required: true, choices: ["advance", "loan", "commission_receivable", "commission_payable", "cash_account"] },
     { key: "amount", type: SlotType.MONEY, prompt: "The amount the corrected entry asserted.", required: true },
     CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the error established?", required: true },

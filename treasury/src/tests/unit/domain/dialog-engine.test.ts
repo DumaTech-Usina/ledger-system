@@ -29,6 +29,7 @@ describe("DialogEngine.nextState", () => {
       amount: "1500.00",
       currency: "BRL",
       occurredAt: "2026-07-09",
+      institution: "nao_informada",
     });
     expect(state.kind).toBe("ready");
   });

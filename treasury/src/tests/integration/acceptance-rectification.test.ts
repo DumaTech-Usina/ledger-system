@@ -183,7 +183,7 @@ describe("CA-521 — adiantamento de 400,00 retificado para 450,00", () => {
   });
 
   it("registrar um adiantamento novo continua abrindo uma posição nova, sem perguntar qual", async () => {
-    const answers = { payee: PARTY.BROKER, amount: "450.00", currency: "BRL", occurredAt: "2026-11-03" };
+    const answers = { payee: PARTY.BROKER, amount: "450.00", currency: "BRL", occurredAt: "2026-11-03", institution: "nao_informada" };
     const started = await startAdvance(answers);
 
     expect(started.state.kind).toBe("ready");

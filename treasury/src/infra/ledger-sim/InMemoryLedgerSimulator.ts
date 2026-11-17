@@ -1,5 +1,5 @@
-import type { PayablesAgendaPort, ReceivablesAgendaPort } from "../../core/application/ports/PayablesAgendaPort";
-import type { PayablesAgendaPage, PayablesAgendaQuery, ReceivablesAgendaPage, ReceivablesAgendaQuery } from "../../core/application/dtos/LedgerReadModels";
+import type { InstitutionBalancesPort, PayablesAgendaPort, ReceivablesAgendaPort } from "../../core/application/ports/PayablesAgendaPort";
+import type { InstitutionBalancesPage, PayablesAgendaPage, PayablesAgendaQuery, ReceivablesAgendaPage, ReceivablesAgendaQuery } from "../../core/application/dtos/LedgerReadModels";
 import type { PartyEventsPort } from "../../core/application/ports/PartyEventsPort";
 import { randomUUID } from "crypto";
 import type { Candidate } from "../../core/domain/value-objects/Candidate";
@@ -58,7 +58,7 @@ interface RecordInput {
   description: string | null;
 }
 
-export class InMemoryLedgerSimulator implements PartyEventsPort, CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort, PayablesAgendaPort, ReceivablesAgendaPort {
+export class InMemoryLedgerSimulator implements PartyEventsPort, CandidateSubmissionPort, LedgerReadPort, PositionLifecyclePort, PositionLookupPort, LedgerEventLookupPort, PayablesAgendaPort, ReceivablesAgendaPort, InstitutionBalancesPort {
   /**
    * §8.5 needs the real Ledger: this store keeps one position per submission, with no continuity, so
    * an agenda built from it would list payments as debts. Unknown is the honest answer — the screen
@@ -71,6 +71,11 @@ export class InMemoryLedgerSimulator implements PartyEventsPort, CandidateSubmis
   /** §8.7: same reason as the payables agenda — unknown, never an agenda guessed from a fake. */
   async receivablesAgenda(_query: ReceivablesAgendaQuery): Promise<ReceivablesAgendaPage> {
     throw new Error("The receivables agenda needs the real Ledger (LEDGER_MODE=live).");
+  }
+
+  /** §8.8: a balance read from a fake would look like a bank's; unknown is the honest answer. */
+  async institutionBalances(_asOf?: string): Promise<InstitutionBalancesPage> {
+    throw new Error("The balance per institution needs the real Ledger (LEDGER_MODE=live).");
   }
 
   private readonly movementStore: CashMovement[] = [];

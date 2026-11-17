@@ -238,7 +238,7 @@ describe("GET /:intentId/preview", () => {
   it("carries display names, and asks nothing about the party (§5.5)", async () => {
     const intentId = await startIntentOver("register_payment");
     const created = await json(await post(`/${intentId}/identity`, { slot: "payee", kind: "provisional", mention: "Padaria do Zé" }));
-    for (const [key, value] of [["amount", "2500.00"], ["currency", "BRL"], ["occurredAt", "2026-08-03"]]) {
+    for (const [key, value] of [["amount", "2500.00"], ["currency", "BRL"], ["occurredAt", "2026-08-03"], ["institution", "nao_informada"],]) {
       await post(`/${intentId}/answer`, { key, value });
     }
 

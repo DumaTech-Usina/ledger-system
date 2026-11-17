@@ -1,4 +1,5 @@
 import type { Scenario } from "./Scenario";
+import { INSTITUTION_SLOT } from "../services/Institutions";
 import { SlotType } from "../enums/SlotType";
 import { CURRENCY_SLOT } from "../value-objects/Slot";
 
@@ -20,6 +21,8 @@ export const registerIncentive: Scenario = {
     { key: "amount", type: SlotType.MONEY, prompt: "What is the amount?", required: true },
     CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it paid?", required: true },
+    // REQ-674: where the money moved — an institution, or explicitly "não informada".
+    INSTITUTION_SLOT,
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
   ],
   keywords: { "pt-BR": ["incentivo", "bonus", "bonificacao", "premiacao"] },

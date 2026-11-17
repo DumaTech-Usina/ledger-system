@@ -17,6 +17,8 @@ import { registerObligationRecognition } from "./registerObligationRecognition";
 import { registerServiceFee } from "./registerServiceFee";
 import { registerTax } from "./registerTax";
 import { registerCommissionPayment } from "./registerCommissionPayment";
+import { registerOpeningBalance } from "./registerOpeningBalance";
+import { registerInstitutionTransfer } from "./registerInstitutionTransfer";
 
 /**
  * A business intention, defined declaratively as an ordered set of slots. Adding a scenario
@@ -38,6 +40,12 @@ export interface Scenario {
    * tokens unique to one scenario.
    */
   keywords?: Record<string, string[]>;
+  /**
+   * False for an operation registered only from its own screen, which checks something first (an
+   * opening balance, §8.8). It is not offered in the conversation nor matched from free text.
+   * Absent means the conversation offers it.
+   */
+  conversational?: boolean;
 }
 
 const REGISTRY: Record<string, Scenario> = {
@@ -59,14 +67,17 @@ const REGISTRY: Record<string, Scenario> = {
   [registerServiceFee.id]: registerServiceFee,
   [registerTax.id]: registerTax,
   [registerCommissionPayment.id]: registerCommissionPayment,
+  [registerOpeningBalance.id]: registerOpeningBalance,
+  [registerInstitutionTransfer.id]: registerInstitutionTransfer,
 };
 
 export function getScenario(id: string): Scenario | undefined {
   return REGISTRY[id];
 }
 
+/** The operations the conversation offers and recognizes in free text. */
 export function listScenarios(): Scenario[] {
-  return Object.values(REGISTRY);
+  return Object.values(REGISTRY).filter((s) => s.conversational !== false);
 }
 
 /** What an intent for this scenario already knows the moment it starts. */

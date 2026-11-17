@@ -113,7 +113,7 @@ export const OBJECT_RELATION_MATRIX: Partial<
   [ObjectType.PROPOSAL]:         [Relation.REFERENCES],
   [ObjectType.INSTALLMENT]:      [Relation.REFERENCES],
   [ObjectType.SETTLEMENT_BATCH]: [Relation.REFERENCES],
-  [ObjectType.CASH_ACCOUNT]:     [Relation.REFERENCES],
+  [ObjectType.CASH_ACCOUNT]: [Relation.REFERENCES, Relation.TRANSFERS_FROM, Relation.TRANSFERS_TO, Relation.RETRACTS],
   [ObjectType.CAMPAIGN]:         [Relation.REFERENCES],
 };
 
@@ -163,6 +163,9 @@ export const REASON_EFFECT_MATRIX: Partial<
   // Recognizing an obligation moves no money — the payment that settles it is a separate fact.
   [ReasonType.OBLIGATION_RECOGNITION]: [EconomicEffect.NON_CASH],
   [ReasonType.COMPENSATION]: [EconomicEffect.NON_CASH],
+  // The sign of an opening balance rides on the effect: overdrawn is CASH_OUT (REQ-670).
+  [ReasonType.OPENING_BALANCE]: [EconomicEffect.CASH_IN, EconomicEffect.CASH_OUT],
+  [ReasonType.INSTITUTION_TRANSFER]: [EconomicEffect.CASH_INTERNAL],
 
   // Governança — corrections are always bookkeeping entries (no cash movement)
   [ReasonType.MANUAL_CORRECTION]: [EconomicEffect.NON_CASH],

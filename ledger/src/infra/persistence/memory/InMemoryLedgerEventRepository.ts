@@ -13,6 +13,7 @@ import { EconomicOutcome, PositionStatus } from "../../../core/application/dtos/
 import { CashMovementSortKey, CashMovementsPaginatedOptions } from "../../../core/application/dtos/CashStatement";
 import { derivePositionStatus, openBalanceUnitsOf } from "../../../core/application/dtos/positionUtils";
 import { retractedEventIds } from "../../../core/application/dtos/retractionUtils";
+import { InstitutionCashEvent } from "../../../core/application/dtos/InstitutionBalance";
 
 /**
  * Compares two event ids the way SQL does, so a tiebreaker means the same thing in both
@@ -229,6 +230,7 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     const retractedForPeriod = retractedEventIds(this.store);
     for (const event of this.store) {
       if (retractedForPeriod.has(event.id.value)) continue;
+      if (event.eventType === EventType.OPENING_BALANCE) continue;
       if (event.occurredAt < from || event.occurredAt > to) continue;
       if (
         event.economicEffect !== EconomicEffect.CASH_IN &&
@@ -399,6 +401,8 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
 
     for (const event of this.store) {
       if (retracted.has(event.id.value)) continue;
+      // REQ-670: a statement balance, not a flow — the SQL twin leaves it out the same way.
+      if (event.eventType === EventType.OPENING_BALANCE) continue;
       if (event.economicEffect === EconomicEffect.CASH_IN) {
         if (!found) { currency = event.amount.currency; found = true; }
         cashInUnits += event.amount.toUnits();
@@ -427,6 +431,26 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
     return paginate(items, options);
   }
 
+  async findInstitutionCashEvents(until: Date): Promise<InstitutionCashEvent[]> {
+    const retracted = retractedEventIds(this.store);
+    const moved = new Set<EconomicEffect>([EconomicEffect.CASH_IN, EconomicEffect.CASH_OUT, EconomicEffect.CASH_INTERNAL]);
+    return this.store
+      .filter((e) => !retracted.has(e.id.value) && moved.has(e.economicEffect) && e.occurredAt <= until)
+      .map((e) => ({
+        eventId: e.id.value,
+        eventType: e.eventType,
+        economicEffect: e.economicEffect,
+        amountUnits: e.amount.toUnits(),
+        currency: e.amount.currency,
+        occurredAt: e.occurredAt,
+        recordedAt: e.recordedAt,
+        institutions: e
+          .getObjects()
+          .filter((o) => o.objectType === ObjectType.CASH_ACCOUNT)
+          .map((o) => ({ objectId: o.objectId.value, relation: o.relation })),
+      }));
+  }
+
   async aggregateCashFlowsBefore(date: Date): Promise<{ cashInUnits: bigint; cashOutUnits: bigint; currency: string }> {
     let cashInUnits = 0n;
     let cashOutUnits = 0n;
@@ -436,6 +460,7 @@ export class InMemoryLedgerEventRepository implements LedgerEventRepository {
 
     for (const event of this.store) {
       if (retracted.has(event.id.value)) continue;
+      if (event.eventType === EventType.OPENING_BALANCE) continue;
       if (event.occurredAt >= date) continue;
       if (event.economicEffect === EconomicEffect.CASH_IN) {
         if (!found) { currency = event.amount.currency; found = true; }

@@ -46,4 +46,10 @@ export enum ReasonType {
   /** A receivable and a payable of the same amount settled against each other, with no cash. The
    *  cause of a COMPENSATION. */
   COMPENSATION = "compensation",
+
+  /** The statement balance an institution's book starts from. The cause of an OPENING_BALANCE. */
+  OPENING_BALANCE = "opening_balance",
+
+  /** Money moved between two of the usina's institutions. The cause of an INSTITUTION_TRANSFER. */
+  INSTITUTION_TRANSFER = "institution_transfer",
 }

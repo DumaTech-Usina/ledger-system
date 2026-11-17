@@ -9,6 +9,7 @@ import {
   PositionAggregateOptions,
 } from "../dtos/PositionAggregate";
 import { CashMovementCursor, CashMovementsPaginatedOptions } from "../dtos/CashStatement";
+import { InstitutionCashEvent } from "../dtos/InstitutionBalance";
 
 /**
  * One page of cash movements, in whichever mode was asked for.
@@ -108,6 +109,13 @@ export interface LedgerEventRepository {
   aggregateCashFlowsBefore(
     date: Date,
   ): Promise<{ cashInUnits: bigint; cashOutUnits: bigint; currency: string }>;
+
+  /**
+   * Every standing fact that moved money (cash in, out or internal) up to `until`, inclusive, with
+   * the institutions it cites (treasury REQ-673). Opening balances included: they start the balance
+   * per institution.
+   */
+  findInstitutionCashEvents(until: Date): Promise<InstitutionCashEvent[]>;
 
   /**
    * Returns the sum of amounts for events that settle something in [from, to].

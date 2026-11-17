@@ -31,7 +31,7 @@ async function submitPayroll(submittedBy?: string, submission = new StubCandidat
       { key: "payee", value: PARTY.ACME },
       { key: "amount", value: "1500.00" },
       { key: "currency", value: "BRL" },
-      { key: "occurredAt", value: "2026-11-03" },
+      { key: "occurredAt", value: "2026-11-03" }, { key: "institution", value: "nao_informada" },
     ],
   });
   await new SubmitIntentUseCase(repo, new CandidateMapper(PARTY.USINA), submission, audit, clock, directory).execute(

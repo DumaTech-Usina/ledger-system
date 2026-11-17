@@ -49,6 +49,8 @@ import type { GetIntentUseCase } from "../../../core/application/use-cases/GetIn
 import type { ListIntentsUseCase } from "../../../core/application/use-cases/ListIntents";
 import type { GetPayablesAgendaUseCase } from "../../../core/application/use-cases/GetPayablesAgenda";
 import type { GetReceivablesAgendaUseCase } from "../../../core/application/use-cases/GetReceivablesAgenda";
+import type { InstitutionCashUseCase } from "../../../core/application/use-cases/InstitutionCash";
+import { cashRoutes } from "./routes/cashRoutes";
 
 export interface ServerDeps {
   auth: AuthService;
@@ -93,6 +95,8 @@ export interface ServerDeps {
   getPayablesAgenda?: GetPayablesAgendaUseCase;
   /** §8.7. Absent in tests about something else; then /api/dashboard/receivables is not mounted. */
   getReceivablesAgenda?: GetReceivablesAgendaUseCase;
+  /** §8.8. Absent in tests about something else; then /api/cash is not mounted. */
+  institutionCash?: InstitutionCashUseCase;
   /** §8.6. Absent in tests about something else; then /api/batches is not mounted. */
   payablesBatch?: PayablesBatchUseCase;
 }
@@ -172,6 +176,7 @@ export function createServer(deps: ServerDeps) {
   );
 
   if (deps.payablesBatch) app.use("/api/batches", requireAuth, batchRoutes(deps.payablesBatch));
+  if (deps.institutionCash) app.use("/api/cash", requireAuth, cashRoutes(deps.institutionCash));
 
   // Minimal error boundary: unknown scenario/intent/slot → 400 with a legible message.
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {

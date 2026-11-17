@@ -24,7 +24,7 @@ import { PARTY, seededDirectory } from "../fixtures/parties";
  * left it REJECTED — while the fact it had already recorded stood in the Ledger.
  */
 const clock: Clock = { now: () => "2026-11-03T12:00:00.000Z" };
-const ANSWERS = { payee: PARTY.ACME, amount: "1500.00", currency: "BRL", occurredAt: "2026-11-03" };
+const ANSWERS = { payee: PARTY.ACME, amount: "1500.00", currency: "BRL", occurredAt: "2026-11-03", institution: "nao_informada" };
 
 async function wire(status: IntentStatus) {
   const { directory, repo: parties } = seededDirectory();

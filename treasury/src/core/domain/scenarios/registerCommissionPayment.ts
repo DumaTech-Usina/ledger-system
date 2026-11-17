@@ -1,4 +1,5 @@
 import type { Scenario } from "./Scenario";
+import { INSTITUTION_SLOT } from "../services/Institutions";
 import { SlotType } from "../enums/SlotType";
 import { CURRENCY_SLOT } from "../value-objects/Slot";
 
@@ -17,6 +18,8 @@ export const registerCommissionPayment: Scenario = {
     { key: "amount", type: SlotType.MONEY, prompt: "What amount was paid?", required: true },
     CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date did the money leave the account?", required: true },
+    // REQ-674: where the money moved — an institution, or explicitly "não informada".
+    INSTITUTION_SLOT,
     // Optional continuity: the commission obligation this payment closes, when it was opened beforehand.
     { key: "objectRef", type: SlotType.STRING, prompt: "Which commission obligation does this pay?", required: false },
     { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },

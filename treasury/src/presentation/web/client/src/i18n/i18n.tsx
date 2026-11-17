@@ -657,6 +657,8 @@ const ptBR: Translations = {
     commission_expected: "Comissão prevista",
     outbound_payment: "Pagamento efetuado",
     obligation_recognized: "Obrigação reconhecida",
+    opening_balance: "Saldo de abertura",
+    institution_transfer: "Transferência entre instituições",
   },
   slotChoice: {
     // "Reconhecer obrigação a pagar" — que tipo de obrigação está sendo reconhecida.
@@ -1030,6 +1032,8 @@ const en: Translations = {
     commission_expected: "Commission expected",
     outbound_payment: "Outbound payment",
     obligation_recognized: "Obligation recognized",
+    opening_balance: "Opening balance",
+    institution_transfer: "Transfer between institutions",
   },
   slotChoice: {
     // "Recognize an obligation" — which kind of obligation is being recognized.

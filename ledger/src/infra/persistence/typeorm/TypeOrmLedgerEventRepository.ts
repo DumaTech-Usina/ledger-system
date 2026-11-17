@@ -25,6 +25,7 @@ import { LedgerEventModel } from './models/LedgerEventModel';
 import { LedgerEventPartyModel } from './models/LedgerEventPartyModel';
 import { LedgerEventObjectModel } from './models/LedgerEventObjectModel';
 import { toIso } from './transformers/iso-date.transformer';
+import { InstitutionCashEvent } from '../../../core/application/dtos/InstitutionBalance';
 import { Page, PageOptions } from '../../../core/application/dtos/Pagination';
 import { asList, PositionAggregate, PositionAggregateOptions } from '../../../core/application/dtos/PositionAggregate';
 import { EconomicOutcome, PositionStatus } from '../../../core/application/dtos/PositionSummary';
@@ -36,6 +37,12 @@ import { CashMovementSortKey, CashMovementsPaginatedOptions } from '../../../cor
  * pins the agreement, since SQL cannot call the TypeScript rule.
  */
 const UNKNOWN_ORIGIN_SQL = `(total_originated = 0 AND has_unresolved_lineage)`;
+
+/**
+ * REQ-670: an opening balance is what a statement showed, not money that came in or went out. It
+ * starts the balance per institution and stays out of every cash-flow total.
+ */
+const notOpeningBalance = (alias: string) => `${alias}.event_type <> 'opening_balance'`;
 
 /**
  * SQL twin of `retractedEventIds` (core/application/dtos/retractionUtils.ts): the event is retracted
@@ -538,6 +545,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
              MAX(amount_currency) AS currency
       FROM ledger_events e
       WHERE economic_effect IN ('cash_in', 'cash_out')
+        AND ${notOpeningBalance('e')}
         AND ${notRetracted('e')}
       GROUP BY economic_effect
     `);
@@ -587,6 +595,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
              MAX(amount_currency) AS currency
       FROM ledger_events e
       WHERE economic_effect IN ('cash_in', 'cash_out')
+        AND ${notOpeningBalance('e')}
         AND occurred_at < ?
         AND ${notRetracted('e')}
       GROUP BY economic_effect
@@ -603,6 +612,45 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
     }
 
     return { cashInUnits, cashOutUnits, currency };
+  }
+
+  async findInstitutionCashEvents(until: Date): Promise<InstitutionCashEvent[]> {
+    // `group_concat` joins each cited institution as "objectId|relation"; ids are `instituicao:<key>`
+    // slugs and relations are enum values, neither ever holding "|" or ",".
+    const rows: {
+      id: string;
+      event_type: string;
+      economic_effect: string;
+      amount_units: string;
+      currency: string;
+      occurred_at: string;
+      recorded_at: string;
+      institutions: string | null;
+    }[] = await this.repo.manager.query(
+      `SELECT e.id, e.event_type, e.economic_effect, CAST(e.amount_units AS TEXT) AS amount_units,
+              e.amount_currency AS currency, e.occurred_at, e.recorded_at,
+              (SELECT group_concat(o.object_id || '|' || o.relation)
+                 FROM ledger_event_objects o
+                WHERE o.event_id = e.id AND o.object_type = 'cash_account') AS institutions
+         FROM ledger_events e
+        WHERE e.economic_effect IN ('cash_in', 'cash_out', 'cash_internal')
+          AND e.occurred_at <= ?
+          AND ${notRetracted('e')}`,
+      [toIso(until)],
+    );
+    return rows.map((row) => ({
+      eventId: row.id,
+      eventType: row.event_type as EventType,
+      economicEffect: row.economic_effect as EconomicEffect,
+      amountUnits: BigInt(row.amount_units),
+      currency: row.currency,
+      occurredAt: new Date(row.occurred_at),
+      recordedAt: new Date(row.recorded_at),
+      institutions: (row.institutions ? row.institutions.split(',') : []).map((pair) => {
+        const [objectId, relation] = pair.split('|');
+        return { objectId, relation: relation as Relation };
+      }),
+    }));
   }
 
   async aggregateClosureStats(
@@ -697,6 +745,7 @@ export class TypeOrmLedgerEventRepository implements LedgerEventRepository {
          FROM ledger_events e
          WHERE occurred_at >= ? AND occurred_at <= ?
            AND economic_effect IN ('cash_in', 'cash_out')
+           AND ${notOpeningBalance('e')}
            AND ${notRetracted('e')}
          GROUP BY event_type, economic_effect`,
         [toIso(from), toIso(to)],

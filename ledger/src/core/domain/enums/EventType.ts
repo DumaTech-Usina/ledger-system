@@ -95,4 +95,24 @@ export enum EventType {
    * qualitative call the treasury makes.
    */
   COMPENSATION = "compensation",
+
+  /**
+   * What an institution's statement showed at the end of one day, recorded once per institution when
+   * the book starts (treasury REQ-670, decided 2026-11-16). The book knows only what moved since; the
+   * money already there before is known from the statement, never reconstructed.
+   *
+   * CASH_IN for a positive balance, CASH_OUT for an overdrawn one — the effect carries the sign, as the
+   * direction of the usina's leg does. It is NOT money that entered or left: it is kept out of every
+   * cash-flow total and read only by the balance per institution, as its starting point. It cites
+   * exactly one institution (cash_account) and moves no position.
+   */
+  OPENING_BALANCE = "opening_balance",
+
+  /**
+   * Money moved from one of the usina's institutions to another (treasury REQ-672). One fact, never
+   * two: CASH_INTERNAL, balanced (the usina's leg out equals its leg in), citing the origin with
+   * TRANSFERS_FROM and the destination with TRANSFERS_TO. The usina's cash does not change; each
+   * institution's does.
+   */
+  INSTITUTION_TRANSFER = "institution_transfer",
 }

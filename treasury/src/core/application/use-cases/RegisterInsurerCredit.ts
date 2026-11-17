@@ -1,4 +1,5 @@
 import { getScenario } from "../../domain/scenarios/Scenario";
+import { NOT_STATED, configuredInstitutions } from "../../domain/services/Institutions";
 import { DialogEngine } from "../../domain/services/DialogEngine";
 import type { PositionLifecyclePort } from "../ports/PositionLifecyclePort";
 import type { Clock } from "../ports/Clock";
@@ -20,6 +21,11 @@ export interface RegisterInsurerCreditInput {
   occurredAt: string;
   /** How much of it goes to each expected commission. What is left over is unattributed. */
   allocations: { objectId: string; amount: string }[];
+  /**
+   * REQ-674: the institution the credit came into, or null for "não informada". Left out (undefined)
+   * is refused: the question is always answered, never filled in by the system.
+   */
+  institution?: string | null;
   userId: string;
 }
 
@@ -98,6 +104,10 @@ export class RegisterInsurerCreditUseCase {
     const date = DialogEngine.validateAnswer(scenario.slots.find((s) => s.key === "occurredAt")!, input.occurredAt, today);
     if (date) throw new Error(`Data do crédito: ${date.message}`);
     if (!input.payer?.trim()) throw new Error("Informe a seguradora que pagou.");
+    if (input.institution === undefined) throw new Error('Escolha a instituição em que o crédito entrou, ou marque "não informada".');
+    if (input.institution !== null && !configuredInstitutions().some((i) => i.key === input.institution)) {
+      throw new Error(`Instituição desconhecida: ${input.institution}.`);
+    }
 
     const credit = toCentsChecked(input.creditAmount, "Valor do crédito");
     if (credit <= 0n) throw new Error("O valor do crédito deve ser maior que zero.");
@@ -159,6 +169,7 @@ export class RegisterInsurerCreditUseCase {
         { key: "payer", value: input.payer },
         { key: "amount", value: amount },
         { key: "occurredAt", value: input.occurredAt },
+        { key: "institution", value: input.institution ?? NOT_STATED },
       ],
     });
     if (merged.rejected.length > 0) {

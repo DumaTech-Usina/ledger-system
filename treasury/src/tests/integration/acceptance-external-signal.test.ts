@@ -235,7 +235,7 @@ describe("REQ-261 / REQ-262 — um fato proposto por acontecimento, só expectat
       intentId,
       answers: [
         { key: "amount", value: "10.00" },
-        { key: "occurredAt", value: "2026-11-01" },
+        { key: "occurredAt", value: "2026-11-01" }, { key: "institution", value: "nao_informada" },
       ],
     });
     await submit.execute(intentId, "cfo");
@@ -342,7 +342,7 @@ describe("REQ-272 / REQ-273 — a elegibilidade também propõe a comissão espe
       intentId,
       answers: [
         { key: "amount", value: "10.00" },
-        { key: "occurredAt", value: "2026-11-01" },
+        { key: "occurredAt", value: "2026-11-01" }, { key: "institution", value: "nao_informada" },
         { key: "payer", value: PARTY.OPERATOR },
       ],
     });
@@ -488,7 +488,7 @@ describe("REQ-267 — partes e apólice (bloco B)", () => {
   it("o que não veio de um sinal continua sem contexto", async () => {
     const { intentId } = await new StartIntentUseCase(intents, clock, { next: () => "manual" }, new InMemoryConversationLog())
       .execute({ scenarioId: "register_commission_accrual", userId: "cfo" });
-    await applyAnswers.execute({ intentId, answers: [{ key: "amount", value: "10.00" }, { key: "occurredAt", value: "2026-11-01" }] });
+    await applyAnswers.execute({ intentId, answers: [{ key: "amount", value: "10.00" }, { key: "occurredAt", value: "2026-11-01" }, { key: "institution", value: "nao_informada" },] });
     await submit.execute(intentId, "cfo");
 
     expect(submitted[0].objects.some((o) => o.relation === "references")).toBe(false);
@@ -691,7 +691,7 @@ describe("Bloco C — avisos e ligações recomendadas", () => {
       scenarioId,
       userId: "cfo",
       status: IntentStatus.AWAITING_CONFIRMATION,
-      answers: { currency: "BRL", occurredAt: "2026-11-09", ...answers },
+      answers: { currency: "BRL", occurredAt: "2026-11-09", institution: "nao_informada", ...answers },
       createdAt: clock.now(),
       updatedAt: clock.now(),
     });
@@ -822,7 +822,7 @@ describe("Bloco C — avisos e ligações recomendadas", () => {
         scenarioId: "register_commission_payment",
         userId: "cfo",
         status: IntentStatus.AWAITING_CONFIRMATION,
-        answers: { currency: "BRL", occurredAt: "2026-11-09", payee: PARTY.BROKER, amount: "77.26", objectRef: ELEGIBILIDADE },
+        answers: { currency: "BRL", occurredAt: "2026-11-09", institution: "nao_informada", payee: PARTY.BROKER, amount: "77.26", objectRef: ELEGIBILIDADE },
         createdAt: clock.now(),
         updatedAt: clock.now(),
       }),
@@ -890,7 +890,7 @@ describe("REQ-275 / REQ-276 — a apólice como fio da história", () => {
       answers: [
         { key: "payer", value: PARTY.OPERATOR },
         { key: "amount", value: "128.77" },
-        { key: "occurredAt", value: "2026-11-08" },
+        { key: "occurredAt", value: "2026-11-08" }, { key: "institution", value: "nao_informada" },
       ],
     });
     await submit.execute(intentId, "cfo");
@@ -1121,7 +1121,7 @@ describe("Bloco D — crédito da seguradora em lote (REQ-269, REQ-277)", () => 
   });
 
   const allianz = (allocations: { objectId: string; amount: string }[], creditAmount = "3400.00") =>
-    credit.execute({ payer: PARTY.OPERATOR, creditAmount, occurredAt: "2026-11-09", allocations, userId: "cfo" });
+    credit.execute({ payer: PARTY.OPERATOR, creditAmount, occurredAt: "2026-11-09", allocations, institution: "itau", userId: "cfo" });
 
   it("CA-269: um recebimento por apólice, cada um citando a sua apólice e o mesmo lote", async () => {
     const result = await allianz([
@@ -1140,6 +1140,8 @@ describe("Bloco D — crédito da seguradora em lote (REQ-269, REQ-277)", () => 
         { objectId: prevista(id), objectType: "commission_receivable", relation: "settles" },
         { objectId: policyOf(id), objectType: "contract", relation: "references" },
         { objectId: result.batchId, objectType: "settlement_batch", relation: "references" },
+        // REQ-674: the credit came into the institution the user named.
+        { objectId: "instituicao:itau", objectType: "cash_account", relation: "references" },
       ]);
       expect(sent[i].parties).toContainEqual(expect.objectContaining({ partyId: PARTY.OPERATOR, role: "payer" }));
       expect(sent[i].reason.confidence).toBe("high");
@@ -1159,6 +1161,8 @@ describe("Bloco D — crédito da seguradora em lote (REQ-269, REQ-277)", () => 
     expect(last.relatedEventId).toBeUndefined();
     expect(last.objects.filter((o) => o.relation === "references")).toEqual([
       { objectId: result.batchId, objectType: "settlement_batch", relation: "references" },
+      // The remainder came into the same institution: the whole credit did.
+      { objectId: "instituicao:itau", objectType: "cash_account", relation: "references" },
     ]);
     expect(result.steps[3]).toMatchObject({ objectId: null, amount: "100.00", status: "accepted" });
   });
@@ -1206,7 +1210,7 @@ describe("Bloco D — crédito da seguradora em lote (REQ-269, REQ-277)", () => 
 
   it("uma data futura é recusada antes de enviar qualquer coisa", async () => {
     await expect(
-      credit.execute({ payer: PARTY.OPERATOR, creditAmount: "100.00", occurredAt: "2026-12-01", allocations: [], userId: "cfo" }),
+      credit.execute({ payer: PARTY.OPERATOR, creditAmount: "100.00", occurredAt: "2026-12-01", allocations: [], institution: null, userId: "cfo" }),
     ).rejects.toThrow();
     expect(sent).toHaveLength(0);
   });

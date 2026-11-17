@@ -2,6 +2,8 @@ import type { Intent } from "../../domain/entities/Intent";
 import type { Scenario } from "../../domain/scenarios/Scenario";
 import type { Candidate } from "../../domain/value-objects/Candidate";
 import { toInstantISO } from "../utils/instant";
+import { NOT_STATED, institutionContext, institutionKeyOf } from "../../domain/services/Institutions";
+import { getScenario } from "../../domain/scenarios/Scenario";
 
 /**
  * Per-scenario economic mapping using the Ledger's RATIFIED tuples. treasury only proposes; the
@@ -23,6 +25,8 @@ import { toInstantISO } from "../utils/instant";
  * apply to the tuple's economic fields and (for single-object scenarios) the object.
  */
 interface TupleOverride {
+  /** A different mold for the parties, when the branch changes who carries the money's direction. */
+  parties?: PartyTemplate[];
   economicEffect?: string;
   objectType?: string;
   relation?: string;
@@ -380,6 +384,8 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
         loan: { objectType: "loan" },
         commission_receivable: { objectType: "commission_receivable" },
         commission_payable: { objectType: "commission_payable" },
+        // An opening balance or a transfer is withdrawn by naming its institution(s) (REQ-670, REQ-672).
+        cash_account: { objectType: "cash_account" },
       },
     },
     relatedEventSlot: "target",
@@ -448,6 +454,39 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
 
   // Paying what the usina owes on a commission: SETTLES the position a recognition with kind
   // "commission" opened. Same mold as every other cash expense.
+  // ── Institutions (§8.8) ────────────────────────────────────────────────────────────────────────
+  // What a statement showed at the end of a day (REQ-670). The sign rides on the effect, as the
+  // direction of the usina's only leg: a positive balance is CASH_IN, an overdrawn one CASH_OUT. No
+  // position moves; the institution is cited from its slot.
+  register_opening_balance: {
+    eventType: "opening_balance",
+    economicEffect: "cash_in",
+    parties: [{ who: "usina", role: "payee", direction: "in", carriesAmount: true }],
+    objects: [],
+    reasonType: "opening_balance",
+    reasonText: "Statement balance the institution's book starts from",
+    variants: {
+      selectorSlot: "side",
+      byChoice: {
+        // Explicit on both sides, so a correction can tell which branch an opening took.
+        positive: { economicEffect: "cash_in" },
+        overdrawn: { economicEffect: "cash_out", parties: [{ who: "usina", role: "payer", direction: "out", carriesAmount: true }] },
+      },
+    },
+  },
+  // Money moved between two institutions of the usina (REQ-672): balanced, both legs the usina's;
+  // the two institutions are cited from their slots, as where it left and where it arrived.
+  register_institution_transfer: {
+    eventType: "institution_transfer",
+    economicEffect: "cash_internal",
+    parties: [
+      { who: "usina", role: "payer", direction: "out", carriesAmount: true },
+      { who: "usina", role: "payee", direction: "in", carriesAmount: true },
+    ],
+    objects: [],
+    reasonType: "institution_transfer",
+    reasonText: "Transfer between the usina's institutions",
+  },
   register_commission_payment: {
     eventType: "commission_split",
     economicEffect: "cash_out",
@@ -641,7 +680,7 @@ export function planReissue(
     return { reissuable: false, reason: "is_a_correction" };
   }
 
-  const moved = event.objects.find((o) => o.relation !== "references");
+  const moved = event.objects.find((o) => o.relation !== "references" && o.objectType !== "cash_account");
   const answers: { key: string; value: string }[] = [
     { key: "amount", value: event.amount },
     { key: "currency", value: event.currency },
@@ -675,9 +714,23 @@ export function planReissue(
     answers.push({ key: m.relatedEventSlot, value: event.relatedEventId });
   }
 
+  // REQ-674: the reissue moved money in the same institution, or in none stated — never one guessed.
+  const slots = new Set(getScenario(scenarioId)?.slots.map((slot) => slot.key) ?? []);
+  const keyCited = (relation: string) => {
+    const cited = event.objects.find((o) => o.objectType === "cash_account" && o.relation === relation);
+    return cited ? institutionKeyOf(cited.objectId) : null;
+  };
+  for (const [slot, relation] of [["institution", "references"], ["fromInstitution", "transfers_from"], ["toInstitution", "transfers_to"]] as const) {
+    if (!slots.has(slot)) continue;
+    const key = keyCited(relation);
+    if (key) answers.push({ key: slot, value: key });
+    else if (slot === "institution") answers.push({ key: slot, value: NOT_STATED });
+  }
+
   // REQ-275: the reissue cites the same contexts, or the corrected fact would drop out of their story.
+  // The institution is not among them: it is an answer above, so a correction may change it.
   const contexts = event.objects
-    .filter((o) => o.relation === "references")
+    .filter((o) => o.relation === "references" && o.objectType !== "cash_account")
     .map((o) => ({ objectId: o.objectId, objectType: o.objectType }));
   return { reissuable: true, scenarioId, answers, contexts };
 }
@@ -761,13 +814,24 @@ export class CandidateMapper {
     for (const context of intent.contexts) {
       if (!objects.some((o) => o.objectId === context.objectId)) objects.push({ ...context, relation: "references" });
     }
+    // REQ-674: the institution the money moved in, when the conversation was told; "não informada"
+    // cites none, and the institution stays unknown (REQ-650). A transfer names both ends (REQ-672).
+    const cite = (key: string | undefined, relation: string) => {
+      const chosen = key?.trim();
+      if (!chosen || chosen === NOT_STATED) return;
+      const context = institutionContext(chosen);
+      if (!objects.some((o) => o.objectId === context.objectId)) objects.push({ ...context, relation });
+    };
+    cite(a.institution, "references");
+    cite(a.fromInstitution, "transfers_from");
+    cite(a.toInstitution, "transfers_to");
     const additional = m.additionalObjectsSlot ? a[m.additionalObjectsSlot]?.trim() : "";
     if (additional) {
       const further = JSON.parse(additional) as { objectId: string; objectType: string }[];
       objects.push(...further.map((o) => ({ ...o, relation: objectTemplates[0].relation })));
     }
 
-    const parties = m.parties
+    const parties = (override.parties ?? m.parties)
       .filter((pt) => !(pt.optional && pt.who === "counterparty" && !(a[m.counterpartySlot!]?.trim())))
       .map((pt) => {
         const partyId = pt.who === "usina" ? this.usinaPartyId : a[m.counterpartySlot!];

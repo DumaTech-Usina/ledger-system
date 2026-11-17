@@ -166,7 +166,7 @@ async function payrollFor(name: string) {
 }
 
 async function completeAndSend(intentId: string) {
-  for (const [key, value] of [["amount", "1500.00"], ["occurredAt", "2026-11-05"]]) {
+  for (const [key, value] of [["amount", "1500.00"], ["occurredAt", "2026-11-05"], ["institution", "nao_informada"],]) {
     await send("POST", `/api/conversation/${intentId}/answer`, "operador", { key, value });
   }
   return read(await send("POST", `/api/conversation/${intentId}/submit`, "operador", {}));
@@ -394,7 +394,7 @@ describe("REQ-321 — a notificação", () => {
   it("pronta para envio também não: sem fato no Ledger, nada a cobrar", async () => {
     const { intentId } = await payrollFor("Maria Souza");
     await provisional(intentId, "Maria Souza");
-    for (const [key, value] of [["amount", "1500.00"], ["occurredAt", "2026-11-05"]]) {
+    for (const [key, value] of [["amount", "1500.00"], ["occurredAt", "2026-11-05"], ["institution", "nao_informada"],]) {
       await send("POST", `/api/conversation/${intentId}/answer`, "operador", { key, value });
     }
 

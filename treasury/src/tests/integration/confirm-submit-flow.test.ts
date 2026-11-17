@@ -39,9 +39,12 @@ function wire() {
   };
 }
 
-/** Fill the one slot the stub can't ground (the payee PARTY) so the intent becomes ready. */
+/**
+ * Fill what the stub can't ground — the payee PARTY, and where the money moved (REQ-674) — so the
+ * intent becomes ready.
+ */
 async function fillPayee(apply: ReturnType<typeof wire>["apply"], intentId: string) {
-  await apply.execute({ intentId, answers: [{ key: "payee", value: PARTY.ACME }] });
+  await apply.execute({ intentId, answers: [{ key: "payee", value: PARTY.ACME }, { key: "institution", value: "nao_informada" }] });
 }
 
 describe("confirm → submit (Phase 4 end-to-end)", () => {

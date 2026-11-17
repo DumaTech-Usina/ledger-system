@@ -64,6 +64,7 @@
 > | 2026-11-13 | 19 (cont.) — volume | **`TODO-03` feito:** um mês à volumetria real (≈1.150 pagamentos e repasses por semana, 12.330 fatos); as telas do dia ficaram abaixo de 1 s, sem mudança. **E1 fechado.** O que cresce com o livro foi para §17, com os números. Nada foi revogado. |
 > | 2026-11-13 | 19 (cont.) — pagamentos do dia | **Decidido:** a `DEC-044`: o fato de caixa cita a instituição como contexto (`cash_account`), no máximo uma, nunca num fato sem dinheiro; sem ela, "instituição desconhecida", e os eventos anteriores ficam assim, nunca distribuídos. A transferência entre instituições fica para o E6. **Novo:** §8.6 (`REQ-650`–`REQ-654`, `CA-650`–`CA-654`, `REJ-650`, `REJ-650b`, `REJ-653`). **Ampliado:** `REQ-239` (o lote também é montado na agenda, de vários credores). **`TODO-08` feito; E3 fechado.** §17 R1 resolvido. Nada foi revogado. |
 > | 2026-11-13 | 19 (cont.) — agenda a receber | Sem decisão nova do dono do produto. **Novo:** §8.7 (`REQ-660`–`REQ-665`, `CA-660`–`CA-665`, `REJ-661`–`REJ-663`): o Ledger publica a agenda a receber pela data esperada, por pagador e com os recebimentos sem origem, como leitura; o Treasury marca o declarado pela operadora e ainda não visto no banco, sem somá-lo. **⚠ CONFIRMAR NO PILOTO:** empréstimo e adiantamento entram na agenda (`REQ-660`). **`TODO-09` feito; E4 fechado.** Nada foi revogado. |
+> | 2026-11-16 | 20 — caixa por instituição | Conversa de arquitetura (muda a álgebra do Ledger). **Decidido:** o saldo de abertura é um fato por instituição (o saldo final do dia no extrato), fora dos totais de entradas e saídas; o que tem data até o dia da abertura já está nele; a transferência é um fato só, com origem e destino; a instituição é perguntada em todo lançamento de caixa, com "não informada" explícita; uma conta por instituição, a lista é configuração; a `Q-055` segue com o valor provisório. **Novo:** §8.8 (`REQ-670`–`REQ-676`, `CA-670`–`CA-675`, `REJ-670`–`REJ-675`). **Ampliados:** `REQ-650` (a transferência) e `REQ-277`/`REQ-653` (a instituição perguntada). **`TODO-06` e `TODO-07` feitos; E6 fechado.** Nada foi revogado. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -1801,6 +1802,91 @@ Ledger fora do ar, a agenda diz **"indisponível"** (`REQ-602`).
 | `REJ-662` | Supor o pagador de uma posição que não o nomeia | `REQ-662` |
 | `REJ-663` | Tratar o declarado pela operadora como recebido, ou somá-lo no Treasury | `REQ-663` |
 
+### 8.8 Saldo por instituição e conferência com o banco
+
+> Decidida em 2026-11-16 (E6, `TODO-06` e `TODO-07`), numa conversa de arquitetura com o dono do produto,
+> porque muda a álgebra do Ledger (`CLAUDE.md`, "Conflict Resolution"). Responde à dor 2 de §18.2: o CFO não
+> sabe quanto há em cada instituição nem se o livro bate com o banco. **Decidido:** saldo de abertura como
+> fato (opção A), transferência como um fato só (opção A), a instituição perguntada em todo lançamento de
+> caixa, e a `Q-055` seguindo com o valor provisório. Uma conta por instituição.
+
+`REQ-670` **Saldo de abertura.** O livro só conhece o que entrou e saiu desde a virada. Para saber quanto
+há em cada instituição, o **saldo final do dia no extrato**, numa data, é registrado como **um fato por
+instituição**: o que o extrato mostrava, não um dinheiro que entrou.
+- Pode ser **negativo** (conta no cheque especial).
+- **Não é entrada nem saída**: fica fora dos totais de entradas e saídas do caixa e do período.
+- Fica **uma abertura de pé por instituição**. Um valor errado é corrigido por retificação (§7.3), nunca
+  editado; o Treasury recusa uma segunda abertura enquanto a primeira estiver de pé.
+- De preferência, a mesma data (a da virada) para todas as instituições.
+
+`REQ-671` **O que a abertura já contém.** Tudo o que movimentou dinheiro numa instituição **até o dia da
+sua abertura, inclusive**, já está no saldo de abertura. Um pagamento ou recebimento registrado depois
+com data até esse dia entra no histórico e quita a sua posição, mas **não muda o saldo** da instituição:
+contá-lo de novo tiraria ou poria o mesmo dinheiro duas vezes. Obrigações e expectativas não mexem em
+dinheiro e não são afetadas.
+
+`REQ-672` **Transferência entre instituições** (amplia `REQ-650`). **Um fato só**, com a data, o valor, a
+instituição de origem e a de destino, que precisam ser diferentes. O caixa total da Usina não muda: sai
+de uma e entra na outra. Transferir para a corretora é transferência; o rendimento depois é `DEC-045`.
+Se o débito e o crédito caírem em dias diferentes, a conferência mostra a diferença de um dia, que se
+resolve sozinha.
+
+`REQ-673` **Saldo por instituição.** O Ledger publica, para uma data (fim do dia em São Paulo), o saldo
+de cada instituição: abertura + entradas − saídas + transferências recebidas − transferências enviadas,
+contando só o que veio **depois** da abertura (`REQ-671`). Também publica o que compõe cada saldo.
+- Uma instituição **sem abertura** tem saldo **desconhecido**, nunca zero; os movimentos dela ficam à
+  vista.
+- O **total conhecido** soma só as instituições com abertura, e diz quais são.
+- O dinheiro que entrou ou saiu **sem instituição** depois da primeira abertura aparece à parte, como
+  "instituição desconhecida", **nunca distribuído** entre as instituições nem somado ao total conhecido
+  (`REQ-650`).
+
+`REQ-674` **A instituição em todo lançamento de caixa** (amplia `REQ-650`). Todo lançamento que move
+dinheiro pergunta de que instituição o dinheiro saiu ou em qual entrou: a conversa, o pagamento a partir
+da posição, o lote (`REQ-653`) e o crédito da seguradora (`REQ-277`). **"Não informada" é uma resposta
+explícita**; a instituição nunca é preenchida por suposição.
+
+`REQ-675` **Conferência com o banco** (`TODO-07`). Para cada instituição, o CFO informa **o saldo do
+extrato numa data**. O Treasury mostra o saldo do livro na mesma data, publicado pelo Ledger (`REQ-673`),
+e a diferença entre os dois. A diferença fica à vista até uma conferência mais nova bater.
+- O saldo informado é um **controle do Treasury**, auditado e guardado com quem informou e quando,
+  **nunca um fato do Ledger**.
+- Sem abertura, não há saldo do livro para comparar: a conferência diz isso, sem diferença inventada.
+- Por enquanto, o saldo é informado à mão, quando o CFO quiser (`Q-055`, valor provisório). A importação
+  de extrato e a conciliação linha a linha seguem em PRI-2 (`TODO-21`).
+
+> **Como ficou no Ledger.** A abertura é um fato `opening_balance`: entrada para saldo positivo e saída para
+> cheque especial (o sinal vai no efeito, como a direção da perna da Usina), citando uma instituição e
+> nenhuma posição. A transferência é `institution_transfer`, movimento interno equilibrado, citando a origem
+> com a relação `transfers_from` e o destino com `transfers_to`. Como os dois não movem posição, a
+> retificação deles nomeia a instituição (`retracts` sobre `cash_account`); o Ledger só aceita isso quando o
+> fato retirado é uma abertura ou uma transferência. O caixa consolidado que já existia deixa as aberturas de
+> fora.
+
+`REQ-676` **As instituições são configuração.** A lista fica em `CASH_INSTITUTIONS`, no formato
+`chave=Nome`. Acrescentar uma instituição é acrescentar um par e reiniciar. O nome pode mudar; **a chave
+não**, depois de usada, porque fica gravada nos fatos.
+
+| ID | Critério | Regra |
+| --- | --- | --- |
+| `CA-670` | Abertura do Itaú de 10.000,00 em 30/11 → saldo do Itaú em 30/11 é 10.000,00; as entradas e saídas do caixa não mudam | `REQ-670`, `REQ-673` |
+| `CA-670b` | Abertura do Bradesco de −1.200,00 (cheque especial) → saldo −1.200,00 | `REQ-670` |
+| `CA-670c` | Segunda abertura do Itaú com a primeira de pé → recusada | `REQ-670` |
+| `CA-671` | Pagamento de 500,00 no Itaú com data 28/11, registrado em 05/12 → o saldo do Itaú não muda; um de 01/12 → cai 500,00 | `REQ-671` |
+| `CA-672` | Transferência de 3.000,00 do Bradesco para a corretora → Bradesco −3.000,00, corretora +3.000,00, caixa total igual | `REQ-672` |
+| `CA-672b` | Transferência com origem igual ao destino, ou sem uma das duas → recusada | `REQ-672` |
+| `CA-673` | Corretora sem abertura → saldo desconhecido, movimentos à vista; o total conhecido soma só Bradesco e Itaú | `REQ-673` |
+| `CA-673b` | Recebimento sem instituição depois da virada → em "instituição desconhecida", fora de toda instituição e do total conhecido | `REQ-673` |
+| `CA-674` | Recebimento pela conversa → a conversa pergunta a instituição; "não informada" é aceita e registrada sem instituição | `REQ-674` |
+| `CA-675` | Extrato do Itaú de 9.800,00 em 05/12 e livro de 9.500,00 → diferença de 300,00 à vista | `REQ-675` |
+
+| ID | Caso que deve ser rejeitado | Regra |
+| --- | --- | --- |
+| `REJ-670` | Tratar o saldo de abertura como entrada de dinheiro | `REQ-670` |
+| `REJ-671` | Contar no saldo um movimento com data até o dia da abertura | `REQ-671` |
+| `REJ-673` | Mostrar zero para uma instituição sem abertura, ou distribuir o desconhecido | `REQ-673` |
+| `REJ-675` | Gravar no Ledger o saldo informado pelo CFO | `REQ-675` |
+
 ---
 
 ## 9. Entrada por texto livre
@@ -2753,8 +2839,8 @@ principal dessas mudanças.
 | **E3** | **Pagamentos do dia em lote** | CFO. Permite registrar o volume real (dor 3) | 08 | Nada: a `DEC-044` foi decidida em 2026-11-13 (§8.6) | ✅ Feito em 2026-11-13 |
 | **E4** | **Agenda a receber**, com o declarado pela operadora e ainda não visto no banco | CFO e verificadores. Saber o que cobrar (dor 4) | 09 | Nada; `DEC-036` melhora a precisão e pode esperar o piloto | ✅ Feito em 2026-11-13 |
 | **E5** | **Sinais entrando sozinhos:** seguro em operação real e saúde | Verificadores. Obrigações e expectativas sem digitação | 10, 11 | Seguro: nada. Saúde: `Q-054`, que é falta de informação, não decisão | Seguro sim; saúde não |
-| **E6** | **Saldo por instituição e conferência com o banco** | CFO. O livro passa a bater com o banco (dor 2) | 06, 07 | `Q-055`, e como entra a transferência entre instituições (`REQ-650`). A `DEC-044` foi decidida | Sim, o saldo por instituição; a conferência espera `Q-055` |
-| **E7** | **Painel da manhã: o caixa cobre o que vence?** | CFO. A pergunta diária "posso pagar hoje?" | 12 | Uma versão inicial usa o caixa consolidado, que já existe; a versão por instituição espera o E6 | Sim, a inicial |
+| **E6** | **Saldo por instituição e conferência com o banco** | CFO. O livro passa a bater com o banco (dor 2) | 06, 07 | `Q-055`, e como entra a transferência entre instituições (`REQ-650`). A `DEC-044` foi decidida | ✅ Feito em 2026-11-16 |
+| **E7** | **Painel da manhã: o caixa cobre o que vence?** | CFO. A pergunta diária "posso pagar hoje?" | 12 | Nada: o saldo por instituição existe desde o E6 (2026-11-16) | Sim, a inicial |
 | **E8** | **Piloto com a equipe** | Os cinco. Confirma se a versão serve e reordena o resto | 13 | `Q-056`, só quando o piloto começar | Depois de E1–E4 |
 
 **Até quando cada decisão pode esperar**
@@ -2763,7 +2849,7 @@ principal dessas mudanças.
 | --- | --- |
 | `DEC-044` | ~~Decidida em 2026-11-13~~: §8.6, `REQ-650`. Antes: **o primeiro pagamento real registrado no piloto.** Um fato é imutável: o que for registrado sem instituição fica "instituição desconhecida" para sempre, a menos que se crie um meio de completar isso depois. Não bloqueia construir o E3; bloqueia usá-lo de verdade. Discutir em paralelo ao E2 |
 | `Q-054` | O E5 da saúde. Enquanto isso, a saúde é registrada à mão |
-| `Q-055` | O E6. Para o E2, o valor provisório basta |
+| `Q-055` | O piloto. O E6 foi feito com o valor provisório (saldo informado à mão, quando o CFO quiser); a resposta muda só lembretes e alertas |
 | `Q-056` | O início do piloto |
 | `DEC-041` | ~~Decidida em 2026-11-13~~: §6 |
 | `DEC-045`, `Q-053`, `DEC-036` | PRI-1; o piloto diz se alguma sobe |
@@ -2883,6 +2969,30 @@ do Ledger**.
 que torna o livro confiável. A conciliação linha a linha e a importação de extrato ficam em PRI-2
 (`TODO-21`).
 *Depende de:* `TODO-06`; a forma e a frequência de cada instituição, de `Q-055`.
+*Situação (`TODO-06` e `TODO-07`):* ✅ 2026-11-16, sem commit; as regras estão em §8.8 (`REQ-670`–`REQ-676`),
+decididas numa conversa de arquitetura com o dono do produto. **No Ledger:** dois fatos novos, o saldo de
+abertura (`opening_balance`, entrada para saldo positivo e saída para cheque especial, citando uma
+instituição e nenhuma posição, fora de todo total de entradas e saídas) e a transferência entre
+instituições (`institution_transfer`, movimento interno citando a origem com `transfers_from` e o destino
+com `transfers_to`); a retificação dos dois nomeia a instituição, porque não moveram posição; e a leitura
+`GET /api/cash-position/institutions?asOf=`, com o saldo de cada instituição, o total conhecido e o
+desconhecido. **No Treasury:** a pergunta "de qual instituição" em todas as 13 conversas que movem
+dinheiro, no lote, no crédito da seguradora e na reemissão de uma retificação; a tela "Caixa por
+instituição" com o saldo, a abertura, a transferência e a conferência (o saldo do extrato, gravado no
+SQLite das operações, nunca no Ledger); a lista de instituições segue `CASH_INSTITUTIONS`. **Não feito:**
+a importação de extrato e a conciliação linha a linha (`TODO-21`); o rendimento da corretora (`DEC-045`);
+lembretes de conferência (`Q-055`). Testes: `institution-balance.test.ts` (Ledger, 16) e a paridade SQL em
+`sqlite-read-paths.test.ts`; `institution-cash.test.ts` (Treasury, 21); `cashView.test.ts` (tela). Os 106
+testes que completavam conversas de caixa sem dizer a instituição passaram a responder "não informada".
+Sabotagens conferidas: contar o que veio antes da abertura, ou aceitar uma segunda abertura, fazem os testes
+falhar. Verificado com o Ledger de verdade num livro de teste de 10 dias: aberturas de Bradesco (500.000,00),
+Itaú (400.000,00) e corretora (−1.200,00); a segunda abertura do Itaú foi recusada; um pagamento de 01/11
+(antes da abertura) não mexeu no Itaú e um de hoje mexeu; a transferência de 50.000,00 do Bradesco para a
+corretora; os saldos fecharam (295.600,51, 257.705,77 e 48.800,00, total 602.106,28); 10 pagamentos "não
+informada" ficaram à parte; o extrato do Itaú com 200,00 a mais mostrou a diferença, e o de 02/11 bateu; a
+abertura da corretora foi retificada para −1.500,00; o caixa consolidado antigo não contou aberturas nem
+transferência. Leituras em ~20 ms. Suítes: Ledger 940 e 12 pendentes (cobertura de 86,5% das linhas);
+Treasury 1.014, com 37 `it.todo`, e 199 no cliente. A tela será vista no navegador no piloto.
 
 `TODO-08` **Pagamentos do dia de uma vez.** O CFO escolhe, na agenda a pagar, as obrigações que vai pagar,
 de várias partes; paga no banco e anota que pagou, com data e instituição. Vira um evento por obrigação

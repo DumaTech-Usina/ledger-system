@@ -206,11 +206,15 @@ export class InvariantPolicy {
     }
 
     // ===============================
-    // 1️⃣1️⃣ Contextual objects must use REFERENCES
+    // 1️⃣1️⃣ Contextual objects must use REFERENCES — save an institution on a transfer (11c), or one
+    //    named by the retraction of an opening or a transfer, which moved no position and were about
+    //    the institution alone (REQ-670, REQ-672; the use case checks the target is one of those)
     // ===============================
 
     for (const obj of contextualObjects) {
-      if (obj.relation !== Relation.REFERENCES) {
+      const institutionLeg =
+        obj.relation === Relation.TRANSFERS_FROM || obj.relation === Relation.TRANSFERS_TO || obj.relation === Relation.RETRACTS;
+      if (obj.relation !== Relation.REFERENCES && !(institutionLeg && obj.objectType === ObjectType.CASH_ACCOUNT)) {
         throw new Error(
           `Contextual object ${obj.objectType} must use relation REFERENCES`,
         );
@@ -223,19 +227,53 @@ export class InvariantPolicy {
     //
     // Where the money entered or left is an observed fact, cited as a context. Money leaves or enters
     // ONE institution, so a cash fact cites at most one; a fact that moves no money has no institution
-    // to cite. A transfer between institutions (CASH_INTERNAL) needs an origin and a destination, which
-    // one context cannot say — refused until that is decided (TODO-06). Citing none is not refused:
-    // the institution is then unknown, never assumed.
+    // to cite. Citing none is not refused: the institution is then unknown, never assumed.
 
     const institutions = contextualObjects.filter((o) => o.objectType === ObjectType.CASH_ACCOUNT);
-    if (institutions.length > 0) {
+    const transfer = props.eventType === EventType.INSTITUTION_TRANSFER;
+    // A retraction is checked by 12: it only names what it withdraws, and moves nothing.
+    const withdrawing = institutions.length > 0 && institutions.every((o) => o.relation === Relation.RETRACTS);
+    if (institutions.length > 0 && !transfer && !withdrawing) {
+      if (institutions.some((o) => o.relation !== Relation.REFERENCES)) {
+        throw new Error("Only an institution transfer names an institution the money left from or arrived in");
+      }
       if (props.economicEffect !== EconomicEffect.CASH_IN && props.economicEffect !== EconomicEffect.CASH_OUT) {
         throw new Error(
           `An institution (cash_account) can be cited only by a fact that moves money in or out of the Usina, not by a ${props.economicEffect} fact`,
         );
       }
-      if (new Set(institutions.map((o) => o.objectId)).size > 1) {
+      if (new Set(institutions.map((o) => o.objectId.value)).size > 1) {
         throw new Error("A cash fact cites at most one institution (cash_account): the money moved in one of them");
+      }
+    }
+
+    // ===============================
+    // 1️⃣1️⃣c Opening balance and transfer between institutions (REQ-670, REQ-672)
+    // ===============================
+    //
+    // Neither moves a position: the institution is what they are about. An opening balance is the
+    // statement of ONE institution; a transfer names where the money left and where it arrived, and
+    // the two must differ — a transfer to the same institution moved nothing.
+
+    if (props.eventType === EventType.OPENING_BALANCE || transfer) {
+      if (positionalObjects.length > 0) {
+        throw new Error(`A ${props.eventType} moves no position: it cites only institutions (cash_account)`);
+      }
+      if (contextualObjects.some((o) => o.objectType !== ObjectType.CASH_ACCOUNT)) {
+        throw new Error(`A ${props.eventType} cites only institutions (cash_account)`);
+      }
+    }
+    if (props.eventType === EventType.OPENING_BALANCE && institutions.length !== 1) {
+      throw new Error("An opening balance is the statement of exactly one institution (cash_account)");
+    }
+    if (transfer) {
+      const from = institutions.filter((o) => o.relation === Relation.TRANSFERS_FROM);
+      const to = institutions.filter((o) => o.relation === Relation.TRANSFERS_TO);
+      if (from.length !== 1 || to.length !== 1 || institutions.length !== 2) {
+        throw new Error("A transfer names exactly one institution it left from (TRANSFERS_FROM) and one it arrived in (TRANSFERS_TO)");
+      }
+      if (from[0].objectId.value === to[0].objectId.value) {
+        throw new Error("A transfer to the same institution moves nothing: origin and destination must differ");
       }
     }
 

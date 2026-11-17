@@ -34,7 +34,10 @@ import type { SlotExtractionPort } from "./core/application/ports/SlotExtraction
 import { SystemClock } from "./infra/system/SystemClock";
 import { GetPayablesAgendaUseCase } from "./core/application/use-cases/GetPayablesAgenda";
 import { GetReceivablesAgendaUseCase } from "./core/application/use-cases/GetReceivablesAgenda";
-import type { PayablesAgendaPort, ReceivablesAgendaPort } from "./core/application/ports/PayablesAgendaPort";
+import { InstitutionCashUseCase } from "./core/application/use-cases/InstitutionCash";
+import { InMemoryBankStatementStore } from "./core/application/services/BankStatements";
+import { SqliteBankStatementStore } from "./infra/persistence/SqliteBankStatementStore";
+import type { InstitutionBalancesPort, PayablesAgendaPort, ReceivablesAgendaPort } from "./core/application/ports/PayablesAgendaPort";
 import { accessModule } from "./infra/auth/accessModule";
 import { SESSION_TTL_MS } from "./core/domain/policies/accessPolicy";
 import { UuidGenerator } from "./infra/system/UuidGenerator";
@@ -71,7 +74,8 @@ import { InMemoryExternalSignalRepository } from "./infra/persistence/InMemoryEx
 import { SqliteExternalSignalRepository } from "./infra/persistence/SqliteExternalSignalRepository";
 import { SqlitePreparedBatchStore } from "./infra/persistence/SqlitePreparedBatchStore";
 import { InMemoryPreparedBatchStore, PreparedBatches } from "./core/application/services/PreparedBatches";
-import { PayablesBatchUseCase, institutionsFrom } from "./core/application/use-cases/PayablesBatch";
+import { PayablesBatchUseCase } from "./core/application/use-cases/PayablesBatch";
+import { configureInstitutions, institutionsFrom } from "./core/domain/services/Institutions";
 
 async function bootstrap(): Promise<void> {
   // ── Composition root ─────────────────────────────────────────────────────────
@@ -160,6 +164,10 @@ async function bootstrap(): Promise<void> {
     );
   }
 
+  // REQ-676: the institutions every money question offers come from the configuration, read once.
+  const institutions = institutionsFrom(env.CASH_INSTITUTIONS);
+  configureInstitutions(institutions);
+
   // ── Ledger integration (mode-selected) ─────────────────────────────────────
   let submission: CandidateSubmissionPort;
   // The same adapter serves both read boundaries in every mode; only the demo ones lack lifecycles.
@@ -169,7 +177,8 @@ async function bootstrap(): Promise<void> {
     PositionLookupPort &
     PartyEventsPort &
     PayablesAgendaPort &
-    ReceivablesAgendaPort;
+    ReceivablesAgendaPort &
+    InstitutionBalancesPort;
   if (env.LEDGER_MODE === "simulate") {
     // One in-memory fake Ledger for BOTH submit + reads → the full create→dashboard loop works.
     const simulator = new InMemoryLedgerSimulator();
@@ -304,6 +313,19 @@ async function bootstrap(): Promise<void> {
     listInsurerReceivables: new ListInsurerReceivablesUseCase(ledgerRead),
     getPayablesAgenda: new GetPayablesAgendaUseCase(ledgerRead, partyDirectory, env.USINA_PARTY_ID),
     getReceivablesAgenda: new GetReceivablesAgendaUseCase(ledgerRead, signalRepo, partyDirectory, env.USINA_PARTY_ID),
+    // §8.8. The statement balances live with the operations: durable whenever the Ledger is real.
+    institutionCash: new InstitutionCashUseCase({
+      ledger: ledgerRead,
+      statements: durableOperations ? new SqliteBankStatementStore(env.OPERATIONS_DB_FILE) : new InMemoryBankStatementStore(),
+      audit,
+      clock,
+      ids,
+      startIntent,
+      applyAnswers,
+      submit: submitIntent,
+      institutions,
+      users,
+    }),
     // §8.6. The prepared batches live with the operations (REQ-652): durable whenever the Ledger is real.
     payablesBatch: new PayablesBatchUseCase({
       batches: new PreparedBatches(
@@ -318,7 +340,7 @@ async function bootstrap(): Promise<void> {
       submit: submitIntent,
       clock,
       usinaPartyId: env.USINA_PARTY_ID,
-      institutions: institutionsFrom(env.CASH_INSTITUTIONS),
+      institutions,
       names: { displayNameOf: async (id) => (await partyDirectory.get(id))?.displayName ?? null },
       users,
     }),

@@ -7,6 +7,11 @@ export interface SlotDefinition {
   required: boolean;
   help?: string;
   choices?: string[];
+  /**
+   * CHOICE slots only: how to name each value when it comes from configuration the interface cannot
+   * know — the institutions (REQ-674). Takes precedence over the catalog's own wording.
+   */
+  choiceLabels?: Record<string, string>;
   suggestionSource?: string;
   /**
    * PARTY slots only: whether this counterparty may be recorded as explicitly not identifiable.

@@ -247,6 +247,7 @@ async function main(): Promise<void> {
         creditAmount: (total / 100).toFixed(2),
         occurredAt: day,
         allocations: mine.map((p) => ({ objectId: `seguro:apolice:${p.id}:prevista`, amount: p.usinaValue })),
+        institution: "itau",
         userId: CFO,
       });
       for (const step of result.steps) count(`recebimento:${step.status}`);
@@ -266,6 +267,7 @@ async function main(): Promise<void> {
           { key: "amount", value: policy.payout },
           { key: "currency", value: "BRL" },
           { key: "occurredAt", value: day },
+          { key: "institution", value: "bradesco" },
         ],
       });
       await submitAll([intentId], CFO, "repasse");
@@ -281,6 +283,8 @@ async function main(): Promise<void> {
           { key: "amount", value: money(40, 9000) },
           { key: "currency", value: "BRL" },
           { key: "occurredAt", value: day },
+          // REQ-674: most say where; some do not, as in real life — they land in "desconhecida".
+          { key: "institution", value: rand() < 0.1 ? "nao_informada" : pick(["bradesco", "itau"]) },
           { key: "description", value: "Pagamento simulado" },
         ],
       });
@@ -318,6 +322,7 @@ async function main(): Promise<void> {
           { key: "amount", value: bill.amount },
           { key: "currency", value: "BRL" },
           { key: "occurredAt", value: day },
+          { key: "institution", value: "itau" },
         ],
       });
       await submitAll([intentId], CFO, "conta-paga");

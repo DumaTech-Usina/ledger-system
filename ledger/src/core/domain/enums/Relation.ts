@@ -16,4 +16,9 @@ export enum Relation {
    * positional object untouched. Admitted by the LEDGER_CORRECTION contract alone.
    */
   RETRACTS = "retracts",
+
+  /** An institution (cash_account) the money of a transfer left (treasury REQ-672). */
+  TRANSFERS_FROM = "transfers_from",
+  /** An institution (cash_account) the money of a transfer arrived in (treasury REQ-672). */
+  TRANSFERS_TO = "transfers_to",
 }

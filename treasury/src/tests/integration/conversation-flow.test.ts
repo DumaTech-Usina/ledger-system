@@ -34,7 +34,8 @@ describe("conversation flow (register_payment)", () => {
     await advance.execute({ intentId, key: "payee", value: PARTY.ACME });
     await advance.execute({ intentId, key: "amount", value: "1500.00" });
     await advance.execute({ intentId, key: "currency", value: "BRL" });
-    const last = await advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });
+    await advance.execute({ intentId, key: "occurredAt", value: "2026-07-09" });
+    const last = await advance.execute({ intentId, key: "institution", value: "nao_informada" });
 
     expect(last.state.kind).toBe("ready");
     const intent = await repo.findById(intentId);

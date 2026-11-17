@@ -60,7 +60,7 @@ describe("lineage flow (Phase 6)", () => {
   it("commission received with an origin is ready and accepted; the candidate carries relatedEventId", async () => {
     const w = wire();
     const { intentId, last } = await fill(w, "register_commission_received", {
-      payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-expected-1",
+      payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09", institution: "nao_informada", origin: "evt-expected-1",
     });
     expect(last.state.kind).toBe("ready");
     const preview = await w.preview.execute(intentId);
@@ -72,7 +72,7 @@ describe("lineage flow (Phase 6)", () => {
     const w = wire();
     // origin is optional → omitting it still reaches ready; the mapper records an orphan.
     const { intentId, last } = await fill(w, "register_commission_received", {
-      payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09",
+      payer: PARTY.OPERATOR, amount: "1000.00", currency: "BRL", occurredAt: "2026-07-09", institution: "nao_informada",
     });
     expect(last.state.kind).toBe("ready");
     const preview = await w.preview.execute(intentId);
@@ -84,7 +84,7 @@ describe("lineage flow (Phase 6)", () => {
   it("advance recovery requires an origin — the dialog keeps asking until it is provided", async () => {
     const w = wire();
     const { intentId, last } = await fill(w, "register_advance_settlement", {
-      payer: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-09",
+      payer: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-09", institution: "nao_informada",
     });
     // origin still missing → not ready, and the next question is the origin slot.
     expect(last.state.kind).toBe("question");
@@ -94,7 +94,7 @@ describe("lineage flow (Phase 6)", () => {
   it("a bad origin → lineage rejection → AWAITING_CORRECTION re-asking `origin` → fix → accepted", async () => {
     const w = wire(new OriginGate("evt-bad"));
     const { intentId } = await fill(w, "register_advance_settlement", {
-      payer: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-bad",
+      payer: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-09", institution: "nao_informada", origin: "evt-bad",
     });
 
     const first = await w.submit.execute(intentId);

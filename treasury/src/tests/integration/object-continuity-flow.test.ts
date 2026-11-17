@@ -48,7 +48,7 @@ describe("object continuity flow (MVA)", () => {
 
     // 1. The advance is disbursed — its object identity is minted, as always.
     const disbursement = await fill(w, "register_advance", {
-      payee: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-02",
+      payee: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-02", institution: "nao_informada",
     });
     const advanceObjectId = (await w.preview.execute(disbursement.intentId)).candidate.objects[0].objectId;
     expect((await w.submit.execute(disbursement.intentId)).intentStatus).toBe(IntentStatus.ACCEPTED);
@@ -57,7 +57,7 @@ describe("object continuity flow (MVA)", () => {
     const recoveries = [];
     for (const _ of [1, 2]) {
       const { intentId, last } = await fill(w, "register_advance_settlement", {
-        payer: PARTY.BROKER, amount: "250.00", currency: "BRL", occurredAt: "2026-07-09",
+        payer: PARTY.BROKER, amount: "250.00", currency: "BRL", occurredAt: "2026-07-09", institution: "nao_informada",
         origin: "evt-advance-1", objectRef: advanceObjectId,
       });
       expect(last.state.kind).toBe("ready");
@@ -75,7 +75,7 @@ describe("object continuity flow (MVA)", () => {
   it("the continuity slot is optional — leaving it empty reaches ready and mints as today", async () => {
     const w = wire();
     const { intentId, last } = await fill(w, "register_advance_settlement", {
-      payer: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-09", origin: "evt-advance-1",
+      payer: PARTY.BROKER, amount: "500.00", currency: "BRL", occurredAt: "2026-07-09", institution: "nao_informada", origin: "evt-advance-1",
     });
 
     expect(last.state.kind).toBe("ready");

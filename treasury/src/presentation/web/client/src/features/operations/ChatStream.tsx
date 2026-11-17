@@ -291,7 +291,7 @@ export function ChatStream({
               onClick={() => onAnswer?.(choice)}
               className="rounded-full border border-line bg-panel-solid px-4 py-2 text-sm font-semibold text-ink shadow-sm transition hover:border-accent hover:bg-accent hover:text-accent-ink disabled:opacity-50 disabled:pointer-events-none"
             >
-              {t.slotChoice[choice] ?? choice}
+              {currentSlot!.choiceLabels?.[choice] ?? t.slotChoice[choice] ?? choice}
             </button>
           ))}
         </div>
@@ -624,7 +624,7 @@ function EditField({
                   : "border-line bg-panel-solid text-ink hover:border-accent",
               )}
             >
-              {t.slotChoice[choice] ?? choice}
+              {slot.choiceLabels?.[choice] ?? t.slotChoice[choice] ?? choice}
             </button>
           ))}
         </div>

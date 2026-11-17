@@ -17,32 +17,10 @@ import { localDay } from "../utils/instant";
 import type { ApplyAnswersUseCase } from "./ApplyAnswers";
 import type { StartPositionActionUseCase } from "./StartPositionAction";
 import type { SubmitIntentUseCase } from "./SubmitIntent";
+import { NOT_STATED, type Institution } from "../../domain/services/Institutions";
 
-/** An institution the Usina's money moves in (REQ-650). The key is written into facts: it never changes. */
-export interface Institution {
-  key: string;
-  name: string;
-}
-
-/** Reads `key=Name,key=Name`. Refuses a key that could not be part of an object id, or one given twice. */
-export function institutionsFrom(raw: string): Institution[] {
-  const list = raw
-    .split(",")
-    .map((pair) => pair.trim())
-    .filter(Boolean)
-    .map((pair) => {
-      const [key, ...name] = pair.split("=");
-      return { key: key.trim(), name: name.join("=").trim() };
-    });
-  for (const { key, name } of list) {
-    if (!/^[a-z0-9-]+$/.test(key) || !name) throw new Error(`CASH_INSTITUTIONS: "${key}=${name}" is not key=Name with a key in a-z, 0-9 and -.`);
-  }
-  if (new Set(list.map((i) => i.key)).size !== list.length) throw new Error("CASH_INSTITUTIONS: a key appears twice.");
-  return list;
-}
-
-/** The context a cash fact cites to say where the money moved (REQ-650, DEC-044). */
-export const institutionContext = (key: string) => ({ objectId: `instituicao:${key}`, objectType: "cash_account" });
+export { institutionsFrom, institutionContext } from "../../domain/services/Institutions";
+export type { Institution } from "../../domain/services/Institutions";
 
 /** One line of a batch, as the interface shows it. */
 export interface BatchLineView {
@@ -170,13 +148,10 @@ export class PayablesBatchUseCase {
       debit: fromCents(debit),
     });
     const payment = taken.payment!;
-    const contexts = [
-      { objectId: `lote:${batch.batchId}`, objectType: "settlement_batch" },
-      ...(institution ? [institutionContext(institution)] : []),
-    ];
+    const contexts = [{ objectId: `lote:${batch.batchId}`, objectType: "settlement_batch" }];
 
     for (const item of batch.items) {
-      payment.steps.push(await this.payLine(item as Required<typeof item>, occurredAt, contexts, input.by));
+      payment.steps.push(await this.payLine(item as Required<typeof item>, occurredAt, institution, contexts, input.by));
       await this.deps.batches.recordProgress(taken);
     }
     payment.state = "recorded";
@@ -231,6 +206,7 @@ export class PayablesBatchUseCase {
   private async payLine(
     item: { objectId: string; amount: string; payee: string; scenarioId: string },
     occurredAt: string,
+    institution: string | null,
     contexts: { objectId: string; objectType: string }[],
     by: string,
   ): Promise<BatchPaymentStep> {
@@ -249,6 +225,8 @@ export class PayablesBatchUseCase {
           { key: "payee", value: item.payee },
           { key: "amount", value: item.amount },
           { key: "occurredAt", value: occurredAt },
+          // REQ-674: the same question the conversation asks, answered once for the whole batch.
+          { key: "institution", value: institution ?? NOT_STATED },
         ],
       });
       if (merged.rejected.length > 0) {

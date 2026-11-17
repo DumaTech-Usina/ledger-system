@@ -1,4 +1,5 @@
 import type { Scenario } from "./Scenario";
+import { INSTITUTION_SLOT } from "../services/Institutions";
 import { SlotType } from "../enums/SlotType";
 import { CURRENCY_SLOT } from "../value-objects/Slot";
 
@@ -18,6 +19,8 @@ export const registerPayroll: Scenario = {
     { key: "amount", type: SlotType.MONEY, prompt: "What is the payroll amount?", required: true },
     CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was payroll paid?", required: true },
+    // REQ-674: where the money moved — an institution, or explicitly "não informada".
+    INSTITUTION_SLOT,
     // Optional continuity: the obligation this payment closes, when the payroll was recognized
     // before it was paid. Never required — a payroll paid without a prior recognition is the
     // ordinary cash-basis fact this scenario has always recorded.

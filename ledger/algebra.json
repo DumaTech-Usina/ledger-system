@@ -43,7 +43,10 @@
       "references"
     ],
     "cash_account": [
-      "references"
+      "references",
+      "transfers_from",
+      "transfers_to",
+      "retracts"
     ],
     "chargeback": [
       "originates",
@@ -227,6 +230,9 @@
     "infrastructure_expense": [
       "cash_out"
     ],
+    "institution_transfer": [
+      "cash_internal"
+    ],
     "late_identified_commission": [
       "non_cash"
     ],
@@ -248,6 +254,10 @@
     ],
     "obligation_recognition": [
       "non_cash"
+    ],
+    "opening_balance": [
+      "cash_in",
+      "cash_out"
     ],
     "ordinary_settlement": [
       "cash_out"
@@ -624,11 +634,30 @@
       "requiresRelatedEventId": false,
       "allowedOriginTypes": []
     },
+    "institution_transfer": {
+      "economicEffects": [
+        "cash_internal"
+      ],
+      "objects": [],
+      "reasons": [
+        "institution_transfer"
+      ],
+      "minConfidence": null,
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
     "ledger_correction": {
       "economicEffects": [
         "non_cash"
       ],
       "objects": [
+        {
+          "objectType": "cash_account",
+          "relations": [
+            "retracts"
+          ]
+        },
         {
           "objectType": "commission_receivable",
           "relations": [
@@ -861,6 +890,20 @@
         "late_awareness"
       ],
       "minConfidence": "medium",
+      "requiresPreviousHash": false,
+      "requiresRelatedEventId": false,
+      "allowedOriginTypes": []
+    },
+    "opening_balance": {
+      "economicEffects": [
+        "cash_in",
+        "cash_out"
+      ],
+      "objects": [],
+      "reasons": [
+        "opening_balance"
+      ],
+      "minConfidence": null,
       "requiresPreviousHash": false,
       "requiresRelatedEventId": false,
       "allowedOriginTypes": []

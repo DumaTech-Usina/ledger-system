@@ -424,3 +424,25 @@ export interface ReceivablesAgendaQuery {
   page?: number;
   limit?: number;
 }
+
+/** Signed amounts per currency, as the Ledger publishes them ("-1200.00"). */
+export type SignedTotals = Record<string, string>;
+
+/**
+ * The balance of each institution at the end of a day, as the Ledger publishes it (§8.8, REQ-673).
+ * `balance` is null — never zero — for an institution with no opening on record by then.
+ */
+export interface InstitutionBalancesPage {
+  asOf: string;
+  institutions: {
+    institution: string;
+    opening: { amount: string; currency: string; day: string; eventId: string } | null;
+    cashIn: SignedTotals;
+    cashOut: SignedTotals;
+    transfersIn: SignedTotals;
+    transfersOut: SignedTotals;
+    balance: SignedTotals | null;
+  }[];
+  known: { total: SignedTotals; institutions: string[] };
+  unknown: { since: string | null; cashIn: SignedTotals; cashOut: SignedTotals; count: number };
+}

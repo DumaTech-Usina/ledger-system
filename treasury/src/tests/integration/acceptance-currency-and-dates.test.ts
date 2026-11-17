@@ -111,7 +111,7 @@ describe("REQ-222 — a moeda é BRL", () => {
       answers: [
         { key: "payee", value: PARTY.ACME },
         { key: "amount", value: "10.00" },
-        { key: "occurredAt", value: "2026-11-03" },
+        { key: "occurredAt", value: "2026-11-03" }, { key: "institution", value: "nao_informada" },
       ],
     });
 

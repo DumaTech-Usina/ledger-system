@@ -2,6 +2,14 @@ import { formatTemplate, type Translations } from "@/i18n/i18n";
 import type { IntentStatus, RejectionDetail } from "@/types/operations";
 
 export const scenarioCopy: Record<string, { title: string; description: string }> = {
+  register_opening_balance: {
+    title: "Registrar saldo de abertura",
+    description: "O saldo final do dia no extrato de uma instituição, ponto de partida do seu saldo (§8.8).",
+  },
+  register_institution_transfer: {
+    title: "Registrar transferência entre instituições",
+    description: "Dinheiro que saiu de uma instituição da Usina e entrou em outra; o caixa total não muda.",
+  },
   register_payment: {
     title: "Registrar pagamento geral",
     description:
@@ -91,6 +99,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor do pagamento?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data o pagamento foi feito?",
+    institution: "De qual instituição o dinheiro saiu?",
     objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
     description: "Uma breve descrição (opcional).",
   },
@@ -99,6 +108,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual valor foi pago?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data o dinheiro saiu da conta?",
+    institution: "De qual instituição o dinheiro saiu?",
     objectRef: "Qual obrigação de comissão este pagamento quita? (opcional)",
     description: "Uma breve descrição (opcional).",
   },
@@ -116,6 +126,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor da folha?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data a folha foi paga?",
+    institution: "De qual instituição o dinheiro saiu?",
     objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
     description: "Uma breve descrição (opcional).",
   },
@@ -124,6 +135,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi pago?",
+    institution: "De qual instituição o dinheiro saiu?",
     objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
     description: "Uma breve descrição (opcional).",
   },
@@ -132,6 +144,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor da taxa?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi paga?",
+    institution: "De qual instituição o dinheiro saiu?",
     objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
     description: "Uma breve descrição (opcional).",
   },
@@ -140,6 +153,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor do imposto?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi pago?",
+    institution: "De qual instituição o dinheiro saiu?",
     objectRef: "Qual obrigação reconhecida este pagamento quita? (opcional)",
     description: "Uma breve descrição (opcional).",
   },
@@ -148,6 +162,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor da multa?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi paga?",
+    institution: "De qual instituição o dinheiro saiu?",
     description: "Uma breve descrição (opcional).",
   },
   register_incentive: {
@@ -156,6 +171,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor do incentivo?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi pago?",
+    institution: "De qual instituição o dinheiro saiu?",
     description: "Uma breve descrição (opcional).",
   },
   register_advance: {
@@ -163,6 +179,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor do adiantamento?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data o adiantamento foi pago?",
+    institution: "De qual instituição o dinheiro saiu?",
     description: "Uma breve descrição (opcional).",
   },
   register_loan: {
@@ -170,6 +187,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor do empréstimo?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data o empréstimo foi concedido?",
+    institution: "De qual instituição o dinheiro saiu?",
     description: "Uma breve descrição (opcional).",
   },
   register_waiver: {
@@ -199,6 +217,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual é o valor da comissão recebida?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi recebida?",
+    institution: "Em qual instituição o dinheiro entrou?",
     origin: "Qual comissão prevista está sendo quitada? (deixe em branco se não souber)",
     description: "Uma breve descrição (opcional).",
   },
@@ -207,6 +226,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual foi o valor recuperado?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi recuperado?",
+    institution: "Em qual instituição o dinheiro entrou?",
     origin: "Qual adiantamento está sendo quitado?",
     description: "Uma breve descrição (opcional).",
   },
@@ -215,6 +235,7 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     amount: "Qual foi o valor quitado?",
     currency: "Qual é a moeda?",
     occurredAt: "Em que data foi quitado?",
+    institution: "Em qual instituição o dinheiro entrou?",
     origin: "Qual empréstimo está sendo quitado?",
     description: "Uma breve descrição (opcional).",
   },

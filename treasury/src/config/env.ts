@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { DEFAULT_CASH_INSTITUTIONS } from "../core/domain/services/Institutions";
 import { z } from "zod";
 
 const envSchema = z.object({
@@ -105,7 +106,7 @@ const envSchema = z.object({
    * key is written into every payment that names the institution, so it NEVER changes once used; the
    * name can. Set it before the first real payment.
    */
-  CASH_INSTITUTIONS: z.string().min(1).default("bradesco=Bradesco,itau=Itaú,corretora=Corretora de investimentos"),
+  CASH_INSTITUTIONS: z.string().min(1).default(DEFAULT_CASH_INSTITUTIONS),
 });
 
 const result = envSchema.safeParse(process.env);

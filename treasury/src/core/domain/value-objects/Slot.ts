@@ -14,6 +14,11 @@ export interface SlotDefinition {
   help?: string;
   /** Allowed values for CHOICE slots. */
   choices?: string[];
+  /**
+   * CHOICE slots only: how to show each value, when the values come from configuration and the
+   * interface cannot know them (the institutions, REQ-674). Absent: the interface names them itself.
+   */
+  choiceLabels?: Record<string, string>;
   /** Identifies a deterministic suggestion source (e.g. known parties from Ledger data). */
   suggestionSource?: string;
   /**

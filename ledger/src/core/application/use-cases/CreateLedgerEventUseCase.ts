@@ -6,6 +6,8 @@ import { LedgerEventParty } from "../../domain/entities/LedgerEventParty";
 import { EVENT_CONTRACTS } from "../../domain/contracts/EventContract";
 import { foldObjectTotals, retractedEventIds } from "../dtos/retractionUtils";
 import { Relation } from "../../domain/enums/Relation";
+import { ObjectType } from "../../domain/enums/ObjectType";
+import { EventType } from "../../domain/enums/EventType";
 import { EventHash } from "../../domain/value-objects/EventHash";
 import { EventId } from "../../domain/value-objects/EventId";
 import { Money } from "../../domain/value-objects/Money";
@@ -82,6 +84,21 @@ export class CreateLedgerEventUseCase {
       if (existingRetractions.length > 0) {
         throw new Error(
           `Event ${command.relatedEventId} has already been retracted by ${existingRetractions[0].id.value}`,
+        );
+      }
+
+      // An institution is withdrawn only with a fact that was about it alone: an opening balance or a
+      // transfer (REQ-670, REQ-672). Any other fact moved a position, and that is what it retracts.
+      const institutionRetracted = command.objects.some(
+        (o) => o.objectType === ObjectType.CASH_ACCOUNT && o.relation === Relation.RETRACTS,
+      );
+      if (
+        institutionRetracted &&
+        originEvent.eventType !== EventType.OPENING_BALANCE &&
+        originEvent.eventType !== EventType.INSTITUTION_TRANSFER
+      ) {
+        throw new Error(
+          `Only an opening balance or a transfer between institutions is retracted by naming the institution; ${originEvent.eventType} moved a position`,
         );
       }
 

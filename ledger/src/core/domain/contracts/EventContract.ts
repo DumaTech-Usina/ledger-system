@@ -299,6 +299,13 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     economicEffects: [EconomicEffect.NON_CASH],
 
     objects: [
+      // An opening balance or a transfer moved no position: its institution is what is withdrawn
+      // (REQ-670, REQ-672). Contextual, so InvariantPolicy 4 never asks for it; listed so the
+      // published algebra says it is admitted. CreateLedgerEventUseCase checks the target's type.
+      {
+        objectType: ObjectType.CASH_ACCOUNT,
+        relations: [Relation.RETRACTS],
+      },
       {
         objectType: ObjectType.COMMISSION_RECEIVABLE,
         relations: [Relation.REVERSES, Relation.ADJUSTS, Relation.RETRACTS],
@@ -464,5 +471,21 @@ export const EVENT_CONTRACTS: Record<EventType, EventSemanticContract> = {
     ],
 
     reasons: [ReasonType.COMPENSATION],
+  },
+
+  /**
+   * REQ-670: no position moves — the only object is the institution, a context (InvariantPolicy 11c).
+   */
+  [EventType.OPENING_BALANCE]: {
+    economicEffects: [EconomicEffect.CASH_IN, EconomicEffect.CASH_OUT],
+    objects: [],
+    reasons: [ReasonType.OPENING_BALANCE],
+  },
+
+  /** REQ-672: no position moves — the objects are the two institutions (InvariantPolicy 11c). */
+  [EventType.INSTITUTION_TRANSFER]: {
+    economicEffects: [EconomicEffect.CASH_INTERNAL],
+    objects: [],
+    reasons: [ReasonType.INSTITUTION_TRANSFER],
   },
 };

@@ -8,6 +8,8 @@ import { AgendaPage } from "@/features/agenda/AgendaPage";
 import { agendaCopy } from "@/features/agenda/agendaCopy";
 import { ReceivablesPage } from "@/features/receivables/ReceivablesPage";
 import { receivablesCopy } from "@/features/receivables/receivablesCopy";
+import { CashPage } from "@/features/cash/CashPage";
+import { cashCopy } from "@/features/cash/cashCopy";
 import { usersCopy } from "@/features/users/usersCopy";
 import { AppShell } from "@/components/layout/AppShell";
 import { OperationsPage } from "@/features/operations/OperationsPage";
@@ -50,6 +52,7 @@ export function App() {
     { id: "operations", label: t.nav.operations, icon: "operations" as const },
     { id: "agenda", label: agendaCopy[language].nav, icon: "agenda" as const },
     { id: "receivables", label: receivablesCopy[language].nav, icon: "receivables" as const },
+    { id: "cash", label: cashCopy[language].nav, icon: "cash" as const },
     { id: "dashboards", label: t.nav.dashboards, icon: "dashboards" as const },
     { id: "positions", label: t.nav.positions, icon: "positions" as const },
     { id: "intents", label: t.nav.intents, icon: "intents" as const },
@@ -76,6 +79,7 @@ export function App() {
     users: usersCopy[language].nav,
     agenda: agendaCopy[language].nav,
     receivables: receivablesCopy[language].nav,
+    cash: cashCopy[language].nav,
   };
 
   const roleLabels: Record<Role, string> = {
@@ -134,6 +138,8 @@ export function App() {
             setActiveNav("operations");
           }}
         />
+      ) : activeNav === "cash" ? (
+        <CashPage canWrite={user.permissions.includes("intent:submit")} />
       ) : activeNav === "receivables" ? (
         <ReceivablesPage
           canReceive={user.permissions.includes("intent:submit")}

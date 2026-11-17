@@ -63,7 +63,8 @@ describe("the ghost party is impossible", () => {
     await w.advance.execute({ intentId, key: "payee", value: "Fornecedor Inventado" });
     await w.advance.execute({ intentId, key: "amount", value: "1500.00" });
     await w.advance.execute({ intentId, key: "currency", value: "BRL" });
-    const last = await w.advance.execute({ intentId, key: "occurredAt", value: "2026-08-03" });
+    await w.advance.execute({ intentId, key: "occurredAt", value: "2026-08-03" });
+    const last = await w.advance.execute({ intentId, key: "institution", value: "nao_informada" });
 
     // Every other slot is filled; the barrier holds purely because the party slot stayed blank.
     expect(last.state.kind).toBe("question");
@@ -231,7 +232,8 @@ describe("natural language now grounds to real entities", () => {
 
     expect(res.accepted).toContain("payee");
     expect((await w.repo.findById(intentId))?.answers.payee).toBe(PARTY.ACME);
-    expect(res.state?.kind).toBe("ready");
+    // REQ-674: what is left is where the money moved — never assumed from the sentence.
+    expect(res.state).toMatchObject({ kind: "question", slot: { key: "institution" } });
   });
 
   it("cannot invent a counterparty that does not exist", async () => {

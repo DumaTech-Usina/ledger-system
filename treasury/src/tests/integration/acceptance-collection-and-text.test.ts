@@ -59,7 +59,7 @@ const payroll = (amount: string) => [
   { key: "payee", value: PARTY.ACME },
   { key: "amount", value: amount },
   { key: "currency", value: "BRL" },
-  { key: "occurredAt", value: "2026-11-03" },
+  { key: "occurredAt", value: "2026-11-03" }, { key: "institution", value: "nao_informada" },
 ];
 
 const proposing = (slots: SlotProposal[]): SlotExtractionPort => ({ extract: async () => ({ slots }) });
@@ -141,7 +141,7 @@ describe("REJ-228 — a convenção brasileira não chega ao Ledger", () => {
       answers: [
         { key: "payee", value: PARTY.ACME },
         { key: "currency", value: "BRL" },
-        { key: "occurredAt", value: "2026-11-03" },
+        { key: "occurredAt", value: "2026-11-03" }, { key: "institution", value: "nao_informada" },
       ],
     });
     await submit.execute(intentId);

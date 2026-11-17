@@ -15,6 +15,10 @@ import { amountDigits, amountFromDigits, maskedAmount } from "@/utils/money";
 import { creditCopy } from "./creditCopy";
 import { allOf, creditAllocations, creditTotals } from "./creditForm";
 import { signalsApi, type CreditResult, type InsurerReceivable } from "./signalsApi";
+import { cashApi, type Institution } from "@/features/cash/cashApi";
+
+/** The value of "não informada"; the API receives it as null (REQ-674). */
+const NOT_STATED = "__none__";
 
 const STEP_VARIANT: Record<string, "ok" | "bad" | "warn" | "neutral"> = {
   accepted: "ok",
@@ -35,6 +39,8 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
   const [payer, setPayer] = useState("");
   const [creditDigits, setCreditDigits] = useState("");
   const [date, setDate] = useState("");
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [institution, setInstitution] = useState("");
   const [receivables, setReceivables] = useState<InsurerReceivable[] | null>(null);
   const [allocations, setAllocations] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -45,6 +51,7 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
   useEffect(() => {
     if (!open || parties.length > 0) return;
     void partiesApi.names().then(({ ok, data }) => ok && setParties(data.parties));
+    void cashApi.list().then(({ ok, data }) => ok && "institutions" in data && setInstitutions(data.institutions));
   }, [open, parties.length]);
 
   useEffect(() => {
@@ -68,6 +75,7 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
       creditAmount: amountFromDigits(creditDigits),
       occurredAt: date,
       allocations: creditAllocations({ creditDigits, allocations }),
+      institution: institution === NOT_STATED ? null : institution,
     });
     setSaving(false);
     if (ok && "steps" in data) {
@@ -96,7 +104,7 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
       {open && (
         <>
           <p className="mt-2 text-xs text-muted">{copy.note}</p>
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <Select
               label={copy.insurer}
               value={payer}
@@ -115,6 +123,16 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
               <span className="text-[13px] font-semibold text-muted">{copy.date}</span>
               <DatePicker value={date} onChange={setDate} disabled={saving} />
             </div>
+            <Select
+              label={copy.institution}
+              value={institution}
+              onChange={setInstitution}
+              options={[
+                { value: "", label: copy.chooseInstitution },
+                ...institutions.map((i) => ({ value: i.key, label: i.name })),
+                { value: NOT_STATED, label: copy.notStated },
+              ]}
+            />
           </div>
 
           {payer && receivables !== null && (
@@ -173,7 +191,7 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
 
           {error && <p className="mt-3 text-sm font-medium text-bad">{error}</p>}
           <div className="mt-4">
-            <Button loading={saving} disabled={!payer || creditDigits === "" || !date || totals.over} onClick={submit}>
+            <Button loading={saving} disabled={!payer || creditDigits === "" || !date || !institution || totals.over} onClick={submit}>
               {copy.submit}
             </Button>
           </div>

@@ -53,6 +53,8 @@ export function signalRoutes(
             creditAmount: String(body.creditAmount ?? ""),
             occurredAt: String(body.occurredAt ?? ""),
             allocations: allocations.map((a) => ({ objectId: String(a.objectId ?? ""), amount: String(a.amount ?? "") })),
+            // Absent stays undefined (refused); null is the explicit "não informada" (REQ-674).
+            institution: body.institution === undefined ? undefined : body.institution === null ? null : String(body.institution),
             userId: currentUser(req).id,
           }),
         );

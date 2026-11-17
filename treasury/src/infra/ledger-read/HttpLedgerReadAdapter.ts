@@ -21,8 +21,9 @@ import type {
   PayablesAgendaQuery,
   ReceivablesAgendaPage,
   ReceivablesAgendaQuery,
+  InstitutionBalancesPage,
 } from "../../core/application/dtos/LedgerReadModels";
-import type { PayablesAgendaPort, ReceivablesAgendaPort } from "../../core/application/ports/PayablesAgendaPort";
+import type { InstitutionBalancesPort, PayablesAgendaPort, ReceivablesAgendaPort } from "../../core/application/ports/PayablesAgendaPort";
 
 /** The Ledger's position-detail payload, as `serializePositionSummary` emits it. */
 interface LedgerPositionDetail {
@@ -98,7 +99,7 @@ function standingOrigination(
  * timeout so a slow/hung Ledger can't hang a treasury request.
  */
 export class HttpLedgerReadAdapter
-  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort, PartyEventsPort, PayablesAgendaPort, ReceivablesAgendaPort
+  implements LedgerReadPort, PositionLifecyclePort, LedgerEventLookupPort, PositionLookupPort, PartyEventsPort, PayablesAgendaPort, ReceivablesAgendaPort, InstitutionBalancesPort
 {
   constructor(
     private readonly baseUrl: string,
@@ -196,6 +197,12 @@ export class HttpLedgerReadAdapter
     if (query.limit) q.set("limit", String(query.limit));
     const raw = await this.get<PayablesAgendaPage>(`/api/positions/agenda/payables?${q.toString()}`);
     return { ...raw, data: (raw.data ?? []).map(toPositionItem) };
+  }
+
+  /** §8.8: each institution's balance at the end of `asOf` (default: today). Passed through untouched. */
+  async institutionBalances(asOf?: string): Promise<InstitutionBalancesPage> {
+    const q = asOf ? `?asOf=${encodeURIComponent(asOf)}` : "";
+    return this.get<InstitutionBalancesPage>(`/api/cash-position/institutions${q}`);
   }
 
   /** §8.7: the Ledger's agenda of what is owed to the Usina. Every total passes through untouched. */

@@ -6,6 +6,7 @@ import { StagingRepository } from "../../../core/application/repositories/Stagin
 import { PositionProjectionService } from "../../../core/application/services/PositionProjectionService";
 import { PayablesAgendaService } from "../../../core/application/services/PayablesAgendaService";
 import { ReceivablesAgendaService } from "../../../core/application/services/ReceivablesAgendaService";
+import { InstitutionBalanceService } from "../../../core/application/services/InstitutionBalanceService";
 import { CashPositionService } from "../../../core/application/services/CashPositionService";
 import { CashStatementService } from "../../../core/application/services/CashStatementService";
 import { CashEventListingService } from "../../../core/application/services/CashEventListingService";
@@ -73,7 +74,8 @@ export function createServer(deps: ServerDeps) {
   // §8.7: its twin, what is owed to the Usina. Needs the Usina's own id to tell it from the payer.
   const receivablesAgenda = new ReceivablesAgendaService(deps.ledgerRepo, deps.positionService, zone, deps.usinaPartyId);
   app.use("/api/positions", positionRoutes(deps.positionService, payablesAgenda, receivablesAgenda));
-  app.use("/api/cash-position", cashPositionRoutes(cashPositionService));
+  // §8.8: the balance of each institution, read in the same zone as the agendas.
+  app.use("/api/cash-position", cashPositionRoutes(cashPositionService, new InstitutionBalanceService(deps.ledgerRepo, zone)));
   app.use("/api/cash-statement", cashStatementRoutes(cashStatementService));
   app.use("/api/cash-movements", cashMovementsRoutes(cashListingService));
 

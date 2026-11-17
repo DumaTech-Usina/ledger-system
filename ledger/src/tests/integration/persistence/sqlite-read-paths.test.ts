@@ -21,6 +21,7 @@ import { SUPPLIER, TAX_AUTH, USINA, reporter } from "../business-flows/helpers/p
 import { EventType } from "../../../core/domain/enums/EventType";
 import { ConfidenceLevel } from "../../../core/domain/enums/ConfidenceLevel";
 import { makeRef } from "../business-flows/helpers/ref";
+import { institution, institutionTransfer, openingBalance } from "../business-flows/helpers/commands/institution-commands";
 import { MIGRATIONS } from "../../../infra/database/data-source";
 
 /**
@@ -552,5 +553,35 @@ describe("SQLite read paths — SQL and memory answer the same book", () => {
         ids(await sql.findRecentCashMovements(2)),
       );
     });
+  });
+  it("§8.8: the institution cash events and the opening-balance exclusion read the same in SQL and memory", async () => {
+    await run(openingBalance(ref, "itau", "1000.00", new Date("2026-11-30T15:00:00Z")));
+    await run(openingBalance(ref, "bradesco", "-50.00", new Date("2026-11-30T15:00:00Z")));
+    await run(institutionTransfer(ref, "itau", "bradesco", "200.00", new Date("2026-12-01T15:00:00Z")));
+    await run(obligationRecognized(ref, "pg-inst-pay", "30.00"));
+    await run({
+      ...payrollPayment(ref, "pg-inst-pay", "30.00"),
+      occurredAt: new Date("2026-12-02T15:00:00Z"),
+      objects: [{ objectId: "pg-inst-pay", objectType: ObjectType.PAYROLL, relation: Relation.SETTLES }, institution("itau")],
+    });
+
+    const until = new Date("2026-12-31T00:00:00Z");
+    const shape = (events: Awaited<ReturnType<typeof sql.findInstitutionCashEvents>>) =>
+      events
+        .map((e) => [e.eventType, e.economicEffect, e.amountUnits, e.occurredAt.toISOString(), [...e.institutions].sort((a, b) => a.objectId.localeCompare(b.objectId))])
+        .sort((a, b) => String(a[3]).localeCompare(String(b[3])) || String(a[0]).localeCompare(String(b[0])));
+    expect(shape(await sql.findInstitutionCashEvents(until))).toEqual(shape(await memory.findInstitutionCashEvents(until)));
+    expect((await sql.findInstitutionCashEvents(until)).length).toBe(4);
+    expect(await sql.findInstitutionCashEvents(new Date("2026-11-30T00:00:00Z"))).toEqual([]);
+
+    // The openings stay out of the flows in both: only the 30.00 payment is cash out.
+    for (const repo of [sql, memory]) {
+      const flows = await repo.aggregateCashFlows();
+      expect([flows.cashInUnits, flows.cashOutUnits]).toEqual([0n, 3000n]);
+      const before = await repo.aggregateCashFlowsBefore(until);
+      expect([before.cashInUnits, before.cashOutUnits]).toEqual([0n, 3000n]);
+      const period = await repo.aggregatePeriodCashFlow(new Date("2026-11-01T00:00:00Z"), until);
+      expect(period.map((p) => p.eventType)).toEqual([EventType.PAYROLL_PAYMENT]);
+    }
   });
 });

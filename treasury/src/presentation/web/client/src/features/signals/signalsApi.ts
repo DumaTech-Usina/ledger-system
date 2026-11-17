@@ -104,6 +104,8 @@ export const signalsApi = {
     creditAmount: string;
     occurredAt: string;
     allocations: { objectId: string; amount: string }[];
+    /** REQ-674: a key, or null for "não informada". */
+    institution: string | null;
   }) => apiPost<CreditResult | { error: string }>("/api/signals/credits", input),
   situation: (policyId: string) =>
     apiGet<PolicySituation | { error: string }>(`/api/signals/policies/${encodeURIComponent(policyId)}`),

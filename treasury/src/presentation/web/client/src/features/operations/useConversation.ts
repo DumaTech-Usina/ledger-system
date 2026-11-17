@@ -50,7 +50,7 @@ function formatAnswerBubbleText(
 ): string {
   if (!slot) return value;
   if (slot.type === "choice") {
-    return t.slotChoice[value] ?? value;
+    return slot.choiceLabels?.[value] ?? t.slotChoice[value] ?? value;
   }
   if (slot.type === "date" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return formatDateForLanguage(value, language);

@@ -52,7 +52,7 @@ export interface SubmitRectificationResult {
 }
 
 /** Object kinds a rectification can name; the Ledger admits more, treasury maps these. */
-const SUPPORTED_OBJECT_TYPES = new Set(["advance", "loan", "commission_receivable", "commission_payable"]);
+const SUPPORTED_OBJECT_TYPES = new Set(["advance", "loan", "commission_receivable", "commission_payable", "cash_account"]);
 
 /**
  * Rectify a recorded entry: declare that it never corresponded to the world, and — when the entry
@@ -96,7 +96,12 @@ export class SubmitRectificationUseCase {
     // The positions the entry moved. Contextual objects only annotate — they are never what a
     // rectification names, because removing the entry's contribution has nothing to do with them.
     // The first one selects the tuple; the withdrawal names them all (REQ-525).
-    const [moved, ...others] = target.objects.filter((o) => o.relation !== "references");
+    // An opening balance or a transfer moved no position: it was about its institution(s) alone, so
+    // the institution is what the withdrawal names (REQ-670, REQ-672).
+    const aboutInstitutions = target.eventType === "opening_balance" || target.eventType === "institution_transfer";
+    const [moved, ...others] = aboutInstitutions
+      ? target.objects.filter((o) => o.objectType === "cash_account")
+      : target.objects.filter((o) => o.relation !== "references");
     if (!moved) {
       throw new Error(`Entry ${input.targetEventId} moved no position, so there is nothing to rectify.`);
     }

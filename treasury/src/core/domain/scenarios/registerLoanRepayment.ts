@@ -1,4 +1,5 @@
 import type { Scenario } from "./Scenario";
+import { INSTITUTION_SLOT } from "../services/Institutions";
 import { SlotType } from "../enums/SlotType";
 import { CURRENCY_SLOT } from "../value-objects/Slot";
 
@@ -19,6 +20,8 @@ export const registerLoanRepayment: Scenario = {
     { key: "amount", type: SlotType.MONEY, prompt: "What amount was repaid?", required: true },
     CURRENCY_SLOT,
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was it repaid?", required: true },
+    // REQ-674: where the money moved — an institution, or explicitly "não informada".
+    INSTITUTION_SLOT,
     { key: "origin", type: SlotType.EVENT_REF, prompt: "Which loan does this repay?", required: true, suggestionSource: "origin_events" },
     // Optional continuity assertion: the id of the loan position this repayment moves, so the Ledger
     // projects ONE loan being repaid rather than a new object per event. Never required — absence is
