@@ -3,7 +3,9 @@ import { cn } from "@/utils/cn";
 
 function Root({ className, ...props }: HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="overflow-x-auto">
+    // `relative`: an absolutely positioned descendant (a screen-reader-only label in a header cell)
+    // takes this box as its reference, so it scrolls with the table instead of widening the page.
+    <div className="relative overflow-x-auto">
       <table className={cn("w-full border-collapse text-sm", className)} {...props} />
     </div>
   );

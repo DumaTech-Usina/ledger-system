@@ -5,6 +5,7 @@ import { Modal } from "@/components/Modal";
 import { MovementsSection } from "@/features/dashboard/MovementsSection";
 import { MovementsTable } from "@/features/dashboard/MovementsTable";
 import { TotalFlowWidget } from "@/features/dashboard/TotalFlowWidget";
+import { MorningPanel } from "@/features/morning/MorningPanel";
 import { useBookExposure } from "@/features/dashboard/useBookExposure";
 import { useDashboard } from "@/features/dashboard/useDashboard";
 import { formatTemplate, useLanguage } from "@/i18n/i18n";
@@ -71,7 +72,14 @@ function Stat({
  * screen: that list is capped, and a total derived from a capped list would silently disagree with
  * the Ledger the moment the period outgrew the cap.
  */
-export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperations?: () => void }) {
+export function DashboardPage({
+  onNavigateToOperations,
+  onNavigate,
+}: {
+  onNavigateToOperations?: () => void;
+  /** §8.10: the morning panel's links to the screens behind its figures. */
+  onNavigate?: (section: "cash" | "agenda" | "receivables") => void;
+}) {
   const [period, setPeriod] = useState(defaultPeriod());
   const { data, loading } = useDashboard(period);
   const { exposure } = useBookExposure(period);
@@ -106,6 +114,9 @@ export function DashboardPage({ onNavigateToOperations }: { onNavigateToOperatio
           )}
         </div>
       </div>
+
+      {/* §8.10 (E7): read for today, whatever period is chosen above for the flows below. */}
+      <MorningPanel onNavigate={onNavigate} />
 
       {loading ? (
         <Card>

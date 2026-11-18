@@ -22,6 +22,7 @@ import type { PayablesBatchUseCase } from "../../../core/application/use-cases/P
 import type { RegisterExternalSignalUseCase } from "../../../core/application/use-cases/RegisterExternalSignal";
 import type { ListExternalSignalsUseCase } from "../../../core/application/use-cases/ListExternalSignals";
 import type { GetPolicySituationUseCase } from "../../../core/application/use-cases/GetPolicySituation";
+import type { DismissProposedObligationUseCase } from "../../../core/application/use-cases/DismissProposedObligation";
 import type { RegisterInsurerCreditUseCase } from "../../../core/application/use-cases/RegisterInsurerCredit";
 import type { ListInsurerReceivablesUseCase } from "../../../core/application/use-cases/ListInsurerReceivables";
 import { IntentNotEditableError } from "../../../core/domain/errors/IntentNotEditableError";
@@ -50,6 +51,7 @@ import type { ListIntentsUseCase } from "../../../core/application/use-cases/Lis
 import type { GetPayablesAgendaUseCase } from "../../../core/application/use-cases/GetPayablesAgenda";
 import type { GetReceivablesAgendaUseCase } from "../../../core/application/use-cases/GetReceivablesAgenda";
 import type { InstitutionCashUseCase } from "../../../core/application/use-cases/InstitutionCash";
+import type { GetMorningPanelUseCase } from "../../../core/application/use-cases/GetMorningPanel";
 import { cashRoutes } from "./routes/cashRoutes";
 
 export interface ServerDeps {
@@ -82,6 +84,8 @@ export interface ServerDeps {
   registerExternalSignal: RegisterExternalSignalUseCase;
   listExternalSignals: ListExternalSignalsUseCase;
   getPolicySituation: GetPolicySituationUseCase;
+  /** REQ-286: optional so test servers that do not need it keep compiling. */
+  dismissProposedObligation?: DismissProposedObligationUseCase;
   registerInsurerCredit: RegisterInsurerCreditUseCase;
   listInsurerReceivables: ListInsurerReceivablesUseCase;
   getDashboard: GetTreasuryDashboardUseCase;
@@ -97,6 +101,8 @@ export interface ServerDeps {
   getReceivablesAgenda?: GetReceivablesAgendaUseCase;
   /** §8.8. Absent in tests about something else; then /api/cash is not mounted. */
   institutionCash?: InstitutionCashUseCase;
+  /** §8.10. Absent in tests about something else; then /api/dashboard/morning is not mounted. */
+  getMorningPanel?: GetMorningPanelUseCase;
   /** §8.6. Absent in tests about something else; then /api/batches is not mounted. */
   payablesBatch?: PayablesBatchUseCase;
 }
@@ -157,6 +163,7 @@ export function createServer(deps: ServerDeps) {
       deps.getPolicySituation,
       deps.registerInsurerCredit,
       deps.listInsurerReceivables,
+      deps.dismissProposedObligation,
     ));
   app.use(
     "/api/dashboard",
@@ -172,6 +179,7 @@ export function createServer(deps: ServerDeps) {
       deps.getLedgerEvent,
       deps.getPayablesAgenda,
       deps.getReceivablesAgenda,
+      deps.getMorningPanel,
     ),
   );
 

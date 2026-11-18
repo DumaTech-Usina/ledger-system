@@ -178,4 +178,46 @@ describe("GetReceivablesAgenda", () => {
     expect(await agenda.execute({})).toEqual({ available: false });
     expect(await agenda.declared()).toEqual({ available: false });
   });
+
+  it("REQ-663, §4.7: a health installment the operator declared discharged and the bank has not shown is listed by installment", async () => {
+    const signals = new InMemoryExternalSignalRepository();
+    const installment = (number: string, usinaValue: string, receivedAt: string) =>
+      ExternalSignal.record({
+        id: `sig-h${number}`,
+        system: "health",
+        kind: "installment",
+        recordId: `48213:${number}`,
+        fields: { proposalNumber: "48213", installment: number, usinaValue, brokerValue: "20.00", dischargedAt: `2026-11-0${number}`, operator: "Unimed" },
+        contentHash: `h-h${number}`,
+        receivedAt,
+        recordedBy: "verificador",
+        proposals: [],
+      });
+    await signals.add(installment("3", "25.00", "2026-11-05T10:00:00Z"));
+    await signals.add(installment("4", "25.00", "2026-11-06T10:00:00Z"));
+    await signals.add(installment("5", "25.00", "2026-11-07T10:00:00Z"));
+    const positions = [
+      line({ objectId: "saude:proposta:48213:parcela:3:prevista", totalOriginated: "25.00", totalSettled: "0.00", openBalance: "25.00" }),
+      line({ objectId: "saude:proposta:48213:parcela:4:prevista", totalOriginated: "25.00", totalSettled: "20.00", openBalance: "5.00" }),
+      // Fully received: the bank showed what was declared, so it is not listed (CA-663b).
+      line({ objectId: "saude:proposta:48213:parcela:5:prevista", totalOriginated: "25.00", totalSettled: "25.00", openBalance: "0.00" }),
+    ];
+    const ledger = {
+      receivablesAgenda: async () => page({ data: positions }),
+      positions: async (): Promise<PositionsPage> => ({ data: positions, total: 3, page: 1, limit: 200, totalPages: 1 }) as PositionsPage,
+    };
+    const agenda = new GetReceivablesAgendaUseCase(ledger, signals, directory, USINA);
+
+    const declared = await agenda.declared();
+    if (!declared.available) throw new Error("unavailable");
+    expect(declared.lines.map((l) => [l.source, l.policyLabel, l.claimed, l.received, l.open])).toEqual([
+      ["health", "48213 · parcela 3", "25.00", "0.00", "25.00"],
+      ["health", "48213 · parcela 4", "25.00", "20.00", "5.00"],
+    ]);
+    expect(declared.lines[0]).toMatchObject({ installment: { proposalNumber: "48213", number: 3 }, insurer: "Unimed", eligibleAt: "2026-11-03" });
+
+    const result = await agenda.execute({});
+    if (!result.available) throw new Error("unavailable");
+    expect(result.lines.map((l) => l.declared?.source ?? null)).toEqual(["health", "health", null]);
+  });
 });

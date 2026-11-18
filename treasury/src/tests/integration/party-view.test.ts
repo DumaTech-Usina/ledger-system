@@ -404,13 +404,15 @@ describe("pelo servidor", () => {
     expect(((await res.json()) as { party: { partyId: string } }).party.partyId).toBe(ARGO);
   });
 
-  it("a lista de nomes não traz documentos, nem o que já foi ligado", async () => {
+  it("REQ-315: a lista de partes traz tipo, documento e conta bancária para quem consulta, e não traz o que já foi ligado", async () => {
     const res = await get("/api/parties/names", "viewer");
-    const { parties } = (await res.json()) as { parties: Record<string, string>[] };
+    const { parties } = (await res.json()) as { parties: Record<string, unknown>[] };
 
     expect(res.status).toBe(200);
     expect(parties.map((p) => p.partyId).sort()).toEqual([ARGO, JOAO, "prov-1"].sort());
-    expect(Object.keys(parties[0]).sort()).toEqual(["displayName", "partyId", "state"]);
+    expect(Object.keys(parties[0]).sort()).toEqual(["displayName", "document", "hasBankAccount", "kind", "partyId", "state"]);
+    // Not stated in the registry: unknown, never "no".
+    expect(parties.find((p) => p.partyId === "prov-1")).toMatchObject({ kind: null, document: null, hasBankAccount: null });
   });
 
   it("uma parte desconhecida é 404", async () => {

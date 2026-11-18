@@ -10,8 +10,13 @@ export interface Named {
   displayName: string;
 }
 
-/** What the insurer declared it paid for a policy, in its latest eligibility reading (REQ-663). */
+/**
+ * What the paying side declared it paid, in its latest reading (REQ-663): the insurer for a policy, or
+ * the operator for a health installment (§4.7).
+ */
 export interface InsurerClaim {
+  /** Absent on answers from before the health system (§4.7): those are all insurance. */
+  source?: "insurance" | "health";
   policyId: string;
   policyLabel: string;
   claimed: string;

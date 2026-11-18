@@ -17,4 +17,10 @@ export enum IntentStatus {
   AWAITING_CORRECTION = "awaiting_correction",
   ACCEPTED = "accepted",
   REJECTED = "rejected",
+  /**
+   * REQ-286: a proposed obligation the user declared does not exist ("não há obrigação"). Terminal and
+   * never sent: nothing reaches the Ledger, and who decided it and when stay on the intent and in the
+   * audit.
+   */
+  DISMISSED = "dismissed",
 }

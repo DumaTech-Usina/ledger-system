@@ -39,6 +39,7 @@ const STATUS_VARIANT: Record<
   awaiting_correction: "warn",
   accepted: "ok",
   rejected: "bad",
+  dismissed: "neutral",
 };
 
 /**
@@ -69,7 +70,7 @@ export function SignalsPage({
   /** Reads the first (newest) page again, e.g. on open, on a filter change, after a registration. */
   const load = useCallback(async () => {
     const mine = ++requestId.current;
-    const { ok, data } = await signalsApi.list({ filter });
+    const { ok, data } = await signalsApi.list({ filter, system: "insurance" });
     if (mine !== requestId.current) return;
     if (ok && "signals" in data) {
       setSignals(data.signals);
@@ -84,7 +85,7 @@ export function SignalsPage({
     if (!nextCursor || loadingMore) return;
     const mine = requestId.current;
     setLoadingMore(true);
-    const { ok, data } = await signalsApi.list({ filter, before: nextCursor });
+    const { ok, data } = await signalsApi.list({ filter, before: nextCursor, system: "insurance" });
     setLoadingMore(false);
     if (mine !== requestId.current) return;
     if (ok && "signals" in data) {
@@ -193,7 +194,7 @@ function RegisterSignal({
   // Collapsed once there is something to read below; open when the list is still empty.
   const [open, setOpen] = useState<boolean | null>(null);
   const expanded = open ?? startOpen;
-  const [kind, setKind] = useState<SignalKind>("eligibility");
+  const [kind, setKind] = useState<Exclude<SignalKind, "installment">>("eligibility");
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -367,7 +368,7 @@ function SignalItem({
         <p className="text-xs text-muted">
           {copy.receivedAt(
             formatDateTime(signal.receivedAt),
-            copy.author(signal.recordedBy),
+            signal.recordedByName ?? copy.author(signal.recordedBy),
           )}
         </p>
       </div>

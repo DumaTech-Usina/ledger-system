@@ -1,5 +1,6 @@
 import type { GetPayablesAgendaUseCase } from "../../../../core/application/use-cases/GetPayablesAgenda";
 import type { GetReceivablesAgendaUseCase } from "../../../../core/application/use-cases/GetReceivablesAgenda";
+import type { GetMorningPanelUseCase } from "../../../../core/application/use-cases/GetMorningPanel";
 import { AGENDA_WINDOWS, RECEIVABLES_AGENDA_LISTS } from "../../../../core/application/dtos/LedgerReadModels";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import type { GetTreasuryDashboardUseCase } from "../../../../core/application/use-cases/GetTreasuryDashboard";
@@ -71,6 +72,7 @@ export function dashboardRoutes(
   getLedgerEvent: GetLedgerEventUseCase,
   getPayablesAgenda?: GetPayablesAgendaUseCase,
   getReceivablesAgenda?: GetReceivablesAgendaUseCase,
+  getMorningPanel?: GetMorningPanelUseCase,
 ): Router {
   const router = Router();
 
@@ -125,6 +127,17 @@ export function dashboardRoutes(
     router.get("/receivables/declared", async (_req: Request, res: Response, next: NextFunction) => {
       try {
         res.json(await getReceivablesAgenda.declared());
+      } catch (err) {
+        next(err);
+      }
+    });
+  }
+
+  /** §8.10: the morning panel — known cash beside what falls due and what is expected, for today. */
+  if (getMorningPanel) {
+    router.get("/morning", async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        res.json(await getMorningPanel.execute());
       } catch (err) {
         next(err);
       }

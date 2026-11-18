@@ -89,10 +89,10 @@ export function CashPage({ canWrite }: { canWrite: boolean }) {
             </div>
             <div className="glass rounded-2xl border border-dashed border-line px-4 py-3">
               <span className="text-[12.5px] font-semibold uppercase tracking-wide text-muted">{copy.unknownTitle}</span>
-              <p className="tabular mt-1 text-sm text-ink">
-                {copy.cashIn}: <span className="font-semibold">{money(view.unknown.cashIn)}</span>
+              <p className="mt-1 text-sm text-ink">
+                {copy.cashIn}: <span className="tabular font-semibold">{money(view.unknown.cashIn)}</span>
                 {" · "}
-                {copy.cashOut}: <span className="font-semibold">{money(view.unknown.cashOut)}</span>
+                {copy.cashOut}: <span className="tabular font-semibold">{money(view.unknown.cashOut)}</span>
                 {" · "}
                 <span className="text-muted">{copy.unknownCount(view.unknown.count)}</span>
               </p>
@@ -174,7 +174,7 @@ function InstitutionCard({
         </div>
       )}
 
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[13px]">
+      <dl className="mt-3 grid gap-x-6 gap-y-1 text-[13px] sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
         {(
           [
             [copy.cashIn, i.cashIn],
@@ -184,7 +184,7 @@ function InstitutionCard({
           ] as const
         ).map(([label, amount]) => (
           <div key={label} className="flex min-w-0 justify-between gap-2">
-            <dt className="truncate text-muted">{label}</dt>
+            <dt className="text-muted">{label}</dt>
             <dd className="tabular text-ink">{money(amount)}</dd>
           </div>
         ))}
@@ -317,6 +317,7 @@ function OpeningModal({ institution, onClose, onDone }: { institution: Instituti
   const { saving, error, run } = useWrite(onDone);
   return (
     <Modal open onClose={onClose} title={copy.openingTitle(institution.name)} closeLabel={copy.close} className="max-w-xl">
+      <div className="p-5">
       <p className="text-[13px] text-muted">{copy.openingNote}</p>
       <div className="mt-4 space-y-4">
         <div className="flex flex-col gap-1.5">
@@ -332,6 +333,7 @@ function OpeningModal({ institution, onClose, onDone }: { institution: Instituti
         onCancel={onClose}
         onConfirm={() => run(() => cashApi.opening({ institution: institution.key, amount: signedAmount(digits, negative), occurredAt: day }))}
       />
+    </div>
     </Modal>
   );
 }
@@ -345,6 +347,7 @@ function StatementModal({ institution, onClose, onDone }: { institution: Institu
   const { saving, error, run } = useWrite(onDone);
   return (
     <Modal open onClose={onClose} title={copy.statementTitleOf(institution.name)} closeLabel={copy.close} className="max-w-xl">
+      <div className="p-5">
       <p className="text-[13px] text-muted">{copy.statementNote}</p>
       <div className="mt-4 space-y-4">
         <div className="flex flex-col gap-1.5">
@@ -360,6 +363,7 @@ function StatementModal({ institution, onClose, onDone }: { institution: Institu
         onCancel={onClose}
         onConfirm={() => run(() => cashApi.statement({ institution: institution.key, day, amount: signedAmount(digits, negative) }))}
       />
+    </div>
     </Modal>
   );
 }
@@ -377,6 +381,7 @@ function TransferModal({ institutions, onClose, onDone }: { institutions: Instit
   const same = from !== "" && from === to;
   return (
     <Modal open onClose={onClose} title={copy.transferTitle} closeLabel={copy.close} className="max-w-xl">
+      <div className="p-5">
       <p className="text-[13px] text-muted">{copy.transferNote}</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Select label={copy.from} value={from} onChange={setFrom} options={options} />
@@ -404,6 +409,7 @@ function TransferModal({ institutions, onClose, onDone }: { institutions: Instit
         onCancel={onClose}
         onConfirm={() => run(() => cashApi.transfer({ from, to, amount: amountFromDigits(digits), occurredAt: day, description }))}
       />
+    </div>
     </Modal>
   );
 }

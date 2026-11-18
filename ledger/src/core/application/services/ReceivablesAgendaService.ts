@@ -7,6 +7,7 @@ import { PositionProjectionService } from "./PositionProjectionService";
 import {
   AGENDA_MAX_LIMIT,
   AGENDA_WINDOWS,
+  AgendaDay,
   AgendaWindow,
   AgendaWindowSummary,
   DEFAULT_NEXT_DAYS,
@@ -14,6 +15,7 @@ import {
   agendaDayOf,
   agendaWindowOf,
   byAge,
+  dailySummaries,
   byDueDate,
   summarizeUnits,
 } from "./PayablesAgendaService";
@@ -55,6 +57,8 @@ export interface ReceivablesAgenda {
   windows: Record<AgendaWindow, AgendaWindowSummary>;
   /** Receipts with no known origin: how many, and how much came in. */
   unlinked: AgendaWindowSummary;
+  /** Today and each next day of the window, by expected date (§8.10, REQ-683). */
+  days: AgendaDay[];
   /** Every payer with something open, over all windows and regardless of the `payer` filter. */
   payers: PayerSummary[];
   /** The payer filter applied, or null for all. */
@@ -115,6 +119,7 @@ export class ReceivablesAgendaService {
     const byWindow: Record<AgendaWindow, PositionAggregate[]> = { overdue: [], today: [], next: [], later: [], undated: [] };
     for (const agg of open.filter(mine)) byWindow[agendaWindowOf(agg.dueAt, asOf, lastNextDay, this.timeZone)].push(agg);
     const theirUnlinked = unlinked.filter(mine);
+    const days = dailySummaries([...byWindow.today, ...byWindow.next], asOf, lastNextDay, this.timeZone, openUnits);
 
     const listed = window === "unlinked" ? [...theirUnlinked].sort(byAge) : [...byWindow[window]].sort(window === "undated" ? byAge : byDueDate);
     const slice = listed.slice((page - 1) * limit, page * limit);
@@ -125,6 +130,7 @@ export class ReceivablesAgendaService {
       windowDays,
       windows: Object.fromEntries(AGENDA_WINDOWS.map((w) => [w, summarizeUnits(byWindow[w], openUnits)])) as Record<AgendaWindow, AgendaWindowSummary>,
       unlinked: summarizeUnits(theirUnlinked, (agg) => agg.totalSettledUnits),
+      days,
       payers,
       payer: query.payer ?? null,
       window,

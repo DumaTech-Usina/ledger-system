@@ -6,7 +6,7 @@ import type { ProposedFactKind, SignalKind } from "./signalsApi";
  * screen shows them. Mirrors the server's list; the server stays the authority and refuses anything
  * else, so a field missing here is simply not offered, never sent unchecked.
  */
-export type FieldFormat = "text" | "money" | "date" | "percent";
+export type FieldFormat = "text" | "money" | "date" | "percent" | "count";
 
 export interface SignalField {
   key: string;
@@ -28,7 +28,31 @@ const BASE: SignalField[] = [
   { key: "usinaValue", format: "money", required: true },
 ];
 
+/**
+ * §4.7: the health system's installment screen. The discharged amount is what the health system
+ * declares the operator paid, never a receipt (REQ-282); the owed amount is not shown there yet.
+ */
+const HEALTH: SignalField[] = [
+  { key: "proposalNumber", format: "text", required: true },
+  { key: "installment", format: "count", required: true },
+  { key: "operator", format: "text", required: false },
+  { key: "operatorId", format: "text", required: false },
+  { key: "nominalValue", format: "money", required: false },
+  { key: "usinaValue", format: "money", required: true },
+  { key: "owedValue", format: "money", required: false },
+  { key: "broker", format: "text", required: false },
+  { key: "brokerId", format: "text", required: false },
+  { key: "brokerValue", format: "money", required: true },
+  { key: "supervisor", format: "text", required: false },
+  { key: "supervisorId", format: "text", required: false },
+  { key: "supervisorValue", format: "money", required: false },
+  { key: "taxRate", format: "percent", required: false },
+  { key: "dischargedAt", format: "date", required: true },
+  { key: "dueAt", format: "date", required: false },
+];
+
 export const SIGNAL_FORM: Record<SignalKind, SignalField[]> = {
+  installment: HEALTH,
   policy: [...BASE, { key: "registeredAt", format: "date", required: true }, { key: "expectedAt", format: "date", required: false }],
   eligibility: [
     ...BASE,
@@ -64,7 +88,12 @@ export const missingRequired = (kind: SignalKind, values: Record<string, string>
 export const SCENARIO_OF: Record<ProposedFactKind, string> = {
   commission_expected: "register_commission_accrual",
   commission_obligation: "register_obligation_recognition",
+  supervisor_obligation: "register_obligation_recognition",
 };
+
+/** REQ-286: an obligation proposal may be declared non-existent while it still waits for the user. */
+export const canDismiss = (proposal: { fact: ProposedFactKind; intentStatus: string | null }): boolean =>
+  proposal.fact !== "commission_expected" && isOpenProposal(proposal.intentStatus);
 
 /** A proposal still waiting for the user; accepted and terminally refused ones are not reopened. */
 export const isOpenProposal = (status: string | null): boolean =>

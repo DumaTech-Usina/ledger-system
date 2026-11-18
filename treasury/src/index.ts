@@ -35,6 +35,7 @@ import { SystemClock } from "./infra/system/SystemClock";
 import { GetPayablesAgendaUseCase } from "./core/application/use-cases/GetPayablesAgenda";
 import { GetReceivablesAgendaUseCase } from "./core/application/use-cases/GetReceivablesAgenda";
 import { InstitutionCashUseCase } from "./core/application/use-cases/InstitutionCash";
+import { GetMorningPanelUseCase } from "./core/application/use-cases/GetMorningPanel";
 import { InMemoryBankStatementStore } from "./core/application/services/BankStatements";
 import { SqliteBankStatementStore } from "./infra/persistence/SqliteBankStatementStore";
 import type { InstitutionBalancesPort, PayablesAgendaPort, ReceivablesAgendaPort } from "./core/application/ports/PayablesAgendaPort";
@@ -66,6 +67,7 @@ import { ListIntentsUseCase } from "./core/application/use-cases/ListIntents";
 import { RegisterExternalSignalUseCase } from "./core/application/use-cases/RegisterExternalSignal";
 import { ListExternalSignalsUseCase } from "./core/application/use-cases/ListExternalSignals";
 import { GetPolicySituationUseCase } from "./core/application/use-cases/GetPolicySituation";
+import { DismissProposedObligationUseCase } from "./core/application/use-cases/DismissProposedObligation";
 import { RegisterInsurerCreditUseCase } from "./core/application/use-cases/RegisterInsurerCredit";
 import { ListInsurerReceivablesUseCase } from "./core/application/use-cases/ListInsurerReceivables";
 import { PreviewNotices } from "./core/application/services/PreviewNotices";
@@ -229,6 +231,20 @@ async function bootstrap(): Promise<void> {
     partyDirectory,
   );
 
+  // §8.8. The statement balances live with the operations: durable whenever the Ledger is real.
+  const institutionCash = new InstitutionCashUseCase({
+    ledger: ledgerRead,
+    statements: durableOperations ? new SqliteBankStatementStore(env.OPERATIONS_DB_FILE) : new InMemoryBankStatementStore(),
+    audit,
+    clock,
+    ids,
+    startIntent,
+    applyAnswers,
+    submit: submitIntent,
+    institutions,
+    users,
+  });
+
   const app = createServer({
     auth,
     userAdmin,
@@ -299,8 +315,9 @@ async function bootstrap(): Promise<void> {
     getIntent: new GetIntentUseCase(intentRepo, audit, conversationLog),
     listIntents: new ListIntentsUseCase(intentRepo),
     registerExternalSignal: new RegisterExternalSignalUseCase(signalRepo, intentRepo, startIntent, applyAnswers, partyDirectory, partyRepo, clock, ids),
-    listExternalSignals: new ListExternalSignalsUseCase(signalRepo, intentRepo),
+    listExternalSignals: new ListExternalSignalsUseCase(signalRepo, intentRepo, users),
     getPolicySituation: new GetPolicySituationUseCase(ledgerRead, signalRepo, env.USINA_PARTY_ID, partyDirectory),
+    dismissProposedObligation: new DismissProposedObligationUseCase(intentRepo, audit, clock),
     registerInsurerCredit: new RegisterInsurerCreditUseCase(
       ledgerRead,
       new StartPositionActionUseCase(ledgerRead, ledgerRead, startIntent, applyAnswers, env.USINA_PARTY_ID),
@@ -313,19 +330,8 @@ async function bootstrap(): Promise<void> {
     listInsurerReceivables: new ListInsurerReceivablesUseCase(ledgerRead),
     getPayablesAgenda: new GetPayablesAgendaUseCase(ledgerRead, partyDirectory, env.USINA_PARTY_ID),
     getReceivablesAgenda: new GetReceivablesAgendaUseCase(ledgerRead, signalRepo, partyDirectory, env.USINA_PARTY_ID),
-    // §8.8. The statement balances live with the operations: durable whenever the Ledger is real.
-    institutionCash: new InstitutionCashUseCase({
-      ledger: ledgerRead,
-      statements: durableOperations ? new SqliteBankStatementStore(env.OPERATIONS_DB_FILE) : new InMemoryBankStatementStore(),
-      audit,
-      clock,
-      ids,
-      startIntent,
-      applyAnswers,
-      submit: submitIntent,
-      institutions,
-      users,
-    }),
+    institutionCash,
+    getMorningPanel: new GetMorningPanelUseCase(ledgerRead, institutionCash),
     // §8.6. The prepared batches live with the operations (REQ-652): durable whenever the Ledger is real.
     payablesBatch: new PayablesBatchUseCase({
       batches: new PreparedBatches(

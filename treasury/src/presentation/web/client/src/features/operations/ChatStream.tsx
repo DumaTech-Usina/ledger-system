@@ -686,6 +686,13 @@ function ConfirmCard({
   // A party the Directory doesn't know keeps its id on screen. Unknown is shown as unknown — an
   // invented label would be a claim the system cannot support.
   const counterparty = counterpartyId ? preview.partyNames[counterpartyId] ?? counterpartyId : "—";
+  // REQ-674: where the money moved, by the name the configuration gives it ("Não informada" included).
+  // Shown only for an operation that asks it.
+  const institutionAnswer = preview.answers?.institution;
+  const institution =
+    answeredSlots.institution && institutionAnswer
+      ? answeredSlots.institution.choiceLabels?.[institutionAnswer] ?? institutionAnswer
+      : null;
   // Only `cash_in`/`cash_out` move cash. Everything else the Ledger can say here — `non_cash`,
   // `cash_internal`, `contingent` — books a position without a movement, and must read as neither an
   // inflow nor an outflow: labelling it "Saída" would claim money left when none did.
@@ -782,6 +789,7 @@ function ConfirmCard({
       <dl className="mt-5 space-y-3 border-t border-line pt-4 text-[13.5px]">
         <SummaryRow label="Contraparte" value={counterparty} />
         <SummaryRow label="Data" value={formatDate(candidate.occurredAt)} mono />
+        {institution && <SummaryRow label="Instituição" value={institution} />}
         {candidate.description && <SummaryRow label="Descrição" value={candidate.description} />}
       </dl>
 

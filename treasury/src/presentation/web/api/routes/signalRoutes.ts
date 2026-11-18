@@ -4,11 +4,13 @@ import type { ListExternalSignalsUseCase } from "../../../../core/application/us
 import type { GetPolicySituationUseCase } from "../../../../core/application/use-cases/GetPolicySituation";
 import type { RegisterInsurerCreditUseCase } from "../../../../core/application/use-cases/RegisterInsurerCredit";
 import type { ListInsurerReceivablesUseCase } from "../../../../core/application/use-cases/ListInsurerReceivables";
+import type { DismissProposedObligationUseCase } from "../../../../core/application/use-cases/DismissProposedObligation";
+import { isSignalSystem } from "../../../../core/domain/services/SignalSources";
 import { Permission } from "../../../../core/domain/enums/Permission";
 import { currentUser, requirePermission } from "../middleware/auth";
 
 /**
- * Signals from the insurance system (§4.6). Registering one only proposes facts, so it needs the
+ * Signals from the external systems: insurance (§4.6) and health (§4.7). Registering one only proposes facts, so it needs the
  * permission to start an operation, not to submit one: the submit happens later, per proposal,
  * through the conversation.
  */
@@ -18,6 +20,7 @@ export function signalRoutes(
   policySituation: GetPolicySituationUseCase,
   insurerCredit: RegisterInsurerCreditUseCase,
   insurerReceivables: ListInsurerReceivablesUseCase,
+  dismissObligation?: DismissProposedObligationUseCase,
 ): Router {
   const router = Router();
 
@@ -77,24 +80,46 @@ export function signalRoutes(
     },
   );
 
-  /** How many proposals still wait for the user, over all signals. */
-  router.get("/open-count", requirePermission(Permission.INTENT_READ), async (_req: Request, res: Response, next: NextFunction) => {
+  /**
+   * REQ-286: "não há obrigação". Closes a proposed obligation without sending anything to the Ledger;
+   * the decision is audited. It settles the proposal as a submit would, so it needs the same permission.
+   */
+  router.post(
+    "/proposals/:intentId/dismiss",
+    requirePermission(Permission.INTENT_SUBMIT),
+    async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        if (!dismissObligation) {
+          res.status(501).json({ error: "Not available." });
+          return;
+        }
+        res.json(await dismissObligation.execute({ intentId: req.params.intentId, userId: currentUser(req).id }));
+      } catch (err) {
+        next(err);
+      }
+    },
+  );
+
+  /** How many proposals still wait for the user, over all signals or those of `?system=`. */
+  router.get("/open-count", requirePermission(Permission.INTENT_READ), async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.json({ count: await list.countOpenProposals() });
+      const system = isSignalSystem(req.query.system) ? req.query.system : undefined;
+      res.json({ count: await list.countOpenProposals(system) });
     } catch (err) {
       next(err);
     }
   });
 
-  /** `?limit=&before=&filter=needs_action|all`: a page of signals, newest first (default: needing action). */
+  /** `?limit=&before=&filter=needs_action|all&system=`: a page of signals, newest first (default: needing action). */
   router.get("/", requirePermission(Permission.INTENT_READ), async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { limit, before, filter } = req.query;
+      const { limit, before, filter, system } = req.query;
       res.json(
         await list.page({
           limit: typeof limit === "string" ? Number(limit) : undefined,
           before: typeof before === "string" ? before : undefined,
           filter: filter === "all" ? "all" : "needs_action",
+          system: isSignalSystem(system) ? system : undefined,
         }),
       );
     } catch (err) {

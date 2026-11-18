@@ -165,6 +165,7 @@ describe("REQ-401 — visualizador", () => {
     ["retificar", "/api/conversation/rectify"],
     ["registrar um sinal do sistema de seguro", "/api/signals"],
     ["registrar um crédito da seguradora", "/api/signals/credits"],
+    ["declarar que não há obrigação (§4.7, REQ-286)", "/api/signals/proposals/any/dismiss"],
     ["preparar um lote de pagamentos (§8.6)", "/api/batches"],
     ["anotar o pagamento de um lote", "/api/batches/batch-x/pay"],
     ["descartar um lote", "/api/batches/batch-x/discard"],

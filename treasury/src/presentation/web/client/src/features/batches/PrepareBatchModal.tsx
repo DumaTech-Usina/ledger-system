@@ -52,6 +52,7 @@ export function PrepareBatchModal({
 
   return (
     <Modal open onClose={onClose} title={copy.prepareTitle} closeLabel={copy.close} className="max-w-2xl">
+      <div className="p-5">
       <p className="text-[13px] text-muted">{copy.prepareNote}</p>
       <ul className="mt-4 space-y-2">
         {chosen.map((c) => {
@@ -91,6 +92,7 @@ export function PrepareBatchModal({
           {copy.confirmPrepare}
         </Button>
       </div>
+    </div>
     </Modal>
   );
 }

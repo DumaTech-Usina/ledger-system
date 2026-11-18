@@ -29,10 +29,17 @@ export interface AgendaWindowSummary {
   totals: Record<string, Money>;
 }
 
+/** One day of today and the next ones (§8.10, REQ-682): what falls due that day, by the Ledger's fold. */
+export interface AgendaDay extends AgendaWindowSummary {
+  day: string;
+}
+
 export interface PayablesAgenda {
   asOf: string;
   windowDays: number;
   windows: Record<AgendaWindow, AgendaWindowSummary>;
+  /** Today and each next day up to the end of the window, in order; a day with nothing is empty. */
+  days: AgendaDay[];
   window: AgendaWindow;
   data: PositionListItem[];
   total: number;
@@ -90,6 +97,7 @@ export class PayablesAgendaService {
       if (!this.isOwedAndOpen(agg)) continue;
       byWindow[this.windowOf(agg, asOf, lastNextDay)].push(agg);
     }
+    const days = dailySummaries([...byWindow.today, ...byWindow.next], asOf, lastNextDay, this.timeZone, (agg) => openBalanceUnitsOf(agg) ?? 0n);
 
     const windows = Object.fromEntries(
       AGENDA_WINDOWS.map((w) => [w, this.summarize(byWindow[w])]),
@@ -104,6 +112,7 @@ export class PayablesAgendaService {
       asOf,
       windowDays,
       windows,
+      days,
       window,
       data,
       total: ordered.length,
@@ -144,6 +153,27 @@ export function agendaWindowOf(dueAt: Date | null, asOf: string, lastNextDay: st
   if (due === asOf) return "today";
   if (due <= lastNextDay) return "next";
   return "later";
+}
+
+/**
+ * One summary per calendar day from `asOf` to `lastNextDay`, inclusive (§8.10). Only positions with a
+ * due date in that range count; a day with nothing still appears, empty — "nothing due" is a reading,
+ * and leaving the day out would make the reader guess.
+ */
+export function dailySummaries(
+  aggs: PositionAggregate[],
+  asOf: string,
+  lastNextDay: string,
+  timeZone: string,
+  unitsOf: (agg: PositionAggregate) => bigint,
+): AgendaDay[] {
+  const byDay = new Map<string, PositionAggregate[]>();
+  for (let day = asOf; day <= lastNextDay; day = addDays(day, 1)) byDay.set(day, []);
+  for (const agg of aggs) {
+    if (agg.dueAt === null) continue;
+    byDay.get(agendaDayOf(agg.dueAt, timeZone))?.push(agg);
+  }
+  return [...byDay].map(([day, list]) => ({ day, ...summarizeUnits(list, unitsOf) }));
 }
 
 /** How many positions, and the sum of `unitsOf` per currency. The Ledger never adds two currencies. */

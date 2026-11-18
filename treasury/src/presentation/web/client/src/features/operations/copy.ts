@@ -262,6 +262,7 @@ export const statusLabels: Record<IntentStatus, string> = {
   awaiting_correction: "Aguardando correção",
   accepted: "Aceito",
   rejected: "Rejeitado",
+  dismissed: "Sem obrigação",
 };
 
 export const eventLabels: Record<string, string> = {

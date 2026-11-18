@@ -10,12 +10,8 @@ import { PartyIdentityState } from "../../domain/enums/PartyIdentityState";
 import { IntentStatus } from "../../domain/enums/IntentStatus";
 import { getScenario } from "../../domain/scenarios/Scenario";
 import { DialogEngine } from "../../domain/services/DialogEngine";
-import {
-  isSignalKind,
-  proposalsFor,
-  validateSignalFields,
-  type FactProposal,
-} from "../../domain/services/InsuranceSignal";
+import { isSignalKind, signalSourceOf } from "../../domain/services/SignalSources";
+import type { FactProposal } from "../../domain/services/SignalProposal";
 import type { PartyDirectoryPort } from "../ports/PartyDirectoryPort";
 import type { PartyRepository } from "../repositories/PartyRepository";
 import type { ExternalSignalRepository } from "../repositories/ExternalSignalRepository";
@@ -27,8 +23,10 @@ import { signalFingerprint } from "../services/signalFingerprint";
 import type { StartIntentUseCase } from "./StartIntent";
 import type { ApplyAnswersUseCase } from "./ApplyAnswers";
 
-/** Who brings a signal in through the integration (REQ-805). */
-export const INTEGRATION_AUTHOR = "system:seguro";
+/** Who brings a signal in through the integration (REQ-805): `system:<source>`. */
+export const integrationAuthor = (source: string): string => `system:${source}`;
+/** The insurance integration's author, the first one there was. */
+export const INTEGRATION_AUTHOR = integrationAuthor("seguro");
 
 export interface RegisterExternalSignalInput {
   kind: SignalKind;
@@ -55,7 +53,8 @@ export interface RegisterExternalSignalResult {
 }
 
 /**
- * Records what the insurance system said and proposes the facts it reports (§4.6, block A).
+ * Records what an external system said — the insurance system (§4.6) or the health system (§4.7) —
+ * and proposes the facts it reports.
  *
  * Nothing is sent to the Ledger here: each proposal is an ordinary intent, prefilled, that the user
  * confirms through the same preview and submit as any other (REQ-261, REQ-323). What the signal
@@ -85,19 +84,21 @@ export class RegisterExternalSignalUseCase {
   async execute(input: RegisterExternalSignalInput): Promise<RegisterExternalSignalResult> {
     if (!isSignalKind(input.kind)) throw new Error(`Tipo de sinal desconhecido: ${String(input.kind)}`);
 
-    const { fields, errors } = validateSignalFields(input.kind, input.fields ?? {});
+    const source = signalSourceOf(input.kind);
+    const { fields, errors } = source.validate(input.fields ?? {});
     if (errors.length > 0) throw new Error(`Sinal recusado: ${errors.join("; ")}`);
 
-    const author = input.bySystem ? INTEGRATION_AUTHOR : input.userId;
+    const recordId = source.recordId(fields);
+    const author = input.bySystem ? integrationAuthor(source.name) : input.userId;
     const contentHash = signalFingerprint(input.kind, fields);
     if (input.bySystem) {
-      const last = await this.signals.latestFor(input.kind, fields.policyId);
+      const last = await this.signals.latestFor(input.kind, recordId);
       if (last && last.toJSON().contentHash === contentHash) {
         return { signal: last.toJSON(), proposals: [], duplicate: true };
       }
     }
 
-    const plans = proposalsFor(input.kind, fields);
+    const plans = source.proposals(fields);
     this.assertAnswersValid(plans);
 
     const signalId = this.ids.next();
@@ -111,7 +112,9 @@ export class RegisterExternalSignalUseCase {
         continue;
       }
 
-      const party = plan.party ? await this.partyFor(plan.party, author) : undefined;
+      const party = plan.party
+        ? await this.partyFor(plan.party, author, source.system === "health" ? "sistema de saúde" : "sistema de seguro")
+        : undefined;
       const answers =
         plan.party && party && (party.outcome === "linked" || party.outcome === "provisional")
           ? [...plan.answers, { key: plan.party.slot, value: party.partyId }]
@@ -124,9 +127,9 @@ export class RegisterExternalSignalUseCase {
           signalId,
           sourceReference: plan.sourceReference,
           confidence: "medium",
-          ...(input.bySystem ? { reporter: { type: "system" as const, id: "seguro" } } : {}),
+          ...(input.bySystem ? { reporter: { type: "system" as const, id: source.name } } : {}),
         },
-        contexts: [plan.context],
+        contexts: plan.contexts,
       });
       const merged = await this.applyAnswers.execute({ intentId, answers });
       if (merged.rejected.length > 0) {
@@ -140,15 +143,16 @@ export class RegisterExternalSignalUseCase {
         intentId,
         reused: false,
         ...(party ? { party } : {}),
+        ...(plan.suggestion ? { suggestion: plan.suggestion } : {}),
         intentStatus: intent?.status ?? IntentStatus.GATHERING,
       });
     }
 
     const signal = ExternalSignal.record({
       id: signalId,
-      system: "insurance",
+      system: source.system,
       kind: input.kind,
-      recordId: fields.policyId,
+      recordId,
       fields,
       contentHash,
       receivedAt: this.clock.now(),
@@ -164,7 +168,7 @@ export class RegisterExternalSignalUseCase {
    * REQ-267, REQ-324: by the source's id only, within its registry — a broker's number never finds an
    * insurer. Read through curators' links, so a linked one is its party.
    */
-  private async partyFor(need: NonNullable<FactProposal["party"]>, userId: string): Promise<PartyOutcome> {
+  private async partyFor(need: NonNullable<FactProposal["party"]>, userId: string, systemLabel: string): Promise<PartyOutcome> {
     if (!need.externalId) return { outcome: "not_informed" };
 
     const holders = (await this.directory.list()).filter((p) =>
@@ -178,7 +182,7 @@ export class RegisterExternalSignalUseCase {
     const provisional: Party = {
       partyId: `party-${this.ids.next()}`,
       identityState: PartyIdentityState.PROVISIONAL,
-      displayName: need.seenAs?.trim() || `${need.label} ${need.externalId} (sistema de seguro)`,
+      displayName: need.seenAs?.trim() || `${need.label} ${need.externalId} (${systemLabel})`,
       aliases: [],
       externalIds: [{ system: need.registry, value: need.externalId }],
       attributes: {},
@@ -190,7 +194,7 @@ export class RegisterExternalSignalUseCase {
   }
 
   /** The same validation the conversation applies, run up front (REQ-211, REQ-226). */
-  private assertAnswersValid(plans: ReturnType<typeof proposalsFor>): void {
+  private assertAnswersValid(plans: FactProposal[]): void {
     const today = localDay(this.clock.now());
     const problems: string[] = [];
     for (const plan of plans) {

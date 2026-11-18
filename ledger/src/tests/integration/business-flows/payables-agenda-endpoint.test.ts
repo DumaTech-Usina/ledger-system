@@ -35,6 +35,7 @@ interface Agenda {
   asOf: string;
   windowDays: number;
   windows: Record<"overdue" | "today" | "next" | "later" | "undated", Window>;
+  days: (Window & { day: string })[];
   window: string;
   data: { objectId: string; objectType: string; openBalance: string; totalOriginated: string; dueAt: string | null; parties: string[] }[];
   total: number;
@@ -192,3 +193,21 @@ describe("REQ-641, REQ-225 — o dia é o de São Paulo", () => {
     }
   });
 });
+
+describe("§8.10 (REQ-682) — o total de cada dia", () => {
+  it("publica hoje e cada um dos próximos dias da janela, com o total do Ledger; dia sem nada vem vazio", async () => {
+    const { days } = await read();
+    expect(days.map((d) => d.day)).toEqual([
+      "2026-11-13", "2026-11-14", "2026-11-15", "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19", "2026-11-20",
+    ]);
+    expect(days[0]).toEqual({ day: "2026-11-13", count: 1, totals: { BRL: "200.00" } });
+    expect(days[7]).toEqual({ day: "2026-11-20", count: 1, totals: { BRL: "300.00" } });
+    expect(days[1]).toEqual({ day: "2026-11-14", count: 0, totals: {} });
+  });
+
+  it("vencido, depois e sem vencimento não caem em dia nenhum", async () => {
+    const { days } = await read();
+    expect(days.reduce((n, d) => n + d.count, 0)).toBe(2);
+  });
+});
+

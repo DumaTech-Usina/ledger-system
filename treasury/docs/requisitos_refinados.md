@@ -65,6 +65,11 @@
 > | 2026-11-13 | 19 (cont.) — pagamentos do dia | **Decidido:** a `DEC-044`: o fato de caixa cita a instituição como contexto (`cash_account`), no máximo uma, nunca num fato sem dinheiro; sem ela, "instituição desconhecida", e os eventos anteriores ficam assim, nunca distribuídos. A transferência entre instituições fica para o E6. **Novo:** §8.6 (`REQ-650`–`REQ-654`, `CA-650`–`CA-654`, `REJ-650`, `REJ-650b`, `REJ-653`). **Ampliado:** `REQ-239` (o lote também é montado na agenda, de vários credores). **`TODO-08` feito; E3 fechado.** §17 R1 resolvido. Nada foi revogado. |
 > | 2026-11-13 | 19 (cont.) — agenda a receber | Sem decisão nova do dono do produto. **Novo:** §8.7 (`REQ-660`–`REQ-665`, `CA-660`–`CA-665`, `REJ-661`–`REJ-663`): o Ledger publica a agenda a receber pela data esperada, por pagador e com os recebimentos sem origem, como leitura; o Treasury marca o declarado pela operadora e ainda não visto no banco, sem somá-lo. **⚠ CONFIRMAR NO PILOTO:** empréstimo e adiantamento entram na agenda (`REQ-660`). **`TODO-09` feito; E4 fechado.** Nada foi revogado. |
 > | 2026-11-16 | 20 — caixa por instituição | Conversa de arquitetura (muda a álgebra do Ledger). **Decidido:** o saldo de abertura é um fato por instituição (o saldo final do dia no extrato), fora dos totais de entradas e saídas; o que tem data até o dia da abertura já está nele; a transferência é um fato só, com origem e destino; a instituição é perguntada em todo lançamento de caixa, com "não informada" explícita; uma conta por instituição, a lista é configuração; a `Q-055` segue com o valor provisório. **Novo:** §8.8 (`REQ-670`–`REQ-676`, `CA-670`–`CA-675`, `REJ-670`–`REJ-675`). **Ampliados:** `REQ-650` (a transferência) e `REQ-277`/`REQ-653` (a instituição perguntada). **`TODO-06` e `TODO-07` feitos; E6 fechado.** Nada foi revogado. |
+> | 2026-11-16 | 20 (cont.) — conciliação, o conceito | O dono do produto corrigiu a sua leitura de "bate com o banco": queria conciliação, não conferência por saldo. **Registrado:** o conceito de conciliação e a divisão de papéis entre Ledger e Treasury (§8.9); caixa completo é obrigatório, origem conhecida pode ficar pendente (`DEC-036`). **A rever:** `REQ-247`, `REQ-269` e a lista de fora da primeira versão (§18.3). **Atualizados:** `DEC-018` (as perguntas a responder), `Q-055` (o formato do extrato), `TODO-07` e `REQ-675` (é o alarme, não a conciliação), `TODO-21` (prioridade em revisão). A implementação do E6 continua válida; nada foi revertido nem revogado. A decisão sobre a conciliação ficou para depois do estudo do dono do produto. |
+> | 2026-11-17 | 20 (cont.) — painel da manhã | **Decidido pelo dono do produto:** o quadro fica no topo do Painel. **Novo:** §8.10 (`REQ-680`–`REQ-685`, `CA-680`–`CA-685`, `REJ-683`, `REJ-684`): o caixa conhecido, o que vence dia a dia e, à parte, o que se espera receber, lado a lado, sem sobra nem falta calculadas; as agendas do Ledger passam a publicar o total de cada dia. **⚠ CONFIRMAR NO PILOTO:** se o CFO precisar de um veredito (`REQ-684`). **`TODO-12` feito; E7 fechado.** Nada foi revogado. |
+> | 2026-11-17 | 20 (cont.) — telas no navegador | As telas do E2 ao E7 foram vistas no navegador com o Ledger de verdade, num livro de teste de 16 dias, em computador e celular, nos temas claro e escuro (regra de §18.4): agenda a pagar com o lote, agenda a receber, caixa por instituição com os três formulários, painel da manhã, crédito da seguradora e a pergunta da instituição na conversa. **Corrigido:** a tabela do painel cortava colunas; os modais do lote e do caixa não tinham margem interna; o resumo antes de confirmar não mostrava a instituição; no celular, a agenda a pagar, a agenda a receber e Posições ficavam mais largas que a tela (texto oculto para leitor de tela escapando da tabela; corrigido no componente de tabela). **Achado, não corrigido:** na conversa, o texto livre lê um número do nome como valor ("Fornecedor 13" → R$ 13,00); a prévia mostra o valor antes do envio. Nada foi revogado. |
+> | 2026-11-17 | 21 — sistema de saúde | Investigação de domínio, sem implementação. **Decidido:** a saúde entra pelo sinal externo, por parcela, com três fatos propostos (§4.7, `REQ-281`–`REQ-289`); a expectativa é aberta pelo baixado declarado até a saúde informar o devido (`REQ-285`); a obrigação com corretor e supervisor nasce na comunicação, mas só se o usuário confirmar, e "sem obrigação" é auditado (`REQ-286`); a tabela de comissão do corretor é só referência da saúde (`REQ-287`); o `ingest:receipt` do Ledger é aposentado (`REQ-289`); o tributo da nota é fato à parte, registrado só quando estabelecido, e a taxa é base do sinal (`REQ-290`, `DEC-046`). **Em parte respondida:** `Q-054` (falta o acesso para a leitura automática). **Abertos:** `Q-057` (parcela zero), o `⚠ CONFIRMAR` de `REQ-286`; `REQ-266` continua adiado. Nada foi revogado. **Depois, no mesmo dia:** decidida e implementada a tela própria (`REQ-291`); §4.7 implementada, com o estado "Sem obrigação" (§11.1); o `ingest:receipt` foi tirado do `dev:full` e passou a recusar o início. Visto no navegador com o Ledger de verdade, em computador e celular, nos temas claro e escuro. **Por último:** decidido e implementado o crédito da operadora, o mesmo lote do seguro etiquetado por parcela de proposta (`REQ-292`); visto no navegador e enviado ao Ledger de ensaio (três parcelas de duas propostas e a sobra sem origem). |
+> | 2026-11-17 | 21 (cont.) — Partes | **Decidido e implementado:** Partes vira uma tela só, com as identidades sem resolução no topo, para todos; o cadastro num modal; "Cadastrar e ligar" numa identidade pendente; a lista com tipo, CPF/CNPJ e conta bancária para quem consulta (`REQ-315`, `CA-315`). **Alterado:** o "Resolver" da notificação passa a levar a Partes, e a tela "Cadastro de partes" deixa de existir. Visto no navegador, em computador e celular. Nada foi revogado. |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -565,6 +570,9 @@ digital (hash) que permite provar que o arquivo não foi trocado. Pode ser anexa
 pagamento, e um mesmo arquivo pode valer para vários eventos. Anexar **não altera** o evento no
 Ledger.
 
+> **A rever (2026-11-16):** como anexo de um pagamento, o extrato pode continuar opcional; como evidência da
+> conciliação, não é opcional. Ver §8.9. A regra segue valendo até a `DEC-018` ser decidida.
+
 > **Confirmado em 2026-11-11 (rodada 17):** o extrato continua **opcional**, também no lote. O pagamento
 > conta como feito quando é anotado (`REQ-245`), com ou sem extrato. Exigir o extrato desde o início
 > dificultaria o uso; deixá-lo opcional permite questionar depois um pagamento que ficou sem ele.
@@ -796,6 +804,9 @@ Em todos, o Treasury mostra lado a lado o que o sistema de seguro disse e o que 
 A **conciliação** com o extrato bancário é **opcional e por lote**, e só no recebimento: as
 expectativas não movem caixa e não precisam dela. A conciliação linha a linha continua em `DEC-018`.
 
+> **A rever (2026-11-16):** a conciliação é por conta e período, nas entradas e nas saídas, e tem como
+> objetivo o caixa completo (§8.9). Continua certo que as expectativas não movem caixa e não precisam dela.
+
 `REQ-277` **Crédito da seguradora** (decidido em 2026-11-09). Um crédito no banco que cobre várias
 apólices é registrado como **um lote** (`settlement_batch`): um recebimento por comissão prevista, cada
 um citando o lote e a sua apólice (`REQ-275`), com o valor que o usuário distribuiu (`REQ-257`). O que
@@ -909,6 +920,163 @@ fica com um **alerta de pendência**, porque essa data serve ao controle de inad
 diferente do incômodo da identidade provisória (`REQ-321`), e uma comissão sem data esperada nunca é
 tratada como atrasada.
 
+### 4.7 Sinal externo do sistema de saúde
+
+> Decidido em 2026-11-17 (rodada 21), numa investigação de domínio com o dono do produto.
+> **Implementados em 2026-11-17:** `REQ-281`–`REQ-292`, na tela "Sistema de saúde", com o registro à mão; a
+> leitura automática espera o acesso aos dados. Testes: `acceptance-health-signal.test.ts` (20),
+> `receivables-agenda.test.ts`, `access-by-route.test.ts` e `signalForm.test.ts` (tela). Responde em parte à `Q-054`: por enquanto o registro é **à mão**, e o sistema de saúde
+> registra os mesmos acontecimentos do seguro, **com o supervisor**. Como os dados ficam acessíveis para a
+> leitura automática continua aberto. Em aberto: `Q-057` (parcela zero) e a
+> mudança na origem (`REQ-266`, adiada também aqui: o dono do produto acha difícil acontecer).
+
+```
+Sistema de saúde               Treasury                                         Ledger
+Parcela N da proposta P ─────► SINAL (cópia imutável, nunca vai ao Ledger)
+baixada no sistema                │ proposta, parcela, nominal, baixado declarado,
+                                  │ corretor, supervisor, taxa; devido (no futuro)
+                                  ▼
+                               FATOS PROPOSTOS (cada um confirmado à parte)
+                                  ├─ comissão prevista da operadora ─────────────► expectativa
+                                  ├─ obrigação com o corretor, ou "sem obrigação"─► obrigação (ou nada)
+                                  └─ obrigação com o supervisor, ou "sem obrigação"► obrigação (ou nada)
+Banco / CFO ─────────────────► Comissão recebida (ligada, em lote ou sem origem) ► caixa
+CFO ─────────────────────────► Repasses (unitário ou lote) ──────────────────────► caixa
+```
+
+`REQ-281` **O mesmo conceito do seguro.** A saúde entra pelo sinal externo de §4.6, com um contrato
+próprio. Valem para ela `REQ-260`, `REQ-261`, `REQ-263`, `REQ-265`, `REQ-267`, `REQ-268`, `REQ-269`,
+`REQ-275`, `REQ-277` e `REQ-663`; o que muda está abaixo. O registro à mão e a futura integração
+seguem **a mesma regra**, mudando só quem aparece como autor (`REQ-240`, `REQ-278`, `REQ-805`).
+
+`REQ-282` **A unidade é a parcela.** O sinal é o **recebimento comunicado** de uma parcela: o número da
+proposta (único), o número da parcela (único dentro da proposta), o valor nominal da parcela, o valor
+**baixado** para a Usina, o valor do corretor, o do supervisor, a taxa de tributo e a data da baixa. Tem,
+desde já, um campo **opcional** para o que a operadora **deveria** pagar à Usina, que o sistema de saúde
+ainda não informa: ausente, o valor é **desconhecido**, nunca zero. O nominal, a taxa e os percentuais
+são a base do cálculo e ficam no sinal (`DEC-020`).
+
+> **O baixado é declarado, não recebido.** "Baixado" quer dizer que o sistema de saúde registrou que a
+> operadora pagou; o dinheiro ainda precisa ser visto no banco pelo CFO (`REQ-263`, §18.1). Recebido é só
+> o que o Ledger registrou como caixa.
+
+`REQ-283` **Os fatos propostos.** Cada sinal propõe a **comissão prevista** da operadora e uma **obrigação
+de comissão** com o corretor e outra com o supervisor (`REQ-258`). Todos citam a proposta (contexto
+`proposal`) e a parcela (contexto `installment`), e cada um tem a sua referência da origem, por parcela
+(ex.: `saude:proposta:<n>:parcela:<k>:prevista`, `…:corretor`, `…:supervisor`). O sinal **nunca** propõe
+recebimento nem pagamento (`REQ-262`).
+
+`REQ-284` **Parcelas futuras não são previstas.** Uma parcela só existe quando é comunicada. Parcelamento
+limitado, vitalício ou parcela única não muda nada nos fatos: nenhuma parcela é proposta antes de
+acontecer (`DEC-013`, "facts over predictions"). A parcela única é o recebimento integral; ainda não foi
+vista na saúde.
+
+> **Hoje o Treasury só cita o contexto `contract`** (a apólice). Citar `proposal` e `installment` é mudança
+> no Treasury; o Ledger já aceita os dois (Anexo B.3).
+
+`REQ-285` **O valor da expectativa** (decidido em 2026-11-17). Enquanto o sistema de saúde não informar o
+devido, a comissão prevista é aberta pelo **baixado declarado**, como no seguro (`REQ-272`), e o banco a
+confirma. Quando o devido passar a vir, ele abre a expectativa das parcelas **novas**, e o baixado passa a
+ser só comparação. As parcelas anteriores **não são reescritas**. Até lá, a diferença entre o devido e o
+declarado fica **desconhecida**, e não é mostrada como zero.
+
+```
+Parcela de 100,00 · a Usina deveria receber 30,00 (ainda não informado) · baixado 25,00 · corretor 20,00
+  hoje:   prevista 25,00 · obrigação com o corretor 20,00 · devido: desconhecido
+  banco:  recebidos 25,00 → a prevista fecha
+  futuro: devido 30,00 numa parcela nova → prevista 30,00; baixado 25,00 → "a operadora declarou 5,00 a menos"
+```
+
+`REQ-286` **A obrigação nasce na comunicação, se houver** (decidido em 2026-11-17). Como na elegibilidade do
+seguro, a obrigação com o corretor e com o supervisor nasce quando a baixa é comunicada, antes de o dinheiro
+ser visto no banco. Mas uma parcela pode **não gerar** obrigação, mesmo trazendo corretor e supervisor.
+**Quem decide é sempre o usuário**, para cada parte:
+- O valor zerado no sinal é **indício**, não decisão: a proposta já vem sugerindo "sem obrigação", e o
+  usuário confirma.
+- "Sem obrigação" **não é fato** e não vai ao Ledger. É uma decisão do Treasury, **auditada** (`REQ-804`):
+  quem decidiu, quando, sobre qual parcela e qual parte. Declarar que **há** obrigação fica auditado do
+  mesmo modo, além do fato no Ledger.
+- ⚠ CONFIRMAR: mudar de ideia depois de "sem obrigação" é registrar a obrigação à mão (§4.1, nº 16),
+  citando a proposta e a parcela; a decisão anterior continua no histórico.
+
+`REQ-287` **A tabela de comissão do corretor** (limitada ou vitalícia, por parcela) é referência do sistema
+de saúde para calcular o valor do corretor na baixa. Não entra no Treasury nem no Ledger: o Treasury usa o
+valor que o sinal traz, e o usuário confirma (`REQ-257`).
+
+`REQ-288` **Partes.** Operadora, corretor e supervisor são achados pelo id do sistema de saúde, cada um no
+seu cadastro (`saude:operadora`, `saude:corretor`, `saude:supervisor`), nunca pelo nome; sem ligação,
+identidade provisória (`REQ-267`, `REQ-324`). A operadora entra como quem paga a comissão prevista
+(`REQ-273`). O cliente não é parte e os seus dados não são copiados (`REQ-313`). A proposta é
+**referenciada, não cadastrada**.
+
+`REQ-289` **A esteira antiga do Ledger é aposentada** (decidido em 2026-11-17). O `ingest:receipt` do Ledger
+lê os recibos do sistema de saúde e grava direto no Ledger: transforma "baixado" em entrada de caixa sem
+confirmação nem banco, e não gera as obrigações (`LedgerFinancialAudit.md`, CRÍTICO 5 e ALTO 11). Contradiz
+`REQ-261` e `REQ-263`, e, ao lado do registro manual, contaria o mesmo dinheiro duas vezes. A saúde passa a
+entrar só pelo sinal desta seção.
+
+`REQ-291` **Uma tela por sistema** (decidido em 2026-11-17). Cada sistema externo tem a sua página e o seu
+item no menu lateral, com o seu número de propostas à espera: "Sistema de saúde" fica logo abaixo de
+"Sistema de seguro". A lista e o número de uma não trazem os sinais da outra. Um sistema novo entra com
+outra tela, e o caminho até o Ledger é o mesmo (`REQ-281`). Em cada obrigação ainda à espera, a tela
+oferece **"Não há obrigação"**, com uma confirmação antes, e mostra depois quem declarou e quando
+(`REQ-286`); para isso é preciso a mesma permissão de enviar. A agenda a receber lista a parcela em
+"declarado e ainda não visto no banco" como "Proposta 48213 · parcela 3" (`REQ-663`).
+
+`REQ-292` **Crédito da operadora** (decidido em 2026-11-17). Financeiramente é o mesmo crédito da seguradora
+(`REQ-277`): um crédito no banco que cobre várias parcelas, de uma ou de várias propostas, vira **um lote**
+(`settlement_batch`), com um recebimento por parcela, cada um citando o lote, a proposta e a parcela
+(herdados, `REQ-275`), pelo valor que o usuário distribuiu (`REQ-257`). O que sobra vira **um recebimento sem
+origem** citando o lote. Valem as mesmas recusas antes de enviar e o mesmo envio em ordem, que para no
+primeiro recusado (`DEC-037`). A única diferença é a etiqueta: em vez de apólices, a tela "Sistema de saúde"
+lista as **parcelas em aberto da operadora**, agrupadas por proposta e em ordem de parcela, com um filtro
+quando a lista é longa.
+- **Todas as parcelas em aberto entram** (decidido em 2026-11-17): em duas semanas, e mais ainda no pico, uma
+  operadora pode ter mais de 200 parcelas em aberto. O Treasury lê todas as páginas do Ledger (200 por
+  página). A tela desenha até 100 linhas de cada vez e diz quantas existem ("Mostrando 100 de 230"); o filtro
+  encontra as outras, e uma linha que já recebeu valor nunca some. Vale também para o crédito da seguradora.
+
+```
+Crédito da Unimed de 350,00 em 17/11
+  proposta 48213 · parcela 3  25,00 (inteira)    proposta 48213 · parcela 4  20,00 (de 25,00)
+  proposta 90001 · parcela 1  300,00             não atribuído 5,00 → recebimento sem origem, citando o lote
+  caixa da Usina: +350,00 · ainda a receber na parcela 4: 5,00
+```
+
+`REQ-290` **O tributo da nota** (decidido em 2026-11-17, `DEC-046`). A taxa de tributo que o sistema de saúde
+mostra na baixa (`registration_fee`) é **base do cálculo** e fica no sinal; ela não gera evento. Quem paga o
+tributo e quando varia: a Usina no repasse bancário, na emissão da nota ou num dia determinado, ou o próprio
+corretor, que emite a nota e paga. A nota pode sair a cada baixa, por período ou não sair. Por isso:
+- A obrigação do imposto é um **fato à parte**, registrado só quando o fato que a estabelece acontece (a nota
+  emitida, o imposto apurado), pelo reconhecimento de obrigação, tipo imposto (§4.1, nº 16), com o vencimento.
+  Nunca nasce da baixa.
+- O valor sugerido ao corretor é o do sinal, como **sinalização**. O usuário define o que a Usina deve e o que
+  acontece com isso: repasse, compensação ou outra operação (`REQ-257`). A obrigação, o repasse e o tributo
+  têm ciclos de vida próprios, como no seguro.
+- O que fica com a Usina por causa da taxa pode ser mostrado como **diferença lida**, com a taxa e a base do
+  sinal, nunca como fato (`REQ-264`).
+
+```
+Baixado 50,00 · taxa 6% · repasse de 100% menos a taxa
+  sinal: corretor 47,00 · o usuário confirma a obrigação de 47,00 com o corretor
+  na baixa: nenhum fato de imposto · "fica com a Usina 3,00 (6% de 50,00)" é leitura
+  nota emitida no fim do mês → obrigação de imposto, com vencimento → agenda a pagar
+```
+
+| ID | Critério | Regra |
+| --- | --- | --- |
+| `CA-283` | Parcela 3 da proposta P comunicada com baixado 25,00, corretor 20,00 e supervisor 2,00 → três propostas, cada uma citando P e a parcela 3; nenhuma é recebimento | `REQ-283` |
+| `CA-283b` | A mesma parcela comunicada de novo com os mesmos valores → as propostas existentes são reaproveitadas; o Ledger recusa a referência repetida | `REQ-283`, `REQ-265` |
+| `CA-285` | Sinal sem o devido → prevista pelo baixado; o devido aparece como desconhecido | `REQ-285` |
+| `CA-286` | Supervisor com 0,00 no sinal → a proposta sugere "sem obrigação"; o usuário confirma; nada vai ao Ledger e a auditoria registra quem decidiu | `REQ-286` |
+| `CA-286b` | Corretor com 20,00 no sinal e o usuário declara "sem obrigação" → aceito e auditado | `REQ-286` |
+
+| ID | Caso que deve ser rejeitado | Regra |
+| --- | --- | --- |
+| `REJ-282` | Registrar o baixado como recebido, ou tratar o devido ausente como zero | `REQ-282`, `REQ-285` |
+| `REJ-284` | Propor a parcela seguinte antes de ela ser comunicada | `REQ-284` |
+| `REJ-286` | Decidir "sem obrigação" sozinho pelo valor zerado, sem o usuário | `REQ-286` |
+
 ---
 
 ## 5. Cadastro de partes
@@ -951,6 +1119,27 @@ Para as demais, é **opcional**.
 
 > É a chave para ligar uma linha do extrato ao evento: o extrato só mostra o documento da conta
 > (ex.: "Usina pagou X para Argo, CNPJ def456").
+
+`REQ-315` **Partes é uma tela só** (decidido em 2026-11-17). O cadastro de partes e a resolução das
+identidades ficam na tela **Partes**, que já é a entrada da página de cada parte (`REQ-630`); a tela
+"Cadastro de partes" deixa de existir.
+- **Identidades sem resolução** ficam no topo de Partes, para **todos**: ver quem está pendente ajuda a
+  cobrar quem cuida da curadoria. Só quem tem curadoria liga ou cadastra (`REQ-311`, `REQ-322`, `REQ-402`);
+  quem não tem vê a lista sem as ações. O "Resolver" da notificação (`REQ-321`) leva a essa seção.
+- **Cadastrar parte** abre um modal, só para quem tem curadoria. Salvo o cadastro, o modal fecha e a lista
+  mostra a parte nova.
+- **Cadastrar e ligar**: em cada identidade pendente, o modal abre com o nome dela já preenchido e, ao
+  salvar, cadastra a parte e liga a identidade a ela. O modal avisa antes que a ligação não pode ser
+  desfeita (`REQ-331`, `DEC-015`). Se a ligação falhar depois do cadastro, a parte continua cadastrada e a
+  tela diz o que falta.
+- **A lista mostra o que o cadastro diz** de cada parte: tipo, CPF/CNPJ e conta bancária, para todos que
+  consultam (`REQ-638`). Antes, o documento só aparecia na tela de cadastro, para a curadoria. O que não foi
+  informado aparece como não informado, nunca como "não".
+
+| ID | Critério | Regra |
+| --- | --- | --- |
+| `CA-315` | Visualizador abre Partes com a Maria pendente → vê a Maria em "Identidades sem resolução", sem "Ligar" nem "Cadastrar e ligar", e sem "Cadastrar parte" | `REQ-315` |
+| `CA-315b` | Curador clica "Cadastrar e ligar" na Maria, informa os dados e salva → a parte é cadastrada, a provisória é ligada a ela, o modal fecha e a notificação some | `REQ-315`, `REQ-322` |
 
 ### 5.2 Identidade provisória
 
@@ -1854,6 +2043,8 @@ e a diferença entre os dois. A diferença fica à vista até uma conferência m
 - Sem abertura, não há saldo do livro para comparar: a conferência diz isso, sem diferença inventada.
 - Por enquanto, o saldo é informado à mão, quando o CFO quiser (`Q-055`, valor provisório). A importação
   de extrato e a conciliação linha a linha seguem em PRI-2 (`TODO-21`).
+- **É o alarme, não a conciliação** (§8.9): saldos iguais dizem que nada falta naquele dia; uma diferença diz
+  que algo falta, mas não o quê. Explicá-la pede as linhas do extrato.
 
 > **Como ficou no Ledger.** A abertura é um fato `opening_balance`: entrada para saldo positivo e saída para
 > cheque especial (o sinal vai no efeito, como a direção da perna da Usina), citando uma instituição e
@@ -1887,8 +2078,106 @@ não**, depois de usada, porque fica gravada nos fatos.
 | `REJ-673` | Mostrar zero para uma instituição sem abertura, ou distribuir o desconhecido | `REQ-673` |
 | `REJ-675` | Gravar no Ledger o saldo informado pelo CFO | `REQ-675` |
 
+### 8.9 Conciliação bancária: o conceito
+
+> Registrado em 2026-11-16, numa conversa com o dono do produto. **É o conceito, não o desenho:** como
+> conciliar no Treasury ainda é `DEC-018`, e a prioridade do `TODO-21` está em revisão. Nada aqui é
+> implementado nem muda regra em vigor; as regras que tratavam a conciliação como opcional estão marcadas
+> "a rever" (`REQ-247`, `REQ-269`, §18.3).
+
+**O que é.** Conciliar é comparar, **linha a linha**, dois registros independentes do mesmo dinheiro: o
+extrato da instituição (o que o banco diz) e o livro (o que a Usina registrou), **por conta e por período**.
+O extrato é a evidência externa de onde o dinheiro está; o livro é o conhecimento da Usina. O objetivo é que
+**todo movimento do banco tenha um fato no livro** e que cada diferença tenha um motivo conhecido.
+
+| Situação | Exemplo | O que se faz |
+| --- | --- | --- |
+| A linha do banco corresponde a fatos do livro | PIX de 500,00 à Acme ↔ pagamento à Acme; um débito ↔ os fatos de um lote (`REQ-653`) | Fica conciliada |
+| Linha no banco, sem fato no livro | Tarifa, rendimento, juros do cheque especial, depósito não identificado | Registra-se o fato que faltava, pelo caminho de sempre (fato proposto, confirmado) |
+| Fato no livro, sem linha no banco | TED enviado no fim do dia, que o banco mostra no dia seguinte | Fica em trânsito; se nunca aparecer, era erro e se retifica (§7.3) |
+| Valores diferentes | Livro 1.200,00, banco 1.020,00 | Erro de digitação: retifica-se |
+
+O resultado é um demonstrativo — saldo do banco − em trânsito ± pendências = saldo do livro — e a afirmação
+"a conta X está conciliada até o dia D".
+
+**O livro nunca copia o banco.** Ele é corrigido por **fatos novos** (a tarifa, o rendimento) ou por
+retificação, nunca por um saldo trazido do extrato (`REQ-675`). A conferência por saldo (`TODO-07`) é o
+alarme de que algo falta; não é a conciliação.
+
+**Caixa completo não é o mesmo que origem conhecida.** A conciliação garante que **todo dinheiro que passou
+pelo banco tem um fato** no livro. Ela não exige saber **por que** o dinheiro entrou: um depósito de origem
+desconhecida é conciliado registrando "entrada na instituição, origem desconhecida", e a lacuna fica
+explícita até um fato a preencher (`DEC-036`). Inventar uma origem para "explicar" violaria os princípios do
+Ledger (`CLAUDE.md`, "Unknown is a valid state"). Para quem consome o Ledger, a garantia é: nenhum movimento
+ausente e nenhuma lacuna escondida.
+
+**Quem faz o quê.**
+- **Ledger:** os fatos (inclusive os que a conciliação descobrir), o saldo e a **composição** por instituição
+  (`REQ-673`), as lacunas marcadas. A álgebra não muda para conciliar.
+- **Treasury:** as linhas do extrato como evidência externa, no mesmo conceito do sinal externo (§4.6,
+  `REQ-260`); o casamento entre linhas e fatos; o estado da conciliação, que muda com o tempo e por isso não
+  é fato.
+- **Em aberto:** se os sistemas que consumirem o Ledger precisarem saber que um fato foi confirmado pelo
+  banco, ou até quando uma conta está conciliada, isso pede uma conversa de arquitetura própria. Não está
+  decidido e não deve ser suposto.
+
+**O que já existe e serve a ela:** a instituição em cada fato de caixa (`REQ-650`, `REQ-674`), o saldo de
+abertura (`REQ-670`), a transferência (`REQ-672`), o saldo por instituição e por dia (`REQ-673`), o lote
+com débito conferido (`REQ-653`, `REQ-277`), o recebimento sem origem e a conferência por saldo
+(`REQ-675`). **O que falta:** ver os fatos que compõem o saldo de uma instituição, as linhas do extrato e o
+casamento (`DEC-018`, `TODO-21`).
+
 ---
 
+
+### 8.10 Painel da manhã: o caixa cobre o que vence?
+
+> Decidido em 2026-11-17 (E7, `TODO-12`). Responde à pergunta diária do CFO, "posso pagar hoje?" (§18.3,
+> itens 1 a 4). O dono do produto escolheu o lugar: **o topo do Painel**, que é o que o CFO abre de manhã.
+
+`REQ-680` **Onde e quando.** Um quadro no topo do Painel, **sempre lido para hoje** (fim do dia em São
+Paulo, `REQ-225`), independente do período escolhido para as entradas e saídas abaixo dele. Cada parte
+leva à tela de detalhe: Caixa por instituição, Agenda a pagar, Agenda a receber.
+
+`REQ-681` **O caixa conhecido.** O saldo de cada instituição e o total conhecido, como o Ledger publica
+(`REQ-673`).
+- Uma instituição **sem abertura** aparece como **desconhecida**, e o quadro diz que o total não a inclui.
+- O dinheiro **sem instituição** aparece à parte, **nunca somado** ao total (`REQ-650`).
+
+`REQ-682` **O que vence.** O que a Usina deve, nas colunas **vencido**, **hoje** e **cada um dos próximos
+dias** da janela (7 dias, `Q-055`), com o total de cada coluna **publicado pelo Ledger** (`REQ-642`). O
+que não tem vencimento aparece à parte, com a quantidade e o total, e nunca cai em dia nenhum (`REQ-641`).
+
+`REQ-683` **O que se espera receber**, nas mesmas colunas, à parte, pelas datas esperadas (`REQ-661`). É
+uma leitura de expectativas: **nunca é somado ao caixa** nem descontado do que vence (`TODO-12`). O que a
+operadora declarou ter pago e o banco não mostrou continua sendo expectativa (`REQ-663`).
+
+`REQ-684` **Sem veredito.** O quadro põe os números **lado a lado**; não calcula "sobra" nem "falta".
+- O Treasury não soma dinheiro (`REQ-601`).
+- O total conhecido pode estar incompleto (instituição sem abertura, dinheiro sem instituição), e um
+  veredito diria mais do que o livro sabe (`CLAUDE.md`, "Derivations must not assume completeness").
+- ⚠ CONFIRMAR NO PILOTO: se o CFO precisar do veredito, ele vem do Ledger, como leitura, dizendo
+  "incompleto" sempre que o caixa não for todo conhecido.
+
+`REQ-685` Com o Ledger fora do ar, o quadro diz **"indisponível"**, nunca zero (`REQ-602`).
+
+> **Como fica no Ledger.** As duas agendas passam a publicar também o total de **cada dia**, de hoje até o
+> fim da janela, além das cinco janelas. É uma leitura a mais sobre os mesmos fatos; nenhum fato nem regra
+> muda (`DEC-042`, item 1).
+
+| ID | Critério | Regra |
+| --- | --- | --- |
+| `CA-680` | O CFO muda o período do Painel para outubro → o quadro continua mostrando hoje | `REQ-680` |
+| `CA-681` | Bradesco 295.600,51, Itaú 257.705,77 e corretora sem abertura → total conhecido 553.306,28, com a corretora como desconhecida e fora do total | `REQ-681` |
+| `CA-682` | Contas de 100,00 vencendo amanhã e 50,00 em três dias → colunas dos dois dias com esses totais, publicados pelo Ledger; uma conta sem vencimento só aparece à parte | `REQ-682` |
+| `CA-683` | Comissão prevista para amanhã → aparece na linha "a receber" de amanhã, e o caixa conhecido não muda | `REQ-683` |
+| `CA-684` | Nenhum número do quadro é sobra, falta ou soma feita pelo Treasury | `REQ-684` |
+| `CA-685` | Com o Ledger fora do ar → "indisponível" | `REQ-685` |
+
+| ID | Caso que deve ser rejeitado | Regra |
+| --- | --- | --- |
+| `REJ-683` | Somar ao caixa o que se espera receber | `REQ-683` |
+| `REJ-684` | Mostrar "sobra" ou "falta" com o caixa incompleto | `REQ-684` |
 ## 9. Entrada por texto livre
 
 > Já decidido: é requisito; o texto só propõe; o limiar de confiança é 0,5. A revisão da
@@ -1982,6 +2271,7 @@ isso um sinal sem confirmação não vira fato. A retificação continua exigind
 | **Aguardando correção** | Recusa corrigível (`REQ-502`) | Qualquer campo (`REQ-510`) |
 | **Aceita** | O Ledger aceitou (`REQ-501`) | **Nada** |
 | **Recusada** | Recusa definitiva (`REQ-503`) | **Nada** |
+| **Sem obrigação** | Só numa obrigação proposta por um sinal: o usuário declarou que ela não existe; nada foi ao Ledger (`REQ-286`) | **Nada** |
 
 | De | Para | Quem / o quê move |
 | --- | --- | --- |
@@ -1993,6 +2283,7 @@ isso um sinal sem confirmação não vira fato. A retificação continua exigind
 | Enviada | Aguardando correção | Recusa corrigível (`REQ-502`) |
 | Enviada | Recusada | Recusa definitiva (`REQ-503`) |
 | Aguardando correção | Pronta para envio | O usuário corrige qualquer campo (`REQ-510`) |
+| Coletando, Pronta para envio ou Aguardando correção | Sem obrigação | O usuário declara "não há obrigação" numa obrigação proposta por um sinal (`REQ-286`); auditado |
 
 > **Renomeado na rodada 3:** "aguardando confirmação" → **"pronta para envio"**, um nome mais
 > claro para quem opera (`Q-021`).
@@ -2325,7 +2616,7 @@ Treasury a partir das três fontes, §5).
 | `DEC-015` | Como desfazer uma **ligação errada** de identidade provisória (veio de `Q-038`) | Uma ligação feita não é apagada (`REQ-331`); ainda não há como desfazê-la |
 | `DEC-016` | Se a notificação **fica mais insistente com o tempo** e se **bloqueia** algo (veio de `Q-039`) | Notificação constante, sem escalada; não bloqueia o registro de fatos (`REQ-320`) |
 | `DEC-017` | ~~Repasse de comissão~~ — **decidida em 2026-11-06**: ciclo e valor em §4.5; extrato, lote e anexo em §4.4 (veio de `Q-043`) | Vale §4.4 e §4.5 |
-| `DEC-018` | **Conciliação bancária**: ligar cada linha do extrato a um evento (veio de `Q-045`) | Não há conciliação; o extrato é só anexo opcional (`REQ-247`) |
+| `DEC-018` | **Conciliação bancária**: ligar cada linha do extrato a um evento (veio de `Q-045`). Conceito em §8.9 (2026-11-16). Precisa responder: (1) de onde vêm as linhas (importação ou digitação, por instituição; depende de `Q-055`); (2) uma linha pode casar com vários fatos, e um fato com várias linhas?; (3) quem confirma um casamento, e se há casamento automático; (4) como uma linha sem fato vira fato proposto (como o sinal externo, §4.6); (5) o que fica em trânsito e por quanto tempo; (6) o que significa "conta conciliada até D" e onde isso aparece | Não há conciliação; o extrato é só anexo opcional (`REQ-247`) |
 | `DEC-019` | **Fechar uma obrigação sem pagar**: desconto depois de reconhecida, desistência de um repasse, negociação. Hoje `commission_waiver` recusa `commission_payable` | A obrigação fica aberta e visível; não há como fechá-la sem pagamento ou compensação |
 | `DEC-020` | **Base do cálculo**: registrar sobre o que o percentual incidiu (parcela, valor recebido pela Usina ou parte do corretor) e onde isso fica. O Ledger guarda só o valor | O valor é registrado sem a base; a descrição é livre |
 | `DEC-021` | **Várias partes na mesma venda**: como dividir o valor no resultado por parte. O evento já guarda valor por parte, mas exige que a soma feche o total, o que impede registrar só a parte conhecida | O evento conta inteiro para cada parte citada, e a soma das partes não fecha nesses casos (`REQ-623`) |
@@ -2350,6 +2641,7 @@ Treasury a partir das três fontes, §5).
 | `DEC-041` | ~~Autenticação e autorização do Treasury~~ — **decidida em 2026-11-13**: §6 adota o molde, com três papéis, o molde inteiro sem o envio de e-mail, base limpa no piloto e o comando de criação de usuário só em desenvolvimento. Todo autenticado consulta tudo (`REQ-638`) | Vale §6. O envio de e-mail e a recuperação de senha ficam no `TODO-17` |
 | `DEC-042` | **Filtros de leitura no Ledger**: (1) posições só vencidas / a vencer / sem vencimento, e por contexto (apólice); (2) eventos de uma parte paginados e filtrados (data de registro, tipo, autor, situação), hoje lidos inteiros (§17, P1). Hoje o Ledger ordena por vencimento, mas não filtra por ele nem por contexto. Não muda a álgebra nem cria fato; muda a leitura do Ledger. **Item 1 em parte decidido em 2026-11-13:** o Ledger publica a agenda a pagar por janela de vencimento, com os totais (`REQ-642`); o contexto (apólice) e o item 2 continuam abertos | A página da parte ordena por vencimento; o filtro por contexto e o item 2 ficam de fora |
 | `DEC-043` | **Rotina financeira e lacunas para um sistema financeiro funcional** (§1.1): mapear com o dono do produto, em modo interativo (uma pergunta por vez, desafiando as respostas), a rotina diária, semanal e mensal do financeiro da Usina — quem faz, o que entra, o que sai. Cada linha aponta para um `REQ` ou vira lacuna; cada ⬜ e "a decidir" de §1.1 é decidido: entra no Treasury, no Ledger (só se for fato) ou fica fora. Primeira pergunta: como começa o dia de quem cuida do financeiro, e o que confere primeiro | Vale §1.1 como régua; nada decidido |
+| `DEC-046` | ~~Tributo da nota na baixa da saúde~~ — **decidida em 2026-11-17**: `REQ-290`. Registro do que levou à decisão: (aberta em 2026-11-17). A operadora paga 50,00 à Usina; a Usina repassa o recebido, menos um tributo de X% conhecido na baixa (com 6%, 6,00 ficam e 94,00 são repassados), porque é ela quem emite a nota fiscal. A taxa é o `registration_fee` do sistema de saúde. **Achado nos dados** (dump de 2026-02-27, ≈44.600 baixas com valor do corretor): o valor do corretor é o baixado × o percentual da tabela, **sem** o desconto da taxa, e a taxa fica dentro do que sobra para a Usina. Falta saber: (1) de quem é o tributo, da Usina sobre a própria receita ou retido em nome do corretor; (2) se a nota é emitida por baixa ou por período; (3) quando o repasse é de 100%, se o valor do corretor já vem líquido da taxa. **Recomendação:** a obrigação com o corretor é o valor que o usuário confirma; o que fica para o tributo é uma **diferença lida**, como o valor retido (`REQ-264`), e não um evento; a obrigação do imposto nasce do fato que a estabelece (a nota emitida ou o imposto apurado), pelo reconhecimento de obrigação, tipo imposto (§4.1, nº 16) | Vale `REQ-290` |
 | `DEC-036` | **Enriquecer a origem depois**: ligar um recebimento sem origem (ou outro fato isolado) à comissão prevista quando se descobre de onde veio, **sem reescrever o fato** ("a linhagem é progressiva", `CLAUDE.md`). Não existe hoje no Ledger nem no Treasury. Ideia do dono do produto: usar isso para olhar o passado a partir do saldo no banco (Bradesco, Itaú, corretora de investimentos), perguntando "de onde veio cada valor?", e construir a verdade financeira enquanto se concilia, independente do banco. Relaciona-se com `DEC-018` | O recebimento sem origem fica pendente e visível; não há como ligá-lo depois |
 | `DEC-044` | ~~**Instituição no fato de caixa**~~ **Decidida em 2026-11-13:** o fato de caixa cita a instituição como contexto (`cash_account`), no máximo uma, nunca num evento sem dinheiro; sem ela, "instituição desconhecida"; os eventos anteriores ficam desconhecidos, nunca distribuídos. Alternativas descartadas: um campo novo no evento (muda o molde, o hash e o banco para o mesmo resultado), guardar só no Treasury (a instituição não seria fato do Ledger) e adiar (os pagamentos do piloto ficariam sem instituição para sempre). A transferência entre instituições fica para o E6. Ver `REQ-650` | O Ledger aceita a instituição no fato de caixa; o saldo por instituição (`TODO-06`) ainda não existe |
 | `DEC-045` | **Provisões do CFO** (aberta em 2026-11-13). O CFO aloca dinheiro na corretora de investimentos para usar depois em eventos, e controla isso hoje em planilha. **Confirmado:** ele precisa de uma ferramenta para isso. **Hipótese, não confirmada:** são investimentos pós-fixados que rendem enquanto o dinheiro não é necessário. Entender com o CFO antes de modelar. **Não confundir** com a provisão de pagamento futuro da `DEC-013` | Continua na planilha do CFO (`TODO-15`) |
@@ -2365,8 +2657,9 @@ Abertas na rodada 13 (2026-11-07), e `Q-052` na rodada 14 (2026-11-09). A recome
 | `Q-051` | Como tratar identificadores lá escritos de formas diferentes (produto `Auto` e `auto`) e a seguradora sem nome? | Normalizar só para comparar e guardar como veio no sinal (`REQ-260`); seguradora sem nome vira identidade provisória (`REQ-267`) | Nada depende disso ainda |
 | `Q-052` | Na comissão parcelada, a elegibilidade chega **por parcela** ou uma vez por apólice? | Se for por parcela, a referência da origem inclui a parcela (`REQ-265`) e cada elegibilidade abre a sua obrigação | Uma elegibilidade por apólice |
 | `Q-053` | **Solicitações de adiantamento e acordos ainda não pagos**, que os verificadores acompanham: o que são, quem aprova e em que momento viram compromisso da Usina? (aberta em 2026-11-13) | Até virar compromisso, mostrar como pendência do Treasury, que não é fato nem vai ao Ledger. Depois, como obrigação reconhecida | `TODO-19` não começa |
-| `Q-054` | **Sistema de saúde:** como os dados ficam acessíveis (API, arquivo, tela) e se ele registra os mesmos acontecimentos do seguro (pagamento declarado pela operadora, parcela ou total, parte da Usina e parte do corretor)? (aberta em 2026-11-13) | Usar o mesmo conceito de sinal externo (§4.6), com um contrato próprio para a saúde | `TODO-11` não começa; a saúde é registrada à mão |
-| `Q-055` | **Conferência com o banco:** em cada instituição, com que frequência o CFO confere e de onde vem o saldo (extrato, aplicativo, relatório da corretora)? E até quantos dias à frente ele precisa ver o que vence? (aberta em 2026-11-13) | Começar pelo saldo informado à mão, uma vez por dia, e uma janela de 7 dias, a ajustar no piloto | `TODO-05` e `TODO-07` seguem com esses valores provisórios |
+| `Q-054` | **Sistema de saúde:** como os dados ficam acessíveis (API, arquivo, tela) e se ele registra os mesmos acontecimentos do seguro (pagamento declarado pela operadora, parcela ou total, parte da Usina e parte do corretor)? (aberta em 2026-11-13) **Em parte respondida em 2026-11-17:** registra os mesmos acontecimentos, por parcela, com o supervisor; o registro começa à mão (§4.7). Falta só o acesso para a leitura automática | Usar o mesmo conceito de sinal externo (§4.6), com um contrato próprio para a saúde | O registro manual de §4.7 pode começar; a leitura automática do `TODO-11` espera o acesso |
+| `Q-057` | **Parcela zero** no sistema de saúde: existe nos dados, mas não se sabe se já aconteceu de verdade nem o que significa (aberta em 2026-11-17) | Investigar no sistema de saúde antes de modelar | Uma parcela zero não é proposta; o usuário registra à mão se precisar |
+| `Q-055` | **Conferência com o banco:** em cada instituição, com que frequência o CFO confere e de onde vem o saldo (extrato, aplicativo, relatório da corretora)? E até quantos dias à frente ele precisa ver o que vence? (aberta em 2026-11-13) **Acrescentado em 2026-11-16, para a conciliação (§8.9):** em que formato cada instituição entrega o extrato (OFX, CNAB, PDF, planilha, aplicativo, API, Open Finance)? Com que frequência o CFO concilia hoje, e como? Como a corretora informa rendimento e movimentação? | Começar pelo saldo informado à mão, uma vez por dia, e uma janela de 7 dias, a ajustar no piloto | `TODO-05` e `TODO-07` seguem com esses valores provisórios |
 | `Q-056` | **Piloto:** por quantas semanas a equipe usa a primeira versão em paralelo à planilha, e quem decide que ela foi aprovada? (aberta em 2026-11-13) | O CFO decide; aprovada quando ele decide o que pagar no dia pelo Treasury, sem a planilha | `TODO-13` sem data |
 
 Os `⚠ CONFIRMAR` de §2 (termos **recebedor** e **destinatário final**) e de `REQ-612` (a visão **não soma**
@@ -2816,6 +3109,10 @@ decide o que pagar no dia pelo Treasury, sem a planilha (`Q-056`).
 a linha, a importação de extrato, os relatórios e o fechamento, a compensação e a operação composta no
 Treasury, a reconstrução do histórico e a aprovação em duas etapas.
 
+> **A rever (2026-11-16):** a conciliação linha a linha e a importação de extrato estão nesta lista, mas o
+> objetivo de caixa completo para quem consome o Ledger (§8.9) pode trazê-las para antes ou logo depois do
+> piloto. Decisão do dono do produto, depois da `Q-055`.
+
 **Se o prazo apertar,** cede primeiro o `TODO-11` (a saúde é registrada à mão durante a avaliação) e depois
 o `TODO-12` (só os números lado a lado, sem o painel). A fase A não cede.
 
@@ -2838,9 +3135,9 @@ principal dessas mudanças.
 | **E2** | **Agenda a pagar** | CFO. Acaba com a conta que aparece do nada (dor 1) | 05 | Nada; a janela começa em 7 dias (`Q-055`) | ✅ Feito em 2026-11-13 |
 | **E3** | **Pagamentos do dia em lote** | CFO. Permite registrar o volume real (dor 3) | 08 | Nada: a `DEC-044` foi decidida em 2026-11-13 (§8.6) | ✅ Feito em 2026-11-13 |
 | **E4** | **Agenda a receber**, com o declarado pela operadora e ainda não visto no banco | CFO e verificadores. Saber o que cobrar (dor 4) | 09 | Nada; `DEC-036` melhora a precisão e pode esperar o piloto | ✅ Feito em 2026-11-13 |
-| **E5** | **Sinais entrando sozinhos:** seguro em operação real e saúde | Verificadores. Obrigações e expectativas sem digitação | 10, 11 | Seguro: nada. Saúde: `Q-054`, que é falta de informação, não decisão | Seguro sim; saúde não |
+| **E5** | **Sinais entrando sozinhos:** seguro em operação real e saúde | Verificadores. Obrigações e expectativas sem digitação | 10, 11 | Seguro: nada. Saúde: `Q-054`, que é falta de informação, não decisão | Seguro sim; saúde: o registro à mão está feito (§4.7, 2026-11-17), a leitura automática não |
 | **E6** | **Saldo por instituição e conferência com o banco** | CFO. O livro passa a bater com o banco (dor 2) | 06, 07 | `Q-055`, e como entra a transferência entre instituições (`REQ-650`). A `DEC-044` foi decidida | ✅ Feito em 2026-11-16 |
-| **E7** | **Painel da manhã: o caixa cobre o que vence?** | CFO. A pergunta diária "posso pagar hoje?" | 12 | Nada: o saldo por instituição existe desde o E6 (2026-11-16) | Sim, a inicial |
+| **E7** | **Painel da manhã: o caixa cobre o que vence?** | CFO. A pergunta diária "posso pagar hoje?" | 12 | Nada: o saldo por instituição existe desde o E6 (2026-11-16) | ✅ Feito em 2026-11-17 |
 | **E8** | **Piloto com a equipe** | Os cinco. Confirma se a versão serve e reordena o resto | 13 | `Q-056`, só quando o piloto começar | Depois de E1–E4 |
 
 **Até quando cada decisão pode esperar**
@@ -2968,6 +3265,8 @@ do Ledger**.
 *Por quê:* o CFO é o responsável pela conciliação e hoje usa heurísticas. Uma diferença à vista é o mínimo
 que torna o livro confiável. A conciliação linha a linha e a importação de extrato ficam em PRI-2
 (`TODO-21`).
+*Nota (2026-11-16):* a conferência por saldo é o alarme de que algo falta; não substitui a conciliação
+(§8.9).
 *Depende de:* `TODO-06`; a forma e a frequência de cada instituição, de `Q-055`.
 *Situação (`TODO-06` e `TODO-07`):* ✅ 2026-11-16, sem commit; as regras estão em §8.8 (`REQ-670`–`REQ-676`),
 decididas numa conversa de arquitetura com o dono do produto. **No Ledger:** dois fatos novos, o saldo de
@@ -3060,6 +3359,12 @@ externo (§4.6). Geram só expectativas e obrigações, nunca recebimento (`REQ-
 *Por quê:* pedido do dono do produto. Sem isso, as agendas mostram só a metade do negócio, ou a saúde é
 digitada uma operação por vez.
 *Depende de:* `Q-054`.
+**Atualizado em 2026-11-17:** o domínio está em §4.7. O registro **à mão** do sinal da saúde não depende
+mais da `Q-054` e pode ser feito antes do piloto; a leitura automática continua esperando o acesso aos
+dados. Inclui aposentar o `ingest:receipt` do Ledger (`REQ-289`).
+**Feito em 2026-11-17 (parte manual):** §4.7 implementada e vista no navegador com o Ledger de verdade; o
+`ingest:receipt` saiu do `npm run dev:full` e se recusa a iniciar. Falta a leitura automática (contrato da
+mensagem e produtor), que espera a `Q-054`, e apagar o código do `ingest:receipt` depois do piloto.
 
 **Fase D — juntar e avaliar**
 
@@ -3069,6 +3374,19 @@ dos fatos, não uma previsão: o esperado **nunca é somado ao caixa**, e o que 
 nenhum (`CLAUDE.md`, "Derivations must not assume completeness").
 *Por quê:* "avaliar se o caixa suporta as saídas previstas" é tarefa diária do CFO.
 *Depende de:* `TODO-05`, `TODO-06` e `TODO-09`.
+*Situação:* ✅ 2026-11-17, sem commit; as regras estão em §8.10 (`REQ-680`–`REQ-685`). O dono do produto
+escolheu o topo do Painel em vez da agenda a pagar. O Ledger passou a publicar, nas duas agendas, o total
+de cada dia de hoje até o fim da janela (`days`); o Treasury monta o quadro em `GET /api/dashboard/morning`
+(`GetMorningPanel.ts`) com o caixa conhecido, as instituições sem abertura, o dinheiro sem instituição e as
+colunas vencido, hoje, cada próximo dia, depois e sem data, para pagar e, à parte, para receber. Nada é
+somado nem concluído no Treasury. **Não feito:** o veredito de sobra ou falta (`REQ-684`, a confirmar no
+piloto). Testes: os totais por dia nas duas agendas do Ledger (5 novos), `morning-panel.test.ts` (Treasury,
+5) e `morningView.test.ts` (tela, 3). Sabotagens conferidas: omitir os dias vazios no Ledger, ou mexer no
+total conhecido no Treasury, fazem os testes falharem. Verificado com o Ledger de verdade num livro de teste
+de 10 dias: os dias de 18/11 a 24/11 somaram 32.107,33 em 12 contas, igual ao total da janela publicado
+pelo Ledger; a corretora sem abertura apareceu como fora do total. Leitura em 13 ms (`load:measure`).
+Suítes: Ledger 943 e 12 pendentes (cobertura de 86,5% das linhas); Treasury 1.019, com 37 `it.todo`, e 202
+no cliente. A tela será vista no navegador no piloto.
 
 `TODO-13` **Piloto com a equipe.** Os cinco usam a primeira versão em paralelo à planilha, numa rotina
 combinada: o CFO com as agendas, a conferência e os pagamentos do dia; os verificadores com os sinais e as
@@ -3115,6 +3433,8 @@ curadoria.
 
 `TODO-21` **Conciliação linha a linha e importação de extrato** (OFX ou CNAB, `DEC-018`).
 *Por quê:* `TODO-07` cobre o mínimo, e a forma de cada instituição ainda é desconhecida.
+*Prioridade em revisão (2026-11-16):* com o objetivo de caixa completo para quem consome o Ledger (§8.9),
+pode subir. O dono do produto decide depois de estudar o processo e da `Q-055`.
 
 `TODO-22` **Reconstrução progressiva do histórico,** fora das temporadas de pico.
 *Por quê:* decisão do dono do produto. O Ledger já aceita fatos com data passada.

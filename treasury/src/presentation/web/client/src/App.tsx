@@ -16,11 +16,12 @@ import { OperationsPage } from "@/features/operations/OperationsPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { PositionsPage } from "@/features/dashboard/PositionsPage";
 import { IntentsPage } from "@/features/intents/IntentsPage";
-import { PartiesPage } from "@/features/parties/PartiesPage";
 import { PartyViewPage } from "@/features/parties/PartyViewPage";
 import { SignalsPage } from "@/features/signals/SignalsPage";
 import { signalsCopy } from "@/features/signals/signalsCopy";
 import { useOpenProposals } from "@/features/signals/useOpenProposals";
+import { HealthSignalsPage } from "@/features/signals/HealthSignalsPage";
+import { healthCopy } from "@/features/signals/healthCopy";
 import { PendingIdentitiesBanner } from "@/features/parties/PendingIdentitiesBanner";
 import { partiesCopy } from "@/features/parties/partiesCopy";
 import { usePendingIdentities } from "@/features/parties/usePendingIdentities";
@@ -42,11 +43,14 @@ export function App() {
    * re-opens an operation the user already finished or abandoned.
    */
   const [adopted, setAdopted] = useState<AdoptedIntent | null>(null);
+  /** Bumped by the notification's "Resolver": Partes opens at the identities to resolve (REQ-315). */
+  const [focusPending, setFocusPending] = useState(0);
   const { t, language } = useLanguage();
   const canCurate = user?.permissions.includes("party:curate") ?? false;
   const canManageUsers = user?.permissions.includes("user:manage") ?? false;
   const { pending, refresh: refreshPending } = usePendingIdentities(status === "authenticated");
-  const { count: openProposals } = useOpenProposals(status === "authenticated");
+  const { count: openProposals } = useOpenProposals(status === "authenticated", "insurance");
+  const { count: openHealthProposals, refresh: refreshHealthProposals } = useOpenProposals(status === "authenticated", "health");
 
   const navItems = [
     { id: "operations", label: t.nav.operations, icon: "operations" as const },
@@ -64,7 +68,13 @@ export function App() {
       badge: openProposals,
       badgeLabel: signalsCopy[language].openBadge(openProposals),
     },
-    ...(canCurate ? [{ id: "parties", label: partiesCopy[language].heading, icon: "parties" as const }] : []),
+    {
+      id: "health",
+      label: healthCopy[language].nav,
+      icon: "health" as const,
+      badge: openHealthProposals,
+      badgeLabel: healthCopy[language].openBadge(openHealthProposals),
+    },
     ...(canManageUsers ? [{ id: "users", label: usersCopy[language].nav, icon: "users" as const }] : []),
   ];
 
@@ -75,7 +85,7 @@ export function App() {
     intents: t.nav.intents,
     partyView: partiesCopy[language].viewHeading,
     signals: signalsCopy[language].nav,
-    parties: partiesCopy[language].heading,
+    health: healthCopy[language].nav,
     users: usersCopy[language].nav,
     agenda: agendaCopy[language].nav,
     receivables: receivablesCopy[language].nav,
@@ -126,7 +136,15 @@ export function App() {
       notice={
         <PendingIdentitiesBanner
           pending={pending}
-          onResolve={canCurate ? () => setActiveNav("parties") : undefined}
+          onResolve={
+            canCurate
+              ? () => {
+                  // REQ-315: the identities are resolved in Partes, at the top of the list.
+                  setActiveNav("partyView");
+                  setFocusPending((n) => n + 1);
+                }
+              : undefined
+          }
         />
       }
     >
@@ -150,8 +168,6 @@ export function App() {
         />
       ) : activeNav === "users" && canManageUsers ? (
         <UsersPage me={user} onSelfChanged={refresh} />
-      ) : activeNav === "parties" && canCurate ? (
-        <PartiesPage pending={pending} onChanged={refreshPending} />
       ) : activeNav === "signals" ? (
         <SignalsPage
           canCreate={user.permissions.includes("intent:create")}
@@ -161,8 +177,18 @@ export function App() {
             setActiveNav("operations");
           }}
         />
+      ) : activeNav === "health" ? (
+        <HealthSignalsPage
+          canCreate={user.permissions.includes("intent:create")}
+          canSubmit={user.permissions.includes("intent:submit")}
+          onChanged={refreshHealthProposals}
+          onReview={(intent) => {
+            setAdopted(intent);
+            setActiveNav("operations");
+          }}
+        />
       ) : activeNav === "partyView" ? (
-        <PartyViewPage />
+        <PartyViewPage canCurate={canCurate} pending={pending} onChanged={refreshPending} focusPending={focusPending} />
       ) : activeNav === "intents" ? (
         <IntentsPage />
       ) : activeNav === "positions" ? (
@@ -185,7 +211,7 @@ export function App() {
           onAdopted={() => setAdopted(null)}
         />
       ) : (
-        <DashboardPage onNavigateToOperations={() => setActiveNav("operations")} />
+        <DashboardPage onNavigateToOperations={() => setActiveNav("operations")} onNavigate={setActiveNav} />
       )}
     </AppShell>
   );

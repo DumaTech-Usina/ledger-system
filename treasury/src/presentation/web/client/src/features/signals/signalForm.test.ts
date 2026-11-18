@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isOpenProposal, missingRequired, signalPayload } from "./signalForm";
+import { canDismiss, isOpenProposal, missingRequired, signalPayload } from "./signalForm";
 
 describe("signalPayload — o que sai do formulário do sinal", () => {
   it("valores pela máscara em centavos, percentual com vírgula, sem campos vazios", () => {
@@ -34,6 +34,43 @@ describe("missingRequired", () => {
 describe("isOpenProposal", () => {
   it("só reabre o que ainda espera o usuário", () => {
     expect(["gathering", "awaiting_confirmation", "awaiting_correction"].every(isOpenProposal)).toBe(true);
-    expect(["accepted", "rejected", null].some((s) => isOpenProposal(s))).toBe(false);
+    expect(["accepted", "rejected", "dismissed", null].some((s) => isOpenProposal(s))).toBe(false);
+  });
+});
+
+describe("§4.7 — parcela do sistema de saúde", () => {
+  it("um valor zerado sai como 0.00: no corretor ou no supervisor, ele diz alguma coisa (REQ-286)", () => {
+    expect(
+      signalPayload("installment", {
+        proposalNumber: "48213",
+        installment: "3",
+        usinaValue: "2500",
+        brokerValue: "2000",
+        supervisorValue: "0",
+        taxRate: "6,5",
+        dischargedAt: "2026-11-05",
+        owedValue: "",
+      }),
+    ).toEqual({
+      proposalNumber: "48213",
+      installment: "3",
+      usinaValue: "25.00",
+      brokerValue: "20.00",
+      supervisorValue: "0.00",
+      taxRate: "6.5",
+      dischargedAt: "2026-11-05",
+    });
+  });
+
+  it("obrigatórios: proposta, parcela, baixado, corretor e data da baixa", () => {
+    expect(missingRequired("installment", {})).toEqual(["proposalNumber", "installment", "usinaValue", "brokerValue", "dischargedAt"]);
+  });
+
+  it("REQ-286: só uma obrigação que ainda espera o usuário pode ser declarada inexistente", () => {
+    expect(canDismiss({ fact: "commission_obligation", intentStatus: "awaiting_confirmation" })).toBe(true);
+    expect(canDismiss({ fact: "supervisor_obligation", intentStatus: "gathering" })).toBe(true);
+    expect(canDismiss({ fact: "commission_expected", intentStatus: "awaiting_confirmation" })).toBe(false);
+    expect(canDismiss({ fact: "supervisor_obligation", intentStatus: "accepted" })).toBe(false);
+    expect(canDismiss({ fact: "supervisor_obligation", intentStatus: "dismissed" })).toBe(false);
   });
 });

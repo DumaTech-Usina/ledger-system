@@ -27,6 +27,10 @@ export interface PartyName {
   partyId: string;
   displayName: string;
   state: string;
+  /** REQ-315: what the registry says, for everyone who consults. Null when not stated. */
+  kind?: string | null;
+  document?: string | null;
+  hasBankAccount?: boolean | null;
 }
 
 export interface PartyEventView {

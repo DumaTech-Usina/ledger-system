@@ -45,6 +45,9 @@ export function ReceivablesPage({
 }) {
   const { t, language } = useLanguage();
   const copy = receivablesCopy[language];
+  /** A policy for the insurance system; a proposal and its installment for the health system (§4.7). */
+  const claimLabel = (claim: { source?: "insurance" | "health"; policyLabel: string }) =>
+    claim.source === "health" ? copy.installment(claim.policyLabel) : copy.policy(claim.policyLabel);
   const [active, setActive] = useState<ReceivablesList | null>(null);
   const [payer, setPayer] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -201,7 +204,7 @@ export function ReceivablesPage({
                           <span className="block">{t.objectType[line.objectType] ?? line.objectType}</span>
                           {line.declared ? (
                             <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                              <span className="text-[12px]">{copy.policy(line.declared.policyLabel)}</span>
+                              <span className="text-[12px]">{claimLabel(line.declared)}</span>
                               <Badge
                                 variant="warn"
                                 title={copy.declaredTitle(line.declared.insurer ?? copy.theInsurer, money(line.declared.claimed, line.currency))}
@@ -282,7 +285,7 @@ export function ReceivablesPage({
                           {l.payers.length > 0 ? payerLabel(l.payers, copy.unknownPayer) : l.insurer ?? copy.unknownPayer}
                         </span>
                       </Table.Cell>
-                      <Table.Cell className="text-muted">{copy.policy(l.policyLabel)}</Table.Cell>
+                      <Table.Cell className="text-muted">{claimLabel(l)}</Table.Cell>
                       <Table.Cell mono className="text-right">{money(l.claimed, l.currency)}</Table.Cell>
                       <Table.Cell mono className="text-right">{money(l.received, l.currency)}</Table.Cell>
                       <Table.Cell mono className="text-right font-semibold text-ink">{l.open && money(l.open, l.currency)}</Table.Cell>

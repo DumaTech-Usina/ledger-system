@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { Banner } from "@/components/Banner";
 import { Card } from "@/components/Card";
@@ -23,10 +24,13 @@ import {
   type SideQuery,
 } from "@/features/parties/partiesApi";
 import { partiesCopy } from "@/features/parties/partiesCopy";
+import type { PendingIdentity } from "@/features/parties/partiesApi";
+import { PENDING_SECTION_ID, PendingIdentitiesSection } from "@/features/parties/PendingIdentitiesSection";
+import { RegisterPartyModal } from "@/features/parties/RegisterPartyModal";
 import { matchingParties, othersInEvent, recordedOnAnotherDay } from "@/features/parties/partiesEngine";
 import { useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
-import { formatDate, formatDateTime, formatMoney } from "@/utils/format";
+import { formatDate, formatDateTime, formatDocument, formatMoney } from "@/utils/format";
 
 type Copy = (typeof partiesCopy)["pt-BR"];
 type Selected = { partyId: string; displayName: string };
@@ -36,32 +40,61 @@ type Selected = { partyId: string; displayName: string };
  * (REQ-631). Nothing here adds anything up (REQ-627): the two sides stay apart with no net figure
  * (REJ-632), and "recebe também por" carries no amount (REQ-633).
  */
-export function PartyViewPage() {
+export function PartyViewPage({
+  canCurate = false,
+  pending = [],
+  onChanged,
+  focusPending = 0,
+}: {
+  /** Curation registers parties and resolves identities (REQ-402); the server enforces it. */
+  canCurate?: boolean;
+  /** The identities still to resolve (REQ-321), shown to everyone at the top of the list (REQ-315). */
+  pending?: PendingIdentity[];
+  /** A party was registered or an identity linked: the notification must re-read. */
+  onChanged?: () => void;
+  /** Bumped by the notification's "Resolver": back to the list, at the pending identities. */
+  focusPending?: number;
+}) {
   const { language } = useLanguage();
   const copy = partiesCopy[language];
   const [parties, setParties] = useState<PartyName[] | null>(null);
   const [namesFailed, setNamesFailed] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Selected | null>(null);
+  // The registration modal: closed, a plain registration, or "cadastrar e ligar" for one identity.
+  const [registering, setRegistering] = useState<{ linking?: PendingIdentity } | null>(null);
+  const [done, setDone] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    partiesApi
-      .names()
-      .then(({ ok, data }) => {
-        if (cancelled) return;
-        setNamesFailed(!ok);
-        if (ok) setParties(data.parties);
-      })
-      .catch(() => {
-        if (!cancelled) setNamesFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
+  const load = useCallback(async () => {
+    try {
+      const { ok, data } = await partiesApi.names();
+      setNamesFailed(!ok);
+      if (ok) setParties(data.parties);
+    } catch {
+      setNamesFailed(true);
+    }
   }, []);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
+    if (focusPending === 0) return;
+    setSelected(null);
+    // After the list has rendered again.
+    requestAnimationFrame(() => document.getElementById(PENDING_SECTION_ID)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [focusPending]);
+
+  const changed = async (message?: string) => {
+    setRegistering(null);
+    if (message) setDone(message);
+    await load();
+    onChanged?.();
+  };
+
   const matches = matchingParties(parties ?? [], query, Number.POSITIVE_INFINITY);
+  const registered = (parties ?? []).filter((p) => p.state === "identified");
 
   // REQ-630: the list is the way in; a party opens on its own page, with a way back to the list.
   if (selected) {
@@ -70,12 +103,36 @@ export function PartyViewPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="font-display text-2xl font-semibold text-ink">{copy.viewHeading}</h2>
-        <p className="mt-1 text-sm text-muted">{copy.viewSubheading}</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1 basis-72">
+          <h2 className="font-display text-2xl font-semibold text-ink">{copy.viewHeading}</h2>
+          <p className="mt-1 text-sm text-muted">{copy.viewSubheading}</p>
+        </div>
+        {canCurate && (
+          <Button
+            onClick={() => {
+              setDone(null);
+              setRegistering({});
+            }}
+          >
+            {copy.registerTitle}
+          </Button>
+        )}
       </div>
 
       {namesFailed && <Banner variant="bad">{copy.loadError}</Banner>}
+      {done && <Banner variant="ok">{done}</Banner>}
+
+      <PendingIdentitiesSection
+        pending={pending}
+        registered={registered}
+        canCurate={canCurate}
+        onLinked={() => void changed()}
+        onRegisterAndLink={(identity) => {
+          setDone(null);
+          setRegistering({ linking: identity });
+        }}
+      />
 
       <Card>
         <Input
@@ -84,31 +141,60 @@ export function PartyViewPage() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        {parties !== null && matches.length === 0 ? (
+        {parties !== null && parties.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">{copy.listEmpty}</p>
+        ) : parties !== null && matches.length === 0 ? (
           <p className="mt-3 text-sm text-muted">{copy.noMatch}</p>
         ) : (
           <ol className="mt-3 divide-y divide-line rounded-2xl border border-line" aria-label={copy.viewHeading}>
-            {matches.map((party) => (
-              <li key={party.partyId}>
-                <button
-                  type="button"
-                  onClick={() => setSelected(party)}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-ink transition hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none"
-                >
-                  <span className="font-semibold">
-                    {party.displayName}
-                    {party.state === "provisional" && <>{" "}<span className="font-normal text-muted">({copy.provisionalTag})</span></>}
-                    {party.state === "unidentifiable" && <>{" "}<span className="font-normal text-muted">({copy.unidentifiableTag})</span></>}
-                  </span>
-                  <span aria-hidden className="text-muted">›</span>
-                </button>
-              </li>
-            ))}
+            {matches.map((party) => {
+              const details = registryDetails(party, copy);
+              return (
+                <li key={party.partyId}>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(party)}
+                    // The name names the button; the registry line describes it.
+                    aria-labelledby={`party-${party.partyId}`}
+                    aria-describedby={details ? `party-${party.partyId}-details` : undefined}
+                    className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-ink transition hover:bg-accent-soft focus-visible:bg-accent-soft focus-visible:outline-none"
+                  >
+                    <span className="min-w-0">
+                      <span id={`party-${party.partyId}`} className="font-semibold">
+                        {party.displayName}
+                        {party.state === "provisional" && <>{" "}<span className="font-normal text-muted">({copy.provisionalTag})</span></>}
+                        {party.state === "unidentifiable" && <>{" "}<span className="font-normal text-muted">({copy.unidentifiableTag})</span></>}
+                      </span>
+                      {details && <span id={`party-${party.partyId}-details`} className="mt-0.5 block text-xs text-muted">{details}</span>}
+                    </span>
+                    <span aria-hidden className="text-muted">›</span>
+                  </button>
+                </li>
+              );
+            })}
           </ol>
         )}
       </Card>
+
+      {registering && (
+        <RegisterPartyModal linking={registering.linking} onClose={() => setRegistering(null)} onDone={(message) => void changed(message)} />
+      )}
     </div>
   );
+}
+
+/**
+ * What the registry says of a registered party, in one line: type, CPF/CNPJ and bank account (REQ-315).
+ * A provisional identity has no registry entry yet, so nothing is said — not "not informed".
+ */
+function registryDetails(party: PartyName, copy: Copy): string | null {
+  if (party.state !== "identified") return null;
+  const kind = party.kind === "person" ? copy.person : party.kind === "company" ? copy.company : null;
+  const bank =
+    party.hasBankAccount === undefined || party.hasBankAccount === null
+      ? `${copy.bankShort}: ${copy.notKnown.toLowerCase()}`
+      : `${copy.bankShort}: ${party.hasBankAccount ? copy.yes.toLowerCase() : copy.no.toLowerCase()}`;
+  return [kind, party.document ? formatDocument(party.document) : null, bank].filter(Boolean).join(" · ");
 }
 
 /** One party's page (§8.4). `onOpen` moves to another party's page, from a name shown here. */

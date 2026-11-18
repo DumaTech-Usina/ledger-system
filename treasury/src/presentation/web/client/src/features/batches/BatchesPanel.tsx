@@ -74,7 +74,7 @@ export function BatchesPanel({
             {view.standing.map((batch) => (
               <li key={batch.batchId} className="rounded-2xl border border-line p-3">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-[14rem] flex-1">
                     <p className="tabular font-display text-lg font-semibold text-ink">{money(batch.total)}</p>
                     <p className="text-[12.5px] text-muted">
                       {copy.lines(batch.lines.length)} · {copy.preparedBy(batch.preparedBy, formatDateTime(batch.preparedAt))}
@@ -128,7 +128,9 @@ export function BatchesPanel({
 
       {result && (
         <Modal open onClose={() => setResult(null)} title={copy.recentTitle} closeLabel={copy.close} className="max-w-2xl">
+      <div className="p-5">
           <Outcome batch={result} institutionName={institutionName} />
+        </div>
         </Modal>
       )}
     </div>
@@ -206,6 +208,7 @@ function PayModal({ batch, view, onClose, onPaid }: { batch: Batch; view: Batche
 
   return (
     <Modal open onClose={onClose} title={copy.payTitle} closeLabel={copy.close} className="max-w-xl">
+      <div className="p-5">
       <p className="text-[13px] text-muted">{copy.payNote}</p>
       <p className="mt-3 text-sm text-muted">
         {copy.total}: <span className="tabular font-semibold text-ink">{total}</span> · {copy.lines(batch.lines.length)}
@@ -246,6 +249,7 @@ function PayModal({ batch, view, onClose, onPaid }: { batch: Batch; view: Batche
           {copy.confirmPay}
         </Button>
       </div>
+    </div>
     </Modal>
   );
 }

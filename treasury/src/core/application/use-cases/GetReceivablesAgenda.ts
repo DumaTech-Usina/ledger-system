@@ -11,15 +11,26 @@ import type {
 import type { ExternalSignalRepository } from "../repositories/ExternalSignalRepository";
 import type { Party } from "../../domain/entities/Party";
 import { toCents } from "../utils/cents";
+import { sourceReferenceFor } from "../../domain/services/InsuranceSignal";
+import { healthSourceReference } from "../../domain/services/HealthSignal";
 
-/** What the insurer declared it paid for one policy, in its most recent eligibility reading (REQ-263). */
+/**
+ * What the paying side declared it paid, in the most recent reading (REQ-263, REQ-663): the insurer for
+ * a policy (§4.6), or the operator for a health installment (§4.7). A signal, never a receipt.
+ */
 export interface InsurerClaim {
+  /** Which system said it. */
+  source: "insurance" | "health";
+  /** The policy, for insurance. Empty for a health installment. */
   policyId: string;
-  /** The number the insurance system shows, when it has one; otherwise the id. */
+  /** What the record is called on screen: the policy's number, or `<proposal> · parcela <n>`. */
   policyLabel: string;
+  /** For health: the proposal and the installment the claim is about. */
+  installment?: { proposalNumber: string; number: number };
   claimed: string;
+  /** When it was declared: the eligibility, or the installment's discharge. */
   eligibleAt: string | null;
-  /** The insurer's name as the signal saw it. */
+  /** The payer's name as the signal saw it: the insurer, or the operator. */
   insurer: string | null;
 }
 
@@ -59,7 +70,7 @@ export type ReceivablesAgendaResult =
     }
   | { available: false };
 
-/** One expected commission the insurer declared paid and the bank has not shown (REQ-663). */
+/** One expected commission the paying side declared paid and the bank has not shown (REQ-663). */
 export interface DeclaredLine extends InsurerClaim {
   objectId: string;
   received: string;
@@ -194,20 +205,41 @@ export class GetReceivablesAgendaUseCase {
     return new Map((await this.directory.list()).map((p) => [p.partyId, p.displayName]));
   }
 
-  /** The most recent eligibility reading of each policy: what the insurer says it paid. */
+  /**
+   * What each paying side says it paid, by the expected commission's position: the most recent
+   * eligibility of each policy, and the most recent reading of each health installment (§4.7). The
+   * health system's discharged amount is what it declares the operator paid (REQ-282).
+   */
   private async claims(): Promise<Map<string, InsurerClaim>> {
     const claims = new Map<string, InsurerClaim>();
     for (const signal of await this.signals.list()) {
-      if (signal.kind !== "eligibility" || claims.has(signal.recordId)) continue;
       const { fields } = signal.toJSON();
       if (!fields.usinaValue) continue;
-      claims.set(signal.recordId, {
-        policyId: signal.recordId,
-        policyLabel: fields.policyNumber ?? signal.recordId,
-        claimed: fields.usinaValue,
-        eligibleAt: fields.eligibleAt ?? null,
-        insurer: fields.insurer ?? null,
-      });
+      if (signal.kind === "eligibility") {
+        const position = sourceReferenceFor(signal.recordId, "commission_expected");
+        if (claims.has(position)) continue;
+        claims.set(position, {
+          source: "insurance",
+          policyId: signal.recordId,
+          policyLabel: fields.policyNumber ?? signal.recordId,
+          claimed: fields.usinaValue,
+          eligibleAt: fields.eligibleAt ?? null,
+          insurer: fields.insurer ?? null,
+        });
+      } else if (signal.kind === "installment") {
+        const position = healthSourceReference(fields.proposalNumber, fields.installment, "commission_expected");
+        if (claims.has(position)) continue;
+        const number = Number(fields.installment);
+        claims.set(position, {
+          source: "health",
+          policyId: "",
+          policyLabel: `${fields.proposalNumber} · parcela ${number}`,
+          installment: { proposalNumber: fields.proposalNumber, number },
+          claimed: fields.usinaValue,
+          eligibleAt: fields.dischargedAt ?? null,
+          insurer: fields.operator ?? null,
+        });
+      }
     }
     return claims;
   }
@@ -218,8 +250,7 @@ export class GetReceivablesAgendaUseCase {
  * Without the settled figure the comparison cannot be made, and nothing is marked: unknown, not unseen.
  */
 function unseenClaim(p: PositionItem, claims: Map<string, InsurerClaim>): InsurerClaim | null {
-  const policyId = POLICY_POSITION.exec(p.objectId)?.[1];
-  const claim = policyId ? claims.get(policyId) : undefined;
+  const claim = claims.get(p.objectId);
   if (!claim || p.totalSettled === undefined) return null;
   try {
     return toCents(p.totalSettled) < toCents(claim.claimed) ? claim : null;

@@ -1060,7 +1060,13 @@ describe("Bloco D — crédito da seguradora em lote (REQ-269, REQ-277)", () => 
           eventType: "commission_expected",
           occurredAt: "2026-10-01T03:00:00.000Z",
           source: null,
-          relatedObjects: [{ objectId: objectId.replace(/:prevista$/, ""), objectType: "contract", relation: "references" }],
+          // §4.7: a health installment's expected commission cites the proposal and the installment.
+          relatedObjects: objectId.startsWith("saude:")
+            ? [
+                { objectId: objectId.replace(/:parcela:\d+:prevista$/, ""), objectType: "proposal", relation: "references" },
+                { objectId: objectId.replace(/:prevista$/, ""), objectType: "installment", relation: "references" },
+              ]
+            : [{ objectId: objectId.replace(/:prevista$/, ""), objectType: "contract", relation: "references" }],
           parties: [],
         },
       } as PositionLifecycle;
@@ -1146,6 +1152,38 @@ describe("Bloco D — crédito da seguradora em lote (REQ-269, REQ-277)", () => 
       expect(sent[i].parties).toContainEqual(expect.objectContaining({ partyId: PARTY.OPERATOR, role: "payer" }));
       expect(sent[i].reason.confidence).toBe("high");
     }
+  });
+
+  it("REQ-292: o crédito da operadora de saúde cobre parcelas de várias propostas, cada recebimento citando a sua proposta, a sua parcela e o lote", async () => {
+    const parcela = (proposal: string, n: number) => `saude:proposta:${proposal}:parcela:${n}:prevista`;
+    open = {
+      [parcela("48213", 3)]: { originated: "25.00", settled: "0.00" },
+      [parcela("48213", 4)]: { originated: "25.00", settled: "0.00" },
+      [parcela("90001", 1)]: { originated: "300.00", settled: "0.00" },
+    };
+
+    const result = await allianz(
+      [
+        { objectId: parcela("48213", 3), amount: "25.00" },
+        { objectId: parcela("48213", 4), amount: "20.00" },
+        { objectId: parcela("90001", 1), amount: "300.00" },
+      ],
+      "350.00",
+    );
+
+    expect(result.steps.map((s) => s.status)).toEqual(["accepted", "accepted", "accepted", "accepted"]);
+    expect(result.unattributed).toBe("5.00");
+    expect(sent[0].objects).toEqual([
+      { objectId: parcela("48213", 3), objectType: "commission_receivable", relation: "settles" },
+      { objectId: "saude:proposta:48213", objectType: "proposal", relation: "references" },
+      { objectId: "saude:proposta:48213:parcela:3", objectType: "installment", relation: "references" },
+      { objectId: result.batchId, objectType: "settlement_batch", relation: "references" },
+      { objectId: "instituicao:itau", objectType: "cash_account", relation: "references" },
+    ]);
+    expect(sent[2].objects).toContainEqual({ objectId: "saude:proposta:90001:parcela:1", objectType: "installment", relation: "references" });
+    // The rest of the credit came in with no known installment: received without origin, citing the batch.
+    expect(sent[3]).toMatchObject({ amount: "5.00", reason: { type: "unknown_origin" } });
+    expect(sent[3].objects).toContainEqual({ objectId: result.batchId, objectType: "settlement_batch", relation: "references" });
   });
 
   it("REQ-277: o que sobra do crédito vira um recebimento sem origem citando o lote", async () => {
@@ -1236,7 +1274,7 @@ describe("Bloco D — crédito da seguradora em lote (REQ-269, REQ-277)", () => 
     const list = new ListInsurerReceivablesUseCase({
       positions: async (params) => {
         asked = { ...params };
-        return page([item(prevista("5177"), "128.77"), item("intent:manual", "50.00")]);
+        return page([item(prevista("5177"), "128.77"), item("saude:proposta:48213:parcela:3:prevista", "25.00"), item("intent:manual", "50.00")]);
       },
     });
 
@@ -1244,9 +1282,44 @@ describe("Bloco D — crédito da seguradora em lote (REQ-269, REQ-277)", () => 
 
     expect(asked).toMatchObject({ partyId: PARTY.OPERATOR, objectType: "commission_receivable" });
     expect(result).toEqual([
-      { objectId: prevista("5177"), policyId: "5177", openBalance: "128.77", dueAt: null },
-      { objectId: "intent:manual", policyId: null, openBalance: "50.00", dueAt: null },
+      { objectId: prevista("5177"), policyId: "5177", installment: null, openBalance: "128.77", dueAt: null },
+      { objectId: "saude:proposta:48213:parcela:3:prevista", policyId: null, installment: { proposalNumber: "48213", number: 3 }, openBalance: "25.00", dueAt: null },
+      { objectId: "intent:manual", policyId: null, installment: null, openBalance: "50.00", dueAt: null },
     ]);
+  });
+
+  it("REQ-292: mais de 200 parcelas em aberto com a operadora — todas as páginas do Ledger são lidas", async () => {
+    const parcela = (n: number) => `saude:proposta:${1000 + Math.floor(n / 12)}:parcela:${(n % 12) + 1}:prevista`;
+    const all = Array.from({ length: 450 }, (_, n) => parcela(n));
+    const asked: number[] = [];
+    const list = new ListInsurerReceivablesUseCase({
+      positions: async (params) => {
+        const p = params?.page ?? 1;
+        asked.push(p);
+        expect(params).toMatchObject({ partyId: PARTY.OPERATOR, limit: 200 });
+        const data = all.slice((p - 1) * 200, p * 200).map((id) => ({
+          objectId: id,
+          objectType: "commission_receivable",
+          status: "open",
+          outcome: "pending",
+          currency: "BRL",
+          totalOriginated: "25.00",
+          openBalance: "25.00",
+          eventCount: 1,
+          lastEventAt: null,
+          originatedAt: null,
+          createdAt: null,
+          dueAt: null,
+        })) as PositionItem[];
+        return { data, total: all.length, page: p, limit: 200, totalPages: 3 };
+      },
+    });
+
+    const result = await list.execute(PARTY.OPERATOR);
+
+    expect(asked).toEqual([1, 2, 3]);
+    expect(result).toHaveLength(450);
+    expect(result[449]).toMatchObject({ objectId: parcela(449), installment: { proposalNumber: "1037", number: 6 } });
   });
 });
 

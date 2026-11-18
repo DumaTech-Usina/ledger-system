@@ -285,7 +285,9 @@ export type IntentStatus =
   /** The Ledger rejected for a fixable reason. Not terminal: edit the implicated slots and resubmit. */
   | "awaiting_correction"
   | "accepted"
-  | "rejected";
+  | "rejected"
+  /** REQ-286: a proposed obligation the user declared does not exist. Terminal; nothing was sent. */
+  | "dismissed";
 
 export interface IntentProps {
   id: string;

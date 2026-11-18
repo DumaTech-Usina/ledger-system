@@ -31,3 +31,21 @@ export const creditAllocations = (draft: CreditDraft): { objectId: string; amoun
 
 /** "Tudo": the whole open balance, as typed digits. Unknown balance → nothing filled. */
 export const allOf = (openBalance: string | null): string => (openBalance === null ? "" : digitsFromAmount(openBalance));
+
+/**
+ * Which open lines the credit form draws: those matching the filter, at most `limit`, plus every line
+ * already given an amount (it is part of the credit, so it never hides). `matching` is how many match,
+ * so the screen can say that more exist.
+ */
+export function visibleLines<T extends { objectId: string }>(
+  lines: T[],
+  allocations: Record<string, string>,
+  needle: string,
+  labelOf: (line: T) => string,
+  limit: number,
+): { shown: T[]; matching: number } {
+  const filled = (l: T) => (allocations[l.objectId] ?? "") !== "";
+  const matches = lines.filter((l) => !needle || labelOf(l).toLowerCase().includes(needle));
+  const first = new Set(matches.slice(0, limit).map((l) => l.objectId));
+  return { shown: lines.filter((l) => first.has(l.objectId) || filled(l)), matching: matches.length };
+}

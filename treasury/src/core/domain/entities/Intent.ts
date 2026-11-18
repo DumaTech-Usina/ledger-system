@@ -53,6 +53,8 @@ export interface IntentProps {
   ledgerReference?: string;
   /** Set once the Ledger rejects the candidate — the legible reason. */
   rejectionReason?: string;
+  /** REQ-286: who declared that the proposed obligation does not exist, and when. */
+  dismissal?: { by: string; at: string };
   /** Present only on a fact proposed from an external signal. */
   origin?: IntentOrigin;
   /**
@@ -97,6 +99,7 @@ export class Intent {
     return new Intent({
       ...props,
       answers: { ...props.answers },
+      ...(props.dismissal ? { dismissal: { ...props.dismissal } } : {}),
       ...(props.origin ? { origin: cloneOrigin(props.origin) } : {}),
       ...(contexts.length > 0 ? { contexts: contexts.map((c) => ({ ...c })) } : {}),
     });
@@ -109,6 +112,7 @@ export class Intent {
   get answers(): Record<string, SlotValue> { return { ...this.props.answers }; }
   get ledgerReference(): string | undefined { return this.props.ledgerReference; }
   get rejectionReason(): string | undefined { return this.props.rejectionReason; }
+  get dismissal(): { by: string; at: string } | undefined { return this.props.dismissal ? { ...this.props.dismissal } : undefined; }
   get origin(): IntentOrigin | undefined { return this.props.origin ? cloneOrigin(this.props.origin) : undefined; }
   get contexts(): ContextRef[] { return (this.props.contexts ?? []).map((c) => ({ ...c })); }
 
@@ -164,10 +168,24 @@ export class Intent {
     this.props.updatedAt = now;
   }
 
+  /**
+   * REQ-286: the user declares that the obligation this proposal speaks of does not exist. Only a fact
+   * proposed from a signal can be dismissed — a user's own conversation is simply left — and only while
+   * nothing has been sent for it.
+   */
+  dismiss(by: string, now: string): void {
+    if (!this.props.origin) throw new Error(`Intent ${this.props.id} was not proposed by a signal; only proposals can be dismissed.`);
+    this.assertEditable();
+    this.props.status = IntentStatus.DISMISSED;
+    this.props.dismissal = { by, at: now };
+    this.props.updatedAt = now;
+  }
+
   toJSON(): IntentProps {
     return {
       ...this.props,
       answers: { ...this.props.answers },
+      ...(this.props.dismissal ? { dismissal: { ...this.props.dismissal } } : {}),
       ...(this.props.origin ? { origin: cloneOrigin(this.props.origin) } : {}),
       ...(this.props.contexts ? { contexts: this.props.contexts.map((c) => ({ ...c })) } : {}),
     };

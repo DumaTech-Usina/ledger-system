@@ -12,8 +12,8 @@ import { useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
 import { formatMoneyForLanguage } from "@/utils/format";
 import { amountDigits, amountFromDigits, maskedAmount } from "@/utils/money";
-import { creditCopy } from "./creditCopy";
-import { allOf, creditAllocations, creditTotals } from "./creditForm";
+import { byProposal, creditCopy, healthCreditCopy, labelFromPositionId, receivableLabel } from "./creditCopy";
+import { allOf, creditAllocations, creditTotals, visibleLines } from "./creditForm";
 import { signalsApi, type CreditResult, type InsurerReceivable } from "./signalsApi";
 import { cashApi, type Institution } from "@/features/cash/cashApi";
 
@@ -27,13 +27,25 @@ const STEP_VARIANT: Record<string, "ok" | "bad" | "warn" | "neutral"> = {
   not_sent: "neutral",
 };
 
+/** Past this many open lines, the list offers a filter: an operator can owe many installments. */
+const FILTER_FROM = 8;
+/**
+ * At most this many lines are drawn at once: in a peak fortnight an operator can owe hundreds of
+ * installments (2026-11-17). The filter finds the others; a line already given an amount is always drawn.
+ */
+const SHOW_AT_MOST = 100;
+
 /**
  * §4.6 block D (REQ-277): one bank credit from the insurer, spread over its open expected
  * commissions. The leftover is recorded as received with no origin, never guessed.
+ *
+ * §4.7 (REQ-292): the same card for a health operator, whose credit covers installments of one or
+ * several proposals. Same receipts, same batch; only the labels change.
  */
-export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
+export function InsurerCreditCard({ onRecorded, system = "insurance" }: { onRecorded: () => void; system?: "insurance" | "health" }) {
   const { language } = useLanguage();
-  const copy = creditCopy[language];
+  const copy = (system === "health" ? healthCreditCopy : creditCopy)[language];
+  const [filter, setFilter] = useState("");
   const [open, setOpen] = useState(false);
   const [parties, setParties] = useState<PartyName[]>([]);
   const [payer, setPayer] = useState("");
@@ -59,12 +71,15 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
     setAllocations({});
     if (!payer) return;
     void signalsApi.receivables(payer).then(({ ok, data }) => {
-      if (ok && "receivables" in data) setReceivables(data.receivables);
+      if (ok && "receivables" in data) setReceivables(byProposal(data.receivables));
       else setError(copy.genericError);
     });
   }, [payer, copy.genericError]);
 
   const totals = creditTotals({ creditDigits, allocations });
+  const needle = filter.trim().toLowerCase();
+  // A line already given an amount stays visible whatever the filter: it is part of the credit.
+  const { shown, matching } = visibleLines(receivables ?? [], allocations, needle, (r) => receivableLabel(r, language), SHOW_AT_MOST);
 
   const submit = async () => {
     setSaving(true);
@@ -84,7 +99,7 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
       setAllocations({});
       onRecorded();
       const fresh = await signalsApi.receivables(payer);
-      if (fresh.ok && "receivables" in fresh.data) setReceivables(fresh.data.receivables);
+      if (fresh.ok && "receivables" in fresh.data) setReceivables(byProposal(fresh.data.receivables));
       return;
     }
     setError("error" in data ? translateMessage(data.error) : copy.genericError);
@@ -139,16 +154,20 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
             <div className="mt-5">
               <p className="text-sm font-semibold text-ink">{copy.receivablesTitle}</p>
               {receivables.length === 0 && <p className="mt-1 text-xs text-muted">{copy.none}</p>}
+              {receivables.length > FILTER_FROM && (
+                <div className="mt-2 max-w-sm">
+                  <Input label={copy.filter} value={filter} onChange={(e) => setFilter(e.target.value)} />
+                </div>
+              )}
+              {matching > shown.length && <p className="mt-2 text-xs text-muted">{copy.showing(shown.length, matching)}</p>}
               <ul className="mt-2 space-y-2">
-                {receivables.map((r) => {
+                {shown.map((r) => {
                   const digits = allocations[r.objectId] ?? "";
                   return (
                     <li key={r.objectId} className="flex flex-wrap items-center gap-3 rounded-2xl border border-line px-3 py-2">
-                      <span className="min-w-0 flex-1 text-[13px] text-ink">
-                        {r.policyId ? (
-                          <>
-                            {copy.policy} <span className="font-mono">{r.policyId}</span>
-                          </>
+                      <span className="min-w-0 basis-full text-[13px] text-ink sm:basis-auto sm:flex-1">
+                        {r.installment || r.policyId ? (
+                          <span className="font-medium">{receivableLabel(r, language)}</span>
                         ) : (
                           <span className="font-mono text-muted">{r.objectId}</span>
                         )}
@@ -158,7 +177,7 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
                       </span>
                       <div className="w-40">
                         <Input
-                          aria-label={`${copy.receive} ${r.policyId ?? r.objectId}`}
+                          aria-label={`${copy.receive} ${receivableLabel(r, language)}`}
                           inputMode="numeric"
                           value={digits === "" ? "" : maskedAmount(digits)}
                           disabled={saving}
@@ -202,7 +221,7 @@ export function InsurerCreditCard({ onRecorded }: { onRecorded: () => void }) {
               <ul className="mt-2 space-y-1 text-[13px]">
                 {result.steps.map((step, i) => (
                   <li key={i} className="flex flex-wrap items-center gap-2">
-                    <span className="text-ink">{step.objectId ?? copy.stepUnattributed}</span>
+                    <span className="text-ink">{step.objectId ? labelFromPositionId(step.objectId, language) : copy.stepUnattributed}</span>
                     <span className="tabular text-muted">{money(step.amount)}</span>
                     <Badge variant={STEP_VARIANT[step.status] ?? "neutral"}>{copy.steps[step.status] ?? step.status}</Badge>
                   </li>

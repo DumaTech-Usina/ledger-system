@@ -1,3 +1,14 @@
+/**
+ * RETIRED (2026-11-17, treasury/docs/requisitos_refinados.md REQ-289). Do not run.
+ *
+ * This pipeline wrote the health system's receipts straight into the Ledger: a "BAIXADO" receipt
+ * became cash in, with no one confirming and no bank seen, and no obligation to the broker or the
+ * supervisor was recorded (LedgerFinancialAudit.md, CRITICAL 5 and HIGH 11). The health system now
+ * enters through the Treasury's external signal (§4.7), where each fact is confirmed by a user and
+ * the receipt is only recorded once the bank shows it. Running both would count the same money twice.
+ *
+ * Removed from `npm run dev:full`; the code goes once the pilot is over ("aposentar aos poucos").
+ */
 import 'reflect-metadata';
 import 'dotenv/config';
 import { env } from '../../../config/env';
@@ -9,6 +20,11 @@ import { ReceiptStagingBuilder } from '../../../core/application/services/Receip
 import { ReceiptIngestJob } from '../../jobs/ReceiptIngestJob';
 
 async function main(): Promise<void> {
+  // REQ-289: retired. Refuses to start, so it cannot run beside the health signal by accident.
+  if (process.env.ALLOW_RETIRED_RECEIPT_INGEST !== 'true') {
+    console.error('[ingest-receipt] retired (REQ-289): the health system enters through the Treasury signal (§4.7).');
+    process.exit(1);
+  }
   ensureDatabaseDirectory();
   await AppDataSource.initialize();
   const etlDb = await getMongoDatabase(env.MONGO_ETL_DB);

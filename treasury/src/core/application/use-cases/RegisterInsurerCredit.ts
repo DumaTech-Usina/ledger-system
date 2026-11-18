@@ -14,7 +14,7 @@ import type { SubmitIntentUseCase } from "./SubmitIntent";
 const RECEIVED = "register_commission_received";
 
 export interface RegisterInsurerCreditInput {
-  /** Who paid: the insurer. */
+  /** Who paid: the insurer (§4.6) or the health operator (§4.7). */
   payer: string;
   /** What the bank shows came in. */
   creditAmount: string;
@@ -46,7 +46,9 @@ export interface RegisterInsurerCreditResult {
 }
 
 /**
- * A credit from the insurer that covers several policies (§4.6, block D, REQ-277).
+ * A credit from the insurer that covers several policies (§4.6, block D, REQ-277), or from a health
+ * operator that covers several installments of several proposals (§4.7, REQ-292). Financially the same:
+ * only what each receipt is about changes, and that comes from the expected commission it settles.
  *
  * One receipt per expected commission, each citing its policy (inherited, REQ-275) and the batch; the
  * remainder, if any, as a receipt without origin citing the batch — the money came in, so the cash is
@@ -103,7 +105,7 @@ export class RegisterInsurerCreditUseCase {
     const today = localDay(this.clock.now());
     const date = DialogEngine.validateAnswer(scenario.slots.find((s) => s.key === "occurredAt")!, input.occurredAt, today);
     if (date) throw new Error(`Data do crédito: ${date.message}`);
-    if (!input.payer?.trim()) throw new Error("Informe a seguradora que pagou.");
+    if (!input.payer?.trim()) throw new Error("Informe quem pagou: a seguradora ou a operadora.");
     if (input.institution === undefined) throw new Error('Escolha a instituição em que o crédito entrou, ou marque "não informada".');
     if (input.institution !== null && !configuredInstitutions().some((i) => i.key === input.institution)) {
       throw new Error(`Instituição desconhecida: ${input.institution}.`);

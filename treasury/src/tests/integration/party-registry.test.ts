@@ -217,7 +217,7 @@ describe("REQ-402 — a curadoria é uma permissão, não um papel", () => {
     expect((await register("", { displayName: "A", kind: "person" })).status).toBe(401);
   });
 
-  it("documentos só aparecem para quem tem curadoria", async () => {
+  it("a listagem do cadastro (GET /api/parties) continua só de quem tem curadoria", async () => {
     expect((await send("GET", "/api/parties", "operador")).status).toBe(403);
     expect((await send("GET", "/api/parties", "viewer")).status).toBe(403);
   });
@@ -242,6 +242,17 @@ describe("REQ-314 — CPF/CNPJ para quem recebe ou paga por conta bancária", ()
     expect(parties).toEqual([
       expect.objectContaining({ displayName: "Argo", kind: "company", document: "12345678000199", hasBankAccount: true }),
     ]);
+  });
+
+  it("REQ-315: quem só consulta vê o mesmo na lista de partes (tela única, 2026-11-17)", async () => {
+    await registered("Argo", { kind: "company", hasBankAccount: true, document: CNPJ });
+
+    for (const who of ["operador", "viewer"]) {
+      const { parties } = await read(await send("GET", "/api/parties/names", who));
+      expect(parties).toContainEqual(
+        expect.objectContaining({ displayName: "Argo", kind: "company", document: "12345678000199", hasBankAccount: true }),
+      );
+    }
   });
 
   it.each([

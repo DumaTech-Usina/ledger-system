@@ -1,8 +1,10 @@
 import { apiGet, apiPost } from "@/api/client";
 import type { DialogState } from "@/types/operations";
 
-export type SignalKind = "policy" | "eligibility";
-export type ProposedFactKind = "commission_expected" | "commission_obligation";
+export type SignalKind = "policy" | "eligibility" | "installment";
+export type ProposedFactKind = "commission_expected" | "commission_obligation" | "supervisor_obligation";
+/** Which external system a signal came from: insurance (§4.6) or health (§4.7). */
+export type SignalSystem = "insurance" | "health";
 
 /** How the broker was found when the signal was recorded (REQ-267). */
 export type PartyOutcome =
@@ -19,6 +21,12 @@ export interface SignalProposal {
   party?: PartyOutcome;
   intentStatus: string | null;
   ledgerReference?: string;
+  /** REQ-286: the source sent zero — a hint that there is no obligation, never a decision. */
+  suggestion?: "no_obligation";
+  /** REQ-286: who declared there is no obligation, and when. */
+  dismissedBy?: string;
+  dismissedByName?: string;
+  dismissedAt?: string;
 }
 
 export type SignalFilter = "needs_action" | "all";
@@ -31,12 +39,15 @@ export interface SignalPage {
 
 export interface SignalView {
   id: string;
+  system?: SignalSystem;
   kind: SignalKind;
   recordId: string;
   fields: Record<string, string>;
   contentHash: string;
   receivedAt: string;
   recordedBy: string;
+  /** The user's name, when the server knows it. */
+  recordedByName?: string;
   proposals: SignalProposal[];
 }
 
@@ -61,10 +72,12 @@ export type PolicyHistoryEntry =
     }
   | { kind: "signal"; at: string; signalKind: SignalKind; recordedBy: string };
 
-/** An expected commission still open with the insurer (block D). */
+/** An expected commission still open with the paying side: insurer (block D) or health operator (§4.7). */
 export interface InsurerReceivable {
   objectId: string;
   policyId: string | null;
+  /** §4.7: the proposal and installment, when it came from the health system. */
+  installment?: { proposalNumber: string; number: number } | null;
   openBalance: string | null;
   dueAt: string | null;
 }
@@ -110,12 +123,20 @@ export const signalsApi = {
   situation: (policyId: string) =>
     apiGet<PolicySituation | { error: string }>(`/api/signals/policies/${encodeURIComponent(policyId)}`),
   /** One page, newest first. Pass the previous page's `nextCursor` as `before` to go on. */
-  list: (options: { filter: SignalFilter; before?: string; limit?: number }) => {
+  list: (options: { filter: SignalFilter; before?: string; limit?: number; system?: SignalSystem }) => {
     const params = new URLSearchParams({ filter: options.filter, limit: String(options.limit ?? SIGNALS_PAGE_SIZE) });
     if (options.before) params.set("before", options.before);
+    if (options.system) params.set("system", options.system);
     return apiGet<SignalPage | { error: string }>(`/api/signals?${params}`);
   },
-  openCount: () => apiGet<{ count: number } | { error: string }>("/api/signals/open-count"),
+  openCount: (system?: SignalSystem) =>
+    apiGet<{ count: number } | { error: string }>(`/api/signals/open-count${system ? `?system=${system}` : ""}`),
+  /** REQ-286: "não há obrigação". Nothing goes to the Ledger; the decision is audited. */
+  dismiss: (intentId: string) =>
+    apiPost<{ intentId: string; status: "dismissed"; dismissedBy: string; dismissedAt: string } | { error: string }>(
+      `/api/signals/proposals/${encodeURIComponent(intentId)}/dismiss`,
+      {},
+    ),
   register: (kind: SignalKind, fields: Record<string, string>) =>
     apiPost<{ signal: SignalView; proposals: SignalProposal[] } | { error: string }>("/api/signals", { kind, fields }),
   /** Where the proposal's conversation stands, without answering anything. */

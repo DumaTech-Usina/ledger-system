@@ -371,6 +371,8 @@ export interface PayablesAgendaPage {
   asOf: string;
   windowDays: number;
   windows: Record<AgendaWindow, { count: number; totals: Record<string, string> }>;
+  /** Today and each next day of the window (§8.10). Optional: a read that did not publish it. */
+  days?: AgendaDay[];
   window: AgendaWindow;
   data: PositionItem[];
   total: number;
@@ -392,6 +394,11 @@ export interface AgendaSummary {
   totals: Record<string, string>;
 }
 
+/** One day of an agenda (§8.10): what falls due, or is expected, that day — the Ledger's fold. */
+export interface AgendaDay extends AgendaSummary {
+  day: string;
+}
+
 /** §8.7: the five windows, or the receipts with no known origin (REQ-664). */
 export type ReceivablesAgendaList = AgendaWindow | "unlinked";
 export const RECEIVABLES_AGENDA_LISTS: readonly ReceivablesAgendaList[] = [...AGENDA_WINDOWS, "unlinked"];
@@ -405,6 +412,8 @@ export interface ReceivablesAgendaPage {
   windowDays: number;
   windows: Record<AgendaWindow, AgendaSummary>;
   unlinked: AgendaSummary;
+  /** Today and each next day of the window, by expected date (§8.10). */
+  days?: AgendaDay[];
   /** `key` is the payer filter: the payer's party ids, sorted and joined by commas; "" = none named. */
   payers: (AgendaSummary & { key: string; partyIds: string[] })[];
   payer: string | null;

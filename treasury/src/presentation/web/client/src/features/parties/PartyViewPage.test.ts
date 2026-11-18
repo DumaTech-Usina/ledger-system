@@ -249,7 +249,9 @@ describe("a página da parte (§8.4)", () => {
     const list = await screen.findByRole("list", { name: "Partes" });
     expect(list.tagName).toBe("OL");
     await screen.findByRole("button", { name: "João Silva" });
-    expect([...list.querySelectorAll("button")].map((b) => b.textContent?.replace("›", "").trim())).toEqual(["João Silva", "Maria (provisória)"]);
+    // The name (with its tag) is the button's label; the registry line below it is its description (REQ-315).
+    const named = [...list.querySelectorAll("button")].map((b) => document.getElementById(b.getAttribute("aria-labelledby")!)?.textContent?.trim());
+    expect(named).toEqual(["João Silva", "Maria (provisória)"]);
   });
 
   it("sem nenhuma posição, a Operação diz isso numa frase, e não mostra blocos vazios", async () => {

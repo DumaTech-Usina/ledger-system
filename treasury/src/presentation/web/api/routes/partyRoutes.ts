@@ -52,13 +52,22 @@ export function partyRoutes(
     }
   });
 
-  // Who can be looked at, for everyone who consults (REQ-401). Names only: documents stay with curation.
-  // A linked identity is left out, because it now reads as the party it was linked to.
+  // Who can be looked at, for everyone who consults (REQ-401), with what the registry says of each:
+  // type, CPF/CNPJ and bank account (REQ-315, 2026-11-17: one list of parties, read by everyone,
+  // REQ-638). A linked identity is left out, because it now reads as the party it was linked to.
   router.get("/names", ...consulting, async (_req: Request, res: Response, next: NextFunction) => {
     try {
       const parties = (await directory.list())
         .filter((p) => p.identityState !== PartyIdentityState.MERGED)
-        .map((p) => ({ partyId: p.partyId, displayName: p.displayName, state: p.identityState }));
+        .map((p) => ({
+          partyId: p.partyId,
+          displayName: p.displayName,
+          state: p.identityState,
+          kind: p.attributes[PartyAttributeKey.TYPE]?.value ?? null,
+          document: p.attributes[PartyAttributeKey.DOCUMENT]?.value ?? null,
+          // Not known is not "no" (as in the registry listing below).
+          hasBankAccount: bankAccountOf(p.attributes[PartyAttributeKey.BANK_ACCOUNT]?.value),
+        }));
       res.json({ parties });
     } catch (err) {
       next(err);

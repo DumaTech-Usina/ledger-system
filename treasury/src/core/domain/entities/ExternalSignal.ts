@@ -6,9 +6,11 @@
  * (REQ-266). What happened to each proposal since is read from the intent, not stored here.
  */
 
-export type SignalSystem = "insurance";
-export type SignalKind = "policy" | "eligibility";
-export type ProposedFactKind = "commission_expected" | "commission_obligation";
+export type SignalSystem = "insurance" | "health";
+/** `policy` and `eligibility` come from the insurance system (§4.6); `installment` from the health system (§4.7). */
+export type SignalKind = "policy" | "eligibility" | "installment";
+/** `commission_obligation` is owed to the broker; `supervisor_obligation` to the supervisor (REQ-258). */
+export type ProposedFactKind = "commission_expected" | "commission_obligation" | "supervisor_obligation";
 
 export interface ProposedFact {
   fact: ProposedFactKind;
@@ -18,6 +20,11 @@ export interface ProposedFact {
   reused: boolean;
   /** How the party the fact needs was found, at the time of this reading (REQ-267). */
   party?: PartyOutcome;
+  /**
+   * REQ-286: the source sent a zero amount, which hints there is no obligation. Only a hint: the
+   * proposal waits for the user, who declares it or not.
+   */
+  suggestion?: "no_obligation";
 }
 
 /**
@@ -36,7 +43,7 @@ export interface ExternalSignalProps {
   id: string;
   system: SignalSystem;
   kind: SignalKind;
-  /** The record's id in the source system: the policy. */
+  /** The record's id in the source system: the policy, or the proposal's installment (`<proposal>:<n>`). */
   recordId: string;
   fields: Record<string, string>;
   /** SHA-256 of the kind and fields, so the same reading can be told apart from a changed one. */

@@ -1,4 +1,4 @@
-import type { ExternalSignal, ExternalSignalProps, ProposedFact } from "../../domain/entities/ExternalSignal";
+import type { ExternalSignal, ExternalSignalProps, ProposedFact, SignalSystem } from "../../domain/entities/ExternalSignal";
 import { IntentStatus } from "../../domain/enums/IntentStatus";
 import type { ExternalSignalRepository } from "../repositories/ExternalSignalRepository";
 import type { IntentRepository } from "../repositories/IntentRepository";
@@ -7,10 +7,17 @@ export interface SignalProposalView extends ProposedFact {
   /** Where the proposal stands now, read from its intent — never stored on the signal. */
   intentStatus: IntentStatus | null;
   ledgerReference?: string;
+  /** REQ-286: who declared there is no obligation, and when. Read from the intent. */
+  dismissedBy?: string;
+  /** The user's name, when Treasury knows the user. */
+  dismissedByName?: string;
+  dismissedAt?: string;
 }
 
 export interface SignalView extends Omit<ExternalSignalProps, "proposals"> {
   proposals: SignalProposalView[];
+  /** Who brought it in, by name, when Treasury knows the user. An integration keeps its `system:` id. */
+  recordedByName?: string;
 }
 
 export type SignalFilter = "needs_action" | "all";
@@ -38,6 +45,8 @@ export class ListExternalSignalsUseCase {
   constructor(
     private readonly signals: ExternalSignalRepository,
     private readonly intents: IntentRepository,
+    /** Treasury's users, to name who recorded or decided. Without it, the id is shown. */
+    private readonly users?: { findById(id: string): Promise<{ displayName: string } | null> },
   ) {}
 
   async execute(): Promise<SignalView[]> {
@@ -50,7 +59,7 @@ export class ListExternalSignalsUseCase {
    * every read (nothing is stored on the signal), so the page reads stored signals in chunks until it
    * has `limit` matches or runs out of older ones.
    */
-  async page(options: { limit?: number; before?: string; filter?: SignalFilter } = {}): Promise<SignalPage> {
+  async page(options: { limit?: number; before?: string; filter?: SignalFilter; system?: SignalSystem } = {}): Promise<SignalPage> {
     const limit = Math.min(Math.max(Math.trunc(options.limit ?? DEFAULT_PAGE_SIZE) || DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
     const filter = options.filter ?? "needs_action";
     const found: SignalView[] = [];
@@ -63,6 +72,7 @@ export class ListExternalSignalsUseCase {
       for (const item of chunk) {
         const view = await this.view(item.signal);
         cursor = item.cursor;
+        if (!fromSystem(item.signal, options.system)) continue;
         if (filter === "all" || view.proposals.some((p) => p.intentStatus !== null && OPEN_STATUSES.has(p.intentStatus))) {
           found.push(view);
           if (found.length === limit) {
@@ -79,14 +89,15 @@ export class ListExternalSignalsUseCase {
     return { signals: found, nextCursor: exhausted ? null : (cursor ?? null) };
   }
 
-  /** How many distinct proposals still wait for the user, across every signal (the menu badge). */
-  async countOpenProposals(): Promise<number> {
+  /** How many distinct proposals still wait for the user, across every signal of a system (the menu badge). */
+  async countOpenProposals(system?: SignalSystem): Promise<number> {
     const open = new Set<string>();
     let cursor: string | undefined;
     for (;;) {
       const chunk = await this.signals.listPage({ before: cursor, limit: SCAN_CHUNK });
       for (const { signal, cursor: c } of chunk) {
         cursor = c;
+        if (!fromSystem(signal, system)) continue;
         for (const p of signal.toJSON().proposals) {
           if (open.has(p.intentId)) continue;
           const intent = await this.intents.findById(p.intentId);
@@ -106,9 +117,25 @@ export class ListExternalSignalsUseCase {
           ...p,
           intentStatus: intent?.status ?? null,
           ...(intent?.ledgerReference ? { ledgerReference: intent.ledgerReference } : {}),
+          ...(intent?.dismissal
+            ? { dismissedBy: intent.dismissal.by, dismissedAt: intent.dismissal.at, ...named("dismissedByName", await this.nameOf(intent.dismissal.by)) }
+            : {}),
         };
       }),
     );
-    return { ...props, proposals };
+    return { ...props, proposals, ...named("recordedByName", await this.nameOf(props.recordedBy)) };
+  }
+
+  /** A user's name. An integration (`system:…`) or an unknown id has none: the id is shown instead. */
+  private async nameOf(id: string): Promise<string | null> {
+    if (!this.users || id.startsWith("system:")) return null;
+    return (await this.users.findById(id).catch(() => null))?.displayName ?? null;
   }
 }
+
+/** No system asked for: every signal. Signals stored before `system` existed are the insurance's. */
+const fromSystem = (signal: ExternalSignal, system: SignalSystem | undefined): boolean =>
+  system === undefined || (signal.toJSON().system ?? "insurance") === system;
+
+const named = <K extends string>(key: K, name: string | null): Partial<Record<K, string>> =>
+  (name ? { [key]: name } : {}) as Partial<Record<K, string>>;

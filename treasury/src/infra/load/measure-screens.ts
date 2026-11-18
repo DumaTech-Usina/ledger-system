@@ -79,6 +79,8 @@ async function main(): Promise<void> {
       (w): [string, string] => [`Agenda a receber · ${w}`, `/api/dashboard/receivables?window=${w}&limit=20`],
     ),
     ["Agenda a receber · declarado e não visto", "/api/dashboard/receivables/declared"],
+    ["Caixa por instituição", "/api/cash/institutions"],
+    ["Painel da manhã", "/api/dashboard/morning"],
   ];
 
   console.log(`Medição: ${runs} leituras de cada tela em ${base} · parte ${party} · apólice ${policy || "(nenhuma)"}`);

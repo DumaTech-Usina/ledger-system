@@ -1,4 +1,5 @@
 import type { ProposedFactKind, SignalKind } from "../entities/ExternalSignal";
+import { toBrDate, validateFields, type ContextCitation, type FactProposal, type FieldSpec } from "./SignalProposal";
 
 /**
  * How the insurance system's screens become proposed facts (§4.6).
@@ -13,13 +14,8 @@ import type { ProposedFactKind, SignalKind } from "../entities/ExternalSignal";
  * proposes a receipt or a payment — those need evidence from the financial side.
  */
 
-type FieldFormat = "text" | "money" | "date" | "percent";
-
-interface FieldSpec {
-  key: string;
-  format: FieldFormat;
-  required: boolean;
-}
+/** The two kinds of reading the insurance system's screens give. */
+export type InsuranceSignalKind = Extract<SignalKind, "policy" | "eligibility">;
 
 const BASE: FieldSpec[] = [
   { key: "policyId", format: "text", required: true },
@@ -36,7 +32,7 @@ const BASE: FieldSpec[] = [
   { key: "usinaValue", format: "money", required: true },
 ];
 
-export const SIGNAL_FIELDS: Record<SignalKind, FieldSpec[]> = {
+export const SIGNAL_FIELDS: Record<InsuranceSignalKind, FieldSpec[]> = {
   policy: [
     ...BASE,
     { key: "registeredAt", format: "date", required: true },
@@ -54,62 +50,15 @@ export const SIGNAL_FIELDS: Record<SignalKind, FieldSpec[]> = {
   ],
 };
 
-const FORMAT: Record<FieldFormat, RegExp> = {
-  text: /\S/,
-  money: /^\d+(\.\d{1,2})?$/,
-  date: /^\d{4}-\d{2}-\d{2}$/,
-  percent: /^\d+(\.\d+)?$/,
-};
+export const isInsuranceSignalKind = (value: unknown): value is InsuranceSignalKind =>
+  value === "policy" || value === "eligibility";
 
-const FORMAT_HINT: Record<FieldFormat, string> = {
-  text: "não pode ficar em branco",
-  money: "deve ser um valor como 77.26",
-  date: "deve ser uma data como 2026-10-21",
-  percent: "deve ser um número como 60",
-};
-
-export const isSignalKind = (value: unknown): value is SignalKind => value === "policy" || value === "eligibility";
-
-/**
- * The fields worth keeping, trimmed and without blanks, or the list of what is wrong. An unknown
- * field is an error, never silently dropped: the user should know it was not kept.
- */
+/** The insurance fields worth keeping, or the list of what is wrong (shared rule: `validateFields`). */
 export function validateSignalFields(
-  kind: SignalKind,
+  kind: InsuranceSignalKind,
   raw: Record<string, unknown>,
 ): { fields: Record<string, string>; errors: string[] } {
-  const specs = SIGNAL_FIELDS[kind];
-  const errors: string[] = [];
-  const fields: Record<string, string> = {};
-
-  for (const key of Object.keys(raw)) {
-    if (!specs.some((s) => s.key === key)) errors.push(`${key}: não é guardado no sinal`);
-  }
-  for (const spec of specs) {
-    const value = raw[spec.key];
-    const text = typeof value === "string" ? value.trim() : value === undefined || value === null ? "" : String(value);
-    if (text === "") {
-      if (spec.required) errors.push(`${spec.key}: obrigatório`);
-      continue;
-    }
-    if (!FORMAT[spec.format].test(text)) {
-      errors.push(`${spec.key}: ${FORMAT_HINT[spec.format]}`);
-      continue;
-    }
-    fields[spec.key] = text;
-  }
-  return { fields, errors };
-}
-
-export interface FactProposal {
-  fact: ProposedFactKind;
-  scenarioId: string;
-  sourceReference: string;
-  answers: { key: string; value: string }[];
-  /** The policy the fact is about (REQ-267). */
-  context: { objectId: string; objectType: "contract" };
-  /** Whose party the fact needs, by the source's id, and which answer it fills. */
-  party?: { slot: string; registry: string; externalId?: string; seenAs?: string; label: string };
+  return validateFields(SIGNAL_FIELDS[kind], raw);
 }
 
 /** The insurance system's name in references. */
@@ -126,14 +75,12 @@ export const INSURANCE_REGISTRY = {
 } as const;
 
 /** REQ-267: the policy as a context object in the Ledger. */
-export const policyContext = (policyId: string): { objectId: string; objectType: "contract" } => ({
+export const policyContext = (policyId: string): ContextCitation & { objectType: "contract" } => ({
   objectId: `${INSURANCE_SYSTEM}:apolice:${policyId}`,
   objectType: "contract",
 });
 
 const policyLabel = (fields: Record<string, string>): string => fields.policyNumber ?? fields.policyId;
-
-const toBrDate = (iso: string): string => iso.split("-").reverse().join("/");
 
 /** REQ-265: system, policy and kind of fact — the same external record always yields the same one. */
 export const sourceReferenceFor = (policyId: string, fact: ProposedFactKind): string =>
@@ -155,7 +102,7 @@ function expectedCommission(fields: Record<string, string>, arose: string | unde
       ...(dueAt ? [{ key: "dueAt", value: dueAt }] : []),
       { key: "description", value: `Comissão da apólice ${policyLabel(fields)}` },
     ],
-    context: policyContext(fields.policyId),
+    contexts: [policyContext(fields.policyId)],
     // REQ-273: the insurer is who is expected to pay, found by its id like the broker.
     party: {
       slot: "payer",
@@ -168,7 +115,7 @@ function expectedCommission(fields: Record<string, string>, arose: string | unde
 }
 
 /** One proposal per happening the signal reports (REQ-261, REQ-262). Fields must be validated first. */
-export function proposalsFor(kind: SignalKind, fields: Record<string, string>): FactProposal[] {
+export function proposalsFor(kind: InsuranceSignalKind, fields: Record<string, string>): FactProposal[] {
   if (kind === "policy") return [expectedCommission(fields, fields.registeredAt, fields.expectedAt)];
   return [
     {
@@ -184,7 +131,7 @@ export function proposalsFor(kind: SignalKind, fields: Record<string, string>): 
           value: `Repasse da apólice ${policyLabel(fields)} (elegível em ${toBrDate(fields.eligibleAt)})`,
         },
       ],
-      context: policyContext(fields.policyId),
+      contexts: [policyContext(fields.policyId)],
       party: {
         slot: "payee",
         registry: INSURANCE_REGISTRY.broker,

@@ -44,6 +44,7 @@ interface Agenda {
   windowDays: number;
   windows: Record<"overdue" | "today" | "next" | "later" | "undated", Summary>;
   unlinked: Summary;
+  days: (Summary & { day: string })[];
   payers: (Summary & { key: string; partyIds: string[] })[];
   payer: string | null;
   window: string;
@@ -243,3 +244,14 @@ describe("payerKey (REQ-662)", () => {
     expect(payerKey([SUPPLIER], USINA)).toBe(SUPPLIER);
   });
 });
+
+describe("§8.10 (REQ-683) — o total de cada dia", () => {
+  it("publica hoje e cada próximo dia pela data esperada, filtrado pelo pagador quando há filtro", async () => {
+    const { days } = await read();
+    expect(days).toHaveLength(8);
+    expect(days[0]).toEqual({ day: "2026-11-13", count: 1, totals: { BRL: "200.00" } });
+    expect(days[7]).toEqual({ day: "2026-11-20", count: 1, totals: { BRL: "300.00" } });
+    expect((await read(`&payer=${PORTO}`)).days[7]).toEqual({ day: "2026-11-20", count: 0, totals: {} });
+  });
+});
+
