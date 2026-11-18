@@ -36,6 +36,8 @@ export interface Translations {
     unrecognizedStatus: string;
     /** For a figure the Ledger cannot derive. Never rendered as zero — the two mean different things. */
     unknown: string;
+    /** REQ-690: back to the screen a conversation was opened from; `{page}` is its menu name. */
+    backTo: string;
   };
   nav: { operations: string; dashboards: string; positions: string; intents: string };
   /** The economic reality: what is owed, what is outstanding, how each object evolved. */
@@ -323,6 +325,7 @@ const ptBR: Translations = {
     copied: "Copiado",
     unrecognizedStatus: "Status não reconhecido",
     unknown: "Desconhecido",
+    backTo: "Voltar para {page}",
   },
   nav: {
     operations: "Operações",
@@ -649,6 +652,8 @@ const ptBR: Translations = {
     penalty_payment: "Pagamento de multa",
     advance_payment: "Pagamento de adiantamento",
     advance_settlement: "Liquidação de adiantamento",
+    // REQ-694: shown in the life of both positions it settles, with the other one and its policy.
+    compensation: "Compensação",
     loan_origination: "Concessão de empréstimo",
     loan_repayment: "Pagamento de empréstimo",
     direct_payment_acknowledged: "Pagamento direto reconhecido",
@@ -711,6 +716,7 @@ const en: Translations = {
     copied: "Copied",
     unrecognizedStatus: "Unrecognized status",
     unknown: "Unknown",
+    backTo: "Back to {page}",
   },
   nav: {
     operations: "Operations",
@@ -1024,6 +1030,7 @@ const en: Translations = {
     penalty_payment: "Penalty payment",
     advance_payment: "Advance payment",
     advance_settlement: "Advance settlement",
+    compensation: "Compensation",
     loan_origination: "Loan origination",
     loan_repayment: "Loan repayment",
     direct_payment_acknowledged: "Direct payment acknowledged",

@@ -9,7 +9,8 @@ import type { PayablePositionsResult } from "@/types/dashboard";
  * empty lists: "nothing is overdue" and "we could not find out" read as opposite news, exactly as
  * they do for exposure.
  */
-export function usePayablePositions() {
+/** `version` reads again when it changes (REQ-690). */
+export function usePayablePositions(version = 0) {
   const [payables, setPayables] = useState<PayablePositionsResult | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,7 +29,7 @@ export function usePayablePositions() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [version]);
 
   return { payables, loading };
 }

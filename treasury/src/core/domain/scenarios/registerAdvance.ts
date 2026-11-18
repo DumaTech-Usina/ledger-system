@@ -24,7 +24,14 @@ export const registerAdvance: Scenario = {
     { key: "occurredAt", type: SlotType.DATE, prompt: "On what date was the advance disbursed?", required: true },
     // REQ-674: where the money moved — an institution, or explicitly "não informada".
     INSTITUTION_SLOT,
-    { key: "description", type: SlotType.STRING, prompt: "A short description (optional).", required: false },
+    // REQ-293: what the broker said was sold, as said. Optional — the advance stands without it — and
+    // never cited as a context: that the broker SAID it is the fact, not that the sale exists.
+    {
+      key: "description",
+      type: SlotType.STRING,
+      prompt: "What did the broker say was sold? Policies, proposals and installments (optional).",
+      required: false,
+    },
     // Only a rectification fills this: it keeps the restated entry on the position being corrected.
     { key: "restatesObject", type: SlotType.STRING, prompt: "The position this entry restates.", required: false, internal: true },
   ],

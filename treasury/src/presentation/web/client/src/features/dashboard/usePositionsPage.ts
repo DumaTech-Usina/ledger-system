@@ -31,7 +31,8 @@ export const emptyPositionsFilters: PositionsFilters = {
  * state here; the slicing is not — asking the Ledger for page N of a given selection is what keeps
  * the list from claiming the book holds only what an overview happened to carry.
  */
-export function usePositionsPage() {
+/** `version` reads the page again when it changes (REQ-690), keeping the page and filters. */
+export function usePositionsPage(version = 0) {
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<PositionsFilters>(emptyPositionsFilters);
   const [result, setResult] = useState<PositionsPage | null>(null);
@@ -85,7 +86,7 @@ export function usePositionsPage() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, filters]);
+  }, [page, filters, version]);
 
   return {
     page,

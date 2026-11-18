@@ -28,6 +28,7 @@ import { usePendingIdentities } from "@/features/parties/usePendingIdentities";
 import { useLanguage } from "@/i18n/i18n";
 import type { Role } from "@/types/auth";
 import type { AdoptedIntent } from "@/features/operations/useConversation";
+import type { ReturnTarget } from "@/features/operations/returnTarget";
 
 export function App() {
   const { status, user, login, logout, refresh, justLoggedIn, clearJustLoggedIn } = useAuth();
@@ -43,8 +44,16 @@ export function App() {
    * re-opens an operation the user already finished or abandoned.
    */
   const [adopted, setAdopted] = useState<AdoptedIntent | null>(null);
+  /**
+   * REQ-690: the screen a conversation was opened from. That screen stays mounted (hidden) while the
+   * conversation runs, so going back finds it as it was left; `originVersion` makes it read again.
+   */
+  const [returnTo, setReturnTo] = useState<ReturnTarget | null>(null);
+  const [originVersion, setOriginVersion] = useState(0);
   /** Bumped by the notification's "Resolver": Partes opens at the identities to resolve (REQ-315). */
   const [focusPending, setFocusPending] = useState(0);
+  /** REQ-696: a party's page asked for from another screen (an advance on the receivables agenda). */
+  const [focusParty, setFocusParty] = useState<{ partyId: string; displayName: string; nonce: number } | null>(null);
   const { t, language } = useLanguage();
   const canCurate = user?.permissions.includes("party:curate") ?? false;
   const canManageUsers = user?.permissions.includes("user:manage") ?? false;
@@ -98,6 +107,31 @@ export function App() {
     viewer: t.roles.viewer,
   };
 
+  /** Opens the conversation in Operations, remembering where to come back to (REQ-690). */
+  const startFrom = (nav: string) => (intent: AdoptedIntent) => {
+    setAdopted(intent);
+    setReturnTo({ nav, intentId: intent.intentId });
+    setActiveNav("operations");
+  };
+
+  const goBack = () => {
+    if (!returnTo) return;
+    setActiveNav(returnTo.nav);
+    setReturnTo(null);
+    setOriginVersion((v) => v + 1);
+  };
+
+  /** Choosing a screen from the menu is going somewhere else: the way back no longer applies. */
+  const navigate = (nav: string) => {
+    setReturnTo(null);
+    // A party asked for from another screen (REQ-696) is not what the menu asks for.
+    setFocusParty(null);
+    setActiveNav(nav);
+  };
+
+  /** A screen a conversation can be opened from: shown when active, kept hidden while its conversation runs. */
+  const kept = (nav: string) => activeNav === nav || (activeNav === "operations" && returnTo?.nav === nav);
+
   if (status === "checking") {
     return (
       <div className="grid min-h-screen place-items-center">
@@ -128,7 +162,7 @@ export function App() {
     <AppShell
       navItems={navItems}
       activeNavId={activeNav}
-      onNavSelect={setActiveNav}
+      onNavSelect={navigate}
       pageTitle={pageTitles[activeNav]}
       userName={user.displayName}
       userRole={roleLabels[user.role]}
@@ -140,7 +174,7 @@ export function App() {
             canCurate
               ? () => {
                   // REQ-315: the identities are resolved in Partes, at the top of the list.
-                  setActiveNav("partyView");
+                  navigate("partyView");
                   setFocusPending((n) => n + 1);
                 }
               : undefined
@@ -148,24 +182,58 @@ export function App() {
         />
       }
     >
-      {activeNav === "agenda" ? (
-        <AgendaPage
-          canPay={user.permissions.includes("intent:submit")}
-          onOperationStarted={(intent) => {
-            setAdopted(intent);
-            setActiveNav("operations");
-          }}
-        />
-      ) : activeNav === "cash" ? (
+      {/* The screens a conversation can be opened from sit in fixed places, so hiding one while its
+          conversation runs keeps it mounted — the same window, filters, page and ticks on return. */}
+      {kept("agenda") && (
+        <div hidden={activeNav !== "agenda"}>
+          <AgendaPage
+            canPay={user.permissions.includes("intent:submit")}
+            onOperationStarted={startFrom("agenda")}
+            reloadKey={originVersion}
+          />
+        </div>
+      )}
+      {kept("receivables") && (
+        <div hidden={activeNav !== "receivables"}>
+          <ReceivablesPage
+            canReceive={user.permissions.includes("intent:submit")}
+            onOperationStarted={startFrom("receivables")}
+            reloadKey={originVersion}
+            onOpenParty={(party) => {
+              setFocusParty((current) => ({ ...party, nonce: (current?.nonce ?? 0) + 1 }));
+              // One request at a time: an earlier "Resolver" must not send the page back to the list.
+              setFocusPending(0);
+              setReturnTo(null);
+              setActiveNav("partyView");
+            }}
+          />
+        </div>
+      )}
+      {kept("positions") && (
+        <div hidden={activeNav !== "positions"}>
+          <PositionsPage
+            canRectify={user.permissions.includes("intent:submit")}
+            onOperationStarted={startFrom("positions")}
+            reloadKey={originVersion}
+          />
+        </div>
+      )}
+      {kept("partyView") && (
+        <div hidden={activeNav !== "partyView"}>
+          <PartyViewPage
+            canCurate={canCurate}
+            pending={pending}
+            onChanged={refreshPending}
+            focusPending={focusPending}
+            canAct={user.permissions.includes("intent:submit")}
+            onOperationStarted={startFrom("partyView")}
+            reloadKey={originVersion}
+            focusParty={focusParty}
+          />
+        </div>
+      )}
+      {activeNav === "agenda" || activeNav === "receivables" || activeNav === "positions" || activeNav === "partyView" ? null : activeNav === "cash" ? (
         <CashPage canWrite={user.permissions.includes("intent:submit")} />
-      ) : activeNav === "receivables" ? (
-        <ReceivablesPage
-          canReceive={user.permissions.includes("intent:submit")}
-          onOperationStarted={(intent) => {
-            setAdopted(intent);
-            setActiveNav("operations");
-          }}
-        />
       ) : activeNav === "users" && canManageUsers ? (
         <UsersPage me={user} onSelfChanged={refresh} />
       ) : activeNav === "signals" ? (
@@ -187,18 +255,8 @@ export function App() {
             setActiveNav("operations");
           }}
         />
-      ) : activeNav === "partyView" ? (
-        <PartyViewPage canCurate={canCurate} pending={pending} onChanged={refreshPending} focusPending={focusPending} />
       ) : activeNav === "intents" ? (
         <IntentsPage />
-      ) : activeNav === "positions" ? (
-        <PositionsPage
-          canRectify={user.permissions.includes("intent:submit")}
-          onOperationStarted={(intent) => {
-            setAdopted(intent);
-            setActiveNav("operations");
-          }}
-        />
       ) : activeNav === "operations" ? (
         // `justLoggedIn` flips true in the same render as `status`/`user` (login() batches all
         // three), so OperationsPage never sees a stale `showIntro=false` on its first render —
@@ -209,9 +267,13 @@ export function App() {
           onIntroDone={clearJustLoggedIn}
           adopt={adopted}
           onAdopted={() => setAdopted(null)}
+          returnTo={returnTo}
+          returnLabel={returnTo ? pageTitles[returnTo.nav] : undefined}
+          onReturn={goBack}
+          onReturnDiscarded={() => setReturnTo(null)}
         />
       ) : (
-        <DashboardPage onNavigateToOperations={() => setActiveNav("operations")} onNavigate={setActiveNav} />
+        <DashboardPage onNavigateToOperations={() => setActiveNav("operations")} onNavigate={navigate} />
       )}
     </AppShell>
   );

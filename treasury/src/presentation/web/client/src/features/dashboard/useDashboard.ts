@@ -18,7 +18,7 @@ const UNAVAILABLE: TreasuryDashboard = {
  */
 const MOVEMENTS_CHART_LIMIT = 200;
 
-export function useDashboard(period?: { from: string; to: string }) {
+export function useDashboard(period?: { from: string; to: string }, version = 0) {
   const [data, setData] = useState<TreasuryDashboard | null>(null);
   const from = period?.from;
   const to = period?.to;
@@ -32,7 +32,7 @@ export function useDashboard(period?: { from: string; to: string }) {
     return () => {
       cancelled = true;
     };
-  }, [from, to]);
+  }, [from, to, version]);
 
   return { data, loading: data === null };
 }

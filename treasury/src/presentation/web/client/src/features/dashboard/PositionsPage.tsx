@@ -189,14 +189,17 @@ function PositionsFilterBar({
 export function PositionsPage({
   canRectify = false,
   onOperationStarted,
+  reloadKey = 0,
 }: {
   canRectify?: boolean;
   /** Hands a conversation opened from a position over to the operations page. */
   onOperationStarted?: (intent: AdoptedIntent) => void;
+  /** REQ-690: changes when the operator comes back from a conversation opened here. */
+  reloadKey?: number;
 }) {
-  const { data, loading } = useDashboard();
-  const { exposure } = useBookExposure();
-  const { payables } = usePayablePositions();
+  const { data, loading } = useDashboard(undefined, reloadKey);
+  const { exposure } = useBookExposure(undefined, reloadKey);
+  const { payables } = usePayablePositions(reloadKey);
   const {
     page,
     setPage,
@@ -208,7 +211,7 @@ export function PositionsPage({
     selfPartyId,
     partyNames,
     loading: listLoading,
-  } = usePositionsPage();
+  } = usePositionsPage(reloadKey);
   const { t } = useLanguage();
   const [showOutstanding, setShowOutstanding] = useState(false);
   /** Which payable drill-down is open, if any. The three lists share one modal. */

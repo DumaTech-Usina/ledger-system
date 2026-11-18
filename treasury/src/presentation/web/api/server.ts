@@ -18,6 +18,8 @@ import type { GetPartyPageUseCase } from "../../../core/application/use-cases/Ge
 import { partyRoutes } from "./routes/partyRoutes";
 import { signalRoutes } from "./routes/signalRoutes";
 import { batchRoutes } from "./routes/batchRoutes";
+import { compensationRoutes } from "./routes/compensationRoutes";
+import type { CompensationUseCase } from "../../../core/application/use-cases/Compensation";
 import type { PayablesBatchUseCase } from "../../../core/application/use-cases/PayablesBatch";
 import type { RegisterExternalSignalUseCase } from "../../../core/application/use-cases/RegisterExternalSignal";
 import type { ListExternalSignalsUseCase } from "../../../core/application/use-cases/ListExternalSignals";
@@ -105,6 +107,8 @@ export interface ServerDeps {
   getMorningPanel?: GetMorningPanelUseCase;
   /** §8.6. Absent in tests about something else; then /api/batches is not mounted. */
   payablesBatch?: PayablesBatchUseCase;
+  /** §8.11: a compensation of one pair, from the party's page. */
+  compensation?: CompensationUseCase;
 }
 
 export function createServer(deps: ServerDeps) {
@@ -184,6 +188,7 @@ export function createServer(deps: ServerDeps) {
   );
 
   if (deps.payablesBatch) app.use("/api/batches", requireAuth, batchRoutes(deps.payablesBatch));
+  if (deps.compensation) app.use("/api/compensations", requireAuth, compensationRoutes(deps.compensation));
   if (deps.institutionCash) app.use("/api/cash", requireAuth, cashRoutes(deps.institutionCash));
 
   // Minimal error boundary: unknown scenario/intent/slot → 400 with a legible message.

@@ -487,6 +487,22 @@ const MAPPINGS: Record<string, ScenarioMapping> = {
     reasonType: "institution_transfer",
     reasonText: "Transfer between the usina's institutions",
   },
+  // REQ-250, REQ-693: one event, no cash, settling the commission obligation (the position it is opened
+  // from) and the advance or loan named in `otherPositions` by the same amount. The party is the one
+  // the obligation is owed to — the same party the advance was paid to, which the use case checks.
+  // The obligation's contexts (the policy) are carried over, so the trail of DEC-038 exists (REQ-275).
+  register_compensation: {
+    eventType: "compensation",
+    economicEffect: "non_cash",
+    counterpartySlot: "payee",
+    parties: [{ who: "counterparty", role: "beneficiary", direction: "neutral" }],
+    objects: [{ objectType: "commission_payable", relation: "settles" }],
+    reasonType: "compensation",
+    reasonText: "Compensation: what the party owes the usina against what the usina owes it",
+    objectIdSlot: "objectRef",
+    additionalObjectsSlot: "otherPositions",
+    inheritsCounterparty: true,
+  },
   register_commission_payment: {
     eventType: "commission_split",
     economicEffect: "cash_out",
@@ -608,6 +624,10 @@ export function producibleTuples(): ProducibleTuple[] {
   const tuples: ProducibleTuple[] = [];
 
   for (const [scenarioId, m] of Object.entries(MAPPINGS)) {
+    // An operation registered only from its own screen is not an action a position offers: from a
+    // position, an action opens a conversation, and such an operation has none (the compensation,
+    // whose pair is chosen on the party's page).
+    if (getScenario(scenarioId)?.conversational === false) continue;
     const branches: { choice?: string; override: TupleOverride }[] = m.variants
       ? Object.entries(m.variants.byChoice).map(([choice, override]) => ({ choice, override }))
       : [{ override: {} }];

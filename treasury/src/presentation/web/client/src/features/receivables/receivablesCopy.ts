@@ -54,6 +54,9 @@ const ptBR = {
   theInsurer: "A operadora",
   receive: "Receber",
   view: "Ver",
+  // REQ-696: an advance or a loan is usually compensated, on the party's page.
+  compensate: "Compensar",
+  compensateTitle: (name: string) => `Abrir a página de ${name} para compensar com o que a Usina deve a essa parte`,
   declaredHeading: "Declarado pela operadora e ainda não visto no banco",
   declaredNote:
     "A operadora disse, no sistema de seguro ou no de saúde, que pagou. Isso não é dinheiro na conta: confira no banco e registre o recebimento. Sem total, porque o que a operadora diz não é somado aqui.",
@@ -118,6 +121,8 @@ const en: typeof ptBR = {
   theInsurer: "The insurer",
   receive: "Receive",
   view: "View",
+  compensate: "Compensate",
+  compensateTitle: (name: string) => `Open ${name}'s page to compensate against what the Usina owes that party`,
   declaredHeading: "Declared by the insurer, not yet seen at the bank",
   declaredNote:
     "The insurer said, in the insurance or the health system, that it paid. That is not money in the account: check the bank and record the receipt. No total, because what the insurer says is not added up here.",

@@ -246,7 +246,7 @@ describe("§10 — quem anotou e com que confiança", () => {
 });
 
 describe("§4.5 — operação composta no Treasury", () => {
-  it.todo("CA-252: a compensação só oferece posições da mesma pessoa");
+  // CA-252 became a real test with the compensation of one pair (§8.11): tests/unit/application/compensation.test.ts.
   it.todo("CA-255: plano interrompido mantém o primeiro fato e mostra que o segundo não foi enviado");
   it.todo("REJ-255: recusa de um fato do plano não desfaz nem impede o fato já enviado");
   it.todo("CA-256: com obrigação aberta, o usuário escolhe adiantamento mais compensação ou pagamento parcial");

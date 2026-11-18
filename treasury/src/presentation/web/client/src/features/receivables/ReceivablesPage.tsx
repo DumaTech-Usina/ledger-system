@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useReload } from "@/hooks/useReload";
 import { Badge } from "@/components/Badge";
 import { Banner } from "@/components/Banner";
 import { Button } from "@/components/Button";
@@ -17,7 +18,9 @@ import {
   type ReceivablesResult,
 } from "@/features/receivables/receivablesApi";
 import { receivableListLabel, receivablesCopy } from "@/features/receivables/receivablesCopy";
-import { declaredOf, firstReceivableWindow, payerLabel } from "@/features/receivables/receivablesEngine";
+import { creditPayer, declaredOf, firstReceivableWindow, lineActions, payerLabel } from "@/features/receivables/receivablesEngine";
+import { InsurerCreditCard } from "@/features/signals/InsurerCreditCard";
+import { signalsApi } from "@/features/signals/signalsApi";
 import type { AdoptedIntent } from "@/features/operations/useConversation";
 import { useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
@@ -38,10 +41,16 @@ type Loaded = Extract<ReceivablesResult, { available: true }>;
 export function ReceivablesPage({
   canReceive,
   onOperationStarted,
+  reloadKey,
+  onOpenParty,
 }: {
   /** Recording a receipt writes to the Ledger: gated on `intent:submit`, like every write. */
   canReceive: boolean;
   onOperationStarted: (intent: AdoptedIntent) => void;
+  /** REQ-690: changes when the operator comes back from a conversation opened here. */
+  reloadKey?: number;
+  /** REQ-696: opens a party's page, where an advance or a loan is compensated. */
+  onOpenParty?: (party: { partyId: string; displayName: string }) => void;
 }) {
   const { t, language } = useLanguage();
   const copy = receivablesCopy[language];
@@ -93,6 +102,11 @@ export function ReceivablesPage({
     void loadDeclared();
   }, [loadDeclared]);
 
+  useReload(reloadKey, () => {
+    void load(active, page, payer);
+    void loadDeclared();
+  });
+
   const choose = (list: ReceivablesList) => {
     setPage(1);
     setActive(list);
@@ -104,6 +118,28 @@ export function ReceivablesPage({
     setActive(null);
     setPayer(value === ALL ? null : value);
   };
+
+  // REQ-695: the payer chosen in the filter, offered its bank credit right here — only when it has an
+  // expected commission open. The credit spreads over commissions; for a party that only owes an advance,
+  // money coming back is a receipt of that advance, never a commission received with no origin.
+  const payerForCredit = agenda ? creditPayer(agenda.payers, payer) : null;
+  const [creditFor, setCreditFor] = useState<{ partyId: string; displayName: string } | null>(null);
+  useEffect(() => {
+    setCreditFor(null);
+    if (!canReceive || !payerForCredit) return;
+    let cancelled = false;
+    void signalsApi
+      .receivables(payerForCredit.partyId)
+      .then(({ ok, data }) => {
+        if (!cancelled && ok && "receivables" in data && data.receivables.length > 0) setCreditFor(payerForCredit);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // Re-probed when the chosen payer changes, not on every agenda read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canReceive, payerForCredit?.partyId]);
 
   const declaredLines = useMemo(() => (declared?.available ? declaredOf(declared.lines, payer) : []), [declared, payer]);
   const declaredPages = Math.max(1, Math.ceil(declaredLines.length / PAGE_SIZE));
@@ -132,6 +168,17 @@ export function ReceivablesPage({
           />
         )}
       </div>
+
+      {creditFor && (
+        <InsurerCreditCard
+          key={creditFor.partyId}
+          fixedPayer={creditFor}
+          onRecorded={() => {
+            void load(active, page, payer);
+            void loadDeclared();
+          }}
+        />
+      )}
 
       {state === "unavailable" && <Banner variant="bad">{copy.unavailable}</Banner>}
       {state === "failed" && <Banner variant="bad">{copy.loadError}</Banner>}
@@ -236,9 +283,28 @@ export function ReceivablesPage({
                               : copy.days(line.openForDays)}
                         </Table.Cell>
                         <Table.Cell className="text-right">
-                          <Button size="sm" variant={canReceive && !unlinkedView ? "primary" : "ghost"} onClick={() => setOpen(line)}>
-                            {canReceive && !unlinkedView ? copy.receive : copy.view}
-                          </Button>
+                          {(() => {
+                            const actions = lineActions(line, { canReceive, unlinked: unlinkedView });
+                            if (actions.primary === "compensate" && onOpenParty) {
+                              // REQ-696: an advance or a loan comes back by compensation, on the party's page.
+                              const who = line.payers[0];
+                              return (
+                                <span className="inline-flex flex-wrap justify-end gap-1.5">
+                                  <Button size="sm" title={copy.compensateTitle(who.displayName)} onClick={() => onOpenParty(who)}>
+                                    {copy.compensate}
+                                  </Button>
+                                  <Button size="sm" variant="ghost" onClick={() => setOpen(line)}>
+                                    {copy.receive}
+                                  </Button>
+                                </span>
+                              );
+                            }
+                            return (
+                              <Button size="sm" variant={actions.primary === "view" ? "ghost" : "primary"} onClick={() => setOpen(line)}>
+                                {actions.primary === "view" ? copy.view : copy.receive}
+                              </Button>
+                            );
+                          })()}
                         </Table.Cell>
                       </Table.Row>
                     ))}

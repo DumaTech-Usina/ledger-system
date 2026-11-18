@@ -15,6 +15,7 @@ import { selectionTotal, toggle, unbatchable, type Selection } from "@/features/
 import { PrepareBatchModal } from "@/features/batches/PrepareBatchModal";
 import type { AdoptedIntent } from "@/features/operations/useConversation";
 import { useLanguage } from "@/i18n/i18n";
+import { useReload } from "@/hooks/useReload";
 import { cn } from "@/utils/cn";
 import { formatDate, formatMoney } from "@/utils/format";
 
@@ -33,10 +34,13 @@ type Loaded = Extract<AgendaResult, { available: true }>;
 export function AgendaPage({
   canPay,
   onOperationStarted,
+  reloadKey,
 }: {
   /** Starting a payment writes to the Ledger: gated on `intent:submit`, like every write. */
   canPay: boolean;
   onOperationStarted: (intent: AdoptedIntent) => void;
+  /** REQ-690: changes when the operator comes back from a conversation opened here. */
+  reloadKey?: number;
 }) {
   const { t, language } = useLanguage();
   const copy = agendaCopy[language];
@@ -108,6 +112,7 @@ export function AgendaPage({
     void load(active, page);
     void loadBatches();
   };
+  useReload(reloadKey, refresh);
 
   const money = (amount: string, currency: string) => formatMoney(amount, currency);
   const chosen = Object.keys(selection).length;

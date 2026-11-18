@@ -35,6 +35,11 @@ export const scenarioCopy: Record<string, { title: string; description: string }
     title: "Registrar pagamento de multa",
     description: "Registrar uma multa ou penalidade paga pela usina (saída de caixa).",
   },
+  // §8.11: registered only from the party's page, where the pair is chosen; named here for the intents list.
+  register_compensation: {
+    title: "Compensar",
+    description: "O que a parte deve à Usina e o que a Usina deve a ela descem pelo mesmo valor, sem dinheiro.",
+  },
   register_commission_payment: {
     title: "Pagar repasse de comissão",
     description: "Registrar que a usina pagou uma comissão que devia a um corretor, supervisor ou parceiro (saída de caixa).",
@@ -180,7 +185,9 @@ export const scenarioSlotPrompts: Record<string, Record<string, string>> = {
     currency: "Qual é a moeda?",
     occurredAt: "Em que data o adiantamento foi pago?",
     institution: "De qual instituição o dinheiro saiu?",
-    description: "Uma breve descrição (opcional).",
+    // REQ-293: what the broker said was sold — recorded as said, never cited as a context.
+    description:
+      "O que o corretor disse ter vendido? Apólices, propostas e parcelas (opcional). Ex.: apólices 5177 e 9034; proposta Abc12, parcelas 1 e 2.",
   },
   register_loan: {
     payee: "Quem está recebendo o empréstimo (tomador)?",

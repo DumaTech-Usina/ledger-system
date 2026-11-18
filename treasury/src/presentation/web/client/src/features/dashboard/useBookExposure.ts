@@ -7,7 +7,7 @@ import type { BookExposure } from "@/types/dashboard";
  * after loading means the Ledger could not be reached — which is shown as unavailable, never as
  * zero: a zero exposure and an unknown exposure read as opposite news to whoever is looking.
  */
-export function useBookExposure(period?: { from: string; to: string }) {
+export function useBookExposure(period?: { from: string; to: string }, version = 0) {
   const [exposure, setExposure] = useState<BookExposure | null>(null);
   const [loading, setLoading] = useState(true);
   const from = period?.from;
@@ -29,7 +29,7 @@ export function useBookExposure(period?: { from: string; to: string }) {
     return () => {
       cancelled = true;
     };
-  }, [from, to]);
+  }, [from, to, version]);
 
   return { exposure, loading };
 }

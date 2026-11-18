@@ -34,6 +34,12 @@ const ptBR = {
   stepUnattributed: "Sem origem",
   stopped: "Um recebimento foi recusado; os seguintes não foram enviados. O que foi registrado continua valendo.",
   genericError: "Não foi possível concluir agora. Tente novamente.",
+  // REQ-695: the same card on the receivables agenda, for the payer already chosen there — an insurer
+  // or a health operator, so the words name the payer instead of its kind.
+  titleFor: (name: string) => `Registrar crédito de ${name}`,
+  noteForPayer: "Um crédito no banco que cobre várias posições deste pagador. Cada parte distribuída vira o recebimento daquela posição; o que sobrar fica como recebido sem origem, pendente.",
+  receivablesTitleFor: (name: string) => `O que ${name} tem em aberto com a Usina`,
+  noneFor: (name: string) => `Nada em aberto com ${name}. Todo o crédito ficará sem origem.`,
 };
 
 const en: typeof ptBR = {
@@ -65,6 +71,10 @@ const en: typeof ptBR = {
   stepUnattributed: "No origin",
   stopped: "A receipt was refused; the following ones were not sent. What was recorded still stands.",
   genericError: "Could not complete right now. Try again.",
+  titleFor: (name: string) => `Record a credit from ${name}`,
+  noteForPayer: "One bank credit covering several positions of this payer. Each part you distribute becomes that position's receipt; what is left stays as received with no origin, pending.",
+  receivablesTitleFor: (name: string) => `What ${name} has open with the Usina`,
+  noneFor: (name: string) => `Nothing open with ${name}. The whole credit will have no origin.`,
 };
 
 export const creditCopy: Record<Language, typeof ptBR> = { "pt-BR": ptBR, en };

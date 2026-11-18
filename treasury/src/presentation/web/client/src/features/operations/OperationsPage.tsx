@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Card } from "@/components/Card";
 import { Banner } from "@/components/Banner";
+import { Button } from "@/components/Button";
 import { OperationsIntro, type GreetingPhase } from "@/features/operations/OperationsIntro";
 import { ScenarioGrid } from "@/features/operations/ScenarioGrid";
 import { ChatStream } from "@/features/operations/ChatStream";
@@ -9,6 +10,8 @@ import { OperationsShell } from "@/features/operations/OperationsShell";
 import { useConversation, type AdoptedIntent } from "@/features/operations/useConversation";
 import { slotPrompt } from "@/features/operations/conversationEngine";
 import { suggestScenarios } from "@/features/operations/scenarioSuggestions";
+import { returnDiscarded, returnOffer, type ReturnTarget } from "@/features/operations/returnTarget";
+import { formatTemplate, useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
 import type { User } from "@/types/auth";
 
@@ -20,6 +23,13 @@ export interface OperationsPageProps {
   adopt?: AdoptedIntent | null;
   /** Called once the adoption has been taken up, so it is never replayed. */
   onAdopted?: () => void;
+  /** REQ-690: the screen the adopted conversation was opened from, to go back to. */
+  returnTo?: ReturnTarget | null;
+  /** That screen's name, as the menu shows it. */
+  returnLabel?: string;
+  onReturn?: () => void;
+  /** The operator started a conversation of their own: the way back no longer applies. */
+  onReturnDiscarded?: () => void;
 }
 
 // "big" and "hidden" share the same (enlarged, centered) transform — only opacity/blur differ
@@ -29,7 +39,18 @@ type QuestionPhase = "hidden" | "big" | "docked";
 
 const SKIP_INTRO_KEY = "treasury.skipLoginIntro";
 
-export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted }: OperationsPageProps) {
+export function OperationsPage({
+  user,
+  showIntro,
+  onIntroDone,
+  adopt,
+  onAdopted,
+  returnTo,
+  returnLabel,
+  onReturn,
+  onReturnDiscarded,
+}: OperationsPageProps) {
+  const { t } = useLanguage();
   const canCreate = user.permissions.includes("intent:create");
 
   // Read once, at mount — a preference set mid-animation shouldn't retroactively cancel a play
@@ -58,6 +79,7 @@ export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted 
     scenarios,
     scenarioId,
     scenarioTitle,
+    intentId,
     stream,
     currentSlot,
     phase,
@@ -83,6 +105,17 @@ export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted 
   useEffect(() => {
     if (adopt && onAdopted) onAdopted();
   }, [adopt, onAdopted]);
+
+  // REQ-690: whether the conversation the origin screen opened has been on screen yet — until it has,
+  // an empty conversation is one still being taken up, not one the operator gave up.
+  const [seenTarget, setSeenTarget] = useState(false);
+  useEffect(() => {
+    if (returnTo && intentId === returnTo.intentId) setSeenTarget(true);
+  }, [returnTo, intentId]);
+  useEffect(() => {
+    if (returnDiscarded(returnTo, { intentId }) && onReturnDiscarded) onReturnDiscarded();
+  }, [returnTo, intentId, onReturnDiscarded]);
+  const offer = returnOffer(returnTo, { intentId, phase, seenTarget });
 
   const introTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
@@ -176,6 +209,14 @@ export function OperationsPage({ user, showIntro, onIntroDone, adopt, onAdopted 
           }
         }}
       >
+        {offer !== "none" && onReturn && returnLabel && (
+          <div className="mb-3 flex justify-center">
+            <Button variant={offer === "primary" ? "primary" : "ghost"} size="sm" onClick={onReturn}>
+              <span aria-hidden>‹</span>
+              {formatTemplate(t.common.backTo, { page: returnLabel })}
+            </Button>
+          </div>
+        )}
         <OperationsShell
           title={title}
           status={lifecycle?.status ?? null}

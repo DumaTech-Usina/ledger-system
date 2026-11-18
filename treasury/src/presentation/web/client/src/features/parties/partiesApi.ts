@@ -188,7 +188,23 @@ interface Refusal {
   error: string;
 }
 
+/** §8.11 (REQ-693): what a compensation of one pair came to. */
+export interface CompensationResult {
+  status: "accepted" | "rejected" | "awaiting_correction";
+  intentId: string;
+  ledgerReference?: string;
+  reason?: string;
+}
+
 export const partiesApi = {
+  compensate: (body: {
+    partyId: string;
+    receivableId: string;
+    payableId: string;
+    amount: string;
+    occurredAt: string;
+    description?: string;
+  }) => apiPost<CompensationResult | { error: string }>("/api/compensations", body),
   pending: () => apiGet<{ pending: PendingIdentity[] }>("/api/parties/pending"),
   list: () => apiGet<{ parties: RegisteredParty[] }>("/api/parties"),
   names: () => apiGet<{ parties: PartyName[] }>("/api/parties/names"),

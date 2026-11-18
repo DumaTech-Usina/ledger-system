@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/Button";
 import { Badge } from "@/components/Badge";
 import { Banner } from "@/components/Banner";
@@ -9,6 +9,10 @@ import { MultiSelectDropdown } from "@/components/MultiSelectDropdown";
 import { Pagination } from "@/components/Pagination";
 import { Select } from "@/components/Select";
 import { Input } from "@/components/Input";
+import { Modal } from "@/components/Modal";
+import { RowDetailModal } from "@/features/dashboard/RowDetailModal";
+import { useObjectLifecycle } from "@/features/dashboard/useObjectLifecycle";
+import type { AdoptedIntent } from "@/features/operations/useConversation";
 import {
   partiesApi,
   type PageAlert,
@@ -27,7 +31,19 @@ import { partiesCopy } from "@/features/parties/partiesCopy";
 import type { PendingIdentity } from "@/features/parties/partiesApi";
 import { PENDING_SECTION_ID, PendingIdentitiesSection } from "@/features/parties/PendingIdentitiesSection";
 import { RegisterPartyModal } from "@/features/parties/RegisterPartyModal";
-import { matchingParties, othersInEvent, recordedOnAnotherDay } from "@/features/parties/partiesEngine";
+import { CompensateModal } from "@/features/parties/CompensateModal";
+import { PrepareBatchModal } from "@/features/batches/PrepareBatchModal";
+import { toggle, type Selection } from "@/features/batches/batchSelection";
+import {
+  alertPosition,
+  matchingParties,
+  othersInEvent,
+  positionFromLifecycle,
+  recordedOnAnotherDay,
+  rowAction,
+  selectionOffer,
+  type PickedLine,
+} from "@/features/parties/partiesEngine";
 import { useLanguage } from "@/i18n/i18n";
 import { cn } from "@/utils/cn";
 import { formatDate, formatDateTime, formatDocument, formatMoney } from "@/utils/format";
@@ -45,7 +61,19 @@ export function PartyViewPage({
   pending = [],
   onChanged,
   focusPending = 0,
+  canAct = false,
+  onOperationStarted,
+  reloadKey = 0,
+  focusParty,
 }: {
+  /** REQ-696: opens this party's page, from another screen (the receivables agenda). `nonce` repeats it. */
+  focusParty?: { partyId: string; displayName: string; nonce: number } | null;
+  /** REQ-691: recording from a position writes to the Ledger — gated on `intent:submit`. */
+  canAct?: boolean;
+  /** Hands a conversation opened from a position over to the operations page. */
+  onOperationStarted?: (intent: AdoptedIntent) => void;
+  /** REQ-690: changes when the operator comes back from a conversation opened here. */
+  reloadKey?: number;
   /** Curation registers parties and resolves identities (REQ-402); the server enforces it. */
   canCurate?: boolean;
   /** The identities still to resolve (REQ-321), shown to everyone at the top of the list (REQ-315). */
@@ -80,6 +108,12 @@ export function PartyViewPage({
   }, [load]);
 
   useEffect(() => {
+    if (focusParty) setSelected({ partyId: focusParty.partyId, displayName: focusParty.displayName });
+    // The nonce is what asks again; the same party asked twice opens twice.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusParty?.nonce]);
+
+  useEffect(() => {
     if (focusPending === 0) return;
     setSelected(null);
     // After the list has rendered again.
@@ -98,7 +132,17 @@ export function PartyViewPage({
 
   // REQ-630: the list is the way in; a party opens on its own page, with a way back to the list.
   if (selected) {
-    return <PartyPage key={selected.partyId} selected={selected} onOpen={setSelected} onBack={() => setSelected(null)} />;
+    return (
+      <PartyPage
+        key={selected.partyId}
+        selected={selected}
+        onOpen={setSelected}
+        onBack={() => setSelected(null)}
+        canAct={canAct}
+        onOperationStarted={onOperationStarted}
+        reloadKey={reloadKey}
+      />
+    );
   }
 
   return (
@@ -198,12 +242,62 @@ function registryDetails(party: PartyName, copy: Copy): string | null {
 }
 
 /** One party's page (§8.4). `onOpen` moves to another party's page, from a name shown here. */
-function PartyPage({ selected, onOpen, onBack }: { selected: Selected; onOpen: (party: Selected) => void; onBack: () => void }) {
+function PartyPage({
+  selected,
+  onOpen,
+  onBack,
+  canAct,
+  onOperationStarted,
+  reloadKey,
+}: {
+  selected: Selected;
+  onOpen: (party: Selected) => void;
+  onBack: () => void;
+  canAct: boolean;
+  onOperationStarted?: (intent: AdoptedIntent) => void;
+  reloadKey: number;
+}) {
   const { t, language } = useLanguage();
   const copy = partiesCopy[language];
   const [result, setResult] = useState<PartyPageResult | null>(null);
   // REQ-631: Operação is the tab that opens.
   const [tab, setTab] = useState<Tab>("operation");
+  // REQ-691: the position whose detail is open, from a line or from an alert.
+  const [opened, setOpened] = useState<string | null>(null);
+  // Bumped when a detail closes — something may have been recorded from it — and on the way back
+  // from a conversation (REQ-690). The page and each side read again, keeping filters and paging.
+  const [closedDetails, setClosedDetails] = useState(0);
+  const version = reloadKey + closedDetails;
+  // REQ-692: the positions ticked on Operação, across both sides and pages, and what they allow.
+  const [picked, setPicked] = useState<Record<string, PickedLine>>({});
+  const offer = selectionOffer(Object.values(picked));
+  const [acting, setActing] = useState<"batch" | "compensate" | null>(null);
+  const [batchSelection, setBatchSelection] = useState<Selection>({});
+  const [notice, setNotice] = useState<string | null>(null);
+  const pick = (line: PickedLine) =>
+    setPicked((current) => {
+      const next = { ...current };
+      if (next[line.objectId]) delete next[line.objectId];
+      else next[line.objectId] = line;
+      return next;
+    });
+  const done = (message: string) => {
+    setActing(null);
+    setPicked({});
+    setNotice(message);
+    setClosedDetails((n) => n + 1);
+  };
+  const openBatch = () => {
+    // The batch of this party (REQ-239): what the Usina owes it, each line at its open balance.
+    const lines = Object.values(picked).map((p) => ({
+      objectId: p.objectId,
+      currency: "BRL",
+      openBalance: p.openBalance,
+      creditors: [{ partyId: party.partyId }],
+    }));
+    setBatchSelection(lines.reduce<Selection>((sel, line) => toggle(sel, line), {}));
+    setActing("batch");
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -218,12 +312,12 @@ function PartyPage({ selected, onOpen, onBack }: { selected: Selected; onOpen: (
     return () => {
       cancelled = true;
     };
-  }, [selected]);
+  }, [selected, version]);
 
   const party = result?.party ?? selected;
 
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", canAct && tab === "operation" && offer && "pb-24")}>
       <button type="button" onClick={onBack} className="text-sm font-semibold text-accent hover:underline">
         ‹ {copy.backToList}
       </button>
@@ -266,7 +360,26 @@ function PartyPage({ selected, onOpen, onBack }: { selected: Selected; onOpen: (
           </div>
           <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
             {tab === "operation" ? (
-              <OperationSection result={result} copy={copy} onOpen={onOpen} />
+              <>
+                {notice && (
+                  <Banner variant="ok" className="mb-4">
+                    {notice}
+                  </Banner>
+                )}
+                <OperationSection
+                  result={result}
+                  copy={copy}
+                  onOpen={onOpen}
+                  canAct={canAct}
+                  version={version}
+                  onOpenPosition={setOpened}
+                  picked={picked}
+                  onPick={(line) => {
+                    setNotice(null);
+                    pick(line);
+                  }}
+                />
+              </>
             ) : tab === "history" ? (
               <HistorySection result={result} copy={copy} />
             ) : (
@@ -277,7 +390,115 @@ function PartyPage({ selected, onOpen, onBack }: { selected: Selected; onOpen: (
           </div>
         </>
       )}
+
+      {canAct && tab === "operation" && offer && (
+        <div className="fixed inset-x-0 bottom-0 z-[50] px-4 pb-4">
+          <div className="glass mx-auto flex max-w-3xl flex-wrap items-center gap-3 rounded-2xl border border-line px-4 py-3 shadow-lg">
+            <div className="min-w-0 flex-1 basis-56">
+              <p className="text-sm font-semibold text-ink">{copy.picked(Object.keys(picked).length)}</p>
+              {offer.kind === "none" && <p className="text-[13px] text-muted">{copy.why[offer.reason]}</p>}
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setPicked({})}>
+              {copy.clearPicked}
+            </Button>
+            {offer.kind === "batch" && (
+              <Button size="sm" onClick={openBatch}>
+                {copy.offerBatch}
+              </Button>
+            )}
+            {offer.kind === "compensate" && (
+              <Button size="sm" onClick={() => setActing("compensate")}>
+                {copy.offerCompensate(formatMoney(offer.max, "BRL"))}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {acting === "compensate" && offer?.kind === "compensate" && (
+        <CompensateModal
+          party={party}
+          receivable={offer.receivable}
+          payable={offer.payable}
+          max={offer.max}
+          onClose={() => setActing(null)}
+          onCompensated={() => done(copy.compensated)}
+        />
+      )}
+
+      {acting === "batch" && (
+        <PrepareBatchModal
+          selection={batchSelection}
+          labelOf={(id) => ({ creditor: party.displayName, what: t.objectType[picked[id]?.objectType ?? ""] ?? picked[id]?.objectType ?? "" })}
+          onChange={setBatchSelection}
+          onClose={() => setActing(null)}
+          onPrepared={() => done(copy.batchPrepared)}
+        />
+      )}
+
+      {opened && (
+        <PositionDetail
+          objectId={opened}
+          partyNames={{ [party.partyId]: party.displayName }}
+          canAct={canAct}
+          onOperationStarted={onOperationStarted}
+          onClose={() => {
+            setOpened(null);
+            setClosedDetails((n) => n + 1);
+          }}
+          copy={copy}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * REQ-691: the same detail the agendas open (`RowDetailModal`), with the position's actions — read
+ * from the Ledger when it opens, so a line from a page loaded earlier, or an alert about a position on
+ * another page, shows the book as it is now.
+ */
+function PositionDetail({
+  objectId,
+  partyNames,
+  canAct,
+  onOperationStarted,
+  onClose,
+  copy,
+}: {
+  objectId: string;
+  partyNames: Record<string, string>;
+  canAct: boolean;
+  onOperationStarted?: (intent: AdoptedIntent) => void;
+  onClose: () => void;
+  copy: Copy;
+}) {
+  const { t } = useLanguage();
+  const lifecycle = useObjectLifecycle(objectId);
+
+  if (lifecycle.kind === "found") {
+    return (
+      <RowDetailModal
+        position={positionFromLifecycle(lifecycle.lifecycle)}
+        currency={lifecycle.lifecycle.currency}
+        partyNames={{ ...lifecycle.lifecycle.partyNames, ...partyNames }}
+        canRectify={canAct}
+        onOperationStarted={onOperationStarted}
+        onClose={onClose}
+      />
+    );
+  }
+
+  return (
+    <Modal open onClose={onClose} title={copy.details} closeLabel={t.common.close} className="max-w-lg">
+      <p className={cn("p-6 text-sm", lifecycle.kind === "loading" ? "text-muted" : "font-medium text-bad")}>
+        {lifecycle.kind === "loading"
+          ? copy.positionLoading
+          : lifecycle.kind === "unknown"
+            ? copy.positionUnknown
+            : copy.positionUnavailable}
+      </p>
+    </Modal>
   );
 }
 
@@ -297,7 +518,25 @@ function tabLabel(tab: Tab, copy: Copy): string {
  * of positions. Stacked, never side by side, so no one reads a net (REJ-632). A count per side,
  * never a total: Treasury does not add anything up (REQ-627).
  */
-function OperationSection({ result, copy, onOpen }: { result: Loaded; copy: Copy; onOpen: (party: Selected) => void }) {
+function OperationSection({
+  result,
+  copy,
+  onOpen,
+  canAct,
+  version,
+  onOpenPosition,
+  picked,
+  onPick,
+}: {
+  result: Loaded;
+  copy: Copy;
+  onOpen: (party: Selected) => void;
+  canAct: boolean;
+  version: number;
+  onOpenPosition: (objectId: string) => void;
+  picked: Record<string, PickedLine>;
+  onPick: (line: PickedLine) => void;
+}) {
   const { operation, alerts, receivesAlsoThrough, party } = result;
   const nothingOpen = operation.pages.usinaOwes.total + operation.pages.partyOwes.total + operation.pages.unclassified.total === 0;
 
@@ -305,11 +544,25 @@ function OperationSection({ result, copy, onOpen }: { result: Loaded; copy: Copy
     <div className="space-y-5">
       {alerts.length > 0 && (
         <ul className="space-y-2" aria-label={copy.alertsTitle}>
-          {alerts.map((alert, i) => (
-            <li key={i} className="rounded-xl bg-warn-soft px-3 py-2 text-[13px] text-ink">
-              {alertText(alert, copy)}
-            </li>
-          ))}
+          {alerts.map((alert, i) => {
+            // REQ-691: an alert about a position opens it — the position may sit on another page.
+            const objectId = alertPosition(alert);
+            return (
+              <li key={i} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-warn-soft px-3 py-2 text-[13px] text-ink">
+                <span className="min-w-0 flex-1">{alertText(alert, copy)}</span>
+                {objectId && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPosition(objectId)}
+                    className="shrink-0 font-semibold text-accent hover:underline"
+                  >
+                    {copy.alertOpen}
+                    <span aria-hidden> ›</span>
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       {result.alertsPartial && <p className="text-xs text-muted">{copy.alertsPartial}</p>}
@@ -320,10 +573,43 @@ function OperationSection({ result, copy, onOpen }: { result: Loaded; copy: Copy
         </div>
       ) : (
         <>
-          <SideSection partyId={party.partyId} side="usinaOwes" title={copy.usinaOwes(party.displayName)} initial={operation} copy={copy} />
-          <SideSection partyId={party.partyId} side="partyOwes" title={copy.partyOwes(party.displayName)} initial={operation} copy={copy} />
+          <SideSection
+            partyId={party.partyId}
+            side="usinaOwes"
+            title={copy.usinaOwes(party.displayName)}
+            initial={operation}
+            copy={copy}
+            canAct={canAct}
+            version={version}
+            onOpenPosition={onOpenPosition}
+            picked={picked}
+            onPick={onPick}
+          />
+          <SideSection
+            partyId={party.partyId}
+            side="partyOwes"
+            title={copy.partyOwes(party.displayName)}
+            initial={operation}
+            copy={copy}
+            canAct={canAct}
+            version={version}
+            onOpenPosition={onOpenPosition}
+            picked={picked}
+            onPick={onPick}
+          />
           {operation.pages.unclassified.total > 0 && (
-            <SideSection partyId={party.partyId} side="unclassified" title={copy.unclassified} initial={operation} copy={copy} />
+            <SideSection
+            partyId={party.partyId}
+            side="unclassified"
+            title={copy.unclassified}
+            initial={operation}
+            copy={copy}
+            canAct={canAct}
+            version={version}
+            onOpenPosition={onOpenPosition}
+            picked={picked}
+            onPick={onPick}
+          />
           )}
           <p className="text-xs text-muted">{copy.noNet}</p>
         </>
@@ -355,6 +641,11 @@ const SORTS = [
 /** Mobile: what and amount on one line, the rest below. From `sm`, four aligned columns. */
 const ROW = "grid grid-cols-[1fr_auto] gap-x-4 sm:grid-cols-[minmax(0,1fr)_6.5rem_6.5rem_7.5rem]";
 
+/** The line's button (REQ-691), at one width so the header can keep its place. */
+const ROW_ACTION = "w-24 shrink-0";
+/** The line's tick box (REQ-692), likewise. */
+const ROW_PICK = "w-4 shrink-0";
+
 type SideState = { lines: PageLine[]; info: SidePageInfo } | "loading" | "unavailable";
 
 function SideSection({
@@ -363,21 +654,36 @@ function SideSection({
   title,
   initial,
   copy,
+  canAct,
+  version,
+  onOpenPosition,
+  picked,
+  onPick,
 }: {
   partyId: string;
   side: Side;
   title: string;
   initial: Loaded["operation"];
   copy: Copy;
+  canAct: boolean;
+  /** Changes when something may have been recorded: the side reads again, keeping its filters. */
+  version: number;
+  onOpenPosition: (objectId: string) => void;
+  /** REQ-692: what is ticked, on any side; whoever cannot write ticks nothing. */
+  picked: Record<string, PickedLine>;
+  onPick: (line: PickedLine) => void;
 }) {
   const { t } = useLanguage();
   const [query, setQuery] = useState<SideQuery>(DEFAULT_QUERY);
   const [state, setState] = useState<SideState>({ lines: initial[side], info: initial.pages[side] });
   const [first, setFirst] = useState(true);
+  const readVersion = useRef(version);
 
   useEffect(() => {
-    // The first page came with the party page; anything after is this section's own read.
-    if (first) return;
+    // The first page came with the party page; anything after is this section's own read — a new
+    // filter or page, or a new version (something may have been recorded).
+    if (first && version === readVersion.current) return;
+    readVersion.current = version;
     let cancelled = false;
     setState("loading");
     partiesApi
@@ -392,7 +698,7 @@ function SideSection({
     return () => {
       cancelled = true;
     };
-  }, [partyId, side, query, first]);
+  }, [partyId, side, query, first, version]);
 
   const update = (patch: Partial<SideQuery>) => {
     setFirst(false);
@@ -443,15 +749,35 @@ function SideSection({
         <p className="py-4 text-[13px] text-muted">{filtered ? copy.noMatchFilters : copy.noLines}</p>
       ) : (
         <div className="mt-3">
-          <div className={cn(ROW, "hidden border-b border-line pb-1.5 text-[11px] uppercase tracking-wide text-muted sm:grid")} aria-hidden>
-            <span>{copy.colPosition}</span>
-            <span>{copy.colAge}</span>
-            <span>{copy.colDue}</span>
-            <span className="text-right">{copy.colOpen}</span>
+          <div className="hidden gap-3 border-b border-line pb-1.5 text-[11px] uppercase tracking-wide text-muted sm:flex" aria-hidden>
+            {canAct && <span className={ROW_PICK} />}
+            <div className={cn(ROW, "min-w-0 flex-1")}>
+              <span>{copy.colPosition}</span>
+              <span>{copy.colAge}</span>
+              <span>{copy.colDue}</span>
+              <span className="text-right">{copy.colOpen}</span>
+            </div>
+            {/* The width of the line's button (REQ-691), so the columns stay aligned. */}
+            <span className={ROW_ACTION} />
           </div>
           <ul className="divide-y divide-line">
             {state.lines.map((line) => (
-              <PositionRow key={line.objectId} line={line} copy={copy} />
+              <PositionRow
+                key={line.objectId}
+                line={line}
+                copy={copy}
+                action={rowAction(side, canAct)}
+                onOpenPosition={onOpenPosition}
+                pick={
+                  canAct
+                    ? {
+                        checked: !!picked[line.objectId],
+                        toggle: () =>
+                          onPick({ objectId: line.objectId, objectType: line.objectType, side, openBalance: line.openBalance }),
+                      }
+                    : null
+                }
+              />
             ))}
           </ul>
         </div>
@@ -481,7 +807,21 @@ function SideSection({
  * One position, at a fixed height so a long list can be scanned. "Depende de" is a short indicator
  * on the line; the details open on click.
  */
-function PositionRow({ line, copy }: { line: PageLine; copy: Copy }) {
+function PositionRow({
+  line,
+  copy,
+  action,
+  onOpenPosition,
+  pick,
+}: {
+  line: PageLine;
+  copy: Copy;
+  /** REQ-691: what the line's button says; it always opens the detail, with every action offered. */
+  action: "pay" | "receive" | "view";
+  onOpenPosition: (objectId: string) => void;
+  /** REQ-692: the tick box, for whoever can write; null hides it. */
+  pick: { checked: boolean; toggle: () => void } | null;
+}) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const first = line.dependsOn[0];
@@ -489,32 +829,52 @@ function PositionRow({ line, copy }: { line: PageLine; copy: Copy }) {
 
   return (
     <li className="text-[13px]">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        className="w-full py-2 text-left transition hover:bg-ink/[0.03] focus-visible:bg-ink/[0.04] focus-visible:outline-none dark:hover:bg-white/5"
-      >
-        <div className={ROW}>
-          <span className="min-w-0 truncate text-ink">
-            {t.objectType[line.objectType] ?? line.objectType}
-            {line.contexts.length > 0 && <span className="text-muted"> · {line.contexts.join(", ")}</span>}
-          </span>
-          <span className="hidden tabular text-muted sm:block">{line.ageDays === null ? "—" : copy.days(line.ageDays)}</span>
-          <span className="hidden tabular text-muted sm:block">{line.dueAt ? formatDate(line.dueAt) : "—"}</span>
-          <span className="tabular text-right font-semibold text-ink">{money(line.openBalance)}</span>
-        </div>
-        <p className="mt-0.5 text-[12px] text-muted sm:hidden">
-          {line.ageDays === null ? copy.ageUnknown : copy.openFor(line.ageDays)}
-          {line.dueAt && ` · ${copy.dueOn(formatDate(line.dueAt))}`}
-        </p>
-        {first && (
-          <p className="mt-0.5 truncate pl-4 text-[12px] text-muted">
-            ↳ {copy.dependsOnLine(first.payerName ?? first.payerId ?? copy.payerUnknown, money(first.openBalance), formatMoney(first.totalSettled, "BRL"))}
-            {line.dependsOn.length > 1 && ` +${line.dependsOn.length - 1}`}
-          </p>
+      <div className="flex items-center gap-3">
+        {pick && (
+          <input
+            type="checkbox"
+            checked={pick.checked}
+            onChange={pick.toggle}
+            aria-label={`${copy.select}: ${t.objectType[line.objectType] ?? line.objectType}`}
+            className={cn(ROW_PICK, "size-4 accent-accent")}
+          />
         )}
-      </button>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+          className="min-w-0 flex-1 py-2 text-left transition hover:bg-ink/[0.03] focus-visible:bg-ink/[0.04] focus-visible:outline-none dark:hover:bg-white/5"
+        >
+          <div className={ROW}>
+            <span className="min-w-0 truncate text-ink">
+              {t.objectType[line.objectType] ?? line.objectType}
+              {line.contexts.length > 0 && <span className="text-muted"> · {line.contexts.join(", ")}</span>}
+            </span>
+            <span className="hidden tabular text-muted sm:block">{line.ageDays === null ? "—" : copy.days(line.ageDays)}</span>
+            <span className="hidden tabular text-muted sm:block">{line.dueAt ? formatDate(line.dueAt) : "—"}</span>
+            <span className="tabular text-right font-semibold text-ink">{money(line.openBalance)}</span>
+          </div>
+          <p className="mt-0.5 text-[12px] text-muted sm:hidden">
+            {line.ageDays === null ? copy.ageUnknown : copy.openFor(line.ageDays)}
+            {line.dueAt && ` · ${copy.dueOn(formatDate(line.dueAt))}`}
+          </p>
+          {first && (
+            <p className="mt-0.5 truncate pl-4 text-[12px] text-muted">
+              ↳ {copy.dependsOnLine(first.payerName ?? first.payerId ?? copy.payerUnknown, money(first.openBalance), formatMoney(first.totalSettled, "BRL"))}
+              {line.dependsOn.length > 1 && ` +${line.dependsOn.length - 1}`}
+            </p>
+          )}
+        </button>
+        <Button
+          size="sm"
+          variant={action === "view" ? "ghost" : "primary"}
+          onClick={() => onOpenPosition(line.objectId)}
+          aria-label={`${actionLabel(action, copy)}: ${t.objectType[line.objectType] ?? line.objectType}`}
+          className={cn(ROW_ACTION, "justify-center")}
+        >
+          {actionLabel(action, copy)}
+        </Button>
+      </div>
       {open && (
         <dl className="mb-2 space-y-0.5 rounded-xl bg-ink/[0.03] px-3 py-2 text-[12.5px] dark:bg-white/5" aria-label={copy.details}>
           {[
@@ -538,6 +898,10 @@ function PositionRow({ line, copy }: { line: PageLine; copy: Copy }) {
       )}
     </li>
   );
+}
+
+function actionLabel(action: "pay" | "receive" | "view", copy: Copy): string {
+  return action === "pay" ? copy.actPay : action === "receive" ? copy.actReceive : copy.actView;
 }
 
 function alertText(alert: PageAlert, copy: Copy): string {

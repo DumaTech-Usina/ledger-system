@@ -42,13 +42,22 @@ const SHOW_AT_MOST = 100;
  * §4.7 (REQ-292): the same card for a health operator, whose credit covers installments of one or
  * several proposals. Same receipts, same batch; only the labels change.
  */
-export function InsurerCreditCard({ onRecorded, system = "insurance" }: { onRecorded: () => void; system?: "insurance" | "health" }) {
+export function InsurerCreditCard({
+  onRecorded,
+  system = "insurance",
+  fixedPayer,
+}: {
+  onRecorded: () => void;
+  system?: "insurance" | "health";
+  /** REQ-695: the payer already chosen where the card is shown (the receivables agenda); not asked again. */
+  fixedPayer?: { partyId: string; displayName: string };
+}) {
   const { language } = useLanguage();
   const copy = (system === "health" ? healthCreditCopy : creditCopy)[language];
   const [filter, setFilter] = useState("");
   const [open, setOpen] = useState(false);
   const [parties, setParties] = useState<PartyName[]>([]);
-  const [payer, setPayer] = useState("");
+  const [payer, setPayer] = useState(fixedPayer?.partyId ?? "");
   const [creditDigits, setCreditDigits] = useState("");
   const [date, setDate] = useState("");
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -106,27 +115,31 @@ export function InsurerCreditCard({ onRecorded, system = "insurance" }: { onReco
   };
 
   return (
-    <Card className="z-[9]">
+    // Above the register card that follows (z-10): each glass card isolates its own layers, so a lower
+    // z here opened the date picker and the selects underneath it. Below the sticky topbar (z-30).
+    <Card className="z-20">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className="flex w-full items-center justify-between gap-3 text-left"
       >
-        <h3 className="font-display text-lg font-semibold text-ink">{copy.title}</h3>
+        <h3 className="font-display text-lg font-semibold text-ink">{fixedPayer ? copy.titleFor(fixedPayer.displayName) : copy.title}</h3>
         <ChevronDown className={cn("size-5 shrink-0 text-muted transition-transform", open && "rotate-180")} strokeWidth={1.5} />
       </button>
       {open && (
         <>
-          <p className="mt-2 text-xs text-muted">{copy.note}</p>
-          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Select
-              label={copy.insurer}
-              value={payer}
-              onChange={setPayer}
-              searchPlaceholder={copy.chooseInsurer}
-              options={[{ value: "", label: copy.chooseInsurer }, ...parties.map((p) => ({ value: p.partyId, label: p.displayName }))]}
-            />
+          <p className="mt-2 text-xs text-muted">{fixedPayer ? copy.noteForPayer : copy.note}</p>
+          <div className={cn("mt-4 grid gap-4 md:grid-cols-2", fixedPayer ? "xl:grid-cols-3" : "xl:grid-cols-4")}>
+            {!fixedPayer && (
+              <Select
+                label={copy.insurer}
+                value={payer}
+                onChange={setPayer}
+                searchPlaceholder={copy.chooseInsurer}
+                options={[{ value: "", label: copy.chooseInsurer }, ...parties.map((p) => ({ value: p.partyId, label: p.displayName }))]}
+              />
+            )}
             <Input
               label={copy.amount}
               inputMode="numeric"
@@ -152,8 +165,12 @@ export function InsurerCreditCard({ onRecorded, system = "insurance" }: { onReco
 
           {payer && receivables !== null && (
             <div className="mt-5">
-              <p className="text-sm font-semibold text-ink">{copy.receivablesTitle}</p>
-              {receivables.length === 0 && <p className="mt-1 text-xs text-muted">{copy.none}</p>}
+              <p className="text-sm font-semibold text-ink">
+                {fixedPayer ? copy.receivablesTitleFor(fixedPayer.displayName) : copy.receivablesTitle}
+              </p>
+              {receivables.length === 0 && (
+                <p className="mt-1 text-xs text-muted">{fixedPayer ? copy.noneFor(fixedPayer.displayName) : copy.none}</p>
+              )}
               {receivables.length > FILTER_FROM && (
                 <div className="mt-2 max-w-sm">
                   <Input label={copy.filter} value={filter} onChange={(e) => setFilter(e.target.value)} />

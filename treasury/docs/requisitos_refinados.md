@@ -70,6 +70,7 @@
 > | 2026-11-17 | 20 (cont.) — telas no navegador | As telas do E2 ao E7 foram vistas no navegador com o Ledger de verdade, num livro de teste de 16 dias, em computador e celular, nos temas claro e escuro (regra de §18.4): agenda a pagar com o lote, agenda a receber, caixa por instituição com os três formulários, painel da manhã, crédito da seguradora e a pergunta da instituição na conversa. **Corrigido:** a tabela do painel cortava colunas; os modais do lote e do caixa não tinham margem interna; o resumo antes de confirmar não mostrava a instituição; no celular, a agenda a pagar, a agenda a receber e Posições ficavam mais largas que a tela (texto oculto para leitor de tela escapando da tabela; corrigido no componente de tabela). **Achado, não corrigido:** na conversa, o texto livre lê um número do nome como valor ("Fornecedor 13" → R$ 13,00); a prévia mostra o valor antes do envio. Nada foi revogado. |
 > | 2026-11-17 | 21 — sistema de saúde | Investigação de domínio, sem implementação. **Decidido:** a saúde entra pelo sinal externo, por parcela, com três fatos propostos (§4.7, `REQ-281`–`REQ-289`); a expectativa é aberta pelo baixado declarado até a saúde informar o devido (`REQ-285`); a obrigação com corretor e supervisor nasce na comunicação, mas só se o usuário confirmar, e "sem obrigação" é auditado (`REQ-286`); a tabela de comissão do corretor é só referência da saúde (`REQ-287`); o `ingest:receipt` do Ledger é aposentado (`REQ-289`); o tributo da nota é fato à parte, registrado só quando estabelecido, e a taxa é base do sinal (`REQ-290`, `DEC-046`). **Em parte respondida:** `Q-054` (falta o acesso para a leitura automática). **Abertos:** `Q-057` (parcela zero), o `⚠ CONFIRMAR` de `REQ-286`; `REQ-266` continua adiado. Nada foi revogado. **Depois, no mesmo dia:** decidida e implementada a tela própria (`REQ-291`); §4.7 implementada, com o estado "Sem obrigação" (§11.1); o `ingest:receipt` foi tirado do `dev:full` e passou a recusar o início. Visto no navegador com o Ledger de verdade, em computador e celular, nos temas claro e escuro. **Por último:** decidido e implementado o crédito da operadora, o mesmo lote do seguro etiquetado por parcela de proposta (`REQ-292`); visto no navegador e enviado ao Ledger de ensaio (três parcelas de duas propostas e a sobra sem origem). |
 > | 2026-11-17 | 21 (cont.) — Partes | **Decidido e implementado:** Partes vira uma tela só, com as identidades sem resolução no topo, para todos; o cadastro num modal; "Cadastrar e ligar" numa identidade pendente; a lista com tipo, CPF/CNPJ e conta bancária para quem consulta (`REQ-315`, `CA-315`). **Alterado:** o "Resolver" da notificação passa a levar a Partes, e a tela "Cadastro de partes" deixa de existir. Visto no navegador, em computador e celular. Nada foi revogado. |
+> | 2026-11-18 | 22 — ações onde a pergunta acontece | Conversa de produto e UX, sem implementação. **Confirmado pelo dono do produto, com o CFO:** o adiantamento a corretor é muito frequente; o corretor pede o adiantamento dizendo ter vendido propostas e apólices que ainda não entraram no financeiro (não elegíveis no seguro, sem parcela baixada na saúde), e a Usina libera o valor, que fica aberto para ser abatido em repasses futuros, no todo ou em parte, às vezes ao longo de vários. **Decidido:** a volta da conversa à tela de origem; ações na linha da Operação e alertas que levam à linha; a seleção na Operação com uma barra que oferece só o que a combinação permite; a compensação no Treasury, **um par por evento** (o Ledger aceita mais, e fica como está); o crédito por pagador na agenda a receber; a ponte do adiantamento para a página da parte; a descrição orientada do adiantamento com o que o corretor declarou, sem citar as apólices como contexto (§8.11, `REQ-690`–`REQ-697`, `REQ-293`). **Prioridade:** a compensação no Treasury e o A1 saem do `TODO-24` (PRI-2) para o `TODO-25` (PRI-1). **Abertos:** `Q-058` (o desconto no pagamento, a confirmar com o CFO) e `DEC-047` (o declarado em forma estruturada). Nada foi revogado. **Depois, no mesmo dia:** os passos (1) a (4) do `TODO-25` implementados (a volta da conversa, a ação na linha e os alertas que abrem a posição, a seleção com a barra e a compensação de um par, o crédito por pagador e a ponte do adiantamento); o alerta abre a posição em vez de levar à linha, que pode estar em outra página (`REQ-691`).; o crédito na agenda só para pagador com comissão prevista em aberto (`REQ-695`). |
 >
 > **Versão anterior.** Não existe versão anterior deste documento. Os textos já presentes em
 > `treasury/docs/` (`treasury_api_reference.md`, `treasury_identity_enrichment.md`,
@@ -583,7 +584,7 @@ mostrar necessidade, isso vira uma permissão, como a de curadoria (`REQ-402`).
 ### 4.5 Compensação, obrigação de comissão e operação composta
 
 > Decidido em 2026-11-06. **Implementados:** `REQ-253` e `REQ-254`; a compensação no Ledger (`REQ-250`, `REQ-251`,
-> `REQ-624`) em 2026-11-11, ainda sem tela no Treasury (passo 7); o restante ainda não. O sistema é descritivo: o que não estiver
+> `REQ-624`) em 2026-11-11, e no Treasury, de um par, pela página da parte, em 2026-11-18 (`REQ-693`, `TODO-25`); o restante ainda não. O sistema é descritivo: o que não estiver
 > mapeado no Ledger é criado e exposto, e quem movimenta os eventos é o usuário do Treasury. A
 > compensação e a obrigação de comissão dependem de contrato novo no Ledger (`REQ-202`) e entram com
 > os testes escritos antes do código, numa mudança isolada e fácil de remover enquanto nenhum fato
@@ -677,6 +678,21 @@ exposto.
 
 `REQ-259` "Fluxo" é só uma forma de descrever um conjunto de fatos em determinado momento. Não
 existe entidade de fluxo nem evento de encerramento (ver `REQ-622`).
+
+`REQ-293` **O que o corretor declarou ao pedir o adiantamento** (decidido em 2026-11-18). O corretor costuma
+pedir um adiantamento dizendo ter vendido apólices e propostas que ainda não entraram no financeiro. A conversa
+do adiantamento **orienta a descrição** com essa pergunta ("O que o corretor disse ter vendido? Apólices,
+propostas e parcelas"), com um exemplo do formato. A descrição continua **opcional**: o adiantamento é válido
+sem ela ("a validade de um fato independe da sua linhagem", `CLAUDE.md`). O declarado **não é citado como
+contexto** no Ledger: o que se sabe é que o corretor **disse**, não que a venda existe ou gera comissão. A
+ligação verdadeira chega com a compensação, que cita a apólice da obrigação abatida (`REQ-275`, `REQ-694`).
+A forma estruturada do declarado fica em `DEC-047`.
+
+```
+Adiantamento de 500,00 ao Halisson
+  descrição: "Apólices X, Y e Z; proposta Abc12 parcelas 1 e 2; proposta Dcba parcela 3"
+  contextos citados: nenhum
+```
 
 ### 4.6 Sinal externo do sistema de seguro
 
@@ -1804,6 +1820,9 @@ abaixo. Os recibos (`REQ-245`) são abertos a partir da frase.
 retificar. O **lote** (passo 4, `REQ-239`, `REQ-246`) e a **compensação** (passo 7, `REQ-252`) nascem
 nesta página, selecionando posições da mesma parte. O lote preparado aparece na Operação.
 
+> Detalhado em 2026-11-18 em §8.11 (`REQ-691`–`REQ-694`): a ação na linha, a seleção com a barra e a
+> compensação de um par.
+
 `REQ-638` **Quem vê.** O visualizador vê as três seções, sem as ações (`REQ-401`). Todo usuário
 autenticado consulta tudo (§6, decidido em 2026-11-13 com a `DEC-041`).
 
@@ -1940,6 +1959,8 @@ a correção é feita pela posição.
 recebível, empréstimo e adiantamento, com saldo em aberto maior que zero. Uma posição quitada ou retirada não
 entra. ⚠ CONFIRMAR NO PILOTO: empréstimo e adiantamento entram por serem "tudo o que se espera receber"
 (`TODO-09`), embora costumem voltar por compensação, e não por cobrança.
+> **2026-11-18:** confirmado com o CFO que o adiantamento costuma voltar por compensação. Ele continua na
+> agenda, e a linha leva à página da parte para compensar (`REQ-696`).
 
 `REQ-661` **As janelas** são as de `REQ-641`, pela **data esperada** (`REQ-229`): vencido, hoje, próximos
 dias (7, `Q-055`), depois e **sem data**. Uma posição sem data esperada **nunca é atrasada** (`REQ-271`).
@@ -2178,6 +2199,127 @@ operadora declarou ter pago e o banco não mostrou continua sendo expectativa (`
 | --- | --- | --- |
 | `REJ-683` | Somar ao caixa o que se espera receber | `REQ-683` |
 | `REJ-684` | Mostrar "sobra" ou "falta" com o caixa incompleto | `REQ-684` |
+### 8.11 Ações onde a pergunta acontece
+
+> Decidido em 2026-11-18 (rodada 22), numa conversa de produto e UX com o dono do produto. **Nada está
+> implementado.** Princípio: **experiência antes de interface**. Cada tela responde a uma pergunta (agenda a
+> pagar: "o que pago hoje?"; agenda a receber: "o que deveria ter entrado?"; página da parte: "como está a
+> relação com essa parte, e o que resolvo com ela?"), e a ação oferecida é a que dá sequência a essa pergunta.
+> Nenhuma ação é escondida por ser improvável (`ListPositionActions`): a provável vem primeiro.
+>
+> **Estado em 2026-11-18 (código):** as ações a partir de uma posição existem no detalhe da linha
+> (`RowDetailModal`) de Posições, Movimentos e das duas agendas, e abrem a conversa na página Operações, de onde
+> **não há volta**. A Operação da página da parte não oferece ação, seleção nem lote. O Ledger aceita a
+> compensação (`REQ-250`); o Treasury não tem o cenário.
+>
+> **O caso real** (confirmado com o CFO): o corretor pede um adiantamento dizendo ter vendido propostas e
+> apólices que ainda não entraram no financeiro. A Usina libera o valor, que fica aberto e é abatido nos
+> repasses seguintes, no todo ou em parte, às vezes ao longo de vários. É frequente.
+
+`REQ-690` **A volta.** Uma conversa aberta a partir de uma tela (agenda a pagar, agenda a receber, Posições,
+página da parte) oferece, ao terminar, **voltar a essa tela**, no mesmo estado (janela, filtros, página) e com
+os números relidos. Terminar inclui enviar, ser recusado e desistir.
+
+`REQ-691` **Ação na linha da Operação** (refina `REQ-637`, item A1 de §16.1). Cada linha da Operação abre o
+mesmo detalhe de posição das agendas, com as ações da posição (`REQ-603`), por um botão com o nome do mais
+provável: **Pagar** no que a Usina deve, **Receber** no que a parte deve e **Ver** no resto. O botão só nomeia;
+o detalhe oferece todas as ações, sem esconder nenhuma. Os alertas que citam uma posição (`REQ-634`) **abrem
+o detalhe dela**. O visualizador vê o detalhe, sem ações (`REQ-638`).
+
+> **Refinado na implementação (2026-11-18):** o plano dizia que o alerta "leva à linha". A linha pode estar em
+> outra página da seção (20 ou 50 por página), então o alerta abre a posição direto. O detalhe é lido do Ledger
+> quando abre, e mostra o livro como está agora, não como estava quando a lista foi carregada.
+
+`REQ-692` **A seleção diz o que é possível.** Na Operação, quem pode registrar marca posições dos dois lados. Uma
+barra oferece **só o que a combinação permite** e, para o resto, diz o motivo, no molde da caixa de seleção da
+agenda a pagar (`REQ-651`):
+
+| Selecionado | Oferecido |
+| --- | --- |
+| Só posições que a Usina deve à parte | Pagar ou preparar o lote da parte (`REQ-239`) |
+| Exatamente um adiantamento ou empréstimo **e** uma obrigação de comissão | Compensar, até o menor saldo aberto (`REQ-693`) |
+| Outra combinação | Nada, com o motivo ("a compensação precisa de um item de cada lado", "só adiantamento ou empréstimo contra obrigação de comissão", "um par por compensação") |
+
+A barra **não mostra saldo líquido** (`REQ-632`): mostra o que a ação faria, que é uma escolha do usuário.
+
+`REQ-693` **Compensação no Treasury** (passo 7, `REQ-250`–`REQ-252`). Nasce na Operação da parte, pela seleção.
+**Um par por evento:** uma posição a receber (adiantamento ou empréstimo) e uma a pagar (obrigação de comissão),
+da mesma parte, inclusive identidades ligadas (`REQ-332`). O usuário define o valor (`REQ-257`), até o menor
+saldo aberto do par, com esse máximo à vista; informa a data e, se quiser, uma descrição. **Não há pergunta de
+instituição**: nenhum dinheiro se move (`REQ-650`). Antes de confirmar, a tela mostra a consequência em cada
+posição e que o caixa não muda. Confirmado, vira **um evento** (`compensation`), que cita os contextos da
+obrigação (`REQ-275`), e o usuário **continua na página**, com as duas linhas relidas.
+
+> **Por que um par** (decidido em 2026-11-18): a regra do Ledger exige **ao menos** um item de cada lado, e cada
+> posição citada desce pelo valor do evento. Dois adiantamentos e uma obrigação numa compensação de 50,00 baixariam
+> 100,00 de um lado e 50,00 do outro: válido para o Ledger e não é uma compensação. O Ledger fica como está; a
+> realidade ainda é pouco conhecida, e o Treasury trabalha com o que se sabe.
+
+```
+Operação do Halisson: adiantamento 500,00 e repasse da apólice A 300,00 marcados
+  barra: "Compensar · até 300,00"
+  adiantamento 500,00 → 200,00 · repasse A 300,00 → 0,00 · caixa: não muda
+```
+
+`REQ-694` **O rastro do adiantamento.** O adiantamento é recuperado por uma ou várias compensações, no todo ou
+em parte, e também pode voltar em dinheiro (recuperação de adiantamento). O ciclo de vida do adiantamento mostra
+**cada compensação**, com o valor, a obrigação abatida e a apólice ou proposta dela, ao lado do que o corretor
+declarou ao pedir (`REQ-293`). O Ledger já põe a compensação no ciclo das duas posições; a tela do Treasury
+ainda não tem a frase desse tipo de evento.
+
+```
+Adiantamento do Halisson · 500,00
+  declarado ao pedir: apólices X, Y e Z; Abc12 parcelas 1 e 2; Dcba parcela 3
+  18/11  compensado 300,00 · repasse da apólice X            aberto: 200,00
+  05/12  compensado 200,00 · repasse da apólice W            aberto:   0,00 · quitado
+```
+
+`REQ-695` **Crédito por pagador na agenda a receber.** Escolhido um pagador (`REQ-662`), a agenda oferece
+registrar o crédito dele ali mesmo, pelo mesmo registro do crédito da seguradora ou da operadora (`REQ-277`,
+`REQ-292`), já com o pagador escolhido. O dinheiro de quem paga à Usina chega agregado; o pagador é a unidade
+natural da ação.
+
+> **Refinado na implementação (2026-11-18):** o crédito é oferecido só quando o pagador escolhido tem **comissão
+> prevista em aberto**, porque o crédito se distribui entre comissões. Para uma parte que só deve um adiantamento
+> (um corretor), o dinheiro que volta é o recebimento daquele adiantamento, pela linha; oferecer o crédito ali
+> registraria uma "comissão recebida sem origem", que seria um fato falso. Um grupo sem pagador ou de várias
+> partes também não ganha o crédito. Como o pagador pode ser seguradora ou operadora de saúde, o cartão fala o
+> nome dele ("Registrar crédito de Allianz"), não o tipo.
+
+`REQ-696` **O adiantamento na agenda a receber leva à compensação.** Na linha de um adiantamento ou empréstimo, a
+ação principal é **compensar na página da parte**, que abre a Operação dela; receber em dinheiro continua
+oferecido. Responde ao `⚠ CONFIRMAR` de `REQ-660`.
+
+`REQ-697` **Descontar no pagamento** (⚠ CONFIRMAR com o CFO, `Q-058`). Ao pagar uma obrigação de comissão de uma
+parte que tem adiantamento ou empréstimo em aberto, a prévia avisa ("o Halisson deve 200,00 à Usina") e oferece
+descontar. Aceito, é uma operação composta (`REQ-255`), enviada em ordem: a compensação e depois o pagamento do
+restante. O que fazer se a compensação for aceita e o pagamento recusado é `DEC-024`. Não começa antes da
+`Q-058`.
+
+```
+Repasse B 400,00 ao Halisson, que deve 200,00
+  1. compensação de 200,00 (adiantamento → 0,00; repasse B → 200,00)
+  2. pagamento de 200,00 (repasse B → 0,00; caixa −200,00, no Itaú)
+```
+
+| ID | Critério | Regra |
+| --- | --- | --- |
+| `CA-690` | Na agenda a pagar, janela "próximos dias", o usuário paga uma linha pela conversa → ao terminar, volta à agenda na mesma janela, e a linha paga não aparece | `REQ-690` |
+| `CA-691` | Na Operação do Halisson, o botão "Pagar" da linha do repasse abre o detalhe com "Pagar repasse de comissão"; o alerta "obrigação vencida" abre a posição que cita, mesmo fora da página carregada | `REQ-691` |
+| `CA-692` | Marcados dois repasses → a barra oferece pagar ou preparar o lote; marcados um adiantamento e um repasse → oferece compensar; marcados dois adiantamentos e um repasse → nada, com o motivo | `REQ-692`, `REQ-693` |
+| `CA-693` | Adiantamento 500,00 e repasse 300,00, compensação de 300,00 → um evento; adiantamento 200,00 em aberto, repasse 0,00, caixa igual; o usuário continua na página | `REQ-693` |
+| `CA-693b` | Compensação de 350,00 no mesmo par → recusada antes do envio, com o máximo 300,00 à vista | `REQ-693` |
+| `CA-694` | Duas compensações (300,00 e 200,00) com obrigações de apólices diferentes → o ciclo do adiantamento mostra as duas, cada uma com a sua apólice, e o adiantamento quitado | `REQ-694` |
+| `CA-695` | Agenda a receber filtrada pela Allianz, que tem comissão prevista em aberto → "Registrar crédito de Allianz" com a Allianz já escolhida; filtrada pelo João, que só deve um adiantamento → sem o crédito | `REQ-695` |
+| `CA-696` | Linha de adiantamento na agenda a receber → a ação principal leva à Operação da parte; "Receber" continua disponível | `REQ-696` |
+| `CA-293` | Adiantamento registrado com a descrição do que foi declarado → o evento não cita apólice nem proposta como contexto | `REQ-293` |
+
+| ID | Caso que deve ser rejeitado | Regra |
+| --- | --- | --- |
+| `REJ-692` | A barra ou a Operação mostrar o saldo líquido da parte | `REQ-692`, `REQ-632` |
+| `REJ-693` | O Treasury oferecer uma compensação com mais de uma posição de um lado, entre partes diferentes ou com instituição | `REQ-693` |
+| `REJ-293` | Citar as apólices e propostas declaradas pelo corretor como contexto do adiantamento | `REQ-293` |
+
 ## 9. Entrada por texto livre
 
 > Já decidido: é requisito; o texto só propõe; o limiar de confiança é 0,5. A revisão da
@@ -2645,6 +2787,7 @@ Treasury a partir das três fontes, §5).
 | `DEC-036` | **Enriquecer a origem depois**: ligar um recebimento sem origem (ou outro fato isolado) à comissão prevista quando se descobre de onde veio, **sem reescrever o fato** ("a linhagem é progressiva", `CLAUDE.md`). Não existe hoje no Ledger nem no Treasury. Ideia do dono do produto: usar isso para olhar o passado a partir do saldo no banco (Bradesco, Itaú, corretora de investimentos), perguntando "de onde veio cada valor?", e construir a verdade financeira enquanto se concilia, independente do banco. Relaciona-se com `DEC-018` | O recebimento sem origem fica pendente e visível; não há como ligá-lo depois |
 | `DEC-044` | ~~**Instituição no fato de caixa**~~ **Decidida em 2026-11-13:** o fato de caixa cita a instituição como contexto (`cash_account`), no máximo uma, nunca num evento sem dinheiro; sem ela, "instituição desconhecida"; os eventos anteriores ficam desconhecidos, nunca distribuídos. Alternativas descartadas: um campo novo no evento (muda o molde, o hash e o banco para o mesmo resultado), guardar só no Treasury (a instituição não seria fato do Ledger) e adiar (os pagamentos do piloto ficariam sem instituição para sempre). A transferência entre instituições fica para o E6. Ver `REQ-650` | O Ledger aceita a instituição no fato de caixa; o saldo por instituição (`TODO-06`) ainda não existe |
 | `DEC-045` | **Provisões do CFO** (aberta em 2026-11-13). O CFO aloca dinheiro na corretora de investimentos para usar depois em eventos, e controla isso hoje em planilha. **Confirmado:** ele precisa de uma ferramenta para isso. **Hipótese, não confirmada:** são investimentos pós-fixados que rendem enquanto o dinheiro não é necessário. Entender com o CFO antes de modelar. **Não confundir** com a provisão de pagamento futuro da `DEC-013` | Continua na planilha do CFO (`TODO-15`) |
+| `DEC-047` | **O declarado do adiantamento em forma estruturada** (aberta em 2026-11-18): guardar no Treasury, como os sinais, e nunca no Ledger, a lista do que o corretor declarou (tipo, número, parcela), para sugerir a compensação quando aparecer a obrigação de um item declarado ("apareceu a obrigação da apólice X; o adiantamento do Halisson citava X; compensar?"). Custa o cadastro estruturado e o casamento com os números do seguro e da saúde. Encosta na `Q-053` (o pedido de adiantamento) e no `TODO-19`. O piloto diz se o texto livre basta | Vale `REQ-293`: o declarado é texto livre na descrição |
 
 ### 15.2 Perguntas abertas
 
@@ -2661,6 +2804,7 @@ Abertas na rodada 13 (2026-11-07), e `Q-052` na rodada 14 (2026-11-09). A recome
 | `Q-057` | **Parcela zero** no sistema de saúde: existe nos dados, mas não se sabe se já aconteceu de verdade nem o que significa (aberta em 2026-11-17) | Investigar no sistema de saúde antes de modelar | Uma parcela zero não é proposta; o usuário registra à mão se precisar |
 | `Q-055` | **Conferência com o banco:** em cada instituição, com que frequência o CFO confere e de onde vem o saldo (extrato, aplicativo, relatório da corretora)? E até quantos dias à frente ele precisa ver o que vence? (aberta em 2026-11-13) **Acrescentado em 2026-11-16, para a conciliação (§8.9):** em que formato cada instituição entrega o extrato (OFX, CNAB, PDF, planilha, aplicativo, API, Open Finance)? Com que frequência o CFO concilia hoje, e como? Como a corretora informa rendimento e movimentação? | Começar pelo saldo informado à mão, uma vez por dia, e uma janela de 7 dias, a ajustar no piloto | `TODO-05` e `TODO-07` seguem com esses valores provisórios |
 | `Q-056` | **Piloto:** por quantas semanas a equipe usa a primeira versão em paralelo à planilha, e quem decide que ela foi aprovada? (aberta em 2026-11-13) | O CFO decide; aprovada quando ele decide o que pagar no dia pelo Treasury, sem a planilha | `TODO-13` sem data |
+| `Q-058` | **Desconto do adiantamento no pagamento** (aberta em 2026-11-18): ao pagar um repasse a um corretor com adiantamento aberto, o CFO desconta o adiantamento e transfere o restante, no todo ou em parte, às vezes ao longo de vários repasses? O dono do produto disse que sim, mas quer ter certeza | Confirmar com o CFO, com um caso real | `REQ-697` não começa; a compensação avulsa (`REQ-693`) cobre o caso |
 
 Os `⚠ CONFIRMAR` de §2 (termos **recebedor** e **destinatário final**) e de `REQ-612` (a visão **não soma**
 valores por grupo), adiados em 2026-11-04, foram **confirmados em 2026-11-12** (rodada 18). Ficou aberto,
@@ -2755,7 +2899,7 @@ vira refinamento antes de qualquer item abaixo.
 
 | # | Falta | Onde está decidido | Observação |
 | --- | --- | --- | --- |
-| A1 | **Ações em cada linha da Operação**: pagar ligado à obrigação, receber ligado à comissão prevista, recuperar o adiantamento, retificar; o visualizador vê sem ações | `REQ-637`, `REQ-603`, `REQ-638` | As ações já existem a partir da posição (`ListPositionActions`); falta oferecê-las na linha |
+| A1 | **Ações em cada linha da Operação**: pagar ligado à obrigação, receber ligado à comissão prevista, recuperar o adiantamento, retificar; o visualizador vê sem ações | `REQ-637`, `REQ-603`, `REQ-638` | As ações já existem a partir da posição (`ListPositionActions`); falta oferecê-las na linha. **2026-11-18:** detalhado em `REQ-691` e movido para o `TODO-25` (PRI-1) |
 | A2 | **A prévia não mostra a divisão** do pagamento a mais: o aviso `exceeds_open` existe no servidor, mas a tela da prévia (`PreviewNoticeList`) não o exibe; falta também enviar os dois fatos em ordem (repasse + adiantamento) | `REQ-635`, `CA-635` | Precisa decidir: com várias obrigações abertas, o que oferecer (`REQ-635`, "a definir") e os chips com "outra" (`DEC-040`) |
 | A3 | **Clicar no nome da parte em qualquer lista abre a página dela**; e a página ganhar endereço próprio (o "voltar" do navegador hoje não volta à lista) | `CA-630` | O app troca de seção por estado interno, sem rotas |
 | A4 | **Alertas que faltam**: comissão prevista sem data esperada e repasse sem recebimento na apólice; e clicar no alerta levar à linha | `REQ-634`, `REQ-271`, `REQ-268` | — |
@@ -3429,6 +3573,64 @@ saída, visíveis para o CFO como pendências do Treasury, sem ir ao Ledger (`Q-
 *Por quê:* com volume real, cadastrar parte por parte ou conviver com identidades provisórias pesa na
 curadoria.
 
+`TODO-25` **Ações onde a pergunta acontece e a compensação** (§8.11, decidido em 2026-11-18). Nesta ordem:
+(1) a volta da conversa à tela de origem (`REQ-690`); (2) a ação na linha da Operação e os alertas que levam à
+linha (`REQ-691`); (3) a seleção com a barra e a compensação de um par, com o rastro no ciclo do adiantamento e a
+descrição orientada do adiantamento (`REQ-692`–`REQ-694`, `REQ-293`); (4) o crédito por pagador e a ponte do
+adiantamento na agenda a receber (`REQ-695`, `REQ-696`); (5) o desconto no pagamento (`REQ-697`), só depois da
+`Q-058` e da `DEC-024`.
+*Por quê:* o adiantamento a corretor, abatido depois nos repasses, é muito frequente (confirmado com o CFO em
+2026-11-18); sem a compensação no Treasury, ele fica aberto para sempre ou é registrado de forma errada. A volta
+da conversa melhora todas as ações que já existem.
+*Depende de:* nada para (1) a (4); (5) depende da `Q-058` e da `DEC-024`.
+*Situação:* (1) ✅ 2026-11-18, sem commit, só no cliente. A conversa aberta da agenda a pagar, da agenda a
+receber ou de Posições oferece "Voltar para {tela}": discreto enquanto corre, em destaque quando termina
+(enviada, recusada de vez ou cancelada); some se o usuário começar outra conversa ou escolher outra tela no
+menu. A tela de origem fica montada e escondida durante a conversa, por isso volta com a mesma janela,
+filtros, página e linhas marcadas, e é relida ao voltar. Testes:
+`returnTarget.test.ts` (a regra, 7) e `OperationsPage.return.test.tsx` (a tela, 3). Sabotagem conferida:
+mostrar a volta só no fim faz o teste falhar. Suíte do cliente: 224. **Falta ver no navegador.**
+(2) ✅ 2026-11-18, sem commit, só no cliente. Cada linha da Operação tem um botão (Pagar, Receber ou Ver,
+`REQ-691`) que abre o detalhe das agendas, lido do Ledger na hora, com as ações; os alertas de obrigação vencida
+e de pago sem obrigação têm "Abrir". A página da parte passou a ser tela de origem da volta (`REQ-690`): fica
+montada durante a conversa, com a parte, a aba, os filtros e a página de cada seção, e relê as seções na volta
+e ao fechar um detalhe. Testes: `partiesEngine.test.ts` (o nome do botão, a posição do alerta, a posição lida
+do ciclo de vida) e `PartyViewPage.test.ts` (Pagar leva à conversa e relê; o visualizador vê sem ações; o
+alerta abre a posição). Sabotagem conferida: trocar "Pagar" por "Ver" no que a Usina deve faz dois testes
+falharem. Suíte do cliente: 230. **Falta ver no navegador.**
+(3) ✅ 2026-11-18, sem commit. **Treasury, servidor:** o cenário `register_compensation` (fora da conversa,
+`conversational: false`, e por isso também fora das ações de uma posição, para não tirar do lote o pagamento da
+obrigação de comissão) e `POST /api/compensations` (`CompensationUseCase`, permissão de envio), que confere antes
+de enviar os dois tipos, a moeda, a mesma parte (com as identidades ligadas), o valor até o menor saldo do par e
+distingue posição quitada de saldo desconhecido; o evento sai pelo mesmo caminho das outras operações (intenção
+aberta a partir da obrigação, que traz a apólice como contexto e a parte a quem é devida). **Tela:** na Operação,
+quem pode registrar marca posições dos dois lados; a barra oferece "Preparar lote" (só o que a Usina deve, pelo
+mesmo modal da agenda), "Compensar · até {máximo}" (um adiantamento ou empréstimo e uma obrigação de comissão) ou
+nada, com o motivo; o modal de compensar mostra o que fica em aberto em cada posição e que o caixa não muda, e o
+usuário continua na página, que relê as seções. A linha do tempo nomeia a "Compensação", com a obrigação e a
+apólice citadas. A pergunta da descrição do adiantamento passou a ser a de `REQ-293`. Testes:
+`compensation.test.ts` (servidor, 12), as rotas novas em `access-by-route.test.ts`, `partiesEngine.test.ts` (a
+regra da barra e a prévia) e `PartyViewPage.test.ts` (a compensação, o par recusado com o motivo, o lote da
+parte, a recusa do Ledger, o visualizador sem marcação); o `it.todo` do `CA-252` virou teste. Sabotagens
+conferidas: sem a checagem da mesma parte, ou com a barra aceitando dois itens de um lado, os testes falham.
+**Verificado com o Ledger de verdade** (em memória, por HTTP, pelos casos de uso do Treasury): adiantamento de
+500,00 e obrigação de 300,00 com a apólice A; a compensação de 300,00 foi aceita, o adiantamento ficou com 200,00
+e a compensação no seu ciclo de vida, a obrigação quitada, o evento citando a apólice; uma nova compensação na
+obrigação quitada foi recusada antes do envio. Suítes: Treasury 1.058 no servidor, com 36 `it.todo`, e 242 no
+cliente. **Falta ver no navegador**, e o lote preparado ainda não aparece na Operação (`REQ-637`): fica na
+agenda a pagar.
+(4) ✅ 2026-11-18, sem commit, só no cliente. Na agenda a receber, escolhido um pagador de uma parte só e com
+comissão prevista em aberto, o cartão do crédito aparece no topo com o pagador já escolhido (o mesmo cartão das
+telas do seguro e da saúde, com textos que nomeiam o pagador). A linha de adiantamento ou empréstimo de uma
+parte conhecida ganha "Compensar", que abre a página da parte na Operação, e mantém "Receber". Testes:
+`receivablesEngine.test.ts` (as ações da linha e o pagador do crédito) e `ReceivablesPage.test.tsx` (Compensar
+leva à parte; o visualizador só vê; o crédito da Allianz aparece; o do João, não). Sabotagem conferida: oferecer
+o crédito sem comissão em aberto faz o teste falhar (o teste conferia a ausência cedo demais e foi corrigido
+para esperar a resposta). Suíte do cliente: 251. **Falta ver no navegador.** O passo (5) **fica para depois do piloto** (decidido
+pelo dono do produto em 2026-11-18): a compensação de um par já cobre o caso real, e o CFO diz no uso se o desconto
+no pagamento faz falta. Recomendação registrada para quando voltar: pagamento do líquido primeiro, compensação
+depois, porque o pagamento é o fato que o banco confirma e a compensação pode entrar depois pela página da parte.
+
 #### PRI-2 — depois
 
 `TODO-21` **Conciliação linha a linha e importação de extrato** (OFX ou CNAB, `DEC-018`).
@@ -3442,8 +3644,8 @@ pode subir. O dono do produto decide depois de estudar o processo e da `Q-055`.
 `TODO-23` **Fechamento do mês, relatórios e exportação ao contador.**
 *Por quê:* não há processo nem destinatário definido para imitar. Entra quando houver quem consuma.
 
-`TODO-24` **O restante já decidido ou levantado:** a compensação no Treasury e a operação composta (passo 7),
-os itens A1–A7 da página da parte, o bloco E (`REQ-266`), a aprovação em duas etapas (`DEC-004`), o texto
+`TODO-24` **O restante já decidido ou levantado:** a operação composta (passo 7), fora o desconto no pagamento
+(`TODO-25`), os itens A2–A7 da página da parte (o A1 e a compensação foram para o `TODO-25` em 2026-11-18), o bloco E (`REQ-266`), a aprovação em duas etapas (`DEC-004`), o texto
 livre (`DEC-005`), a visão comparativa (`DEC-039`), os chips (`DEC-040`), as retenções e a nota fiscal
 (§1.1).
 *Por quê:* nenhuma dessas coisas responde a uma dor que a equipe tenha relatado.

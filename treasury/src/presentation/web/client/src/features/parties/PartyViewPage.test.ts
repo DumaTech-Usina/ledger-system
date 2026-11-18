@@ -8,9 +8,24 @@ const names = vi.fn();
 const page = vi.fn();
 const side = vi.fn();
 const history = vi.fn();
+const compensate = vi.fn();
 
 vi.mock("@/features/parties/partiesApi", () => ({
-  partiesApi: { names: () => names(), page: (id: string) => page(id), side: (...args: unknown[]) => side(...args), history: (...args: unknown[]) => history(...args) },
+  partiesApi: { names: () => names(), page: (id: string) => page(id), side: (...args: unknown[]) => side(...args), history: (...args: unknown[]) => history(...args), compensate: (...args: unknown[]) => compensate(...args) },
+}));
+
+const objectLifecycle = vi.fn();
+const positionActions = vi.fn();
+const startPositionAction = vi.fn();
+
+vi.mock("@/features/dashboard/dashboardApi", () => ({
+  dashboardApi: { objectLifecycle: (id: string) => objectLifecycle(id) },
+}));
+vi.mock("@/features/operations/operationsApi", () => ({
+  operationsApi: {
+    positionActions: (id: string) => positionActions(id),
+    startPositionAction: (...args: unknown[]) => startPositionAction(...args),
+  },
 }));
 
 const { PartyViewPage } = await import("@/features/parties/PartyViewPage");
@@ -433,5 +448,201 @@ describe("o histórico de auditoria (refinamento de 2026-11-12)", () => {
     await screen.findByText("1 registro");
 
     expect(screen.queryByText(/Sinais aguardando registro/)).toBeNull();
+  });
+});
+
+/** REQ-691: each line of Operação, and each alert about a position, opens the position with its actions. */
+describe("REQ-691 — ações a partir da Operação", () => {
+  const repasse = {
+    objectId: "cp-1",
+    objectType: "commission_payable",
+    status: "open",
+    openBalance: "300.00",
+    totalOriginated: "300.00",
+    originatedAt: "2026-11-01T12:00:00.000Z",
+    dueAt: null,
+    ageDays: 17,
+    contexts: [],
+    dependsOn: [],
+  };
+  const lifecycleOf = (objectId: string) => ({
+    ok: true,
+    status: 200,
+    data: {
+      objectId,
+      objectType: "commission_payable",
+      status: "open",
+      outcome: "pending",
+      currency: "BRL",
+      totalOriginated: "300.00",
+      totalSettled: "0.00",
+      openBalance: "300.00",
+      eventCount: 1,
+      events: [],
+      origin: null,
+      partyNames: {},
+    },
+  });
+
+  const openWith = async (props: Record<string, unknown>, data: Record<string, unknown> = {}) => {
+    page.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { available: true, party, identifiers: ["joao"], ...loaded, operation: ops({ usinaOwes: [repasse] }), history: [], partyNames: {}, ...data },
+    });
+    render(createElement(LanguageProvider, null, createElement(PartyViewPage, props)));
+    fireEvent.click(await screen.findByRole("button", { name: "João Silva" }));
+  };
+
+  beforeEach(() => {
+    objectLifecycle.mockReset().mockImplementation(async (id: string) => lifecycleOf(id));
+    positionActions.mockReset().mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: {
+        actions: [
+          { scenarioId: "register_commission_payment", eventType: "commission_payment", relation: "settles", touchesOtherPositions: false, likely: true },
+        ],
+      },
+    });
+    // Leaving a detail reads the sides again (something may have been recorded from it).
+    side.mockResolvedValue({ ok: true, status: 200, data: { available: true, lines: [repasse], ...info(1) } });
+    startPositionAction.mockReset().mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { intentId: "intent-1", state: { kind: "question", slot: { key: "amount", type: "money", prompt: "Valor?", required: true }, answered: 2, total: 4 }, prefilled: [] },
+    });
+  });
+
+  it("CA-691: a linha do que a Usina deve oferece Pagar, que abre a posição com a ação e leva à conversa", async () => {
+    const onOperationStarted = vi.fn();
+    await openWith({ canAct: true, onOperationStarted });
+
+    fireEvent.click(await screen.findByRole("button", { name: /^Pagar:/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Pagar repasse de comissão/ }));
+
+    expect(objectLifecycle).toHaveBeenCalledWith("cp-1");
+    await vi.waitFor(() => expect(onOperationStarted).toHaveBeenCalledWith(expect.objectContaining({ intentId: "intent-1" })));
+    expect(startPositionAction).toHaveBeenCalledWith("cp-1", "register_commission_payment", undefined);
+    // REQ-690: the page reads its sides again, for the way back from the conversation.
+    await vi.waitFor(() => expect(side).toHaveBeenCalledWith("joao", "usinaOwes", expect.anything()));
+  });
+
+  it("REQ-638: quem só consulta vê a posição, sem ações", async () => {
+    await openWith({});
+
+    fireEvent.click(await screen.findByRole("button", { name: /^Ver:/ }));
+
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    await vi.waitFor(() => expect(objectLifecycle).toHaveBeenCalledWith("cp-1"));
+    expect(screen.queryByRole("button", { name: /Pagar repasse de comissão/ })).toBeNull();
+    expect(positionActions).not.toHaveBeenCalled();
+  });
+
+  it("CA-691: o alerta de obrigação vencida abre a posição, mesmo fora da página carregada", async () => {
+    await openWith(
+      { canAct: true, onOperationStarted: vi.fn() },
+      { alerts: [{ code: "obligation_overdue", objectId: "cp-9", dueAt: "2026-11-01T00:00:00.000Z" }] },
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /Abrir/ }));
+
+    await vi.waitFor(() => expect(objectLifecycle).toHaveBeenCalledWith("cp-9"));
+    expect(await screen.findByRole("button", { name: /Pagar repasse de comissão/ })).toBeTruthy();
+  });
+});
+
+/** REQ-692 / REQ-693: ticking positions on Operação offers only what the combination allows. */
+describe("REQ-692 — a seleção e a compensação de um par", () => {
+  const lineOf = (objectId: string, objectType: string, openBalance: string) => ({
+    objectId,
+    objectType,
+    status: "open",
+    openBalance,
+    totalOriginated: openBalance,
+    originatedAt: "2026-10-01T12:00:00.000Z",
+    dueAt: null,
+    ageDays: 48,
+    contexts: [],
+    dependsOn: [],
+  });
+  const adv = lineOf("adv-1", "advance", "500.00");
+  const cpA = lineOf("cp-A", "commission_payable", "300.00");
+  const cpB = lineOf("cp-B", "commission_payable", "400.00");
+
+  const openWith = async (props: Record<string, unknown>) => {
+    page.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: { available: true, party, identifiers: ["joao"], ...loaded, operation: ops({ usinaOwes: [cpA, cpB], partyOwes: [adv] }), history: [], partyNames: {} },
+    });
+    side.mockResolvedValue({ ok: true, status: 200, data: { available: true, lines: [cpA, cpB], ...info(2) } });
+    render(createElement(LanguageProvider, null, createElement(PartyViewPage, props)));
+    fireEvent.click(await screen.findByRole("button", { name: "João Silva" }));
+  };
+  const tick = async (label: RegExp, index = 0) => fireEvent.click((await screen.findAllByRole("checkbox", { name: label }))[index]);
+
+  beforeEach(() => {
+    compensate.mockReset().mockResolvedValue({ ok: true, status: 200, data: { status: "accepted", intentId: "i-1", ledgerReference: "evt-1" } });
+  });
+
+  it("quem só consulta não marca nada", async () => {
+    await openWith({});
+
+    await screen.findAllByRole("button", { name: /^Ver:/ });
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  });
+
+  it("CA-692 / CA-693: um adiantamento e um repasse → compensar até o menor saldo, e a página relê", async () => {
+    await openWith({ canAct: true, onOperationStarted: vi.fn() });
+
+    await tick(/Marcar: Adiantamento/);
+    await tick(/Marcar: Comissão a pagar/);
+    fireEvent.click(await screen.findByRole("button", { name: /Compensar · até R\$\s?300,00/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar compensação" }));
+
+    await vi.waitFor(() =>
+      expect(compensate).toHaveBeenCalledWith(
+        expect.objectContaining({ partyId: "joao", receivableId: "adv-1", payableId: "cp-A", amount: "300.00" }),
+      ),
+    );
+    expect(await screen.findByText("Compensação registrada.")).toBeTruthy();
+    await vi.waitFor(() => expect(side).toHaveBeenCalled());
+    expect(screen.queryAllByRole("checkbox", { checked: true })).toHaveLength(0);
+  });
+
+  it("CA-692: dois repasses e um adiantamento → nada, com o motivo", async () => {
+    await openWith({ canAct: true, onOperationStarted: vi.fn() });
+
+    await tick(/Marcar: Adiantamento/);
+    await tick(/Marcar: Comissão a pagar/, 0);
+    await tick(/Marcar: Comissão a pagar/, 1);
+
+    expect(await screen.findByText("A compensação é de um par: um item de cada lado.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Compensar/ })).toBeNull();
+  });
+
+  it("só repasses marcados → preparar o lote da parte", async () => {
+    await openWith({ canAct: true, onOperationStarted: vi.fn() });
+
+    await tick(/Marcar: Comissão a pagar/, 0);
+    await tick(/Marcar: Comissão a pagar/, 1);
+    fireEvent.click(await screen.findByRole("button", { name: "Preparar lote" }));
+
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(compensate).not.toHaveBeenCalled();
+  });
+
+  it("a recusa do Ledger aparece no modal, e nada some da página", async () => {
+    compensate.mockResolvedValue({ ok: true, status: 200, data: { status: "rejected", intentId: "i-1", reason: "Settlement exceeds the outstanding balance" } });
+    await openWith({ canAct: true, onOperationStarted: vi.fn() });
+
+    await tick(/Marcar: Adiantamento/);
+    await tick(/Marcar: Comissão a pagar/);
+    fireEvent.click(await screen.findByRole("button", { name: /^Compensar/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar compensação" }));
+
+    expect(await screen.findByText(/O Ledger recusou a compensação/)).toBeTruthy();
+    expect(screen.queryByText("Compensação registrada.")).toBeNull();
   });
 });

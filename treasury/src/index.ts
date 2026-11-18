@@ -77,6 +77,7 @@ import { SqliteExternalSignalRepository } from "./infra/persistence/SqliteExtern
 import { SqlitePreparedBatchStore } from "./infra/persistence/SqlitePreparedBatchStore";
 import { InMemoryPreparedBatchStore, PreparedBatches } from "./core/application/services/PreparedBatches";
 import { PayablesBatchUseCase } from "./core/application/use-cases/PayablesBatch";
+import { CompensationUseCase } from "./core/application/use-cases/Compensation";
 import { configureInstitutions, institutionsFrom } from "./core/domain/services/Institutions";
 
 async function bootstrap(): Promise<void> {
@@ -333,6 +334,16 @@ async function bootstrap(): Promise<void> {
     institutionCash,
     getMorningPanel: new GetMorningPanelUseCase(ledgerRead, institutionCash),
     // §8.6. The prepared batches live with the operations (REQ-652): durable whenever the Ledger is real.
+    // §8.11: a compensation of one pair, through the same path as every other operation.
+    compensation: new CompensationUseCase({
+      lifecycle: ledgerRead,
+      events: ledgerRead,
+      directory: partyDirectory,
+      fromPosition: new StartPositionActionUseCase(ledgerRead, ledgerRead, startIntent, applyAnswers, env.USINA_PARTY_ID),
+      applyAnswers,
+      submit: submitIntent,
+      usinaPartyId: env.USINA_PARTY_ID,
+    }),
     payablesBatch: new PayablesBatchUseCase({
       batches: new PreparedBatches(
         audit,

@@ -124,6 +124,8 @@ beforeAll(async () => {
     getPartyPage: unused,
     // Present, so /api/batches is mounted and a refusal is the guard's, not a 404.
     payablesBatch: {} as never,
+    // And /api/compensations (§8.11).
+    compensation: {} as never,
     // Same for /api/cash (§8.8).
     institutionCash: {} as never,
   });
@@ -169,6 +171,7 @@ describe("REQ-401 — visualizador", () => {
     ["preparar um lote de pagamentos (§8.6)", "/api/batches"],
     ["anotar o pagamento de um lote", "/api/batches/batch-x/pay"],
     ["descartar um lote", "/api/batches/batch-x/discard"],
+    ["compensar um par de posições (§8.11)", "/api/compensations"],
     ["registrar o saldo de abertura de uma instituição (§8.8)", "/api/cash/openings"],
     ["registrar uma transferência entre instituições", "/api/cash/transfers"],
     ["informar o saldo do extrato", "/api/cash/statements"],
@@ -209,6 +212,7 @@ describe("REQ-401 — quem não entrou no sistema", () => {
     ["POST", "/api/signals"],
     ["GET", "/api/batches"],
     ["POST", "/api/batches"],
+    ["POST", "/api/compensations"],
     ["GET", "/api/cash/institutions"],
     ["POST", "/api/cash/openings"],
   ])("%s %s responde 401", async (method, path) => {
